@@ -10,12 +10,15 @@ export default function Meals() {
 
   // Fetch meals from backend
   useEffect(() => {
-    api.get("/meals")
+    api.get("/api/meals")
       .then((res) => {
         setMeals(res.data);
         setLoading(false);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+  console.error(err);
+  setLoading(false);
+});
   }, []);
 
   // Filtering logic

@@ -1,19 +1,28 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import FullScreenLoader from "../components/FullScreenLoader";
+import toast from "react-hot-toast";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+/* ================= TYPES ================= */
 
 type User = {
   _id: string;
   name: string;
   email: string;
-  role: string;
+  role: "admin" | "user";
 };
 
 type JwtPayload = {
-  exp: number; // unix seconds
+  exp: number;
 };
 
 type AuthContextType = {
@@ -21,12 +30,27 @@ type AuthContextType = {
   token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (data: { email: string; password: string }) => Promise<boolean>;
-  signup: (data: { name: string; email: string; password: string }) => Promise<boolean>;
+  login: (data: { email: string; password: string }) => Promise<User>;
+  signup: (data: {
+    name: string;
+    email: string;
+    password: string;
+  }) => Promise<void>;
   logout: () => void;
 };
 
+/* ================= CONTEXT ================= */
+
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+
+/* ================= AXIOS INSTANCE ================= */
+
+const api = axios.create({
+  baseURL: API_BASE,
+  withCredentials: true,
+});
+
+/* ================= PROVIDER ================= */
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -36,48 +60,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshTimeoutRef = useRef<number | null>(null);
 
-  const isAuthenticated = !!token;
+  const isAuthenticated = Boolean(token);
   const isAdmin = user?.role === "admin";
 
-  const scheduleRefresh = (accessToken: string, refreshTokenValue: string | null) => {
+  /* ================= TOKEN REFRESH ================= */
+
+  const scheduleRefresh = (
+    accessToken: string,
+    refreshTokenValue: string | null
+  ) => {
     if (!accessToken || !refreshTokenValue) return;
 
     try {
       const decoded = jwtDecode<JwtPayload>(accessToken);
       const expiresMs = decoded.exp * 1000 - Date.now();
-      const refreshMs = expiresMs - 60_000; // 1 min before expiry
+      const refreshMs = expiresMs - 60_000; // refresh 1 min early
 
       if (refreshTimeoutRef.current) {
-        window.clearTimeout(refreshTimeoutRef.current);
+        clearTimeout(refreshTimeoutRef.current);
       }
 
       if (refreshMs > 0) {
-        refreshTimeoutRef.current = window.setTimeout(() => {
-          refreshAccessToken(refreshTokenValue);
-        }, refreshMs);
+        refreshTimeoutRef.current = window.setTimeout(
+          () => refreshAccessToken(refreshTokenValue),
+          refreshMs
+        );
       }
-    } catch (err) {
-      console.error("scheduleRefresh error:", err);
+    } catch {
+      logout();
     }
   };
 
   const refreshAccessToken = async (refreshTokenValue: string) => {
     try {
-      const res = await axios.post(`${API_BASE}/api/auth/refresh`, {
+      const res = await api.post("/api/auth/refresh", {
         refreshToken: refreshTokenValue,
       });
 
       const newToken = res.data.token;
+
       setToken(newToken);
       localStorage.setItem("token", newToken);
+      api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+
       scheduleRefresh(newToken, refreshTokenValue);
-    } catch (err) {
-      console.error("Refresh token failed, logging out");
+    } catch {
+      toast.error("Session expired. Please login again.");
       logout();
     }
   };
 
-  // Restore on first load
+  /* ================= RESTORE SESSION ================= */
+
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     const savedRefresh = localStorage.getItem("refreshToken");
@@ -87,23 +121,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setToken(savedToken);
       setRefreshToken(savedRefresh);
       setUser(JSON.parse(savedUser));
+
+      api.defaults.headers.common.Authorization = `Bearer ${savedToken}`;
       scheduleRefresh(savedToken, savedRefresh);
     }
 
     setLoading(false);
   }, []);
 
-  // LOGIN
-  const login = async ({ email, password }: { email: string; password: string }) => {
-    try {
-      const res = await axios.post(`${API_BASE}/api/auth/login`, {
-        email,
-        password,
-      });
+  /* ================= LOGIN ================= */
 
-      const accessToken = res.data.token;
-      const refreshTokenValue = res.data.refreshToken;
-      const userData = res.data.user;
+  const login = async (data: { email: string; password: string }) => {
+    try {
+      const res = await api.post("/api/auth/login", data);
+
+      const {
+        token: accessToken,
+        refreshToken: refreshTokenValue,
+        user: userData,
+      } = res.data;
 
       setUser(userData);
       setToken(accessToken);
@@ -113,39 +149,49 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem("refreshToken", refreshTokenValue);
       localStorage.setItem("user", JSON.stringify(userData));
 
+      api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+
       scheduleRefresh(accessToken, refreshTokenValue);
 
-      return true;
-    } catch (err: any) {
-      console.error("Login error:", err?.response?.data || err);
-      return false;
-    }
-  };
-
-  // SIGNUP
-  const signup = async (data: { name: string; email: string; password: string }) => {
-    try {
-      await axios.post(`${API_BASE}/api/auth/signup`, data);
-      return true;
+      return userData;
     } catch (err) {
-      console.error("Signup error:", err);
-      return false;
+      throw err; // IMPORTANT: let UI handle messages
     }
   };
 
-  // LOGOUT
+  /* ================= SIGNUP ================= */
+
+  const signup = async (data: {
+    name: string;
+    email: string;
+    password: string;
+  }) => {
+    try {
+      await api.post("/api/auth/signup", data);
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  /* ================= LOGOUT ================= */
+
   const logout = () => {
     setUser(null);
     setToken(null);
     setRefreshToken(null);
+
+    delete api.defaults.headers.common.Authorization;
+
     localStorage.removeItem("token");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
 
     if (refreshTimeoutRef.current) {
-      window.clearTimeout(refreshTimeoutRef.current);
+      clearTimeout(refreshTimeoutRef.current);
     }
   };
+
+  /* ================= CONTEXT VALUE ================= */
 
   const value: AuthContextType = {
     user,

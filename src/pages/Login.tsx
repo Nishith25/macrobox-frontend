@@ -1,26 +1,58 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setLoading(true);
 
     try {
-      const success = await login(form);
-      if (success) navigate("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Login failed");
+      await login(form);
+
+      toast.success("Login successful!");
+      navigate("/dashboard");
+
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const message =
+        error?.response?.data?.message ||
+        "Login failed. Please try again.";
+
+      // 🔒 Email not verified
+      if (status === 403) {
+        toast.error("Please verify your email before logging in.");
+        navigate("/resend-verification");
+        return;
+      }
+
+      // ❌ User not found
+      if (status === 404) {
+        toast.error("User not registered. Please sign up first.");
+        navigate("/signup");
+        return;
+      }
+
+      // ❌ Wrong password
+      if (status === 400) {
+        toast.error("Incorrect email or password.");
+        return;
+      }
+
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -31,10 +63,6 @@ export default function Login() {
         className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md"
       >
         <h2 className="text-3xl font-bold text-center mb-6">Login</h2>
-
-        {error && (
-          <p className="text-red-500 text-center mb-3 font-medium">{error}</p>
-        )}
 
         {/* Email */}
         <input
@@ -61,9 +89,12 @@ export default function Login() {
         {/* Login Button */}
         <button
           type="submit"
-          className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-medium"
+          disabled={loading}
+          className={`w-full bg-green-600 text-white py-3 rounded-lg font-medium transition ${
+            loading ? "opacity-50 cursor-not-allowed" : "hover:bg-green-700"
+          }`}
         >
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
 
         {/* Forgot Password */}

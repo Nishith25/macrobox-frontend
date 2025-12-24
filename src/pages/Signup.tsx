@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ export default function Signup() {
     password: "",
   });
 
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -20,16 +21,26 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+
+    setLoading(true);
 
     try {
-      const success = await signup(form);
+      const res = await signup(form);
 
-      if (success) {
-        navigate("/login");
-      }
-    } catch (err: any) {
-      setError(err.message || "Signup failed");
+      toast.success(
+        "Signup successful! Please check your email to verify your account."
+      );
+
+      navigate("/login");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Signup failed. Please try again.";
+
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,10 +51,6 @@ export default function Signup() {
         className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md"
       >
         <h2 className="text-3xl font-bold text-center mb-6">Create Account</h2>
-
-        {error && (
-          <p className="text-red-500 text-center mb-3 font-medium">{error}</p>
-        )}
 
         <input
           type="text"
@@ -77,9 +84,12 @@ export default function Signup() {
 
         <button
           type="submit"
-          className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition"
+          disabled={loading}
+          className={`w-full bg-green-600 text-white py-3 rounded-lg transition ${
+            loading ? "opacity-50 cursor-not-allowed" : "hover:bg-green-700"
+          }`}
         >
-          Sign Up
+          {loading ? "Creating Account..." : "Sign Up"}
         </button>
 
         <p className="text-center text-gray-600 text-sm mt-4">
