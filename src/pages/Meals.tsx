@@ -10,7 +10,7 @@ export default function Meals() {
 
   // Fetch meals from backend
   useEffect(() => {
-    api.get("/api/meals")
+    api.get("/meals")
       .then((res) => {
         setMeals(res.data);
         setLoading(false);

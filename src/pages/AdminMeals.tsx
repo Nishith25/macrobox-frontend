@@ -15,22 +15,22 @@ type Meal = {
 export default function AdminMeals() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [image, setImage] = useState<File | null>(null);
 
   const [form, setForm] = useState({
     title: "",
     protein: "",
     calories: "",
     price: "",
-    imageUrl: "",
     isFeatured: false,
   });
 
   // ---------------- FETCH MEALS ----------------
   const fetchMeals = async () => {
     try {
-      const res = await api.get<Meal[]>("/admin/meals"); // ✅ NO /api
+      const res = await api.get<Meal[]>("/api/admin/meals");
       setMeals(res.data);
-    } catch {
+    } catch (err) {
       toast.error("Failed to fetch meals");
     } finally {
       setLoading(false);
@@ -43,35 +43,43 @@ export default function AdminMeals() {
 
   // ---------------- ADD MEAL ----------------
   const addMeal = async () => {
-    const { title, protein, calories, price, imageUrl } = form;
-
-    if (!title || !protein || !calories || !price || !imageUrl) {
-      toast.error("Please fill all fields");
+    if (
+      !form.title ||
+      !form.protein ||
+      !form.calories ||
+      !form.price ||
+      !image
+    ) {
+      toast.error("Fill all fields including image");
       return;
     }
 
+    const data = new FormData();
+    data.append("title", form.title);
+    data.append("protein", form.protein);
+    data.append("calories", form.calories);
+    data.append("price", form.price);
+    data.append("isFeatured", String(form.isFeatured));
+    data.append("image", image);
+
     try {
-      await api.post("/admin/meals", {
-        title,
-        protein: Number(protein),
-        calories: Number(calories),
-        price: Number(price),
-        imageUrl,
-        isFeatured: form.isFeatured,
+      await api.post("/api/admin/meals", data, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
-      toast.success("Meal added");
+      toast.success("Meal added successfully");
+
       setForm({
         title: "",
         protein: "",
         calories: "",
         price: "",
-        imageUrl: "",
         isFeatured: false,
       });
+      setImage(null);
 
       fetchMeals();
-    } catch {
+    } catch (err) {
       toast.error("Failed to add meal");
     }
   };
@@ -81,7 +89,7 @@ export default function AdminMeals() {
     if (!confirm("Delete this meal?")) return;
 
     try {
-      await api.delete(`/admin/meals/${id}`);
+      await api.delete(`/api/admin/meals/${id}`);
       toast.success("Meal deleted");
       setMeals((prev) => prev.filter((m) => m._id !== id));
     } catch {
@@ -92,7 +100,7 @@ export default function AdminMeals() {
   // ---------------- TOGGLE FEATURED ----------------
   const toggleFeatured = async (meal: Meal) => {
     try {
-      await api.patch(`/admin/meals/${meal._id}/featured`, {
+      await api.patch(`/api/admin/meals/${meal._id}/featured`, {
         isFeatured: !meal.isFeatured,
       });
 
@@ -116,7 +124,7 @@ export default function AdminMeals() {
       </h1>
 
       {/* ADD FORM */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         <input
           placeholder="Meal title"
           value={form.title}
@@ -149,9 +157,9 @@ export default function AdminMeals() {
         />
 
         <input
-          placeholder="Image URL"
-          value={form.imageUrl}
-          onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+          type="file"
+          accept="image/*"
+          onChange={(e) => setImage(e.target.files?.[0] || null)}
           className="border p-2 rounded"
         />
 
