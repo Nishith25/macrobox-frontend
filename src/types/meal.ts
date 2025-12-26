@@ -1,9 +1,10 @@
-export interface Meal {
-  _id?: string;   // backend MongoDB ID
-  id?: number;    // old local ID
+export type Meal = {
+  _id: string;
   title: string;
   description: string;
+  imageUrl: string;
   protein: number;
   calories: number;
-  image: string;
-}
+  price: number;
+  isFeatured: boolean;
+};
