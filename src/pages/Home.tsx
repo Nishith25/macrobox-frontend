@@ -26,7 +26,7 @@ export default function Home() {
     if (withSpinner) setLoading(true);
     try {
       const res = await api.get<Meal[]>("/meals/featured");
-      setMeals(res.data.slice(0, 3));
+      setMeals(res.data.slice(0, 3)); // max 3 featured meals
     } catch {
       setMeals([]);
     } finally {
@@ -35,7 +35,13 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchFeatured();
+    let mounted = true;
+    (async () => {
+      if (mounted) await fetchFeatured();
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleRefresh = async () => {
@@ -46,16 +52,21 @@ export default function Home() {
 
   return (
     <>
+      {/* HERO */}
       <div className="text-center py-16">
-        <h1 className="text-4xl font-bold mb-4">Fuel Your Day with MacroBox</h1>
+        <h1 className="text-4xl font-bold mb-4">
+          Fuel Your Day with MacroBox
+        </h1>
         <p className="text-gray-600">
           High-protein, clean meals built for daily health
         </p>
       </div>
 
+      {/* FEATURED */}
       <Container>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <SectionTitle title="Featured Day Packs" />
+
           {isAdmin && (
             <button
               onClick={handleRefresh}
