@@ -11,7 +11,7 @@ export default function Meals() {
 
   return (
     <div className="max-w-6xl mx-auto py-16 px-6">
-      <h1 className="text-4xl font-bold mb-8">All Meal Plans</h1>
+      <h1 className="text-4xl font-bold mb-8">Meals</h1>
       <div className="grid md:grid-cols-3 gap-8">
         {meals.map((meal) => (
           <MealCard key={meal._id} meal={meal} />

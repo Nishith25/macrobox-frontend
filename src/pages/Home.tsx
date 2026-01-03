@@ -66,7 +66,7 @@ export default function Home() {
       {/* FEATURED */}
       <Container>
         <div className="flex items-center justify-between mb-4">
-          <SectionTitle title="Featured Day Packs" />
+          <SectionTitle title="Featured" />
 
           {isAdmin && (
             <button
