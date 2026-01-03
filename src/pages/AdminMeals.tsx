@@ -104,7 +104,7 @@ export default function AdminMeals() {
   const toggleFeatured = async (mealId: string, value: boolean) => {
     setTogglingId(mealId);
     try {
-      const res = await api.put(`/admin/meals/${mealId}/featured`, {
+      const res = await api.patch(`/admin/meals/${mealId}/featured`, {
         isFeatured: value,
       });
 
