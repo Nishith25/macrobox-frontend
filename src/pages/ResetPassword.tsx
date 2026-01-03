@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
 import toast from "react-hot-toast";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import api from "../api/api";
 
 export default function ResetPassword() {
   const { token } = useParams();
@@ -17,9 +15,7 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
-      await axios.post(`${API_BASE}/api/auth/reset-password/${token}`, {
-        password,
-      });
+      await api.post(`auth/reset-password/${token}`, { password });
 
       toast.success("Password reset successfully! Redirecting to login...");
       setTimeout(() => navigate("/login"), 2000);

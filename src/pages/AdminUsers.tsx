@@ -17,7 +17,7 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setError(null);
-      const res = await api.get<User[]>("/api/admin/users");
+      const res = await api.get<User[]>("admin/users");
       setUsers(res.data);
     } catch (err: any) {
       console.error("Fetch users error:", err);
@@ -38,7 +38,7 @@ export default function AdminUsers() {
   ) => {
     try {
       const res = await api.patch<User>(
-        `/api/admin/users/${id}/role`,
+        `admin/users/${id}/role`,
         { role }
       );
 

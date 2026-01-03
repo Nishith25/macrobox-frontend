@@ -1,9 +1,8 @@
-import type { Meal } from "../types/meal";
 import Button from "./Button";
+import type { Meal } from "../pages/Home"; // adjust path if needed
 
 export default function MealCard({ meal }: { meal: Meal }) {
   const handleAddToCart = () => {
-    // later connect to cart context / backend
     alert(`${meal.title} added to cart`);
   };
 
@@ -11,15 +10,18 @@ export default function MealCard({ meal }: { meal: Meal }) {
     <div className="bg-white rounded-xl shadow hover:shadow-lg transition overflow-hidden w-full">
       {/* IMAGE */}
       <img
-        src={meal.imageUrl}
-        alt={meal.title}
-        className="w-full h-52 object-cover"
-      />
+  src={meal.imageUrl || "https://via.placeholder.com/400x300?text=Meal"}
+  alt={meal.title}
+  className="w-full h-52 object-cover"
+/>
+
 
       {/* CONTENT */}
       <div className="p-5 space-y-3">
         {/* TITLE */}
-        <h3 className="text-xl font-semibold">{meal.title}</h3>
+        <h3 className="text-xl font-semibold">
+          {meal.title || "Untitled Meal"}
+        </h3>
 
         {/* DESCRIPTION */}
         {meal.description && (
@@ -33,20 +35,23 @@ export default function MealCard({ meal }: { meal: Meal }) {
           <span>
             Protein:{" "}
             <span className="text-green-600">
-              {meal.protein}g
+              {typeof meal.protein === "number" ? meal.protein : 0}g
             </span>
           </span>
+
           <span>
             Calories:{" "}
             <span className="text-blue-600">
-              {meal.calories}
+              {typeof meal.calories === "number"
+                ? meal.calories
+                : 0}
             </span>
           </span>
         </div>
 
         {/* PRICE */}
         <div className="text-lg font-semibold text-gray-800">
-          ₹{meal.price}
+          ₹{typeof meal.price === "number" ? meal.price : 0}
         </div>
 
         {/* ACTION */}

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+import api from "../api/api";
+
 
 
 type Meal = {
@@ -12,8 +13,6 @@ type Meal = {
   calories: number;
   image: string;
 };
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function AdminDashboard() {
   const { token, user } = useAuth();
@@ -50,7 +49,7 @@ export default function AdminDashboard() {
       setLoading(true);
       setError(null);
 
-      const res = await axios.get(`${API_BASE}/api/admin/meals`, authHeaders);
+      const res = await api.get(`/admin/meals`, authHeaders);
       setMeals(res.data.meals || res.data); // depending on backend shape
     } catch (err: any) {
       console.error(err);
@@ -91,7 +90,7 @@ export default function AdminDashboard() {
 
     try {
       setError(null);
-      await axios.delete(`${API_BASE}/api/admin/meals/${mealId}`, authHeaders);
+      await api.delete(`admin/meals/${mealId}`, authHeaders);
       setMeals((prev) => prev.filter((m) => m._id !== mealId));
       setSuccess("Meal deleted");
       setTimeout(() => setSuccess(null), 2000);
@@ -125,8 +124,8 @@ export default function AdminDashboard() {
 
       if (selectedMeal && selectedMeal._id) {
         // UPDATE
-        const res = await axios.put(
-          `${API_BASE}/api/admin/meals/${selectedMeal._id}`,
+        const res = await api.put(
+          `/admin/meals/${selectedMeal._id}`,
           payload,
           authHeaders
         );
@@ -138,8 +137,8 @@ export default function AdminDashboard() {
         setSuccess("Meal updated successfully");
       } else {
         // CREATE
-        const res = await axios.post(
-          `${API_BASE}/api/admin/meals`,
+        const res = await api.post(
+          `/admin/meals`,
           payload,
           authHeaders
         );

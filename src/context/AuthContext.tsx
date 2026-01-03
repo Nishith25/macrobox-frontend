@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (data: { email: string; password: string }) => {
     try {
-      const res = await api.post("/api/auth/login", data);
+      const res = await api.post("auth/login", data);
 
       const { token: accessToken, user: userData } = res.data;
 
@@ -107,7 +107,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     password: string;
   }) => {
     try {
-      await api.post("/api/auth/register", data); // ✅ FIXED
+      await api.post("auth/register", data); // ✅ FIXED
       toast.success("Account created. Please login.");
     } catch (err: any) {
       toast.error(

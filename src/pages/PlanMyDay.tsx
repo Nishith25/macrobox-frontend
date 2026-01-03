@@ -15,7 +15,7 @@ export default function PlanMyDay() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.get("/meals").then((res) => setMeals(res.data));
+    api.get("meals").then((res) => setMeals(res.data));
   }, []);
 
   const toggleSelect = (id: string, timeOfDay: string) => {
@@ -32,7 +32,7 @@ export default function PlanMyDay() {
       .map(([mealId, timeOfDay]) => ({ mealId, timeOfDay }));
 
     try {
-      await api.post("/user/day-plan", { items });
+      await api.post("user/day-plan", { items });
       alert("Plan saved!");
     } catch {
       alert("Failed to save plan");

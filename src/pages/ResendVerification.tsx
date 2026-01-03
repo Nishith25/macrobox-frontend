@@ -1,8 +1,6 @@
 import { useState } from "react";
-import axios from "axios";
 import toast from "react-hot-toast";
-
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import api from "../api/api";
 
 export default function ResendVerification() {
   const [email, setEmail] = useState("");
@@ -17,9 +15,7 @@ export default function ResendVerification() {
     setLoading(true);
 
     try {
-      const res = await axios.post(`${API}/api/auth/resend-verification`, {
-        email,
-      });
+      const res = await api.post("auth/resend-verification", { email });
 
       toast.success(res.data.message);
 

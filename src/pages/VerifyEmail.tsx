@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
-
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import api from "../api/api";
 
 export default function VerifyEmail() {
   const { token } = useParams();
@@ -22,7 +20,7 @@ export default function VerifyEmail() {
 
     async function verify() {
       try {
-        const res = await axios.get(`${API}/api/auth/verify-email/${token}`);
+        await api.get(`auth/verify-email/${token}`);
 
         setStatus("success");
 

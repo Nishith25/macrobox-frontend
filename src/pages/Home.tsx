@@ -3,6 +3,7 @@ import Container from "../components/Container";
 import SectionTitle from "../components/SectionTitle";
 import MealCard from "../components/MealCard";
 import api from "../api/api";
+import { useAuth } from "../context/AuthContext";
 
 export type Meal = {
   _id: string;
@@ -15,54 +16,63 @@ export type Meal = {
   isFeatured: boolean;
 };
 
-
 export default function Home() {
+  const { isAdmin } = useAuth();
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchFeatured = async (withSpinner = true) => {
+    if (withSpinner) setLoading(true);
+    try {
+      const res = await api.get<Meal[]>("/meals/featured");
+      setMeals(res.data.slice(0, 3));
+    } catch {
+      setMeals([]);
+    } finally {
+      if (withSpinner) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchFeaturedMeals = async () => {
-      try {
-        const res = await api.get<Meal[]>("/meals/featured");
-
-        // ✅ Always show ONLY 3 on Home
-        setMeals(res.data.slice(0, 3));
-      } catch (err) {
-        console.error("Fetch featured meals error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFeaturedMeals();
+    fetchFeatured();
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchFeatured(false);
+    setRefreshing(false);
+  };
 
   return (
     <>
-      {/* HERO */}
       <div className="text-center py-16">
-        <h1 className="text-4xl font-bold mb-4">
-          Fuel Your Day with MacroBox
-        </h1>
-        <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-          High-protein, clean meals built for muscle gain, fat loss & daily health.
+        <h1 className="text-4xl font-bold mb-4">Fuel Your Day with MacroBox</h1>
+        <p className="text-gray-600">
+          High-protein, clean meals built for daily health
         </p>
       </div>
 
-      {/* FEATURED DAY PACKS */}
       <Container>
-        <SectionTitle title="Featured Day Packs" />
+        <div className="flex items-center justify-between">
+          <SectionTitle title="Featured Day Packs" />
+          {isAdmin && (
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="text-sm text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50 disabled:opacity-60"
+            >
+              {refreshing ? "Refreshing..." : "Refresh featured"}
+            </button>
+          )}
+        </div>
 
         {loading ? (
-          <p className="text-center text-gray-500 py-12">
-            Loading featured meals...
-          </p>
+          <p className="text-center py-10">Loading...</p>
         ) : meals.length === 0 ? (
-          <p className="text-center text-gray-500 py-12">
-            No featured meals available
-          </p>
+          <p className="text-center py-10">No featured meals</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             {meals.map((meal) => (
               <MealCard key={meal._id} meal={meal} />
             ))}
