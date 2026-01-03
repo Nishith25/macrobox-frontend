@@ -1,7 +1,20 @@
 import { useEffect, useState } from "react";
 import api from "../api/api";
 import toast from "react-hot-toast";
+import {
+  DndContext,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
+/* ================= TYPES ================= */
 type Meal = {
   _id: string;
   title: string;
@@ -12,6 +25,80 @@ type Meal = {
   isFeatured: boolean;
 };
 
+/* ================= SORTABLE CARD ================= */
+function SortableMeal({
+  meal,
+  onEdit,
+  onDelete,
+  onToggleFeatured,
+  toggling,
+}: {
+  meal: Meal;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggleFeatured: (val: boolean) => void;
+  toggling: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: meal._id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="border rounded-2xl p-4 bg-white flex gap-4 cursor-move"
+    >
+      <img
+        src={meal.imageUrl || "/placeholder-meal.png"}
+        className="w-24 h-24 rounded-xl object-cover"
+        onError={(e) =>
+          (e.currentTarget.src = "/placeholder-meal.png")
+        }
+      />
+
+      <div className="flex-1">
+        <h3 className="font-semibold">{meal.title}</h3>
+        <p className="text-sm text-slate-500">
+          {meal.protein}g protein · {meal.calories} kcal · ₹{meal.price}
+        </p>
+
+        <label className="flex items-center gap-2 mt-2 text-sm">
+          <input
+            type="checkbox"
+            checked={meal.isFeatured}
+            disabled={toggling}
+            onChange={(e) => onToggleFeatured(e.target.checked)}
+          />
+          Feature on homepage
+        </label>
+
+        <div className="flex gap-3 mt-3">
+          <button
+            onClick={onEdit}
+            className="text-sm border px-3 py-1 rounded-lg"
+          >
+            Edit
+          </button>
+          <button
+            onClick={onDelete}
+            className="text-sm border border-red-300 text-red-600 px-3 py-1 rounded-lg"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= MAIN ================= */
 export default function AdminMeals() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,7 +116,7 @@ export default function AdminMeals() {
   const [image, setImage] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  /* ---------------- FETCH MEALS ---------------- */
+  /* -------- FETCH -------- */
   const fetchMeals = async () => {
     setLoading(true);
     try {
@@ -46,7 +133,7 @@ export default function AdminMeals() {
     fetchMeals();
   }, []);
 
-  /* ---------------- RESET FORM ---------------- */
+  /* -------- FORM -------- */
   const resetForm = () => {
     setForm({
       title: "",
@@ -59,7 +146,6 @@ export default function AdminMeals() {
     setEditingId(null);
   };
 
-  /* ---------------- SAVE MEAL ---------------- */
   const saveMeal = async () => {
     if (!form.title || !form.protein || !form.calories || !form.price) {
       toast.error("Fill all fields");
@@ -94,39 +180,32 @@ export default function AdminMeals() {
       }
       resetForm();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to save meal");
+      toast.error(err?.response?.data?.message || "Save failed");
     } finally {
       setSaving(false);
     }
   };
 
-  /* ---------------- TOGGLE FEATURED (FIXED) ---------------- */
+  /* -------- FEATURE TOGGLE -------- */
   const toggleFeatured = async (mealId: string, value: boolean) => {
     setTogglingId(mealId);
     try {
       const res = await api.patch(`/admin/meals/${mealId}/featured`, {
         isFeatured: value,
       });
-
       setMeals((prev) =>
         prev.map((m) =>
           m._id === mealId ? { ...m, isFeatured: res.data.isFeatured } : m
         )
       );
-
-      toast.success(
-        value ? "Featured on homepage" : "Removed from homepage"
-      );
-    } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message || "Could not update featured status"
-      );
+    } catch {
+      toast.error("Failed to update featured");
     } finally {
       setTogglingId(null);
     }
   };
 
-  /* ---------------- DELETE ---------------- */
+  /* -------- DELETE -------- */
   const handleDelete = async (meal: Meal) => {
     if (!window.confirm(`Delete "${meal.title}"?`)) return;
     try {
@@ -138,7 +217,7 @@ export default function AdminMeals() {
     }
   };
 
-  /* ---------------- EDIT ---------------- */
+  /* -------- EDIT -------- */
   const handleEdit = (meal: Meal) => {
     setEditingId(meal._id);
     setForm({
@@ -152,7 +231,31 @@ export default function AdminMeals() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /* ======================= UI ======================= */
+  /* -------- DRAG END -------- */
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const featured = meals.filter((m) => m.isFeatured);
+    const oldIndex = featured.findIndex((m) => m._id === active.id);
+    const newIndex = featured.findIndex((m) => m._id === over.id);
+
+    const reordered = arrayMove(featured, oldIndex, newIndex);
+    const orderedIds = reordered.map((m) => m._id);
+
+    setMeals((prev) => {
+      const nonFeatured = prev.filter((m) => !m.isFeatured);
+      return [...reordered, ...nonFeatured];
+    });
+
+    await api.patch("/admin/meals/reorder", { orderedIds });
+    toast.success("Featured order updated");
+  };
+
+  const featuredMeals = meals.filter((m) => m.isFeatured);
+  const otherMeals = meals.filter((m) => !m.isFeatured);
+
+  /* ================= UI ================= */
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
       <h1 className="text-3xl font-bold mb-6">Manage Day Packs</h1>
@@ -194,11 +297,7 @@ export default function AdminMeals() {
         </div>
 
         <div className="flex items-center gap-4 mt-4">
-          <input
-            type="file"
-            onChange={(e) => setImage(e.target.files?.[0] || null)}
-          />
-
+          <input type="file" onChange={(e) => setImage(e.target.files?.[0] || null)} />
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -213,10 +312,7 @@ export default function AdminMeals() {
 
         <div className="mt-6 flex gap-3">
           {editingId && (
-            <button
-              onClick={resetForm}
-              className="border px-4 py-2 rounded-lg"
-            >
+            <button onClick={resetForm} className="border px-4 py-2 rounded-lg">
               Cancel
             </button>
           )}
@@ -230,63 +326,81 @@ export default function AdminMeals() {
         </div>
       </div>
 
-      {/* ---------- LIST ---------- */}
+      {/* ---------- FEATURED ---------- */}
       <h2 className="text-lg font-semibold mb-4">
-        All meals ({meals.length})
+        Featured meals (drag to reorder)
       </h2>
 
-      {loading ? (
-        <p>Loading meals…</p>
-      ) : (
-        <div className="grid md:grid-cols-2 gap-4">
-          {meals.map((meal) => (
-            <div
-              key={meal._id}
-              className="border rounded-2xl p-4 bg-white flex gap-4"
-            >
-              <img
-                src={meal.imageUrl}
-                alt={meal.title}
-                className="w-24 h-24 rounded-xl object-cover"
+      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={featuredMeals.map((m) => m._id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="grid md:grid-cols-2 gap-4 mb-10">
+            {featuredMeals.map((meal) => (
+              <SortableMeal
+                key={meal._id}
+                meal={meal}
+                toggling={togglingId === meal._id}
+                onEdit={() => handleEdit(meal)}
+                onDelete={() => handleDelete(meal)}
+                onToggleFeatured={(val) =>
+                  toggleFeatured(meal._id, val)
+                }
               />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
-              <div className="flex-1">
-                <h3 className="font-semibold">{meal.title}</h3>
-                <p className="text-sm text-slate-500">
-                  {meal.protein}g protein · {meal.calories} kcal · ₹{meal.price}
-                </p>
+      {/* ---------- OTHER ---------- */}
+      <h2 className="text-lg font-semibold mb-4">
+        Other meals ({otherMeals.length})
+      </h2>
 
-                <label className="flex items-center gap-2 mt-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={meal.isFeatured}
-                    disabled={togglingId === meal._id}
-                    onChange={(e) =>
-                      toggleFeatured(meal._id, e.target.checked)
-                    }
-                  />
-                  Feature on homepage
-                </label>
-
-                <div className="flex gap-3 mt-3">
-                  <button
-                    onClick={() => handleEdit(meal)}
-                    className="text-sm border px-3 py-1 rounded-lg"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(meal)}
-                    className="text-sm border border-red-300 text-red-600 px-3 py-1 rounded-lg"
-                  >
-                    Delete
-                  </button>
-                </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        {otherMeals.map((meal) => (
+          <div
+            key={meal._id}
+            className="border rounded-2xl p-4 bg-white flex gap-4"
+          >
+            <img
+              src={meal.imageUrl || "/placeholder-meal.png"}
+              className="w-24 h-24 rounded-xl object-cover"
+            />
+            <div className="flex-1">
+              <h3 className="font-semibold">{meal.title}</h3>
+              <p className="text-sm text-slate-500">
+                {meal.protein}g protein · {meal.calories} kcal · ₹{meal.price}
+              </p>
+              <label className="flex items-center gap-2 mt-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={meal.isFeatured}
+                  onChange={(e) =>
+                    toggleFeatured(meal._id, e.target.checked)
+                  }
+                />
+                Feature on homepage
+              </label>
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={() => handleEdit(meal)}
+                  className="text-sm border px-3 py-1 rounded-lg"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(meal)}
+                  className="text-sm border border-red-300 text-red-600 px-3 py-1 rounded-lg"
+                >
+                  Delete
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

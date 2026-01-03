@@ -23,16 +23,17 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchFeatured = async (withSpinner = true) => {
-    if (withSpinner) setLoading(true);
-    try {
-      const res = await api.get<Meal[]>("/meals/featured");
-      setMeals(res.data.slice(0, 3)); // max 3 featured meals
-    } catch {
-      setMeals([]);
-    } finally {
-      if (withSpinner) setLoading(false);
-    }
-  };
+  if (withSpinner) setLoading(true);
+  try {
+    const res = await api.get<Meal[]>("/meals/featured");
+    setMeals(res.data); 
+  } catch {
+    setMeals([]);
+  } finally {
+    if (withSpinner) setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     let mounted = true;
