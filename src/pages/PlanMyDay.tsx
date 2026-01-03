@@ -26,13 +26,12 @@ export default function PlanMyDay() {
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<SavedPlan[]>([]);
 
-  /* ---------------- FETCH MEALS ---------------- */
+  /* ---------------- FETCH MEALS + HISTORY ---------------- */
   useEffect(() => {
     api.get("/meals").then((res) => setMeals(res.data));
     fetchHistory();
   }, []);
 
-  /* ---------------- FETCH HISTORY ---------------- */
   const fetchHistory = async () => {
     const res = await api.get("/user/day-plan");
     setHistory(res.data);
@@ -59,10 +58,7 @@ export default function PlanMyDay() {
 
     const items = Object.entries(selected)
       .filter(([_, times]) => times.length > 0)
-      .map(([mealId, times]) => ({
-        mealId,
-        times,
-      }));
+      .map(([mealId, times]) => ({ mealId, times }));
 
     if (items.length === 0) {
       alert("Select at least one meal");
@@ -89,7 +85,7 @@ export default function PlanMyDay() {
     fetchHistory();
   };
 
-  /* ---------------- TOTALS ---------------- */
+  /* ---------------- TODAY TOTALS ---------------- */
   const totalProtein = meals.reduce((sum, m) => {
     const times = selected[m._id];
     return times?.length ? sum + m.protein * times.length : sum;
@@ -112,11 +108,15 @@ export default function PlanMyDay() {
       <div className="mb-6 p-4 border rounded-lg flex gap-8">
         <div>
           <p className="font-semibold">Total Protein</p>
-          <p className="text-xl font-bold text-green-600">{totalProtein}g</p>
+          <p className="text-xl font-bold text-green-600">
+            {totalProtein}g
+          </p>
         </div>
         <div>
           <p className="font-semibold">Total Calories</p>
-          <p className="text-xl font-bold text-blue-600">{totalCalories}</p>
+          <p className="text-xl font-bold text-blue-600">
+            {totalCalories}
+          </p>
         </div>
       </div>
 
@@ -165,30 +165,54 @@ export default function PlanMyDay() {
       )}
 
       <div className="space-y-4">
-        {history.map((plan) => (
-          <div key={plan._id} className="border rounded-lg p-4">
-            <div className="flex justify-between items-center mb-2">
-              <p className="font-semibold">
-                {new Date(plan.date).toDateString()}
-              </p>
-              <button
-                onClick={() => deletePlan(plan._id)}
-                className="text-red-600 text-sm"
-              >
-                Delete
-              </button>
-            </div>
+        {history.map((plan) => {
+          const totals = plan.items.reduce(
+            (acc, item) => {
+              acc.protein += item.meal.protein * item.times.length;
+              acc.calories += item.meal.calories * item.times.length;
+              return acc;
+            },
+            { protein: 0, calories: 0 }
+          );
 
-            <ul className="text-sm text-gray-700 space-y-1">
-              {plan.items.map((i, idx) => (
-                <li key={idx}>
-                  <strong>{i.meal.title}</strong> →{" "}
-                  {i.times.join(", ")}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+          return (
+            <div key={plan._id} className="border rounded-lg p-4">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <p className="font-semibold">
+                    {new Date(plan.date).toDateString()}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Total:{" "}
+                    <span className="text-green-600 font-semibold">
+                      {totals.protein}g protein
+                    </span>{" "}
+                    •{" "}
+                    <span className="text-blue-600 font-semibold">
+                      {totals.calories} kcal
+                    </span>
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => deletePlan(plan._id)}
+                  className="text-red-600 text-sm"
+                >
+                  Delete
+                </button>
+              </div>
+
+              <ul className="text-sm text-gray-700 space-y-1 mt-2">
+                {plan.items.map((i, idx) => (
+                  <li key={idx}>
+                    <strong>{i.meal.title}</strong> →{" "}
+                    {i.times.join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
