@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Plus, Minus, Trash2, MapPin, Clock } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import api from "../api/api";
+import { useNavigate } from "react-router-dom";
 
 declare global {
   interface Window {
@@ -16,19 +17,31 @@ const SLOTS = [
   "6:00 PM - 8:00 PM",
 ];
 
+type Address = {
+  fullName: string;
+  phone: string;
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  pincode: string;
+};
+
 export default function Cart() {
-  const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } = useCart();
+  const navigate = useNavigate();
+  const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } =
+    useCart();
+
+  /* ================= STATE ================= */
 
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
-
   const [checkingOut, setCheckingOut] = useState(false);
 
-  // Address + Slot
-  const [address, setAddress] = useState({
-    name: "",
+  const [address, setAddress] = useState<Address>({
+    fullName: "",
     phone: "",
     line1: "",
     line2: "",
@@ -36,31 +49,53 @@ export default function Cart() {
     state: "",
     pincode: "",
   });
-  const [slotDate, setSlotDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const [slotDate, setSlotDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
   const [slotTime, setSlotTime] = useState(SLOTS[0]);
 
-  const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price * i.qty, 0), [cart]);
-  const totalProtein = useMemo(() => cart.reduce((s, i) => s + i.protein * i.qty, 0), [cart]);
-  const totalCalories = useMemo(() => cart.reduce((s, i) => s + i.calories * i.qty, 0), [cart]);
+  /* ================= DERIVED ================= */
+
+  const subtotal = useMemo(
+    () => cart.reduce((s, i) => s + i.price * i.qty, 0),
+    [cart]
+  );
+
+  const totalProtein = useMemo(
+    () => cart.reduce((s, i) => s + i.protein * i.qty, 0),
+    [cart]
+  );
+
+  const totalCalories = useMemo(
+    () => cart.reduce((s, i) => s + i.calories * i.qty, 0),
+    [cart]
+  );
 
   const payable = Math.max(subtotal - discount, 0);
 
   if (cart.length === 0) {
-    return <p className="text-center mt-16 text-gray-500 text-lg">Your cart is empty 🛒</p>;
+    return (
+      <p className="text-center mt-16 text-gray-500 text-lg">
+        Your cart is empty 🛒
+      </p>
+    );
   }
 
+  /* ================= COUPON ================= */
+
   const applyCoupon = async () => {
-    if (!coupon) return;
+    if (!coupon.trim()) return;
     setApplying(true);
     setCouponMsg(null);
 
     try {
       const res = await api.post("/coupons/apply", {
-        code: coupon,
+        code: coupon.trim(),
         cartTotal: subtotal,
       });
 
-      setDiscount(res.data.discount);
+      setDiscount(res.data.discount || 0);
       setCouponMsg(`Coupon applied! You saved ₹${res.data.discount}`);
     } catch (err: any) {
       setDiscount(0);
@@ -70,13 +105,13 @@ export default function Cart() {
     }
   };
 
-  const loadRazorpay = () =>
-    new Promise((resolve) => {
-      const existing = document.getElementById("rzp-script");
-      if (existing) return resolve(true);
+  /* ================= RAZORPAY ================= */
 
+  const loadRazorpay = () =>
+    new Promise<boolean>((resolve) => {
+      if (document.getElementById("razorpay-sdk")) return resolve(true);
       const script = document.createElement("script");
-      script.id = "rzp-script";
+      script.id = "razorpay-sdk";
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
@@ -84,16 +119,27 @@ export default function Cart() {
     });
 
   const validateCheckout = () => {
-    if (!address.name || !address.phone || !address.line1 || !address.city || !address.state || !address.pincode) {
-      setCouponMsg("Please fill delivery address (name, phone, address, city, state, pincode).");
+    if (
+      !address.fullName ||
+      !address.phone ||
+      !address.line1 ||
+      !address.city ||
+      !address.state ||
+      !address.pincode
+    ) {
+      setCouponMsg("Please fill complete delivery address.");
       return false;
     }
+
     if (!slotDate || !slotTime) {
-      setCouponMsg("Please select delivery slot date & time.");
+      setCouponMsg("Please select delivery slot.");
       return false;
     }
+
     return true;
   };
+
+  /* ================= CHECKOUT ================= */
 
   const checkout = async () => {
     if (!validateCheckout()) return;
@@ -109,20 +155,33 @@ export default function Cart() {
     }
 
     try {
-      // 1) Create order on server
-      const createRes = await api.post("/orders/create", {
-        cart,
-        couponCode: coupon ? coupon : null,
-        discount,
-        delivery: {
-          address,
-          slot: { date: slotDate, time: slotTime },
+      /* 1️⃣ CREATE ORDER (MATCHES BACKEND EXACTLY) */
+      const createRes = await api.post("/checkout/create-order", {
+        items: cart.map((i) => ({
+          mealId: i._id,
+          title: i.title,
+          price: i.price,
+          qty: i.qty,
+        })),
+        couponCode: coupon || null,
+        address: {
+          fullName: address.fullName,
+          phone: address.phone,
+          line1: address.line1,
+          line2: address.line2,
+          city: address.city,
+          state: address.state,
+          pincode: address.pincode,
+        },
+        deliverySlot: {
+          date: slotDate,
+          time: slotTime,
         },
       });
 
-      const { orderId, razorpayOrderId, amount, keyId } = createRes.data;
+      const { razorpayOrderId, amount, keyId, orderId } = createRes.data;
 
-      // 2) Open Razorpay
+      /* 2️⃣ OPEN RAZORPAY */
       const rzp = new window.Razorpay({
         key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount,
@@ -131,12 +190,12 @@ export default function Cart() {
         description: "Meal Order",
         order_id: razorpayOrderId,
         prefill: {
-          name: address.name,
+          name: address.fullName,
           contact: address.phone,
         },
         handler: async (response: any) => {
-          // 3) Verify on server
-          await api.post("/orders/verify", {
+          /* 3️⃣ VERIFY PAYMENT */
+          await api.post("/checkout/verify", {
             orderId,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
@@ -146,7 +205,9 @@ export default function Cart() {
           clearCart();
           setDiscount(0);
           setCoupon("");
-          setCouponMsg("Payment successful ✅ Order placed!");
+          setCouponMsg("Payment successful ✅");
+
+          setTimeout(() => navigate("/orders"), 800);
         },
         modal: {
           ondismiss: () => setCouponMsg("Payment cancelled."),
@@ -156,45 +217,56 @@ export default function Cart() {
 
       rzp.open();
     } catch (err: any) {
-      setCouponMsg(err?.response?.data?.message || "Checkout failed");
+      console.error(err);
+      setCouponMsg(err?.response?.data?.message || "Failed to create order");
     } finally {
       setCheckingOut(false);
     }
   };
+
+  /* ================= UI ================= */
 
   return (
     <div className="max-w-6xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-8">Your Cart</h1>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* LEFT: ITEMS */}
+        {/* ITEMS */}
         <div className="lg:col-span-2 space-y-4">
           {cart.map((item) => (
-            <div key={item._id} className="border rounded-xl p-4 flex justify-between items-center bg-white">
-              <div className="flex gap-4 items-center">
-                <img
-                  src={item.imageUrl || "/placeholder-meal.png"}
-                  className="w-20 h-20 rounded-xl object-cover border"
-                />
-                <div>
-                  <h3 className="font-semibold text-lg">{item.title}</h3>
-                  <p className="text-sm text-gray-500">
-                    Protein: {item.protein * item.qty}g • Calories: {item.calories * item.qty}
-                  </p>
-                  <p className="font-medium mt-1">₹{item.price} × {item.qty}</p>
-                </div>
+            <div
+              key={item._id}
+              className="border rounded-xl p-4 flex justify-between items-center"
+            >
+              <div>
+                <h3 className="font-semibold text-lg">{item.title}</h3>
+                <p className="text-sm text-gray-500">
+                  Protein: {item.protein * item.qty}g • Calories:{" "}
+                  {item.calories * item.qty}
+                </p>
+                <p className="font-medium">
+                  ₹{item.price} × {item.qty}
+                </p>
               </div>
 
               <div className="flex items-center gap-3">
-                <button onClick={() => decreaseQty(item._id)} className="p-2 border rounded-lg">
+                <button
+                  onClick={() => decreaseQty(item._id)}
+                  className="p-2 border rounded"
+                >
                   <Minus size={16} />
                 </button>
-                <span className="font-semibold w-6 text-center">{item.qty}</span>
-                <button onClick={() => increaseQty(item._id)} className="p-2 border rounded-lg">
+                <span className="font-semibold">{item.qty}</span>
+                <button
+                  onClick={() => increaseQty(item._id)}
+                  className="p-2 border rounded"
+                >
                   <Plus size={16} />
                 </button>
-
-                <button onClick={() => removeFromCart(item._id)} className="p-2 text-red-600">
+                <button
+                  onClick={() => removeFromCart(item._id)}
+                  className="p-2 text-red-600"
+                >
                   <Trash2 size={18} />
                 </button>
               </div>
@@ -202,109 +274,100 @@ export default function Cart() {
           ))}
         </div>
 
-        {/* RIGHT: SUMMARY */}
+        {/* SUMMARY */}
         <div className="border rounded-xl p-5 bg-white h-fit">
           <h2 className="text-xl font-bold mb-4">Order Summary</h2>
 
-          <div className="space-y-2 text-sm">
-            <p>Total Protein: <b>{totalProtein} g</b></p>
-            <p>Total Calories: <b>{totalCalories}</b></p>
-            <p className="flex justify-between"><span>Subtotal</span><b>₹{subtotal}</b></p>
-            <p className="flex justify-between text-green-600"><span>Discount</span><b>- ₹{discount}</b></p>
-            <hr />
-            <p className="flex justify-between text-lg"><span>Payable</span><b>₹{payable}</b></p>
-          </div>
+          <p>Total Protein: <b>{totalProtein} g</b></p>
+          <p>Total Calories: <b>{totalCalories}</b></p>
+
+          <hr className="my-3" />
+
+          <p className="flex justify-between">
+            <span>Subtotal</span>
+            <b>₹{subtotal}</b>
+          </p>
+          <p className="flex justify-between text-green-600">
+            <span>Discount</span>
+            <b>-₹{discount}</b>
+          </p>
+          <p className="flex justify-between text-lg font-bold mt-2">
+            <span>Payable</span>
+            <span>₹{payable}</span>
+          </p>
 
           {/* COUPON */}
-          <div className="mt-5">
-            <p className="font-semibold mb-2">Coupon</p>
-            <div className="flex gap-2">
-              <input
-                value={coupon}
-                onChange={(e) => setCoupon(e.target.value)}
-                placeholder="Enter code"
-                className="border rounded-lg px-3 py-2 w-full"
-              />
-              <button
-                onClick={applyCoupon}
-                disabled={applying}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg"
-              >
-                {applying ? "..." : "Apply"}
-              </button>
-            </div>
+          <div className="mt-4">
+            <input
+              value={coupon}
+              onChange={(e) => {
+                setCoupon(e.target.value);
+                setDiscount(0);
+              }}
+              placeholder="Coupon code"
+              className="border rounded px-3 py-2 w-full"
+            />
+            <button
+              onClick={applyCoupon}
+              disabled={applying}
+              className="mt-2 bg-green-600 text-white w-full py-2 rounded"
+            >
+              {applying ? "Applying..." : "Apply Coupon"}
+            </button>
           </div>
 
           {/* ADDRESS */}
-          <div className="mt-6">
-            <p className="font-semibold mb-2 flex items-center gap-2">
+          <div className="mt-6 space-y-2">
+            <p className="font-semibold flex items-center gap-2">
               <MapPin size={16} /> Delivery Address
             </p>
 
-            <div className="space-y-2">
-              <input className="border rounded-lg px-3 py-2 w-full" placeholder="Full Name"
-                value={address.name} onChange={(e) => setAddress({ ...address, name: e.target.value })} />
-              <input className="border rounded-lg px-3 py-2 w-full" placeholder="Phone"
-                value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} />
-              <input className="border rounded-lg px-3 py-2 w-full" placeholder="Address line 1"
-                value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} />
-              <input className="border rounded-lg px-3 py-2 w-full" placeholder="Address line 2 (optional)"
-                value={address.line2} onChange={(e) => setAddress({ ...address, line2: e.target.value })} />
-              <div className="grid grid-cols-2 gap-2">
-                <input className="border rounded-lg px-3 py-2 w-full" placeholder="City"
-                  value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />
-                <input className="border rounded-lg px-3 py-2 w-full" placeholder="State"
-                  value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} />
-              </div>
-              <input className="border rounded-lg px-3 py-2 w-full" placeholder="Pincode"
-                value={address.pincode} onChange={(e) => setAddress({ ...address, pincode: e.target.value })} />
-            </div>
+            {Object.keys(address).map((k) => (
+              <input
+                key={k}
+                placeholder={k}
+                className="border rounded px-3 py-2 w-full"
+                value={(address as any)[k]}
+                onChange={(e) =>
+                  setAddress({ ...address, [k]: e.target.value })
+                }
+              />
+            ))}
           </div>
 
           {/* SLOT */}
-          <div className="mt-6">
-            <p className="font-semibold mb-2 flex items-center gap-2">
+          <div className="mt-4">
+            <p className="font-semibold flex items-center gap-2">
               <Clock size={16} /> Delivery Slot
             </p>
-
-            <div className="space-y-2">
-              <input
-                type="date"
-                className="border rounded-lg px-3 py-2 w-full"
-                value={slotDate}
-                onChange={(e) => setSlotDate(e.target.value)}
-              />
-
-              <select
-                className="border rounded-lg px-3 py-2 w-full"
-                value={slotTime}
-                onChange={(e) => setSlotTime(e.target.value)}
-              >
-                {SLOTS.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
+            <input
+              type="date"
+              className="border rounded px-3 py-2 w-full mt-2"
+              value={slotDate}
+              onChange={(e) => setSlotDate(e.target.value)}
+            />
+            <select
+              className="border rounded px-3 py-2 w-full mt-2"
+              value={slotTime}
+              onChange={(e) => setSlotTime(e.target.value)}
+            >
+              {SLOTS.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
           </div>
 
-          {couponMsg && <p className="text-sm mt-4 text-gray-600">{couponMsg}</p>}
+          {couponMsg && (
+            <p className="text-sm mt-3 text-gray-600">{couponMsg}</p>
+          )}
 
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={clearCart}
-              className="border border-red-500 text-red-600 px-4 py-2 rounded-lg w-full"
-            >
-              Clear
-            </button>
-
-            <button
-              onClick={checkout}
-              disabled={checkingOut}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg w-full hover:bg-green-700"
-            >
-              {checkingOut ? "Processing..." : "Checkout"}
-            </button>
-          </div>
+          <button
+            onClick={checkout}
+            disabled={checkingOut}
+            className="mt-6 bg-green-600 text-white w-full py-3 rounded-lg hover:bg-green-700"
+          >
+            {checkingOut ? "Processing..." : "Checkout & Pay"}
+          </button>
         </div>
       </div>
     </div>

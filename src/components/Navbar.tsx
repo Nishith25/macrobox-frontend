@@ -27,6 +27,7 @@ export default function Navbar() {
   return (
     <nav className="border-b bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex items-center justify-between p-4">
+
         {/* LOGO */}
         <Link
           to="/"
@@ -38,8 +39,9 @@ export default function Navbar() {
 
         {/* ================= DESKTOP ================= */}
         <div className="hidden md:flex items-center gap-6">
-          {/* CART (USER ONLY) */}
-          {isAuthenticated && !isAdmin && (
+
+          {/* CART (USER + ADMIN) */}
+          {isAuthenticated && (
             <button
               onClick={() => navigate("/cart")}
               className="relative hover:text-green-600"
@@ -54,15 +56,11 @@ export default function Navbar() {
           )}
 
           {/* COMMON */}
-          <Link to="/" className="hover:text-green-600">
-            Home
-          </Link>
-          <Link to="/meals" className="hover:text-green-600">
-            Meals
-          </Link>
+          <Link to="/" className="hover:text-green-600">Home</Link>
+          <Link to="/meals" className="hover:text-green-600">Meals</Link>
 
-          {/* USER LINKS */}
-          {isAuthenticated && !isAdmin && (
+          {/* USER FEATURES (VISIBLE TO ADMIN TOO) */}
+          {isAuthenticated && (
             <>
               <Link to="/plan-my-day" className="hover:text-green-600">
                 Plan My Day
@@ -76,12 +74,12 @@ export default function Navbar() {
             </>
           )}
 
-          {/* ADMIN LINKS */}
+          {/* ADMIN EXTRA LINKS */}
           {isAdmin && (
             <div className="flex items-center gap-4 text-red-600 font-semibold">
               <Shield size={16} />
               <Link to="/admin/meals" className="hover:underline">
-                Meals
+                Admin Meals
               </Link>
               <Link to="/admin/users" className="hover:underline">
                 Users
@@ -123,10 +121,7 @@ export default function Navbar() {
               <Link to="/login" className="hover:text-green-600">
                 Login
               </Link>
-              <Link
-                to="/signup"
-                className="font-semibold hover:text-green-600"
-              >
+              <Link to="/signup" className="font-semibold hover:text-green-600">
                 Signup
               </Link>
             </>
@@ -145,15 +140,10 @@ export default function Navbar() {
       {/* ================= MOBILE MENU ================= */}
       {open && (
         <div className="md:hidden bg-white border-t px-4 pb-4 space-y-3">
-          <Link to="/" onClick={closeMenu}>
-            Home
-          </Link>
-          <Link to="/meals" onClick={closeMenu}>
-            Meals
-          </Link>
+          <Link to="/" onClick={closeMenu}>Home</Link>
+          <Link to="/meals" onClick={closeMenu}>Meals</Link>
 
-          {/* USER */}
-          {isAuthenticated && !isAdmin && (
+          {isAuthenticated && (
             <>
               <button
                 onClick={() => {
@@ -178,7 +168,6 @@ export default function Navbar() {
             </>
           )}
 
-          {/* ADMIN */}
           {isAdmin && (
             <>
               <Link
@@ -205,19 +194,14 @@ export default function Navbar() {
             </>
           )}
 
-          {/* AUTH */}
           {isAuthenticated ? (
             <button onClick={handleLogout} className="text-red-500">
               Logout
             </button>
           ) : (
             <>
-              <Link to="/login" onClick={closeMenu}>
-                Login
-              </Link>
-              <Link to="/signup" onClick={closeMenu}>
-                Signup
-              </Link>
+              <Link to="/login" onClick={closeMenu}>Login</Link>
+              <Link to="/signup" onClick={closeMenu}>Signup</Link>
             </>
           )}
         </div>

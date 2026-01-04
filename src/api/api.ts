@@ -1,16 +1,35 @@
 import axios from "axios";
 
+// Normalize API base to include /api exactly once
+const rawBase =
+  import.meta.env.VITE_API_URL ||
+  "https://macrobox-backend.onrender.com/api";
+
+const trimmedBase = rawBase.replace(/\/+$/, "");
+
+export const API_BASE = trimmedBase.endsWith("/api")
+  ? trimmedBase
+  : `${trimmedBase}/api`;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+  baseURL: API_BASE,
   withCredentials: true,
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// 🔐 Attach JWT token automatically (Axios v1+ safe)
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      // ✅ DO NOT replace headers object
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export default api;
