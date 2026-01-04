@@ -39,8 +39,13 @@ function SortableMeal({
   onToggleFeatured: (val: boolean) => void;
   toggling: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: meal._id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: meal._id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -51,10 +56,19 @@ function SortableMeal({
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className="border rounded-2xl p-4 bg-white flex gap-4 cursor-move"
+      className="border rounded-2xl p-4 bg-white flex gap-4"
     >
+      {/* 🔹 DRAG HANDLE (ONLY THIS DRAGS) */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing flex items-center text-xl select-none"
+        title="Drag to reorder"
+      >
+        ☰
+      </div>
+
+      {/* IMAGE */}
       <img
         src={meal.imageUrl || "/placeholder-meal.png"}
         className="w-24 h-24 rounded-xl object-cover"
@@ -63,6 +77,7 @@ function SortableMeal({
         }
       />
 
+      {/* CONTENT */}
       <div className="flex-1">
         <h3 className="font-semibold">{meal.title}</h3>
         <p className="text-sm text-slate-500">
@@ -79,6 +94,7 @@ function SortableMeal({
           Feature on homepage
         </label>
 
+        {/* ACTIONS */}
         <div className="flex gap-3 mt-3">
           <button
             onClick={onEdit}
@@ -97,6 +113,7 @@ function SortableMeal({
     </div>
   );
 }
+
 
 /* ================= MAIN ================= */
 export default function AdminMeals() {

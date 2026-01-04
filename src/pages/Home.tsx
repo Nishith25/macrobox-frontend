@@ -4,11 +4,15 @@ import SectionTitle from "../components/SectionTitle";
 import MealCard from "../components/MealCard";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
+import toast from "react-hot-toast";
+
+/* ================= TYPES ================= */
 
 export type Meal = {
   _id: string;
   title: string;
-  description: string;
+  description?: string;
   imageUrl: string;
   protein: number;
   calories: number;
@@ -16,33 +20,30 @@ export type Meal = {
   isFeatured: boolean;
 };
 
+/* ================= PAGE ================= */
+
 export default function Home() {
   const { isAdmin } = useAuth();
+  const { addToCart } = useCart();
+
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchFeatured = async (withSpinner = true) => {
-  if (withSpinner) setLoading(true);
-  try {
-    const res = await api.get<Meal[]>("/meals/featured");
-    setMeals(res.data); 
-  } catch {
-    setMeals([]);
-  } finally {
-    if (withSpinner) setLoading(false);
-  }
-};
-
+    if (withSpinner) setLoading(true);
+    try {
+      const res = await api.get<Meal[]>("/meals/featured");
+      setMeals(res.data);
+    } catch {
+      setMeals([]);
+    } finally {
+      if (withSpinner) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (mounted) await fetchFeatured();
-    })();
-    return () => {
-      mounted = false;
-    };
+    fetchFeatured();
   }, []);
 
   const handleRefresh = async () => {
@@ -51,9 +52,20 @@ export default function Home() {
     setRefreshing(false);
   };
 
+  /* ✅ ADD TO CART */
+  const handleAddToCart = (meal: Meal) => {
+    addToCart({
+      _id: meal._id,
+      title: meal.title,
+      price: meal.price,
+      protein: meal.protein,
+      calories: meal.calories,
+    });
+    toast.success("Added to cart");
+  };
+
   return (
     <>
-      {/* HERO */}
       <div className="text-center py-16">
         <h1 className="text-4xl font-bold mb-4">
           Fuel Your Day with MacroBox
@@ -63,7 +75,6 @@ export default function Home() {
         </p>
       </div>
 
-      {/* FEATURED */}
       <Container>
         <div className="flex items-center justify-between mb-4">
           <SectionTitle title="Featured" />
@@ -86,7 +97,11 @@ export default function Home() {
         ) : (
           <div className="grid md:grid-cols-3 gap-6">
             {meals.map((meal) => (
-              <MealCard key={meal._id} meal={meal} />
+              <MealCard
+                key={meal._id}
+                meal={meal}
+                onAddToCart={handleAddToCart} // ✅ PASS DIRECTLY
+              />
             ))}
           </div>
         )}

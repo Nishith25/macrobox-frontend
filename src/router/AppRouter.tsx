@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
+
 // Pages (Public)
 import Home from "../pages/Home";
 import Meals from "../pages/Meals";
@@ -19,11 +20,16 @@ import ResendVerification from "../pages/ResendVerification";
 // User Pages (Protected)
 import Dashboard from "../pages/Dashboard";
 import PlanMyDay from "../pages/PlanMyDay";
+import Cart from "../pages/Cart";
+import Checkout from "../pages/Checkout";
+import Orders from "../pages/Orders";
+
 
 // Admin Pages
 import AdminDashboard from "../pages/AdminDashboard";
 import AdminUsers from "../pages/AdminUsers";
 import AdminMeals from "../pages/AdminMeals";
+import AdminCoupons from "../pages/AdminCoupons";
 
 // Route Guards
 import ProtectedRoute from "./ProtectedRoute";
@@ -66,6 +72,10 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
+      <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+    
+     <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+    <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
 
         {/* ================= ADMIN ROUTES ================= */}
         <Route
@@ -94,6 +104,14 @@ export default function AppRouter() {
             </AdminRoute>
           }
         />
+        <Route
+  path="/admin/coupons"       // ✅ NEW
+  element={
+    <AdminRoute>
+      <AdminCoupons />
+    </AdminRoute>
+  }
+/>
 
         {/* ================= FALLBACK ================= */}
         <Route path="*" element={<Navigate to="/" replace />} />
