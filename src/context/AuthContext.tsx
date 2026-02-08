@@ -1,9 +1,5 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+// frontend/src/context/AuthContext.tsx
+import { createContext, useContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import FullScreenLoader from "../components/FullScreenLoader";
 import toast from "react-hot-toast";
@@ -28,11 +24,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   isAdmin: boolean;
   login: (data: { email: string; password: string }) => Promise<User>;
-  signup: (data: {
-    name: string;
-    email: string;
-    password: string;
-  }) => Promise<void>;
+  signup: (data: { name: string; email: string; password: string }) => Promise<void>;
   logout: () => void;
 };
 
@@ -50,6 +42,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = Boolean(token);
   const isAdmin = user?.role === "admin";
 
+  /* ================= LOGOUT (used in restore) ================= */
+
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+
+    delete api.defaults.headers.common.Authorization;
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  };
+
   /* ================= RESTORE SESSION ================= */
 
   useEffect(() => {
@@ -59,6 +63,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (savedToken && savedUser) {
       try {
         const decoded = jwtDecode<JwtPayload>(savedToken);
+
+        // token expired
         if (decoded.exp * 1000 < Date.now()) {
           logout();
         } else {
@@ -72,13 +78,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ================= LOGIN ================= */
 
   const login = async (data: { email: string; password: string }) => {
     try {
-      const res = await api.post("auth/login", data);
+      // ✅ use leading "/" for safety
+      const res = await api.post("/auth/login", data);
 
       const { token: accessToken, user: userData } = res.data;
 
@@ -92,41 +100,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return userData;
     } catch (err: any) {
-      toast.error(
-        err.response?.data?.message || "Login failed"
-      );
+      toast.error(err.response?.data?.message || "Login failed");
       throw err;
     }
   };
 
   /* ================= SIGNUP ================= */
 
-  const signup = async (data: {
-    name: string;
-    email: string;
-    password: string;
-  }) => {
+  const signup = async (data: { name: string; email: string; password: string }) => {
     try {
-      await api.post("auth/register", data); // ✅ FIXED
-      toast.success("Account created. Please login.");
+      // ✅ FIX: backend route is /api/auth/signup (NOT /register)
+      await api.post("/auth/signup", data);
+
+      toast.success("Signup successful! Please check your email to verify your account.");
     } catch (err: any) {
-      toast.error(
-        err.response?.data?.message || "Signup failed"
-      );
+      toast.error(err.response?.data?.message || "Signup failed");
       throw err;
     }
-  };
-
-  /* ================= LOGOUT ================= */
-
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-
-    delete api.defaults.headers.common.Authorization;
-
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
   };
 
   /* ================= CONTEXT VALUE ================= */
