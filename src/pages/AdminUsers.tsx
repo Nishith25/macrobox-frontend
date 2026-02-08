@@ -1,27 +1,30 @@
+// frontend/src/pages/AdminUsers.tsx
 import { useEffect, useState } from "react";
 import api from "../api/api";
 
-type User = {
+type UserRow = {
   _id: string;
   name: string;
   email: string;
   role: "user" | "admin";
+  isFrozen?: boolean;
+  isDeactivated?: boolean;
 };
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  // 🔹 Fetch all users (ADMIN)
   const fetchUsers = async () => {
+    setLoading(true);
+    setMsg(null);
     try {
-      setError(null);
-      const res = await api.get<User[]>("admin/users");
+      const res = await api.get<UserRow[]>("/admin/users");
       setUsers(res.data);
     } catch (err: any) {
       console.error("Fetch users error:", err);
-      setError("Failed to load users");
+      setMsg(err?.response?.data?.message || "Failed to fetch users");
     } finally {
       setLoading(false);
     }
@@ -31,100 +34,112 @@ export default function AdminUsers() {
     fetchUsers();
   }, []);
 
-  // 🔹 Update user role
-  const handleRoleChange = async (
-    id: string,
-    role: "user" | "admin"
-  ) => {
+  const patchUser = async (id: string, action: "freeze" | "unfreeze" | "deactivate" | "activate") => {
+    setMsg(null);
     try {
-      const res = await api.patch<User>(
-        `admin/users/${id}/role`,
-        { role }
-      );
-
-      setUsers((prev) =>
-        prev.map((u) =>
-          u._id === id ? { ...u, role: res.data.role } : u
-        )
-      );
-    } catch (err) {
-      console.error("Update role error:", err);
-      alert("Failed to update role");
+      await api.patch(`/admin/users/${id}/${action}`);
+      await fetchUsers();
+    } catch (err: any) {
+      console.error("User action error:", err);
+      setMsg(err?.response?.data?.message || "Action failed");
     }
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-6xl mx-auto py-12">
-        <p className="text-gray-600">Loading users...</p>
-      </div>
-    );
-  }
+  const statusText = (u: UserRow) => {
+    if (u.isDeactivated) return "Deactivated";
+    if (u.isFrozen) return "Frozen";
+    return "Active";
+  };
 
-  if (error) {
-    return (
-      <div className="max-w-6xl mx-auto py-12">
-        <p className="text-red-500">{error}</p>
-      </div>
-    );
-  }
+  const statusClass = (u: UserRow) => {
+    if (u.isDeactivated) return "bg-gray-200 text-gray-700";
+    if (u.isFrozen) return "bg-yellow-100 text-yellow-700";
+    return "bg-green-100 text-green-700";
+  };
 
   return (
-    <div className="max-w-6xl mx-auto py-12">
+    <div className="max-w-6xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">User Management</h1>
 
-      <div className="bg-white shadow-md rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-sm font-semibold text-gray-600">
-                Name
-              </th>
-              <th className="px-4 py-3 text-sm font-semibold text-gray-600">
-                Email
-              </th>
-              <th className="px-4 py-3 text-sm font-semibold text-gray-600">
-                Role
-              </th>
-            </tr>
-          </thead>
+      {msg && <p className="mb-4 text-sm text-red-600">{msg}</p>}
 
-          <tbody>
-            {users.length === 0 && (
-              <tr>
-                <td
-                  colSpan={3}
-                  className="px-4 py-6 text-center text-gray-500"
+      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+        <div className="grid grid-cols-12 px-5 py-3 text-sm font-semibold text-gray-600 border-b bg-gray-50">
+          <div className="col-span-3">Name</div>
+          <div className="col-span-4">Email</div>
+          <div className="col-span-2">Status</div>
+          <div className="col-span-3 text-right">Actions</div>
+        </div>
+
+        {loading ? (
+          <div className="p-6 text-gray-500">Loading...</div>
+        ) : users.length === 0 ? (
+          <div className="p-6 text-gray-500">No users found.</div>
+        ) : (
+          users.map((u) => (
+            <div
+              key={u._id}
+              className="grid grid-cols-12 px-5 py-4 border-b items-center"
+            >
+              <div className="col-span-3 font-medium">{u.name}</div>
+              <div className="col-span-4 text-gray-700">{u.email}</div>
+
+              <div className="col-span-2">
+                <span
+                  className={`text-xs px-3 py-1 rounded-full ${statusClass(u)}`}
                 >
-                  No users found
-                </td>
-              </tr>
-            )}
+                  {statusText(u)}
+                </span>
+                {u.role === "admin" && (
+                  <span className="ml-2 text-xs px-2 py-1 rounded bg-red-100 text-red-600">
+                    ADMIN
+                  </span>
+                )}
+              </div>
 
-            {users.map((u) => (
-              <tr key={u._id} className="border-t">
-                <td className="px-4 py-3 text-sm">{u.name}</td>
-                <td className="px-4 py-3 text-sm">{u.email}</td>
-                <td className="px-4 py-3 text-sm">
-                  <select
-                    value={u.role}
-                    onChange={(e) =>
-                      handleRoleChange(
-                        u._id,
-                        e.target.value as "user" | "admin"
-                      )
+              <div className="col-span-3 flex justify-end gap-2">
+                {/* Freeze / Unfreeze (hide if deactivated) */}
+                {!u.isDeactivated && (
+                  <button
+                    onClick={() =>
+                      patchUser(u._id, u.isFrozen ? "unfreeze" : "freeze")
                     }
-                    className="border rounded-lg px-2 py-1 text-sm"
+                    className={`px-3 py-1.5 rounded text-sm border transition ${
+                      u.isFrozen
+                        ? "bg-white hover:bg-gray-50"
+                        : "bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500"
+                    }`}
                   >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    {u.isFrozen ? "Unfreeze" : "Freeze"}
+                  </button>
+                )}
+
+                {/* Deactivate / Activate */}
+                <button
+                  onClick={() =>
+                    patchUser(
+                      u._id,
+                      u.isDeactivated ? "activate" : "deactivate"
+                    )
+                  }
+                  className={`px-3 py-1.5 rounded text-sm border transition ${
+                    u.isDeactivated
+                      ? "bg-white hover:bg-gray-50"
+                      : "bg-red-500 text-white hover:bg-red-600 border-red-500"
+                  }`}
+                >
+                  {u.isDeactivated ? "Activate" : "Deactivate"}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
+
+      <p className="text-xs text-gray-500 mt-4">
+        Note: Frozen users cannot login (shows a support message). Deactivated
+        users can be reactivated only by signing up again with the same email.
+      </p>
     </div>
   );
 }
