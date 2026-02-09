@@ -1,3 +1,4 @@
+// frontend/src/pages/Cart.tsx
 import { useMemo, useState } from "react";
 import { Plus, Minus, Trash2, MapPin, Clock } from "lucide-react";
 import { useCart } from "../context/CartContext";
@@ -10,12 +11,48 @@ declare global {
   }
 }
 
-const SLOTS = [
-  "7:00 AM - 9:00 AM",
-  "9:00 AM - 11:00 AM",
-  "12:00 PM - 2:00 PM",
-  "6:00 PM - 8:00 PM",
-];
+/**
+ * ✅ Professional single time-slots:
+ * 7:00 AM → 7:00 PM (hourly)
+ * ✅ User can only select a slot that is at least 3 hours from now
+ */
+const SLOT_START_HOUR = 7; // 7 AM
+const SLOT_END_HOUR = 19; // 7 PM
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+const format12h = (hour24: number) => {
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const h = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${h}:00 ${period}`;
+};
+
+const buildSlots = () => {
+  // store as 24h "HH:00" in DB/backend-friendly format
+  const slots: string[] = [];
+  for (let h = SLOT_START_HOUR; h <= SLOT_END_HOUR; h++) {
+    slots.push(`${pad2(h)}:00`);
+  }
+  return slots;
+};
+
+const getHourFromSlot = (slotHHmm: string) => Number(slotHHmm.split(":")[0]);
+
+const isSlotAllowed = (selectedDateISO: string, slotHHmm: string) => {
+  if (!selectedDateISO || !slotHHmm) return false;
+
+  // selectedDateISO is "YYYY-MM-DD"
+  const [yy, mm, dd] = selectedDateISO.split("-").map(Number);
+  const hour = getHourFromSlot(slotHHmm);
+  if (!yy || !mm || !dd || Number.isNaN(hour)) return false;
+
+  const slotDateTime = new Date(yy, mm - 1, dd, hour, 0, 0, 0);
+
+  const minAllowed = new Date();
+  minAllowed.setHours(minAllowed.getHours() + 3);
+
+  return slotDateTime.getTime() >= minAllowed.getTime();
+};
 
 type Address = {
   fullName: string;
@@ -51,9 +88,12 @@ export default function Cart() {
   });
 
   const [slotDate, setSlotDate] = useState(
-    new Date().toISOString().slice(0, 10)
+    new Date().toISOString().slice(0, 10) // YYYY-MM-DD
   );
-  const [slotTime, setSlotTime] = useState(SLOTS[0]);
+
+  // store time as "HH:00"
+  const slots = useMemo(() => buildSlots(), []);
+  const [slotTime, setSlotTime] = useState(slots[0]);
 
   /* ================= DERIVED ================= */
 
@@ -136,6 +176,12 @@ export default function Cart() {
       return false;
     }
 
+    // ✅ enforce 3-hour rule on frontend
+    if (!isSlotAllowed(slotDate, slotTime)) {
+      setCouponMsg("Please choose a delivery time at least 3 hours from now.");
+      return false;
+    }
+
     return true;
   };
 
@@ -162,6 +208,8 @@ export default function Cart() {
           title: i.title,
           price: i.price,
           qty: i.qty,
+          protein: i.protein,
+          calories: i.calories,
         })),
         couponCode: coupon || null,
         address: {
@@ -174,8 +222,8 @@ export default function Cart() {
           pincode: address.pincode,
         },
         deliverySlot: {
-          date: slotDate,
-          time: slotTime,
+          date: slotDate, // YYYY-MM-DD
+          time: slotTime, // "HH:00" ✅ backend-friendly
         },
       });
 
@@ -278,8 +326,12 @@ export default function Cart() {
         <div className="border rounded-xl p-5 bg-white h-fit">
           <h2 className="text-xl font-bold mb-4">Order Summary</h2>
 
-          <p>Total Protein: <b>{totalProtein} g</b></p>
-          <p>Total Calories: <b>{totalCalories}</b></p>
+          <p>
+            Total Protein: <b>{totalProtein} g</b>
+          </p>
+          <p>
+            Total Calories: <b>{totalCalories}</b>
+          </p>
 
           <hr className="my-3" />
 
@@ -338,23 +390,49 @@ export default function Cart() {
           {/* SLOT */}
           <div className="mt-4">
             <p className="font-semibold flex items-center gap-2">
-              <Clock size={16} /> Delivery Slot
+              <Clock size={16} /> Delivery Time
             </p>
+
             <input
               type="date"
               className="border rounded px-3 py-2 w-full mt-2"
               value={slotDate}
-              onChange={(e) => setSlotDate(e.target.value)}
+              onChange={(e) => {
+                setSlotDate(e.target.value);
+
+                // if current selected becomes invalid after date change, reset
+                const allowedNow = isSlotAllowed(e.target.value, slotTime);
+                if (!allowedNow) {
+                  const firstAllowed = slots.find((s) =>
+                    isSlotAllowed(e.target.value, s)
+                  );
+                  if (firstAllowed) setSlotTime(firstAllowed);
+                }
+              }}
+              min={new Date().toISOString().slice(0, 10)}
             />
+
             <select
               className="border rounded px-3 py-2 w-full mt-2"
               value={slotTime}
               onChange={(e) => setSlotTime(e.target.value)}
             >
-              {SLOTS.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
+              {slots.map((s) => {
+                const allowed = isSlotAllowed(slotDate, s);
+                const label = format12h(getHourFromSlot(s));
+                return (
+                  <option key={s} value={s} disabled={!allowed}>
+                    {label}
+                    {!allowed ? " (3+ hrs from now)" : ""}
+                  </option>
+                );
+              })}
             </select>
+
+            <p className="text-xs text-gray-500 mt-2">
+              You can place orders only if the selected time is at least{" "}
+              <b>3 hours</b> from now.
+            </p>
           </div>
 
           {couponMsg && (
