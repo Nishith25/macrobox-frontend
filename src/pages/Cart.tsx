@@ -200,7 +200,8 @@ export default function Cart() {
     }
 
     if (!isSlotAllowed(slotDate, slotTime)) {
-      setSlotMsg("Selected time slot is not available. Please choose another.");
+      // ✅ keep it generic to match backend message style
+      setSlotMsg("Time slot is not available.");
       return false;
     }
 
@@ -280,6 +281,7 @@ export default function Cart() {
       rzp.open();
     } catch (err: any) {
       console.error(err);
+      // Keep payment/order errors in coupon area (top of summary)
       setCouponMsg(err?.response?.data?.message || "Failed to create order");
       setCouponMsgType("error");
     } finally {
@@ -437,7 +439,10 @@ export default function Cart() {
                 const newDate = e.target.value;
                 setSlotDate(newDate);
 
-                // if current selected becomes invalid after date change, jump to first allowed
+                // Clear slot error when user changes date
+                setSlotMsg(null);
+
+                // If current selected becomes invalid after date change, jump to first allowed
                 if (!isSlotAllowed(newDate, slotTime)) {
                   const firstAllowed = slots.find((s) =>
                     isSlotAllowed(newDate, s)
@@ -451,7 +456,10 @@ export default function Cart() {
             <select
               className="border rounded px-3 py-2 w-full mt-2"
               value={slotTime}
-              onChange={(e) => setSlotTime(e.target.value)}
+              onChange={(e) => {
+                setSlotTime(e.target.value);
+                setSlotMsg(null); // clear error when user picks another time
+              }}
             >
               {slots.map((s) => {
                 const allowed = isSlotAllowed(slotDate, s);
