@@ -414,10 +414,6 @@ export default function Cart() {
                 })}
               </div>
             )}
-
-            <p className="text-xs text-gray-400 mt-3">
-              Only eligible coupons are shown (active + valid + within your usage limits).
-            </p>
           </div>
         </div>
 
