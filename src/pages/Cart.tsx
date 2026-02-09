@@ -473,7 +473,7 @@ export default function Cart() {
             </select>
 
             <p className="text-xs text-gray-500 mt-2">
-              Time slots within the next <b>3 hours</b> are disabled.
+              Orders must be placed at least <b>3 hours</b> before your desired time slot.
             </p>
 
             {/* ✅ Invalid time slot → red text here */}
