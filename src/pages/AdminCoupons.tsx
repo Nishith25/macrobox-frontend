@@ -19,7 +19,7 @@ type Coupon = {
 
   isActive: boolean;
 
-  // ✅ suggested additions
+  // ✅ usage limits
   usageLimitTotal?: number; // 0 = unlimited
   usageLimitPerUser?: number;
   usedCount?: number;
@@ -28,7 +28,7 @@ type Coupon = {
 type FormState = {
   code: string;
   type: "flat" | "percent";
-  value: string; // keep string for input
+  value: string;
   minCartTotal: string;
   maxDiscount: string;
 
@@ -41,15 +41,10 @@ type FormState = {
   usageLimitPerUser: string; // default "1"
 };
 
-const toDateInput = (iso?: string | null) => {
-  if (!iso) return "";
-  return new Date(iso).toISOString().slice(0, 10);
-};
-
 const prettyDate = (iso?: string | null) => {
   if (!iso) return "-";
   const d = new Date(iso);
-  return d.toLocaleDateString();
+  return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
 };
 
 export default function AdminCoupons() {
@@ -100,7 +95,6 @@ export default function AdminCoupons() {
     if (Number(form.minCartTotal) < 0) return "Min cart total cannot be negative";
     if (Number(form.usageLimitTotal) < 0) return "Total usage limit cannot be negative";
     if (Number(form.usageLimitPerUser) < 1) return "Per user limit must be at least 1";
-
     if (form.type === "percent" && Number(form.maxDiscount) < 0) return "Max discount cannot be negative";
 
     return null;
@@ -125,7 +119,7 @@ export default function AdminCoupons() {
         minCartTotal: Number(form.minCartTotal),
         maxDiscount: form.type === "percent" ? Number(form.maxDiscount) : 0,
 
-        // ✅ validity range
+        // ✅ validity range (store as Date)
         validFrom: form.validFrom ? new Date(form.validFrom).toISOString() : null,
         validTo: form.validTo ? new Date(form.validTo).toISOString() : null,
 
@@ -159,6 +153,8 @@ export default function AdminCoupons() {
   };
 
   const toggleCoupon = async (id: string) => {
+    setMsg(null);
+    setMsgType(null);
     try {
       await api.patch(`/coupons/${id}/toggle`);
       fetchCoupons();
@@ -170,6 +166,8 @@ export default function AdminCoupons() {
 
   const deleteCoupon = async (id: string) => {
     if (!confirm("Delete this coupon?")) return;
+    setMsg(null);
+    setMsgType(null);
     try {
       await api.delete(`/coupons/${id}`);
       fetchCoupons();
@@ -226,7 +224,7 @@ export default function AdminCoupons() {
             value={form.maxDiscount}
             disabled={form.type !== "percent"}
             onChange={(e) => setForm({ ...form, maxDiscount: e.target.value })}
-            className="border rounded px-3 py-2"
+            className={`border rounded px-3 py-2 ${form.type !== "percent" ? "opacity-60" : ""}`}
           />
 
           {/* ✅ Valid From / Valid To */}
@@ -300,10 +298,8 @@ export default function AdminCoupons() {
               </thead>
               <tbody>
                 {coupons.map((c) => {
-                  const from = c.validFrom ? c.validFrom : null;
-
-                  // prefer validTo, fallback to expiresAt (old)
-                  const to = c.validTo ? c.validTo : c.expiresAt || null;
+                  const from = c.validFrom ?? null;
+                  const to = c.validTo ?? c.expiresAt ?? null;
 
                   const usedCount = c.usedCount ?? 0;
                   const totalLimit = c.usageLimitTotal ?? 0;
@@ -356,10 +352,7 @@ export default function AdminCoupons() {
                           Toggle
                         </button>
 
-                        <button
-                          onClick={() => deleteCoupon(c._id)}
-                          className="text-red-600 text-sm"
-                        >
+                        <button onClick={() => deleteCoupon(c._id)} className="text-red-600 text-sm">
                           Delete
                         </button>
                       </td>
@@ -372,7 +365,6 @@ export default function AdminCoupons() {
         )}
       </div>
 
-      {/* NOTE */}
       <p className="text-xs text-gray-500 mt-4">
         Validity is shown as From → To. For older coupons, To may show the old expiresAt if present.
       </p>

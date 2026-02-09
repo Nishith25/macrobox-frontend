@@ -1,6 +1,6 @@
-// frontend/src/pages/Cart.tsx
-import { useMemo, useState } from "react";
-import { Plus, Minus, Trash2, MapPin, Clock } from "lucide-react";
+// frontend/src/pages/Cart.tsx (FRONTEND)
+import { useMemo, useState, useEffect } from "react";
+import { Plus, Minus, Trash2, MapPin, Clock, Tag } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import api from "../api/api";
 import { useNavigate } from "react-router-dom";
@@ -15,13 +15,16 @@ declare global {
  * ✅ Professional single time-slots:
  * 7:00 AM → 7:00 PM (hourly)
  * ✅ User can only select a slot that is at least 3 hours from now
- * ✅ UI: No "(3+ hrs from now)" text
  * ✅ Disabled slots show: "— Time slot not available"
  *
  * ✅ Coupon expired → red text under Apply Coupon
  * ✅ Invalid time slot → red text under Delivery Time
  * ✅ Incomplete address → red text under Address
  * ✅ Cleaner UX (separate messages, no mixing)
+ *
+ * ✅ NEW: Show all ACTIVE coupons below cart (only coupons user can still use)
+ *    - hidden if user already reached per-user limit
+ *    - hidden if coupon expired/not active yet/total limit reached
  */
 const SLOT_START_HOUR = 7; // 7 AM
 const SLOT_END_HOUR = 19; // 7 PM
@@ -37,7 +40,7 @@ const format12h = (hour24: number) => {
 const buildSlots = () => {
   const slots: string[] = [];
   for (let h = SLOT_START_HOUR; h <= SLOT_END_HOUR; h++) {
-    slots.push(`${pad2(h)}:00`); // backend-friendly: "HH:00"
+    slots.push(`${pad2(h)}:00`);
   }
   return slots;
 };
@@ -52,7 +55,6 @@ const isSlotAllowed = (selectedDateISO: string, slotHHmm: string) => {
   if (!yy || !mm || !dd || Number.isNaN(hour)) return false;
 
   const slotDateTime = new Date(yy, mm - 1, dd, hour, 0, 0, 0);
-
   const minAllowed = new Date();
   minAllowed.setHours(minAllowed.getHours() + 3);
 
@@ -74,20 +76,40 @@ type Address = {
 
 type MsgType = "success" | "error" | null;
 
+type AvailableCoupon = {
+  code: string;
+  type: "flat" | "percent";
+  value: number;
+  minCartTotal: number;
+  maxDiscount: number;
+  validFrom?: string | null;
+  validTo?: string | null;
+};
+
+const formatCouponLabel = (c: AvailableCoupon) => {
+  if (c.type === "flat") return `₹${c.value} OFF`;
+  const cap = c.maxDiscount > 0 ? ` (Max ₹${c.maxDiscount})` : "";
+  return `${c.value}% OFF${cap}`;
+};
+
+const prettyDate = (iso?: string | null) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString();
+};
+
 export default function Cart() {
   const navigate = useNavigate();
-  const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } =
-    useCart();
+  const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } = useCart();
 
   /* ================= STATE ================= */
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
 
-  // Coupon message (below Apply button)
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponMsgType, setCouponMsgType] = useState<MsgType>(null);
 
-  // Address + Slot messages (under their sections)
   const [addressMsg, setAddressMsg] = useState<string | null>(null);
   const [slotMsg, setSlotMsg] = useState<string | null>(null);
 
@@ -104,30 +126,53 @@ export default function Cart() {
     pincode: "",
   });
 
-  const [slotDate, setSlotDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  ); // YYYY-MM-DD
-
+  const [slotDate, setSlotDate] = useState(new Date().toISOString().slice(0, 10));
   const slots = useMemo(() => buildSlots(), []);
   const [slotTime, setSlotTime] = useState(slots[0]);
 
+  // ✅ Available coupons list (server filters eligibility)
+  const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>([]);
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
+
   /* ================= DERIVED ================= */
-  const subtotal = useMemo(
-    () => cart.reduce((s, i) => s + i.price * i.qty, 0),
-    [cart]
-  );
-
-  const totalProtein = useMemo(
-    () => cart.reduce((s, i) => s + i.protein * i.qty, 0),
-    [cart]
-  );
-
-  const totalCalories = useMemo(
-    () => cart.reduce((s, i) => s + i.calories * i.qty, 0),
-    [cart]
-  );
-
+  const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price * i.qty, 0), [cart]);
+  const totalProtein = useMemo(() => cart.reduce((s, i) => s + i.protein * i.qty, 0), [cart]);
+  const totalCalories = useMemo(() => cart.reduce((s, i) => s + i.calories * i.qty, 0), [cart]);
   const payable = Math.max(subtotal - discount, 0);
+
+  /* ================= FETCH AVAILABLE COUPONS ================= */
+  const fetchAvailableCoupons = async () => {
+    try {
+      setLoadingCoupons(true);
+      const res = await api.get(`/coupons/available?cartTotal=${subtotal}`);
+      setAvailableCoupons(res.data || []);
+    } catch {
+      setAvailableCoupons([]);
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
+
+  useEffect(() => {
+    if (cart.length > 0) fetchAvailableCoupons();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, cart.length]);
+
+  // ✅ If already applied coupon becomes invalid after cart change → remove it
+  useEffect(() => {
+    if (!coupon.trim()) return;
+
+    const applied = coupon.trim().toUpperCase();
+    const stillEligible = availableCoupons.some((c) => c.code === applied);
+
+    if (!stillEligible) {
+      setCoupon("");
+      setDiscount(0);
+      setCouponMsg("Coupon removed (not eligible anymore).");
+      setCouponMsgType("error");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableCoupons]);
 
   if (cart.length === 0) {
     return (
@@ -138,28 +183,31 @@ export default function Cart() {
   }
 
   /* ================= COUPON ================= */
-  const applyCoupon = async () => {
-    if (!coupon.trim()) return;
+  const applyCoupon = async (codeOverride?: string) => {
+    const codeToApply = (codeOverride ?? coupon).trim().toUpperCase();
+    if (!codeToApply) return;
 
     setApplying(true);
-
-    // clear only coupon message (do not touch address/slot messages)
     setCouponMsg(null);
     setCouponMsgType(null);
 
     try {
       const res = await api.post("/coupons/apply", {
-        code: coupon.trim(),
+        code: codeToApply,
         cartTotal: subtotal,
       });
 
+      setCoupon(codeToApply);
       setDiscount(res.data.discount || 0);
       setCouponMsg(`Coupon applied! You saved ₹${res.data.discount}`);
       setCouponMsgType("success");
+
+      fetchAvailableCoupons();
     } catch (err: any) {
       setDiscount(0);
       setCouponMsg(err?.response?.data?.message || "Coupon expired");
-      setCouponMsgType("error"); // ✅ red
+      setCouponMsgType("error");
+      fetchAvailableCoupons();
     } finally {
       setApplying(false);
     }
@@ -178,7 +226,6 @@ export default function Cart() {
     });
 
   const validateCheckout = () => {
-    // ✅ Cleaner UX: separate messages, no mixing
     setAddressMsg(null);
     setSlotMsg(null);
 
@@ -200,7 +247,6 @@ export default function Cart() {
     }
 
     if (!isSlotAllowed(slotDate, slotTime)) {
-      // ✅ keep it generic to match backend message style
       setSlotMsg("Time slot is not available.");
       return false;
     }
@@ -232,12 +278,9 @@ export default function Cart() {
           protein: i.protein,
           calories: i.calories,
         })),
-        couponCode: coupon || null,
+        couponCode: coupon ? coupon.trim() : null,
         address,
-        deliverySlot: {
-          date: slotDate,
-          time: slotTime,
-        },
+        deliverySlot: { date: slotDate, time: slotTime },
       });
 
       const { razorpayOrderId, amount, keyId, orderId } = createRes.data;
@@ -280,8 +323,6 @@ export default function Cart() {
 
       rzp.open();
     } catch (err: any) {
-      console.error(err);
-      // Keep payment/order errors in coupon area (top of summary)
       setCouponMsg(err?.response?.data?.message || "Failed to create order");
       setCouponMsgType("error");
     } finally {
@@ -314,28 +355,70 @@ export default function Cart() {
               </div>
 
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => decreaseQty(item._id)}
-                  className="p-2 border rounded"
-                >
+                <button onClick={() => decreaseQty(item._id)} className="p-2 border rounded">
                   <Minus size={16} />
                 </button>
                 <span className="font-semibold">{item.qty}</span>
-                <button
-                  onClick={() => increaseQty(item._id)}
-                  className="p-2 border rounded"
-                >
+                <button onClick={() => increaseQty(item._id)} className="p-2 border rounded">
                   <Plus size={16} />
                 </button>
-                <button
-                  onClick={() => removeFromCart(item._id)}
-                  className="p-2 text-red-600"
-                >
+                <button onClick={() => removeFromCart(item._id)} className="p-2 text-red-600">
                   <Trash2 size={18} />
                 </button>
               </div>
             </div>
           ))}
+
+          {/* ✅ AVAILABLE COUPONS */}
+          <div className="border rounded-xl p-4 bg-white">
+            <p className="font-semibold flex items-center gap-2">
+              <Tag size={16} /> Available Coupons
+            </p>
+
+            {loadingCoupons ? (
+              <p className="text-sm text-gray-500 mt-2">Loading coupons...</p>
+            ) : availableCoupons.length === 0 ? (
+              <p className="text-sm text-gray-500 mt-2">No coupons available for your cart.</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {availableCoupons.map((c) => {
+                  const from = prettyDate(c.validFrom);
+                  const to = prettyDate(c.validTo);
+
+                  return (
+                    <div
+                      key={c.code}
+                      className="border rounded-lg p-3 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="font-semibold">{c.code}</p>
+                        <p className="text-sm text-gray-600">
+                          {formatCouponLabel(c)} • Min ₹{c.minCartTotal}
+                        </p>
+                        {(from || to) && (
+                          <p className="text-xs text-gray-400">
+                            Valid: {from || "-"} → {to || "-"}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => applyCoupon(c.code)}
+                        disabled={applying}
+                        className="px-3 py-2 rounded bg-green-600 text-white text-sm disabled:opacity-60"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <p className="text-xs text-gray-400 mt-3">
+              Only eligible coupons are shown (active + valid + within your usage limits).
+            </p>
+          </div>
         </div>
 
         {/* SUMMARY */}
@@ -369,7 +452,7 @@ export default function Cart() {
             <input
               value={coupon}
               onChange={(e) => {
-                setCoupon(e.target.value);
+                setCoupon(e.target.value.toUpperCase());
                 setDiscount(0);
                 setCouponMsg(null);
                 setCouponMsgType(null);
@@ -378,14 +461,13 @@ export default function Cart() {
               className="border rounded px-3 py-2 w-full"
             />
             <button
-              onClick={applyCoupon}
+              onClick={() => applyCoupon()}
               disabled={applying}
-              className="mt-2 bg-green-600 text-white w-full py-2 rounded"
+              className="mt-2 bg-green-600 text-white w-full py-2 rounded disabled:opacity-60"
             >
               {applying ? "Applying..." : "Apply Coupon"}
             </button>
 
-            {/* ✅ Coupon expired → red text here */}
             {couponMsg && (
               <p
                 className={`text-sm mt-2 ${
@@ -413,16 +495,11 @@ export default function Cart() {
                 placeholder={k}
                 className="border rounded px-3 py-2 w-full"
                 value={(address as any)[k]}
-                onChange={(e) =>
-                  setAddress({ ...address, [k]: e.target.value })
-                }
+                onChange={(e) => setAddress({ ...address, [k]: e.target.value })}
               />
             ))}
 
-            {/* ✅ Incomplete address → red text here */}
-            {addressMsg && (
-              <p className="text-sm mt-2 text-red-600">{addressMsg}</p>
-            )}
+            {addressMsg && <p className="text-sm mt-2 text-red-600">{addressMsg}</p>}
           </div>
 
           {/* SLOT */}
@@ -438,15 +515,10 @@ export default function Cart() {
               onChange={(e) => {
                 const newDate = e.target.value;
                 setSlotDate(newDate);
-
-                // Clear slot error when user changes date
                 setSlotMsg(null);
 
-                // If current selected becomes invalid after date change, jump to first allowed
                 if (!isSlotAllowed(newDate, slotTime)) {
-                  const firstAllowed = slots.find((s) =>
-                    isSlotAllowed(newDate, s)
-                  );
+                  const firstAllowed = slots.find((s) => isSlotAllowed(newDate, s));
                   if (firstAllowed) setSlotTime(firstAllowed);
                 }
               }}
@@ -458,7 +530,7 @@ export default function Cart() {
               value={slotTime}
               onChange={(e) => {
                 setSlotTime(e.target.value);
-                setSlotMsg(null); // clear error when user picks another time
+                setSlotMsg(null);
               }}
             >
               {slots.map((s) => {
@@ -476,14 +548,13 @@ export default function Cart() {
               Orders must be placed at least <b>3 hours</b> before your desired time slot.
             </p>
 
-            {/* ✅ Invalid time slot → red text here */}
             {slotMsg && <p className="text-sm mt-2 text-red-600">{slotMsg}</p>}
           </div>
 
           <button
             onClick={checkout}
             disabled={checkingOut}
-            className="mt-6 bg-green-600 text-white w-full py-3 rounded-lg hover:bg-green-700"
+            className="mt-6 bg-green-600 text-white w-full py-3 rounded-lg hover:bg-green-700 disabled:opacity-60"
           >
             {checkingOut ? "Processing..." : "Checkout & Pay"}
           </button>
