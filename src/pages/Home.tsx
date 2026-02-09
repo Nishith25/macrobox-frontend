@@ -1,3 +1,4 @@
+// frontend/src/pages/Home.tsx (FRONTEND)
 import { useEffect, useState } from "react";
 import Container from "../components/Container";
 import SectionTitle from "../components/SectionTitle";
@@ -33,8 +34,9 @@ export default function Home() {
   const fetchFeatured = async (withSpinner = true) => {
     if (withSpinner) setLoading(true);
     try {
-      const res = await api.get<Meal[]>("/meals/featured");
-      setMeals(res.data);
+      // ✅ IMPORTANT: fetch ONLY featured meals
+      const res = await api.get<Meal[]>("/meals?featured=true");
+      setMeals(res.data || []);
     } catch {
       setMeals([]);
     } finally {
@@ -52,7 +54,6 @@ export default function Home() {
     setRefreshing(false);
   };
 
-  /* ✅ ADD TO CART */
   const handleAddToCart = (meal: Meal) => {
     addToCart({
       _id: meal._id,
@@ -67,12 +68,8 @@ export default function Home() {
   return (
     <>
       <div className="text-center py-16">
-        <h1 className="text-4xl font-bold mb-4">
-          Fuel Your Day with MacroBox
-        </h1>
-        <p className="text-gray-600">
-          High-protein, clean meals built for daily health
-        </p>
+        <h1 className="text-4xl font-bold mb-4">Fuel Your Day with MacroBox</h1>
+        <p className="text-gray-600">High-protein, clean meals built for daily health</p>
       </div>
 
       <Container>
@@ -97,11 +94,7 @@ export default function Home() {
         ) : (
           <div className="grid md:grid-cols-3 gap-6">
             {meals.map((meal) => (
-              <MealCard
-                key={meal._id}
-                meal={meal}
-                onAddToCart={handleAddToCart} // ✅ PASS DIRECTLY
-              />
+              <MealCard key={meal._id} meal={meal} onAddToCart={handleAddToCart} />
             ))}
           </div>
         )}
