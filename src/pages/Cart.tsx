@@ -1,6 +1,6 @@
 // frontend/src/pages/Cart.tsx (FRONTEND)
 import { useMemo, useState, useEffect } from "react";
-import { Plus, Minus, Trash2, MapPin, Clock, Tag } from "lucide-react";
+import { Plus, Minus, Trash2, MapPin, Clock, Tag, Navigation } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import api from "../api/api";
 import { useNavigate } from "react-router-dom";
@@ -11,23 +11,8 @@ declare global {
   }
 }
 
-/**
- * ✅ Professional single time-slots:
- * 7:00 AM → 7:00 PM (hourly)
- * ✅ User can only select a slot that is at least 3 hours from now
- * ✅ Disabled slots show: "— Time slot not available"
- *
- * ✅ Coupon expired → red text under Apply Coupon
- * ✅ Invalid time slot → red text under Delivery Time
- * ✅ Incomplete address → red text under Address
- * ✅ Cleaner UX (separate messages, no mixing)
- *
- * ✅ NEW: Show all ACTIVE coupons below cart (only coupons user can still use)
- *    - hidden if user already reached per-user limit
- *    - hidden if coupon expired/not active yet/total limit reached
- */
-const SLOT_START_HOUR = 7; // 7 AM
-const SLOT_END_HOUR = 19; // 7 PM
+const SLOT_START_HOUR = 7;
+const SLOT_END_HOUR = 19;
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -39,9 +24,7 @@ const format12h = (hour24: number) => {
 
 const buildSlots = () => {
   const slots: string[] = [];
-  for (let h = SLOT_START_HOUR; h <= SLOT_END_HOUR; h++) {
-    slots.push(`${pad2(h)}:00`);
-  }
+  for (let h = SLOT_START_HOUR; h <= SLOT_END_HOUR; h++) slots.push(`${pad2(h)}:00`);
   return slots;
 };
 
@@ -64,6 +47,8 @@ const isSlotAllowed = (selectedDateISO: string, slotHHmm: string) => {
 const optionLabel = (label: string, allowed: boolean) =>
   allowed ? label : `${label} — Time slot not available`;
 
+type LocationMode = "manual" | "current";
+
 type Address = {
   fullName: string;
   phone: string;
@@ -72,6 +57,13 @@ type Address = {
   city: string;
   state: string;
   pincode: string;
+
+  // ✅ Maps location fields (matches backend)
+  locationMode: LocationMode;
+  locationText: string; // manual
+  lat: number | null; // current
+  lng: number | null; // current
+  mapsUrl: string; // current auto link
 };
 
 type MsgType = "success" | "error" | null;
@@ -99,6 +91,9 @@ const prettyDate = (iso?: string | null) => {
   return d.toLocaleDateString();
 };
 
+const makeMapsUrl = (lat: number, lng: number) =>
+  `https://www.google.com/maps?q=${lat},${lng}`;
+
 export default function Cart() {
   const navigate = useNavigate();
   const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } = useCart();
@@ -112,6 +107,7 @@ export default function Cart() {
 
   const [addressMsg, setAddressMsg] = useState<string | null>(null);
   const [slotMsg, setSlotMsg] = useState<string | null>(null);
+  const [locationMsg, setLocationMsg] = useState<string | null>(null);
 
   const [applying, setApplying] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -124,13 +120,18 @@ export default function Cart() {
     city: "",
     state: "",
     pincode: "",
+
+    locationMode: "manual",
+    locationText: "",
+    lat: null,
+    lng: null,
+    mapsUrl: "",
   });
 
   const [slotDate, setSlotDate] = useState(new Date().toISOString().slice(0, 10));
   const slots = useMemo(() => buildSlots(), []);
   const [slotTime, setSlotTime] = useState(slots[0]);
 
-  // ✅ Available coupons list (server filters eligibility)
   const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>([]);
   const [loadingCoupons, setLoadingCoupons] = useState(false);
 
@@ -158,7 +159,7 @@ export default function Cart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, cart.length]);
 
-  // ✅ If already applied coupon becomes invalid after cart change → remove it
+  // If coupon becomes ineligible, remove it
   useEffect(() => {
     if (!coupon.trim()) return;
 
@@ -213,6 +214,52 @@ export default function Cart() {
     }
   };
 
+  /* ================= MAPS LOCATION ================= */
+  const useCurrentLocation = async () => {
+    setLocationMsg(null);
+
+    if (!navigator.geolocation) {
+      setLocationMsg("Geolocation is not supported on this device/browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Number(pos.coords.latitude);
+        const lng = Number(pos.coords.longitude);
+        const url = makeMapsUrl(lat, lng);
+
+        setAddress((prev) => ({
+          ...prev,
+          locationMode: "current",
+          lat,
+          lng,
+          mapsUrl: url,
+          locationText: "",
+        }));
+      },
+      (err) => {
+        const msg =
+          err.code === err.PERMISSION_DENIED
+            ? "Location permission denied. Please allow it or use manual location."
+            : "Failed to get current location. Try again or use manual location.";
+        setLocationMsg(msg);
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  };
+
+  const switchToManualLocation = () => {
+    setLocationMsg(null);
+    setAddress((prev) => ({
+      ...prev,
+      locationMode: "manual",
+      lat: null,
+      lng: null,
+      mapsUrl: "",
+    }));
+  };
+
   /* ================= RAZORPAY ================= */
   const loadRazorpay = () =>
     new Promise<boolean>((resolve) => {
@@ -222,12 +269,13 @@ export default function Cart() {
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
-      document.body.appendChild(script);
+      document.body.appendChild(script); // ✅ FIXED
     });
 
   const validateCheckout = () => {
     setAddressMsg(null);
     setSlotMsg(null);
+    setLocationMsg(null);
 
     if (
       !address.fullName ||
@@ -241,11 +289,23 @@ export default function Cart() {
       return false;
     }
 
+    // ✅ require location
+    if (address.locationMode === "current") {
+      if (address.lat == null || address.lng == null || !address.mapsUrl) {
+        setLocationMsg("Please click 'Use Current Location' again.");
+        return false;
+      }
+    } else {
+      if (!address.locationText.trim()) {
+        setLocationMsg("Please paste your Google Maps link / Plus Code / location details.");
+        return false;
+      }
+    }
+
     if (!slotDate || !slotTime) {
       setSlotMsg("Please select delivery time.");
       return false;
     }
-
     if (!isSlotAllowed(slotDate, slotTime)) {
       setSlotMsg("Time slot is not available.");
       return false;
@@ -279,7 +339,7 @@ export default function Cart() {
           calories: i.calories,
         })),
         couponCode: coupon ? coupon.trim() : null,
-        address,
+        address, // ✅ includes maps fields now
         deliverySlot: { date: slotDate, time: slotTime },
       });
 
@@ -346,12 +406,9 @@ export default function Cart() {
               <div>
                 <h3 className="font-semibold text-lg">{item.title}</h3>
                 <p className="text-sm text-gray-500">
-                  Protein: {item.protein * item.qty}g • Calories:{" "}
-                  {item.calories * item.qty}
+                  Protein: {item.protein * item.qty}g • Calories: {item.calories * item.qty}
                 </p>
-                <p className="font-medium">
-                  ₹{item.price} × {item.qty}
-                </p>
+                <p className="font-medium">₹{item.price} × {item.qty}</p>
               </div>
 
               <div className="flex items-center gap-3">
@@ -369,7 +426,7 @@ export default function Cart() {
             </div>
           ))}
 
-          {/* ✅ AVAILABLE COUPONS */}
+          {/* AVAILABLE COUPONS */}
           <div className="border rounded-xl p-4 bg-white">
             <p className="font-semibold flex items-center gap-2">
               <Tag size={16} /> Available Coupons
@@ -414,6 +471,10 @@ export default function Cart() {
                 })}
               </div>
             )}
+
+            <p className="text-xs text-gray-400 mt-3">
+              Only eligible coupons are shown (active + valid + within your usage limits).
+            </p>
           </div>
         </div>
 
@@ -421,12 +482,8 @@ export default function Cart() {
         <div className="border rounded-xl p-5 bg-white h-fit">
           <h2 className="text-xl font-bold mb-4">Order Summary</h2>
 
-          <p>
-            Total Protein: <b>{totalProtein} g</b>
-          </p>
-          <p>
-            Total Calories: <b>{totalCalories}</b>
-          </p>
+          <p>Total Protein: <b>{totalProtein} g</b></p>
+          <p>Total Calories: <b>{totalCalories}</b></p>
 
           <hr className="my-3" />
 
@@ -485,15 +542,83 @@ export default function Cart() {
               <MapPin size={16} /> Delivery Address
             </p>
 
-            {Object.keys(address).map((k) => (
-              <input
-                key={k}
-                placeholder={k}
-                className="border rounded px-3 py-2 w-full"
-                value={(address as any)[k]}
-                onChange={(e) => setAddress({ ...address, [k]: e.target.value })}
-              />
-            ))}
+            {(["fullName", "phone", "line1", "line2", "city", "state", "pincode"] as const).map(
+              (k) => (
+                <input
+                  key={k}
+                  placeholder={k}
+                  className="border rounded px-3 py-2 w-full"
+                  value={address[k]}
+                  onChange={(e) => setAddress({ ...address, [k]: e.target.value })}
+                />
+              )
+            )}
+
+            {/* ✅ Google Maps Location */}
+            <div className="mt-3 border rounded-lg p-3 bg-gray-50">
+              <p className="font-semibold flex items-center gap-2 mb-2">
+                <Navigation size={16} /> Google Maps Location
+              </p>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={useCurrentLocation}
+                  className={`px-3 py-2 rounded text-sm border w-full ${
+                    address.locationMode === "current" ? "bg-green-600 text-white" : "bg-white"
+                  }`}
+                >
+                  Use Current Location
+                </button>
+
+                <button
+                  type="button"
+                  onClick={switchToManualLocation}
+                  className={`px-3 py-2 rounded text-sm border w-full ${
+                    address.locationMode === "manual" ? "bg-green-600 text-white" : "bg-white"
+                  }`}
+                >
+                  Add Manually
+                </button>
+              </div>
+
+              {address.locationMode === "current" ? (
+                <div className="mt-2 text-sm text-gray-700">
+                  {address.mapsUrl ? (
+                    <a
+                      href={address.mapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-green-700 underline"
+                    >
+                      Open current location in Google Maps
+                    </a>
+                  ) : (
+                    <p className="text-gray-500">Click “Use Current Location” to capture GPS.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <input
+                    value={address.locationText}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        locationText: e.target.value,
+                        locationMode: "manual",
+                      })
+                    }
+                    placeholder="Paste Google Maps link / Plus Code / Coordinates / Landmark"
+                    className="border rounded px-3 py-2 w-full"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Example: Google Maps share link or a Plus Code like <b>7J4V+5X Hyderabad</b>
+                  </p>
+                </div>
+              )}
+
+              {locationMsg && <p className="text-sm mt-2 text-red-600">{locationMsg}</p>}
+            </div>
 
             {addressMsg && <p className="text-sm mt-2 text-red-600">{addressMsg}</p>}
           </div>

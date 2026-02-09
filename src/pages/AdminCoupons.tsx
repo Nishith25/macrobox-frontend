@@ -10,16 +10,14 @@ type Coupon = {
   minCartTotal: number;
   maxDiscount: number;
 
-  // ✅ new validity range (preferred)
   validFrom?: string | null;
   validTo?: string | null;
 
-  // ✅ backward compat (old)
+  // backward compat
   expiresAt?: string | null;
 
   isActive: boolean;
 
-  // ✅ usage limits
   usageLimitTotal?: number; // 0 = unlimited
   usageLimitPerUser?: number;
   usedCount?: number;
@@ -32,11 +30,9 @@ type FormState = {
   minCartTotal: string;
   maxDiscount: string;
 
-  // ✅ from -> to
   validFrom: string; // YYYY-MM-DD
   validTo: string; // YYYY-MM-DD
 
-  // ✅ limits
   usageLimitTotal: string; // "0" = unlimited
   usageLimitPerUser: string; // default "1"
 };
@@ -45,6 +41,19 @@ const prettyDate = (iso?: string | null) => {
   if (!iso) return "-";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
+};
+
+// ✅ helpers: keep From at start-of-day, To at end-of-day (inclusive)
+const startOfDayISO = (yyyyMmDd: string) => {
+  const d = new Date(yyyyMmDd);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+};
+
+const endOfDayISO = (yyyyMmDd: string) => {
+  const d = new Date(yyyyMmDd);
+  d.setHours(23, 59, 59, 999);
+  return d.toISOString();
 };
 
 export default function AdminCoupons() {
@@ -67,10 +76,11 @@ export default function AdminCoupons() {
     usageLimitPerUser: "1",
   });
 
+  // ✅ Admin routes are under /api/admin/coupons
   const fetchCoupons = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/coupons");
+      const res = await api.get("/admin/coupons");
       setCoupons(res.data || []);
     } catch (e: any) {
       setMsg(e?.response?.data?.message || "Failed to fetch coupons");
@@ -112,18 +122,17 @@ export default function AdminCoupons() {
 
     setSaving(true);
     try {
-      await api.post("/coupons", {
+      await api.post("/admin/coupons", {
         code: form.code.toUpperCase().trim(),
         type: form.type,
         value: Number(form.value),
         minCartTotal: Number(form.minCartTotal),
         maxDiscount: form.type === "percent" ? Number(form.maxDiscount) : 0,
 
-        // ✅ validity range (store as Date)
-        validFrom: form.validFrom ? new Date(form.validFrom).toISOString() : null,
-        validTo: form.validTo ? new Date(form.validTo).toISOString() : null,
+        // ✅ inclusive validity
+        validFrom: form.validFrom ? startOfDayISO(form.validFrom) : null,
+        validTo: form.validTo ? endOfDayISO(form.validTo) : null,
 
-        // ✅ limits
         usageLimitTotal: Number(form.usageLimitTotal), // 0 unlimited
         usageLimitPerUser: Number(form.usageLimitPerUser),
       });
@@ -156,7 +165,7 @@ export default function AdminCoupons() {
     setMsg(null);
     setMsgType(null);
     try {
-      await api.patch(`/coupons/${id}/toggle`);
+      await api.patch(`/admin/coupons/${id}/toggle`);
       fetchCoupons();
     } catch (e: any) {
       setMsg(e?.response?.data?.message || "Failed to toggle coupon");
@@ -169,7 +178,7 @@ export default function AdminCoupons() {
     setMsg(null);
     setMsgType(null);
     try {
-      await api.delete(`/coupons/${id}`);
+      await api.delete(`/admin/coupons/${id}`);
       fetchCoupons();
     } catch (e: any) {
       setMsg(e?.response?.data?.message || "Failed to delete coupon");
@@ -227,7 +236,6 @@ export default function AdminCoupons() {
             className={`border rounded px-3 py-2 ${form.type !== "percent" ? "opacity-60" : ""}`}
           />
 
-          {/* ✅ Valid From / Valid To */}
           <input
             type="date"
             value={form.validFrom}
@@ -241,7 +249,6 @@ export default function AdminCoupons() {
             className="border rounded px-3 py-2"
           />
 
-          {/* ✅ Limits */}
           <input
             type="number"
             placeholder="Total usage limit (0 = unlimited)"
@@ -296,6 +303,7 @@ export default function AdminCoupons() {
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {coupons.map((c) => {
                   const from = c.validFrom ?? null;
