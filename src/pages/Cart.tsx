@@ -423,7 +423,7 @@ export default function Cart() {
                 return (
                   <option key={s} value={s} disabled={!allowed}>
                     {label}
-                    {!allowed ? " (3+ hrs from now)" : ""}
+                    {!allowed ? " (Not available)" : ""}
                   </option>
                 );
               })}
