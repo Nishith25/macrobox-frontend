@@ -17,6 +17,11 @@ declare global {
  * ✅ User can only select a slot that is at least 3 hours from now
  * ✅ UI: No "(3+ hrs from now)" text
  * ✅ Disabled slots show: "— Time slot not available"
+ *
+ * ✅ Coupon expired → red text under Apply Coupon
+ * ✅ Invalid time slot → red text under Delivery Time
+ * ✅ Incomplete address → red text under Address
+ * ✅ Cleaner UX (separate messages, no mixing)
  */
 const SLOT_START_HOUR = 7; // 7 AM
 const SLOT_END_HOUR = 19; // 7 PM
@@ -30,10 +35,9 @@ const format12h = (hour24: number) => {
 };
 
 const buildSlots = () => {
-  // store as 24h "HH:00" in DB/backend-friendly format
   const slots: string[] = [];
   for (let h = SLOT_START_HOUR; h <= SLOT_END_HOUR; h++) {
-    slots.push(`${pad2(h)}:00`);
+    slots.push(`${pad2(h)}:00`); // backend-friendly: "HH:00"
   }
   return slots;
 };
@@ -43,7 +47,6 @@ const getHourFromSlot = (slotHHmm: string) => Number(slotHHmm.split(":")[0]);
 const isSlotAllowed = (selectedDateISO: string, slotHHmm: string) => {
   if (!selectedDateISO || !slotHHmm) return false;
 
-  // selectedDateISO is "YYYY-MM-DD"
   const [yy, mm, dd] = selectedDateISO.split("-").map(Number);
   const hour = getHourFromSlot(slotHHmm);
   if (!yy || !mm || !dd || Number.isNaN(hour)) return false;
@@ -69,16 +72,25 @@ type Address = {
   pincode: string;
 };
 
+type MsgType = "success" | "error" | null;
+
 export default function Cart() {
   const navigate = useNavigate();
   const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } =
     useCart();
 
   /* ================= STATE ================= */
-
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
+
+  // Coupon message (below Apply button)
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [couponMsgType, setCouponMsgType] = useState<MsgType>(null);
+
+  // Address + Slot messages (under their sections)
+  const [addressMsg, setAddressMsg] = useState<string | null>(null);
+  const [slotMsg, setSlotMsg] = useState<string | null>(null);
+
   const [applying, setApplying] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
 
@@ -92,14 +104,14 @@ export default function Cart() {
     pincode: "",
   });
 
-  const [slotDate, setSlotDate] = useState(new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
+  const [slotDate, setSlotDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  ); // YYYY-MM-DD
 
-  // store time as "HH:00"
   const slots = useMemo(() => buildSlots(), []);
   const [slotTime, setSlotTime] = useState(slots[0]);
 
   /* ================= DERIVED ================= */
-
   const subtotal = useMemo(
     () => cart.reduce((s, i) => s + i.price * i.qty, 0),
     [cart]
@@ -126,11 +138,14 @@ export default function Cart() {
   }
 
   /* ================= COUPON ================= */
-
   const applyCoupon = async () => {
     if (!coupon.trim()) return;
+
     setApplying(true);
+
+    // clear only coupon message (do not touch address/slot messages)
     setCouponMsg(null);
+    setCouponMsgType(null);
 
     try {
       const res = await api.post("/coupons/apply", {
@@ -140,16 +155,17 @@ export default function Cart() {
 
       setDiscount(res.data.discount || 0);
       setCouponMsg(`Coupon applied! You saved ₹${res.data.discount}`);
+      setCouponMsgType("success");
     } catch (err: any) {
       setDiscount(0);
-      setCouponMsg(err?.response?.data?.message || "Invalid coupon");
+      setCouponMsg(err?.response?.data?.message || "Coupon expired");
+      setCouponMsgType("error"); // ✅ red
     } finally {
       setApplying(false);
     }
   };
 
   /* ================= RAZORPAY ================= */
-
   const loadRazorpay = () =>
     new Promise<boolean>((resolve) => {
       if (document.getElementById("razorpay-sdk")) return resolve(true);
@@ -162,6 +178,10 @@ export default function Cart() {
     });
 
   const validateCheckout = () => {
+    // ✅ Cleaner UX: separate messages, no mixing
+    setAddressMsg(null);
+    setSlotMsg(null);
+
     if (
       !address.fullName ||
       !address.phone ||
@@ -170,18 +190,17 @@ export default function Cart() {
       !address.state ||
       !address.pincode
     ) {
-      setCouponMsg("Please fill complete delivery address.");
+      setAddressMsg("Please fill complete delivery address.");
       return false;
     }
 
     if (!slotDate || !slotTime) {
-      setCouponMsg("Please select delivery time.");
+      setSlotMsg("Please select delivery time.");
       return false;
     }
 
-    // ✅ enforce 3-hour rule on frontend
     if (!isSlotAllowed(slotDate, slotTime)) {
-      setCouponMsg("Selected time slot is not available. Please choose another.");
+      setSlotMsg("Selected time slot is not available. Please choose another.");
       return false;
     }
 
@@ -189,22 +208,20 @@ export default function Cart() {
   };
 
   /* ================= CHECKOUT ================= */
-
   const checkout = async () => {
     if (!validateCheckout()) return;
 
     setCheckingOut(true);
-    setCouponMsg(null);
 
     const ok = await loadRazorpay();
     if (!ok) {
       setCheckingOut(false);
       setCouponMsg("Razorpay failed to load. Try again.");
+      setCouponMsgType("error");
       return;
     }
 
     try {
-      /* 1️⃣ CREATE ORDER (MATCHES BACKEND EXACTLY) */
       const createRes = await api.post("/checkout/create-order", {
         items: cart.map((i) => ({
           mealId: i._id,
@@ -215,24 +232,15 @@ export default function Cart() {
           calories: i.calories,
         })),
         couponCode: coupon || null,
-        address: {
-          fullName: address.fullName,
-          phone: address.phone,
-          line1: address.line1,
-          line2: address.line2,
-          city: address.city,
-          state: address.state,
-          pincode: address.pincode,
-        },
+        address,
         deliverySlot: {
-          date: slotDate, // YYYY-MM-DD
-          time: slotTime, // "HH:00" ✅ backend-friendly
+          date: slotDate,
+          time: slotTime,
         },
       });
 
       const { razorpayOrderId, amount, keyId, orderId } = createRes.data;
 
-      /* 2️⃣ OPEN RAZORPAY */
       const rzp = new window.Razorpay({
         key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount,
@@ -245,7 +253,6 @@ export default function Cart() {
           contact: address.phone,
         },
         handler: async (response: any) => {
-          /* 3️⃣ VERIFY PAYMENT */
           await api.post("/checkout/verify", {
             orderId,
             razorpay_order_id: response.razorpay_order_id,
@@ -257,11 +264,15 @@ export default function Cart() {
           setDiscount(0);
           setCoupon("");
           setCouponMsg("Payment successful ✅");
+          setCouponMsgType("success");
 
           setTimeout(() => navigate("/orders"), 800);
         },
         modal: {
-          ondismiss: () => setCouponMsg("Payment cancelled."),
+          ondismiss: () => {
+            setCouponMsg("Payment cancelled.");
+            setCouponMsgType("error");
+          },
         },
         theme: { color: "#16a34a" },
       });
@@ -270,13 +281,13 @@ export default function Cart() {
     } catch (err: any) {
       console.error(err);
       setCouponMsg(err?.response?.data?.message || "Failed to create order");
+      setCouponMsgType("error");
     } finally {
       setCheckingOut(false);
     }
   };
 
   /* ================= UI ================= */
-
   return (
     <div className="max-w-6xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-8">Your Cart</h1>
@@ -358,6 +369,8 @@ export default function Cart() {
               onChange={(e) => {
                 setCoupon(e.target.value);
                 setDiscount(0);
+                setCouponMsg(null);
+                setCouponMsgType(null);
               }}
               placeholder="Coupon code"
               className="border rounded px-3 py-2 w-full"
@@ -369,6 +382,21 @@ export default function Cart() {
             >
               {applying ? "Applying..." : "Apply Coupon"}
             </button>
+
+            {/* ✅ Coupon expired → red text here */}
+            {couponMsg && (
+              <p
+                className={`text-sm mt-2 ${
+                  couponMsgType === "error"
+                    ? "text-red-600"
+                    : couponMsgType === "success"
+                    ? "text-green-600"
+                    : "text-gray-600"
+                }`}
+              >
+                {couponMsg}
+              </p>
+            )}
           </div>
 
           {/* ADDRESS */}
@@ -388,6 +416,11 @@ export default function Cart() {
                 }
               />
             ))}
+
+            {/* ✅ Incomplete address → red text here */}
+            {addressMsg && (
+              <p className="text-sm mt-2 text-red-600">{addressMsg}</p>
+            )}
           </div>
 
           {/* SLOT */}
@@ -404,9 +437,11 @@ export default function Cart() {
                 const newDate = e.target.value;
                 setSlotDate(newDate);
 
-                // If current selected becomes invalid after date change, jump to first allowed (if any)
+                // if current selected becomes invalid after date change, jump to first allowed
                 if (!isSlotAllowed(newDate, slotTime)) {
-                  const firstAllowed = slots.find((s) => isSlotAllowed(newDate, s));
+                  const firstAllowed = slots.find((s) =>
+                    isSlotAllowed(newDate, s)
+                  );
                   if (firstAllowed) setSlotTime(firstAllowed);
                 }
               }}
@@ -432,11 +467,10 @@ export default function Cart() {
             <p className="text-xs text-gray-500 mt-2">
               Time slots within the next <b>3 hours</b> are disabled.
             </p>
-          </div>
 
-          {couponMsg && (
-            <p className="text-sm mt-3 text-gray-600">{couponMsg}</p>
-          )}
+            {/* ✅ Invalid time slot → red text here */}
+            {slotMsg && <p className="text-sm mt-2 text-red-600">{slotMsg}</p>}
+          </div>
 
           <button
             onClick={checkout}
