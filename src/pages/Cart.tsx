@@ -15,6 +15,8 @@ declare global {
  * ✅ Professional single time-slots:
  * 7:00 AM → 7:00 PM (hourly)
  * ✅ User can only select a slot that is at least 3 hours from now
+ * ✅ UI: No "(3+ hrs from now)" text
+ * ✅ Disabled slots show: "— Time slot not available"
  */
 const SLOT_START_HOUR = 7; // 7 AM
 const SLOT_END_HOUR = 19; // 7 PM
@@ -54,6 +56,9 @@ const isSlotAllowed = (selectedDateISO: string, slotHHmm: string) => {
   return slotDateTime.getTime() >= minAllowed.getTime();
 };
 
+const optionLabel = (label: string, allowed: boolean) =>
+  allowed ? label : `${label} — Time slot not available`;
+
 type Address = {
   fullName: string;
   phone: string;
@@ -87,9 +92,7 @@ export default function Cart() {
     pincode: "",
   });
 
-  const [slotDate, setSlotDate] = useState(
-    new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-  );
+  const [slotDate, setSlotDate] = useState(new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
 
   // store time as "HH:00"
   const slots = useMemo(() => buildSlots(), []);
@@ -172,13 +175,13 @@ export default function Cart() {
     }
 
     if (!slotDate || !slotTime) {
-      setCouponMsg("Please select delivery slot.");
+      setCouponMsg("Please select delivery time.");
       return false;
     }
 
     // ✅ enforce 3-hour rule on frontend
     if (!isSlotAllowed(slotDate, slotTime)) {
-      setCouponMsg("Please choose a delivery time at least 3 hours from now.");
+      setCouponMsg("Selected time slot is not available. Please choose another.");
       return false;
     }
 
@@ -398,14 +401,12 @@ export default function Cart() {
               className="border rounded px-3 py-2 w-full mt-2"
               value={slotDate}
               onChange={(e) => {
-                setSlotDate(e.target.value);
+                const newDate = e.target.value;
+                setSlotDate(newDate);
 
-                // if current selected becomes invalid after date change, reset
-                const allowedNow = isSlotAllowed(e.target.value, slotTime);
-                if (!allowedNow) {
-                  const firstAllowed = slots.find((s) =>
-                    isSlotAllowed(e.target.value, s)
-                  );
+                // If current selected becomes invalid after date change, jump to first allowed (if any)
+                if (!isSlotAllowed(newDate, slotTime)) {
+                  const firstAllowed = slots.find((s) => isSlotAllowed(newDate, s));
                   if (firstAllowed) setSlotTime(firstAllowed);
                 }
               }}
@@ -422,16 +423,14 @@ export default function Cart() {
                 const label = format12h(getHourFromSlot(s));
                 return (
                   <option key={s} value={s} disabled={!allowed}>
-                    {label}
-                    {!allowed ? " (Not available)" : ""}
+                    {optionLabel(label, allowed)}
                   </option>
                 );
               })}
             </select>
 
             <p className="text-xs text-gray-500 mt-2">
-              You can place orders only if the selected time is at least{" "}
-              <b>3 hours</b> from now.
+              Time slots within the next <b>3 hours</b> are disabled.
             </p>
           </div>
 
