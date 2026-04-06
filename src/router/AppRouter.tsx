@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
-
 // Pages (Public)
 import Home from "../pages/Home";
 import Meals from "../pages/Meals";
@@ -23,7 +22,8 @@ import PlanMyDay from "../pages/PlanMyDay";
 import Cart from "../pages/Cart";
 import Checkout from "../pages/Checkout";
 import Orders from "../pages/Orders";
-
+import DeliveryDashboard from "../pages/DeliveryDashboard";
+import TrackOrderPage from "../pages/TrackOrderPage";
 
 // Admin Pages
 import AdminDashboard from "../pages/AdminDashboard";
@@ -72,10 +72,52 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
-      <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-    
-     <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-    <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+
+        <Route
+          path="/cart"
+          element={
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute>
+              <Checkout />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/orders"
+          element={
+            <ProtectedRoute>
+              <Orders />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ================= DELIVERY ROUTES ================= */}
+        <Route
+          path="/delivery"
+          element={
+            <ProtectedRoute>
+              <DeliveryDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/track/:orderId"
+          element={
+            <ProtectedRoute>
+              <TrackOrderPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ================= ADMIN ROUTES ================= */}
         <Route
@@ -104,14 +146,15 @@ export default function AppRouter() {
             </AdminRoute>
           }
         />
+
         <Route
-  path="/admin/coupons"       // ✅ NEW
-  element={
-    <AdminRoute>
-      <AdminCoupons />
-    </AdminRoute>
-  }
-/>
+          path="/admin/coupons"
+          element={
+            <AdminRoute>
+              <AdminCoupons />
+            </AdminRoute>
+          }
+        />
 
         {/* ================= FALLBACK ================= */}
         <Route path="*" element={<Navigate to="/" replace />} />
