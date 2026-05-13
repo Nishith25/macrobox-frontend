@@ -3,7 +3,14 @@ import { Link, useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useEffect, useState } from "react";
-import { Menu, X, Shield, ShoppingCart, TicketPercent } from "lucide-react";
+import {
+  Menu,
+  X,
+  Shield,
+  ShoppingCart,
+  TicketPercent,
+  Truck,
+} from "lucide-react";
 
 export default function Navbar() {
   const { isAuthenticated, isAdmin, logout, user } = useAuth();
@@ -19,10 +26,10 @@ export default function Navbar() {
 
   const closeMenu = () => setOpen(false);
 
-  // ✅ Prevent background scroll when mobile menu open
   useEffect(() => {
     if (open) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
+
     return () => {
       document.body.style.overflow = "";
     };
@@ -36,6 +43,11 @@ export default function Navbar() {
   const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
     `block w-full px-3 py-2 rounded-lg text-base font-medium transition ${
       isActive ? "text-green-700 bg-green-50" : "text-gray-800 hover:bg-gray-50"
+    }`;
+
+  const adminMiniLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `px-2 py-1 rounded-md text-sm font-semibold ${
+      isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
     }`;
 
   return (
@@ -52,62 +64,75 @@ export default function Navbar() {
 
         {/* ================= DESKTOP NAV ================= */}
         <div className="hidden md:flex items-center gap-2">
-          {/* COMMON */}
           <NavLink to="/" className={navLinkClass}>
             Home
           </NavLink>
+
           <NavLink to="/meals" className={navLinkClass}>
             Meals
           </NavLink>
 
-          {/* USER FEATURES (VISIBLE TO ADMIN TOO) */}
+          {/* USER FEATURES */}
           {isAuthenticated && (
             <>
               <NavLink to="/plan-my-day" className={navLinkClass}>
                 Plan My Day
               </NavLink>
+
               <NavLink to="/orders" className={navLinkClass}>
                 Orders
               </NavLink>
+
               <NavLink to="/dashboard" className={navLinkClass}>
                 Dashboard
               </NavLink>
             </>
           )}
 
-          {/* ADMIN EXTRA LINKS */}
+          {/* ADMIN LINKS */}
           {isAdmin && (
             <div className="ml-2 flex items-center gap-1 rounded-lg border border-red-100 bg-red-50 px-2 py-1">
               <Shield size={16} className="text-red-600" />
-              <NavLink to="/admin/meals" className={({ isActive }) =>
-                `px-2 py-1 rounded-md text-sm font-semibold ${
-                  isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
-                }`
-              }>
+
+              <NavLink to="/admin/meals" className={adminMiniLinkClass}>
                 Admin Meals
               </NavLink>
-              <NavLink to="/admin/users" className={({ isActive }) =>
-                `px-2 py-1 rounded-md text-sm font-semibold ${
-                  isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
-                }`
-              }>
+
+              <NavLink to="/admin/users" className={adminMiniLinkClass}>
                 Users
               </NavLink>
+
               <NavLink
                 to="/admin/coupons"
                 className={({ isActive }) =>
                   `px-2 py-1 rounded-md text-sm font-semibold flex items-center gap-1 ${
-                    isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
+                    isActive
+                      ? "text-red-700 underline"
+                      : "text-red-600 hover:underline"
                   }`
                 }
               >
                 <TicketPercent size={14} />
                 Coupons
               </NavLink>
+
+              <NavLink
+                to="/admin/delivery-agents"
+                className={({ isActive }) =>
+                  `px-2 py-1 rounded-md text-sm font-semibold flex items-center gap-1 ${
+                    isActive
+                      ? "text-red-700 underline"
+                      : "text-red-600 hover:underline"
+                  }`
+                }
+              >
+                <Truck size={14} />
+                Delivery Agents
+              </NavLink>
             </div>
           )}
 
-          {/* CART (USER + ADMIN) */}
+          {/* CART */}
           {isAuthenticated && (
             <button
               onClick={() => navigate("/cart")}
@@ -128,7 +153,10 @@ export default function Navbar() {
             {isAuthenticated ? (
               <>
                 <span className="text-gray-600 text-sm">
-                  Hi, <span className="font-semibold">{user?.name?.split(" ")[0]}</span>
+                  Hi,{" "}
+                  <span className="font-semibold">
+                    {user?.name?.split(" ")[0]}
+                  </span>
                   {isAdmin && (
                     <span className="ml-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
                       ADMIN
@@ -148,15 +176,26 @@ export default function Navbar() {
                 <NavLink to="/login" className={navLinkClass}>
                   Login
                 </NavLink>
-                <NavLink to="/signup" className="px-3 py-2 rounded-lg text-sm font-semibold text-green-700 bg-green-50 hover:bg-green-100">
+
+                <NavLink
+                  to="/signup"
+                  className="px-3 py-2 rounded-lg text-sm font-semibold text-green-700 bg-green-50 hover:bg-green-100"
+                >
                   Signup
+                </NavLink>
+
+                <NavLink
+                  to="/deliverysignin"
+                  className="px-3 py-2 rounded-lg text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100"
+                >
+                  Delivery Login
                 </NavLink>
               </>
             )}
           </div>
         </div>
 
-        {/* ================= MOBILE RIGHT: CART + TOGGLE ================= */}
+        {/* ================= MOBILE RIGHT ================= */}
         <div className="md:hidden flex items-center gap-2">
           {isAuthenticated && (
             <button
@@ -186,15 +225,19 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* ================= MOBILE MENU OVERLAY ================= */}
+      {/* ================= MOBILE MENU ================= */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-50 bg-black/40" onClick={closeMenu}>
+        <div
+          className="md:hidden fixed inset-0 z-50 bg-black/40"
+          onClick={closeMenu}
+        >
           <div
-            className="absolute top-0 right-0 h-full w-[85%] max-w-sm bg-white shadow-xl p-4"
+            className="absolute top-0 right-0 h-full w-[85%] max-w-sm bg-white shadow-xl p-4 overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="text-lg font-bold text-green-600">Menu</div>
+
               <button
                 onClick={closeMenu}
                 className="p-2 rounded-lg hover:bg-gray-50"
@@ -209,6 +252,7 @@ export default function Navbar() {
                 <div className="text-sm text-gray-500">Signed in as</div>
                 <div className="font-semibold text-gray-800">{user?.name}</div>
                 <div className="text-xs text-gray-500">{user?.email}</div>
+
                 {isAdmin && (
                   <div className="mt-2 inline-flex text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
                     ADMIN
@@ -221,19 +265,38 @@ export default function Navbar() {
               <NavLink to="/" className={mobileLinkClass} onClick={closeMenu}>
                 Home
               </NavLink>
-              <NavLink to="/meals" className={mobileLinkClass} onClick={closeMenu}>
+
+              <NavLink
+                to="/meals"
+                className={mobileLinkClass}
+                onClick={closeMenu}
+              >
                 Meals
               </NavLink>
 
               {isAuthenticated && (
                 <>
-                  <NavLink to="/plan-my-day" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/plan-my-day"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Plan My Day
                   </NavLink>
-                  <NavLink to="/orders" className={mobileLinkClass} onClick={closeMenu}>
+
+                  <NavLink
+                    to="/orders"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Orders
                   </NavLink>
-                  <NavLink to="/dashboard" className={mobileLinkClass} onClick={closeMenu}>
+
+                  <NavLink
+                    to="/dashboard"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Dashboard
                   </NavLink>
                 </>
@@ -242,22 +305,42 @@ export default function Navbar() {
               {isAdmin && (
                 <>
                   <div className="my-2 border-t" />
+
                   <div className="px-3 pt-2 text-xs font-semibold text-gray-400 flex items-center gap-2">
                     <Shield size={14} className="text-red-600" />
                     Admin
                   </div>
-                  <NavLink to="/admin/meals" className={mobileLinkClass} onClick={closeMenu}>
+
+                  <NavLink
+                    to="/admin/meals"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Admin Meals
                   </NavLink>
-                  <NavLink to="/admin/users" className={mobileLinkClass} onClick={closeMenu}>
+
+                  <NavLink
+                    to="/admin/users"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Users
                   </NavLink>
+
                   <NavLink
                     to="/admin/coupons"
                     className={mobileLinkClass}
                     onClick={closeMenu}
                   >
                     Coupons
+                  </NavLink>
+
+                  <NavLink
+                    to="/admin/delivery-agents"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
+                    Delivery Agents
                   </NavLink>
                 </>
               )}
@@ -273,9 +356,14 @@ export default function Navbar() {
                 </button>
               ) : (
                 <>
-                  <NavLink to="/login" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/login"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Login
                   </NavLink>
+
                   <NavLink
                     to="/signup"
                     className={({ isActive }) =>
@@ -288,6 +376,34 @@ export default function Navbar() {
                     onClick={closeMenu}
                   >
                     Signup
+                  </NavLink>
+
+                  <NavLink
+                    to="/deliverysignin"
+                    className={({ isActive }) =>
+                      `block w-full px-3 py-2 rounded-lg text-base font-semibold transition ${
+                        isActive
+                          ? "text-blue-700 bg-blue-50"
+                          : "text-blue-700 bg-blue-50 hover:bg-blue-100"
+                      }`
+                    }
+                    onClick={closeMenu}
+                  >
+                    Delivery Login
+                  </NavLink>
+
+                  <NavLink
+                    to="/deliverysignup"
+                    className={({ isActive }) =>
+                      `block w-full px-3 py-2 rounded-lg text-base font-semibold transition ${
+                        isActive
+                          ? "text-blue-700 bg-blue-50"
+                          : "text-blue-700 bg-blue-50 hover:bg-blue-100"
+                      }`
+                    }
+                    onClick={closeMenu}
+                  >
+                    Delivery Signup
                   </NavLink>
                 </>
               )}

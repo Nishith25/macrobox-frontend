@@ -33,6 +33,7 @@ import AdminDashboard from "../pages/AdminDashboard";
 import AdminUsers from "../pages/AdminUsers";
 import AdminMeals from "../pages/AdminMeals";
 import AdminCoupons from "../pages/AdminCoupons";
+import AdminDeliveryAgents from "../pages/AdminDeliveryAgents";
 
 // Route Guards
 import ProtectedRoute from "./ProtectedRoute";
@@ -164,6 +165,15 @@ export default function AppRouter() {
             </AdminRoute>
           }
         />
+
+        <Route
+  path="/admin/delivery-agents"
+  element={
+    <AdminRoute>
+      <AdminDeliveryAgents />
+    </AdminRoute>
+  }
+/>
 
         {/* ================= FALLBACK ================= */}
         <Route path="*" element={<Navigate to="/" replace />} />
