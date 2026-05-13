@@ -11,7 +11,28 @@ type User = {
   _id: string;
   name: string;
   email: string;
-  role: "admin" | "user";
+  phone?: string;
+  role: "admin" | "user" | "delivery";
+  deliveryProfile?: {
+    phone?: string;
+    isActive?: boolean;
+    vehicleType?: string;
+    vehicleNumber?: string;
+  };
+};
+
+type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+type SignupPayload = {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  role?: "user" | "delivery";
+  phoneVerificationToken: string;
 };
 
 type JwtPayload = {
@@ -23,8 +44,9 @@ type AuthContextType = {
   token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (data: { email: string; password: string }) => Promise<User>;
-  signup: (data: { name: string; email: string; password: string }) => Promise<void>;
+  isDelivery: boolean;
+  login: (data: LoginPayload) => Promise<User>;
+  signup: (data: SignupPayload) => Promise<void>;
   logout: () => void;
 };
 
@@ -41,8 +63,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const isAuthenticated = Boolean(token);
   const isAdmin = user?.role === "admin";
+  const isDelivery = user?.role === "delivery";
 
-  /* ================= LOGOUT (used in restore) ================= */
+  /* ================= LOGOUT ================= */
 
   const logout = () => {
     setUser(null);
@@ -64,12 +87,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const decoded = jwtDecode<JwtPayload>(savedToken);
 
-        // token expired
         if (decoded.exp * 1000 < Date.now()) {
           logout();
         } else {
+          const parsedUser = JSON.parse(savedUser);
+
           setToken(savedToken);
-          setUser(JSON.parse(savedUser));
+          setUser(parsedUser);
+
           api.defaults.headers.common.Authorization = `Bearer ${savedToken}`;
         }
       } catch {
@@ -83,9 +108,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   /* ================= LOGIN ================= */
 
-  const login = async (data: { email: string; password: string }) => {
+  const login = async (data: LoginPayload) => {
     try {
-      // ✅ use leading "/" for safety
       const res = await api.post("/auth/login", data);
 
       const { token: accessToken, user: userData } = res.data;
@@ -107,12 +131,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   /* ================= SIGNUP ================= */
 
-  const signup = async (data: { name: string; email: string; password: string }) => {
+  const signup = async (data: SignupPayload) => {
     try {
-      // ✅ FIX: backend route is /api/auth/signup (NOT /register)
       await api.post("/auth/signup", data);
 
-      toast.success("Signup successful! Please check your email to verify your account.");
+      toast.success(
+        "Signup successful! Please check your email to verify your account."
+      );
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Signup failed");
       throw err;
@@ -128,6 +153,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         token,
         isAuthenticated,
         isAdmin,
+        isDelivery,
         login,
         signup,
         logout,

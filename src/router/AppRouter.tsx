@@ -1,3 +1,4 @@
+// frontend/src/router/AppRouter.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
@@ -11,6 +12,8 @@ import MealDetails from "../pages/MealDetails";
 // Auth Pages
 import Login from "../pages/Login";
 import Signup from "../pages/Signup";
+import DeliveryLogin from "../pages/DeliveryLogin";
+import DeliverySignup from "../pages/DeliverySignup";
 import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import VerifyEmail from "../pages/VerifyEmail";
@@ -46,9 +49,15 @@ export default function AppRouter() {
         <Route path="/meals" element={<Meals />} />
         <Route path="/meal/:id" element={<MealDetails />} />
 
-        {/* ================= AUTH ROUTES ================= */}
+        {/* ================= CUSTOMER AUTH ROUTES ================= */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+
+        {/* ================= DELIVERY AUTH ROUTES ================= */}
+        <Route path="/deliverylogin" element={<DeliveryLogin />} />
+        <Route path="/deliverysignup" element={<DeliverySignup />} />
+
+        {/* ================= OTHER AUTH ROUTES ================= */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/verify-email/:token" element={<VerifyEmail />} />

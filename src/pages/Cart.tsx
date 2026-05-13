@@ -187,10 +187,10 @@ export default function Cart() {
     const applied = coupon.trim().toUpperCase();
     const stillEligible = availableCoupons.some((c) => c.code === applied);
 
-    if (!stillEligible) {
+    if (!stillEligible && discount > 0) {
       setCoupon("");
       setDiscount(0);
-      setCouponMsg("Coupon removed (not eligible anymore).");
+      setCouponMsg("Coupon removed because it is not eligible anymore.");
       setCouponMsgType("error");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -206,7 +206,14 @@ export default function Cart() {
 
   const applyCoupon = async (codeOverride?: string) => {
     const codeToApply = (codeOverride ?? coupon).trim().toUpperCase();
-    if (!codeToApply) return;
+
+    if (!codeToApply) {
+      setCoupon("");
+      setDiscount(0);
+      setCouponMsg(null);
+      setCouponMsgType(null);
+      return;
+    }
 
     setApplying(true);
     setCouponMsg(null);
@@ -226,7 +233,7 @@ export default function Cart() {
       fetchAvailableCoupons();
     } catch (err: any) {
       setDiscount(0);
-      setCouponMsg(err?.response?.data?.message || "Coupon expired");
+      setCouponMsg(err?.response?.data?.message || "Invalid or expired coupon");
       setCouponMsgType("error");
       fetchAvailableCoupons();
     } finally {
@@ -337,6 +344,8 @@ export default function Cart() {
     if (!validateCheckout()) return;
 
     setCheckingOut(true);
+    setCouponMsg(null);
+    setCouponMsgType(null);
 
     const ok = await loadRazorpay();
     if (!ok) {
@@ -347,6 +356,9 @@ export default function Cart() {
     }
 
     try {
+      const finalCouponCode =
+        discount > 0 && coupon.trim() ? coupon.trim().toUpperCase() : null;
+
       const createRes = await api.post("/checkout/create-order", {
         items: cart.map((i) => ({
           mealId: i._id,
@@ -356,7 +368,7 @@ export default function Cart() {
           protein: i.protein,
           calories: i.calories,
         })),
-        couponCode: coupon ? coupon.trim() : null,
+        couponCode: finalCouponCode,
         address,
         deliverySlot: { date: slotDate, time: slotTime },
       });
@@ -413,7 +425,6 @@ export default function Cart() {
       <h1 className="mb-8 text-3xl font-bold text-gray-900">Your Cart</h1>
 
       <div className="space-y-6">
-        {/* CART ITEMS */}
         <div className="space-y-4">
           {cart.map((item) => (
             <div
@@ -462,7 +473,6 @@ export default function Cart() {
             </div>
           ))}
 
-          {/* AVAILABLE COUPONS */}
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
             <p className="flex items-center gap-2 text-lg font-semibold">
               <Tag size={18} /> Available Coupons
@@ -516,7 +526,6 @@ export default function Cart() {
           </div>
         </div>
 
-        {/* FULL WIDTH ORDER SUMMARY */}
         <div className="rounded-2xl border bg-white p-6 shadow-sm">
           <h2 className="mb-5 text-2xl font-bold">Order Summary</h2>
 
@@ -548,7 +557,6 @@ export default function Cart() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* COUPON */}
             <div className="rounded-xl border bg-gray-50 p-4">
               <p className="mb-3 flex items-center gap-2 font-semibold">
                 <Tag size={16} /> Apply Coupon
@@ -596,7 +604,6 @@ export default function Cart() {
               )}
             </div>
 
-            {/* ADDRESS */}
             <div className="rounded-xl border bg-gray-50 p-4">
               <p className="mb-3 flex items-center gap-2 font-semibold">
                 <MapPin size={16} /> Delivery Address
@@ -707,7 +714,6 @@ export default function Cart() {
               )}
             </div>
 
-            {/* DELIVERY TIME + PAY */}
             <div className="rounded-xl border bg-gray-50 p-4">
               <p className="mb-3 flex items-center gap-2 font-semibold">
                 <Clock size={16} /> Delivery Time

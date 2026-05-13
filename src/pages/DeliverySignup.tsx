@@ -1,11 +1,11 @@
-// frontend/src/pages/Signup.tsx (FRONTEND)
+// frontend/src/pages/DeliverySignup.tsx (FRONTEND)
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/api";
 import toast from "react-hot-toast";
 
-export default function Signup() {
+export default function DeliverySignup() {
   const navigate = useNavigate();
   const { signup } = useAuth();
 
@@ -105,15 +105,15 @@ export default function Signup() {
         email: form.email,
         password: form.password,
         phone: form.phone.trim(),
-        role: "user",
+        role: "delivery",
         phoneVerificationToken,
       });
 
       toast.success(
-        "Signup successful! Please check your email to verify your account."
+        "Delivery partner signup successful! Please verify your email."
       );
 
-      navigate("/login");
+      navigate("/deliverylogin");
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
@@ -133,7 +133,7 @@ export default function Signup() {
         className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-md"
       >
         <h2 className="text-3xl font-bold text-center mb-6">
-          Create Account
+          Delivery Partner Signup
         </h2>
 
         <input
@@ -243,12 +243,12 @@ export default function Signup() {
               : "hover:bg-green-700"
           }`}
         >
-          {loading ? "Creating Account..." : "Sign Up"}
+          {loading ? "Creating Account..." : "Create Delivery Account"}
         </button>
 
         <p className="text-center text-gray-600 text-sm mt-4">
-          Already have an account?{" "}
-          <a href="/login" className="text-green-600 font-medium">
+          Already a delivery partner?{" "}
+          <a href="/deliverylogin" className="text-green-600 font-medium">
             Login
           </a>
         </p>
