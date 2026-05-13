@@ -18,6 +18,7 @@ import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import VerifyEmail from "../pages/VerifyEmail";
 import ResendVerification from "../pages/ResendVerification";
+import DeliveryRoute from "./DeliveryRoute";
 
 // User Pages (Protected)
 import Dashboard from "../pages/Dashboard";
@@ -112,13 +113,13 @@ export default function AppRouter() {
 
         {/* ================= DELIVERY ROUTES ================= */}
         <Route
-          path="/delivery"
-          element={
-            <ProtectedRoute>
-              <DeliveryDashboard />
-            </ProtectedRoute>
-          }
-        />
+  path="/delivery"
+  element={
+    <DeliveryRoute>
+      <DeliveryDashboard />
+    </DeliveryRoute>
+  }
+/>
 
         <Route
           path="/track/:orderId"

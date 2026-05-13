@@ -16,6 +16,8 @@ type User = {
   deliveryProfile?: {
     phone?: string;
     isActive?: boolean;
+    approvalStatus?: "pending" | "approved" | "rejected";
+  rejectionReason?: string;
     vehicleType?: string;
     vehicleNumber?: string;
   };
