@@ -184,12 +184,6 @@ export default function Navbar() {
                   Signup
                 </NavLink>
 
-                <NavLink
-                  to="/deliverysignin"
-                  className="px-3 py-2 rounded-lg text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100"
-                >
-                  Delivery Login
-                </NavLink>
               </>
             )}
           </div>
@@ -378,33 +372,6 @@ export default function Navbar() {
                     Signup
                   </NavLink>
 
-                  <NavLink
-                    to="/deliverysignin"
-                    className={({ isActive }) =>
-                      `block w-full px-3 py-2 rounded-lg text-base font-semibold transition ${
-                        isActive
-                          ? "text-blue-700 bg-blue-50"
-                          : "text-blue-700 bg-blue-50 hover:bg-blue-100"
-                      }`
-                    }
-                    onClick={closeMenu}
-                  >
-                    Delivery Login
-                  </NavLink>
-
-                  <NavLink
-                    to="/deliverysignup"
-                    className={({ isActive }) =>
-                      `block w-full px-3 py-2 rounded-lg text-base font-semibold transition ${
-                        isActive
-                          ? "text-blue-700 bg-blue-50"
-                          : "text-blue-700 bg-blue-50 hover:bg-blue-100"
-                      }`
-                    }
-                    onClick={closeMenu}
-                  >
-                    Delivery Signup
-                  </NavLink>
                 </>
               )}
             </div>
