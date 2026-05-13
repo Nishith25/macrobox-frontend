@@ -19,6 +19,7 @@ type DeliveryAgent = {
   _id?: string;
   name?: string;
   email?: string;
+  phone?: string;
   deliveryProfile?: {
     phone?: string;
   };
@@ -553,7 +554,9 @@ export default function TrackOrderPage() {
                 <div>
                   <p className="text-gray-500">Phone</p>
                   <p className="font-medium">
-                    {tracking.deliveryAgent?.deliveryProfile?.phone || "N/A"}
+                    {tracking.deliveryAgent?.deliveryProfile?.phone ||
+  tracking.deliveryAgent?.phone ||
+  "N/A"}
                   </p>
                 </div>
 
