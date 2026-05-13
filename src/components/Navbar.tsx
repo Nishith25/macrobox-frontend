@@ -86,6 +86,12 @@ export default function Navbar() {
               <NavLink to="/dashboard" className={navLinkClass}>
                 Dashboard
               </NavLink>
+
+              {user?.role === "delivery" && (
+  <NavLink to="/delivery" className={navLinkClass}>
+    Delivery
+  </NavLink>
+)}
             </>
           )}
 
@@ -293,7 +299,15 @@ export default function Navbar() {
                   >
                     Dashboard
                   </NavLink>
+
+                  {user?.role === "delivery" && (
+  <NavLink to="/delivery" className={mobileLinkClass} onClick={closeMenu}>
+    Delivery
+  </NavLink>
+)}
                 </>
+
+                
               )}
 
               {isAdmin && (
