@@ -703,9 +703,6 @@ export default function TrackOrderPage() {
               <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold">Live Delivery Map</h2>
-                  <p className="text-sm text-gray-500">
-                    Route line connects the delivery agent to your address.
-                  </p>
                 </div>
 
                 <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
@@ -780,9 +777,6 @@ export default function TrackOrderPage() {
                       <div>
                         <p className="text-xl font-extrabold text-gray-900">
                           Order on the way
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Delivery route is connected to your pinned address.
                         </p>
                       </div>
                     </div>
