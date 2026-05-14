@@ -37,13 +37,24 @@ type LocationPoint = {
 type DeliveryAddress = {
   fullName?: string;
   phone?: string;
+
   line1?: string;
   line2?: string;
+
+  flatNo?: string;
+  floor?: string;
+  buildingName?: string;
+  area?: string;
+  landmark?: string;
+
   city?: string;
   state?: string;
   pincode?: string;
+
   locationMode?: "manual" | "current";
   locationText?: string;
+  formattedAddress?: string;
+
   lat?: number | null;
   lng?: number | null;
   mapsUrl?: string;
@@ -108,38 +119,38 @@ const agentIcon = L.divIcon({
   className: "",
   html: `
     <div style="
-      width: 48px;
-      height: 48px;
+      width: 54px;
+      height: 54px;
       border-radius: 999px;
       background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.28);
-      border: 4px solid #16a34a;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+      border: 5px solid #16a34a;
       font-size: 30px;
     ">
       🏍️
     </div>
   `,
-  iconSize: [48, 48],
-  iconAnchor: [24, 24],
-  popupAnchor: [0, -26],
+  iconSize: [54, 54],
+  iconAnchor: [27, 27],
+  popupAnchor: [0, -28],
 });
 
 const customerIcon = L.divIcon({
   className: "",
   html: `
     <div style="
-      font-size: 46px;
-      filter: drop-shadow(0 8px 12px rgba(0,0,0,0.35));
+      font-size: 48px;
+      filter: drop-shadow(0 8px 14px rgba(0,0,0,0.4));
     ">
       📍
     </div>
   `,
-  iconSize: [46, 46],
-  iconAnchor: [23, 46],
-  popupAnchor: [0, -42],
+  iconSize: [48, 48],
+  iconAnchor: [24, 48],
+  popupAnchor: [0, -44],
 });
 
 function readableStatus(status?: string) {
@@ -150,9 +161,14 @@ function readableStatus(status?: string) {
 function formatAddress(address?: DeliveryAddress | null) {
   if (!address) return "N/A";
 
+  if (address.formattedAddress) return address.formattedAddress;
+
   const parts = [
-    address.line1,
-    address.line2,
+    address.flatNo || address.line1,
+    address.floor,
+    address.buildingName || address.line2,
+    address.area,
+    address.landmark,
     address.city,
     address.state,
     address.pincode,
@@ -214,7 +230,7 @@ function FitBounds({ points }: { points: [number, number][] }) {
     }
 
     const bounds = L.latLngBounds(points);
-    map.fitBounds(bounds, { padding: [80, 80] });
+    map.fitBounds(bounds, { padding: [90, 90] });
   }, [map, points]);
 
   return null;
@@ -381,7 +397,9 @@ export default function TrackOrderPage() {
   const agentPosition = useMemo<[number, number] | null>(() => {
     if (agentAnimatedPosition) return agentAnimatedPosition;
 
-    const current = tracking?.agentLocation || tracking?.tracking?.currentLocation;
+    const current =
+      tracking?.agentLocation || tracking?.tracking?.currentLocation;
+
     if (current?.lat != null && current?.lng != null) {
       return [current.lat, current.lng];
     }
@@ -415,8 +433,20 @@ export default function TrackOrderPage() {
 
   const polylinePositions = useMemo<[number, number][]>(() => {
     if (routePolylinePositions.length > 1) return routePolylinePositions;
-    return fallbackHistoryPolyline;
-  }, [routePolylinePositions, fallbackHistoryPolyline]);
+
+    if (fallbackHistoryPolyline.length > 1) return fallbackHistoryPolyline;
+
+    if (agentPosition && customerPosition) {
+      return [agentPosition, customerPosition];
+    }
+
+    return [];
+  }, [
+    routePolylinePositions,
+    fallbackHistoryPolyline,
+    agentPosition,
+    customerPosition,
+  ]);
 
   const mapCenter = useMemo<[number, number]>(() => {
     if (agentPosition) return agentPosition;
@@ -478,7 +508,7 @@ export default function TrackOrderPage() {
     tracking.deliveryStatus !== "cancelled";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="mx-auto max-w-7xl px-4 py-6">
       <style>
         {`
           .leaflet-container,
@@ -493,7 +523,7 @@ export default function TrackOrderPage() {
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Track Order</h1>
-          <p className="text-gray-600 mt-2">
+          <p className="mt-2 text-gray-600">
             Track your delivery route, rider location, distance, and estimated time.
           </p>
         </div>
@@ -516,12 +546,12 @@ export default function TrackOrderPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="xl:col-span-1 space-y-6">
+          <div className="space-y-6 xl:col-span-1">
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-semibold mb-1">Order Summary</h2>
-                  <p className="text-sm text-gray-500 break-all">
+                  <h2 className="mb-1 text-xl font-semibold">Order Summary</h2>
+                  <p className="break-all text-sm text-gray-500">
                     {tracking.orderId}
                   </p>
                 </div>
@@ -554,7 +584,7 @@ export default function TrackOrderPage() {
             </div>
 
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4">Delivery Progress</h2>
+              <h2 className="mb-4 text-xl font-semibold">Delivery Progress</h2>
 
               <div className="space-y-3">
                 {timelineSteps.map((step, index) => (
@@ -630,7 +660,7 @@ export default function TrackOrderPage() {
             </div>
 
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4">Delivery Address</h2>
+              <h2 className="mb-4 text-xl font-semibold">Delivery Address</h2>
 
               <div className="space-y-3 text-sm">
                 <div>
@@ -674,7 +704,7 @@ export default function TrackOrderPage() {
                 <div>
                   <h2 className="text-xl font-semibold">Live Delivery Map</h2>
                   <p className="text-sm text-gray-500">
-                    Track your order in real-time.
+                    Route line connects the delivery agent to your address.
                   </p>
                 </div>
 
@@ -705,8 +735,19 @@ export default function TrackOrderPage() {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
 
-                  {fitPoints.length > 0 ? (
-                    <FitBounds points={fitPoints} />
+                  {fitPoints.length > 0 ? <FitBounds points={fitPoints} /> : null}
+
+                  {polylinePositions.length > 1 ? (
+                    <Polyline
+                      positions={polylinePositions}
+                      pathOptions={{
+                        color: "#2563eb",
+                        weight: 7,
+                        opacity: 0.95,
+                        lineCap: "round",
+                        lineJoin: "round",
+                      }}
+                    />
                   ) : null}
 
                   {customerPosition ? (
@@ -727,33 +768,22 @@ export default function TrackOrderPage() {
                       </Popup>
                     </Marker>
                   ) : null}
-
-                  {polylinePositions.length > 1 ? (
-                    <Polyline
-                      positions={polylinePositions}
-                      pathOptions={{
-                        color: "#16a34a",
-                        weight: 6,
-                        opacity: 0.95,
-                      }}
-                    />
-                  ) : null}
                 </MapContainer>
 
                 <div className="absolute bottom-5 left-5 right-5 z-[10] rounded-3xl border border-green-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.6fr_1fr_1fr] md:items-center">
                     <div className="flex items-center gap-4">
                       <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-green-500 bg-white text-4xl shadow-md">
-  🏍️
-</div>
+                        🏍️
+                      </div>
 
                       <div>
                         <p className="text-xl font-extrabold text-gray-900">
                           Order on the way
                         </p>
-                        
-
-                        
+                        <p className="text-sm text-gray-500">
+                          Delivery route is connected to your pinned address.
+                        </p>
                       </div>
                     </div>
 
@@ -775,6 +805,13 @@ export default function TrackOrderPage() {
                   </div>
                 </div>
               </div>
+
+              {!agentPosition || !customerPosition ? (
+                <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                  Route line appears when both delivery agent location and customer
+                  address location are available.
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
