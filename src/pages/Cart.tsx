@@ -138,9 +138,7 @@ const getAddressComponent = (
 ) => {
   if (!components) return "";
 
-  const found = components.find((component) =>
-    component.types.includes(type)
-  );
+  const found = components.find((component) => component.types.includes(type));
 
   return found?.long_name || "";
 };
@@ -300,6 +298,11 @@ export default function Cart() {
 
   const payable = Math.max(subtotal - discount, 0);
 
+  const cardClass = "rounded-xl border bg-white p-4 shadow-sm";
+  const softCardClass = "rounded-xl border bg-gray-50 p-3";
+  const inputClass =
+    "h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500";
+
   const fetchAvailableCoupons = async () => {
     try {
       setLoadingCoupons(true);
@@ -400,7 +403,10 @@ export default function Cart() {
         {
           location: { lat, lng },
         },
-        (results, status) => {
+        (
+          results: google.maps.GeocoderResult[] | null,
+          status: string
+        ) => {
           if (status !== "OK" || !results || results.length === 0) {
             resolve(null);
             return;
@@ -426,51 +432,51 @@ export default function Cart() {
     if (!addressInputRef.current) return;
 
     loadGoogleMapsScript(apiKey)
-  .then(() => {
-    if (!addressInputRef.current) return;
+      .then(() => {
+        if (!addressInputRef.current) return;
 
-    const autocomplete = new google.maps.places.Autocomplete(
-      addressInputRef.current,
-      {
-        componentRestrictions: { country: "in" },
-        fields: [
-          "place_id",
-          "name",
-          "formatted_address",
-          "geometry",
-          "address_components",
-        ],
-      }
-    );
+        const autocomplete = new google.maps.places.Autocomplete(
+          addressInputRef.current,
+          {
+            componentRestrictions: { country: "in" },
+            fields: [
+              "place_id",
+              "name",
+              "formatted_address",
+              "geometry",
+              "address_components",
+            ],
+          }
+        );
 
-    googleAutocompleteRef.current = autocomplete;
+        googleAutocompleteRef.current = autocomplete;
 
-    autocomplete.addListener("place_changed", () => {
-      const place = autocomplete.getPlace();
+        autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace();
 
-      const lat = place.geometry?.location?.lat();
-      const lng = place.geometry?.location?.lng();
+          const lat = place.geometry?.location?.lat();
+          const lng = place.geometry?.location?.lng();
 
-      if (lat == null || lng == null) {
-        setLocationMsg("Please select a valid address from suggestions.");
-        return;
-      }
+          if (lat == null || lng == null) {
+            setLocationMsg("Please select a valid address from suggestions.");
+            return;
+          }
 
-      applyLocationToAddress({
-        lat,
-        lng,
-        formattedAddress: place.formatted_address || place.name || "",
-        components: place.address_components,
-        mode: "manual",
+          applyLocationToAddress({
+            lat,
+            lng,
+            formattedAddress: place.formatted_address || place.name || "",
+            components: place.address_components,
+            mode: "manual",
+          });
+        });
+
+        setGoogleSearchReady(true);
+      })
+      .catch((error: unknown) => {
+        console.error("GOOGLE MAPS LOAD ERROR:", error);
+        setLocationMsg("Google address search failed to load.");
       });
-    });
-
-    setGoogleSearchReady(true);
-  })
-  .catch((error: unknown) => {
-    console.error("GOOGLE MAPS LOAD ERROR:", error);
-    setLocationMsg("Google address search failed to load.");
-  });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -568,9 +574,9 @@ export default function Cart() {
           componentRestrictions: { country: "IN" },
         },
         (
-  results: google.maps.GeocoderResult[] | null,
-  status: string
-) => {
+          results: google.maps.GeocoderResult[] | null,
+          status: string
+        ) => {
           setSearchingAddress(false);
 
           if (status !== "OK" || !results || results.length === 0) {
@@ -822,34 +828,34 @@ export default function Cart() {
 
   if (cart.length === 0) {
     return (
-      <p className="text-center mt-16 text-gray-500 text-lg">
+      <p className="mt-16 text-center text-lg text-gray-500">
         Your cart is empty 🛒
       </p>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="mb-8 text-3xl font-bold text-gray-900">Your Cart</h1>
+    <div className="mx-auto max-w-5xl px-4 py-6">
+      <h1 className="mb-5 text-2xl font-bold text-gray-900">Your Cart</h1>
 
-      <div className="space-y-6">
-        <div className="space-y-4">
+      <div className="space-y-4">
+        <div className="space-y-3">
           {cart.map((item) => (
             <div
               key={item._id}
-              className="flex flex-col gap-4 rounded-2xl border bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between"
+              className="flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
             >
               <div>
-                <h3 className="text-xl font-bold text-gray-900">
+                <h3 className="text-lg font-bold text-gray-900">
                   {item.title}
                 </h3>
 
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-xs text-gray-500">
                   Protein: {item.protein * item.qty}g • Calories:{" "}
                   {item.calories * item.qty}
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p className="mt-1 text-sm font-semibold">
                   ₹{item.price} × {item.qty}
                 </p>
               </div>
@@ -857,45 +863,45 @@ export default function Cart() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => decreaseQty(item._id)}
-                  className="rounded-lg border p-2 hover:bg-gray-50"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border hover:bg-gray-50"
                 >
-                  <Minus size={16} />
+                  <Minus size={15} />
                 </button>
 
-                <span className="min-w-6 text-center font-semibold">
+                <span className="min-w-6 text-center text-sm font-semibold">
                   {item.qty}
                 </span>
 
                 <button
                   onClick={() => increaseQty(item._id)}
-                  className="rounded-lg border p-2 hover:bg-gray-50"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border hover:bg-gray-50"
                 >
-                  <Plus size={16} />
+                  <Plus size={15} />
                 </button>
 
                 <button
                   onClick={() => removeFromCart(item._id)}
-                  className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={17} />
                 </button>
               </div>
             </div>
           ))}
 
-          <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <p className="flex items-center gap-2 text-lg font-semibold">
-              <Tag size={18} /> Available Coupons
+          <div className={cardClass}>
+            <p className="flex items-center gap-2 text-base font-bold">
+              <Tag size={17} /> Available Coupons
             </p>
 
             {loadingCoupons ? (
-              <p className="mt-2 text-sm text-gray-500">Loading coupons...</p>
+              <p className="mt-2 text-xs text-gray-500">Loading coupons...</p>
             ) : availableCoupons.length === 0 ? (
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-xs text-gray-500">
                 No coupons available for your cart.
               </p>
             ) : (
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
                 {availableCoupons.map((c) => {
                   const from = prettyDate(c.validFrom);
                   const to = prettyDate(c.validTo);
@@ -903,17 +909,17 @@ export default function Cart() {
                   return (
                     <div
                       key={c.code}
-                      className="flex items-center justify-between gap-4 rounded-xl border p-4"
+                      className="flex items-center justify-between gap-3 rounded-xl border p-3"
                     >
-                      <div>
-                        <p className="font-bold">{c.code}</p>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold">{c.code}</p>
 
-                        <p className="text-sm text-gray-600">
+                        <p className="truncate text-xs text-gray-600">
                           {formatCouponLabel(c)} • Min ₹{c.minCartTotal}
                         </p>
 
                         {(from || to) && (
-                          <p className="text-xs text-gray-400">
+                          <p className="truncate text-[11px] text-gray-400">
                             Valid: {from || "-"} → {to || "-"}
                           </p>
                         )}
@@ -922,7 +928,7 @@ export default function Cart() {
                       <button
                         onClick={() => applyCoupon(c.code)}
                         disabled={applying}
-                        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        className="h-9 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
                       >
                         Apply
                       </button>
@@ -932,47 +938,45 @@ export default function Cart() {
               </div>
             )}
 
-            <p className="mt-3 text-xs text-gray-400">
+            <p className="mt-2 text-[11px] text-gray-400">
               Only eligible coupons are shown.
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
-          <h2 className="mb-5 text-2xl font-bold">Order Summary</h2>
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-xl font-bold">Order Summary</h2>
 
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-            <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-sm text-gray-500">Total Protein</p>
-              <p className="text-xl font-bold">{totalProtein} g</p>
+          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">Protein</p>
+              <p className="text-lg font-bold">{totalProtein} g</p>
             </div>
 
-            <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-sm text-gray-500">Total Calories</p>
-              <p className="text-xl font-bold">{totalCalories}</p>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">Calories</p>
+              <p className="text-lg font-bold">{totalCalories}</p>
             </div>
 
-            <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-sm text-gray-500">Subtotal</p>
-              <p className="text-xl font-bold">₹{subtotal}</p>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">Subtotal</p>
+              <p className="text-lg font-bold">₹{subtotal}</p>
             </div>
 
-            <div className="rounded-xl bg-green-50 p-4">
-              <p className="text-sm text-green-700">Payable</p>
-              <p className="text-xl font-bold text-green-700">₹{payable}</p>
+            <div className="rounded-xl bg-green-50 p-3">
+              <p className="text-xs text-green-700">Payable</p>
+              <p className="text-lg font-bold text-green-700">₹{payable}</p>
 
               {discount > 0 && (
-                <p className="mt-1 text-xs text-green-700">
-                  You saved ₹{discount}
-                </p>
+                <p className="text-[11px] text-green-700">Saved ₹{discount}</p>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="rounded-xl border bg-gray-50 p-4">
-              <p className="mb-3 flex items-center gap-2 font-semibold">
-                <Tag size={16} /> Apply Coupon
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.9fr_1.15fr_0.95fr]">
+            <div className={softCardClass}>
+              <p className="mb-2 flex items-center gap-2 text-sm font-bold">
+                <Tag size={15} /> Apply Coupon
               </p>
 
               <input
@@ -984,18 +988,18 @@ export default function Cart() {
                   setCouponMsgType(null);
                 }}
                 placeholder="Coupon code"
-                className="w-full rounded-lg border px-3 py-3"
+                className={inputClass}
               />
 
               <button
                 onClick={() => applyCoupon()}
                 disabled={applying}
-                className="mt-3 w-full rounded-lg bg-green-600 py-3 font-semibold text-white disabled:opacity-60"
+                className="mt-2 h-10 w-full rounded-lg bg-green-600 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {applying ? "Applying..." : "Apply Coupon"}
               </button>
 
-              <div className="mt-4 space-y-2 text-sm">
+              <div className="mt-3 space-y-2 text-sm">
                 <p className="flex justify-between">
                   <span>Discount</span>
                   <b className="text-green-600">-₹{discount}</b>
@@ -1004,7 +1008,7 @@ export default function Cart() {
 
               {couponMsg && (
                 <p
-                  className={`mt-3 text-sm ${
+                  className={`mt-2 text-xs ${
                     couponMsgType === "error"
                       ? "text-red-600"
                       : couponMsgType === "success"
@@ -1017,47 +1021,46 @@ export default function Cart() {
               )}
             </div>
 
-            <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <div className="mb-5">
-                <p className="flex items-center gap-2 text-lg font-bold text-gray-900">
-                  <MapPin size={20} className="text-green-600" />
+            <div className={cardClass}>
+              <div className="mb-3">
+                <p className="flex items-center gap-2 text-base font-bold text-gray-900">
+                  <MapPin size={18} className="text-green-600" />
                   Delivery Address
                 </p>
 
-                <p className="mt-1 text-sm text-gray-500">
-                  Search like food delivery apps, pin exact location, and save
-                  addresses.
+                <p className="mt-1 text-xs text-gray-500">
+                  Search, pin exact location, and save address.
                 </p>
               </div>
 
               {savedAddresses.length > 0 && (
-                <div className="mb-5 rounded-2xl border bg-gray-50 p-4">
-                  <p className="mb-3 font-bold text-gray-900">
+                <div className="mb-3 rounded-xl border bg-gray-50 p-3">
+                  <p className="mb-2 text-sm font-bold text-gray-900">
                     Saved Addresses
                   </p>
 
                   {loadingSavedAddresses ? (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-xs text-gray-500">
                       Loading saved addresses...
                     </p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
                       {savedAddresses.slice(0, 3).map((saved) => (
                         <button
                           key={saved._id}
                           type="button"
                           onClick={() => selectSavedAddress(saved)}
-                          className="w-full rounded-xl border bg-white p-3 text-left hover:border-green-500"
+                          className="w-full rounded-lg border bg-white p-2 text-left transition hover:border-green-500 hover:bg-green-50"
                         >
-                          <p className="font-bold text-gray-900">
+                          <p className="truncate text-sm font-bold text-gray-900">
                             {saved.addressLabel} - {saved.fullName}
                           </p>
 
-                          <p className="mt-1 text-sm text-gray-600">
+                          <p className="truncate text-xs text-gray-600">
                             {saved.flatNo}, {saved.buildingName}, {saved.area}
                           </p>
 
-                          <p className="text-sm text-gray-500">
+                          <p className="truncate text-xs text-gray-500">
                             {saved.city}, {saved.state} - {saved.pincode}
                           </p>
                         </button>
@@ -1067,10 +1070,10 @@ export default function Cart() {
                 </div>
               )}
 
-              <div className="mb-5 rounded-2xl border border-green-100 bg-green-50 p-4">
-                <p className="mb-3 flex items-center gap-2 font-bold text-gray-900">
-                  <Search size={18} className="text-green-600" />
-                  Search Delivery Location
+              <div className="mb-3 rounded-xl border border-green-100 bg-green-50 p-3">
+                <p className="mb-2 flex items-center gap-2 text-sm font-bold text-gray-900">
+                  <Search size={16} className="text-green-600" />
+                  Search Location
                 </p>
 
                 <div className="flex gap-2">
@@ -1086,38 +1089,38 @@ export default function Cart() {
                     }}
                     placeholder={
                       googleSearchReady
-                        ? "Search apartment, area, landmark..."
-                        : "Loading Google address search..."
+                        ? "Apartment, area, landmark..."
+                        : "Loading Google search..."
                     }
-                    className="w-full rounded-xl border px-4 py-3"
+                    className={inputClass}
                   />
 
                   <button
                     type="button"
                     onClick={geocodeTypedAddress}
                     disabled={searchingAddress}
-                    className="rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                    className="h-10 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
                   >
                     {searchingAddress ? "..." : "Search"}
                   </button>
                 </div>
 
-                <p className="mt-2 text-xs text-gray-500">
-                  Start typing and select an address from Google suggestions.
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Select from Google suggestions.
                 </p>
 
                 <button
                   type="button"
                   onClick={useCurrentLocation}
-                  className="mt-3 w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700"
+                  className="mt-2 h-10 w-full rounded-lg bg-green-600 text-sm font-semibold text-white hover:bg-green-700"
                 >
-                  <Navigation size={16} className="mr-2 inline" />
+                  <Navigation size={15} className="mr-1 inline" />
                   Use Current Location
                 </button>
 
                 {address.lat != null && address.lng != null && (
-                  <div className="mt-4 overflow-hidden rounded-2xl border">
-                    <div className="h-64 w-full">
+                  <div className="mt-3 overflow-hidden rounded-xl border">
+                    <div className="h-40 w-full">
                       <MapContainer
                         center={[address.lat, address.lng]}
                         zoom={17}
@@ -1140,10 +1143,16 @@ export default function Cart() {
                       </MapContainer>
                     </div>
 
-                    <p className="bg-white px-3 py-2 text-xs text-gray-500">
-                      Tap anywhere on the map to adjust the exact delivery pin.
+                    <p className="bg-white px-3 py-1 text-[11px] text-gray-500">
+                      Tap map to adjust exact pin.
                     </p>
                   </div>
+                )}
+
+                {address.formattedAddress && (
+                  <p className="mt-2 line-clamp-2 rounded-lg bg-white p-2 text-xs text-gray-600">
+                    <b>Selected:</b> {address.formattedAddress}
+                  </p>
                 )}
 
                 {address.mapsUrl && (
@@ -1151,29 +1160,23 @@ export default function Cart() {
                     href={address.mapsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 inline-block text-sm font-semibold text-green-700 underline"
+                    className="mt-2 inline-block text-xs font-semibold text-green-700 underline"
                   >
-                    Open selected location in Google Maps
+                    Open in Google Maps
                   </a>
                 )}
 
-                {address.formattedAddress && (
-                  <p className="mt-3 rounded-xl bg-white p-3 text-sm text-gray-600">
-                    <b>Selected:</b> {address.formattedAddress}
-                  </p>
-                )}
-
                 {locationMsg && (
-                  <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600">
+                  <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-600">
                     {locationMsg}
                   </p>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <input
                   placeholder="Full Name"
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.fullName}
                   onChange={(e) =>
                     setAddress({ ...address, fullName: e.target.value })
@@ -1182,7 +1185,7 @@ export default function Cart() {
 
                 <input
                   placeholder="Phone Number"
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.phone}
                   onChange={(e) =>
                     setAddress({ ...address, phone: e.target.value })
@@ -1191,7 +1194,7 @@ export default function Cart() {
 
                 <input
                   placeholder="Flat / House No"
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.flatNo}
                   onChange={(e) =>
                     setAddress({ ...address, flatNo: e.target.value })
@@ -1200,7 +1203,7 @@ export default function Cart() {
 
                 <input
                   placeholder="Floor optional"
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.floor}
                   onChange={(e) =>
                     setAddress({ ...address, floor: e.target.value })
@@ -1208,8 +1211,8 @@ export default function Cart() {
                 />
 
                 <input
-                  placeholder="Building / Apartment Name"
-                  className="rounded-xl border px-4 py-3 sm:col-span-2"
+                  placeholder="Building / Apartment"
+                  className={`${inputClass} sm:col-span-2`}
                   value={address.buildingName}
                   onChange={(e) =>
                     setAddress({ ...address, buildingName: e.target.value })
@@ -1218,7 +1221,7 @@ export default function Cart() {
 
                 <input
                   placeholder="Area / Locality"
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.area}
                   onChange={(e) =>
                     setAddress({ ...address, area: e.target.value })
@@ -1227,7 +1230,7 @@ export default function Cart() {
 
                 <input
                   placeholder="Landmark optional"
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.landmark}
                   onChange={(e) =>
                     setAddress({ ...address, landmark: e.target.value })
@@ -1236,7 +1239,7 @@ export default function Cart() {
 
                 <input
                   placeholder="City"
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.city}
                   onChange={(e) =>
                     setAddress({ ...address, city: e.target.value })
@@ -1245,7 +1248,7 @@ export default function Cart() {
 
                 <input
                   placeholder="State"
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.state}
                   onChange={(e) =>
                     setAddress({ ...address, state: e.target.value })
@@ -1254,7 +1257,7 @@ export default function Cart() {
 
                 <input
                   placeholder="Pincode"
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.pincode}
                   onChange={(e) =>
                     setAddress({ ...address, pincode: e.target.value })
@@ -1262,7 +1265,7 @@ export default function Cart() {
                 />
 
                 <select
-                  className="rounded-xl border px-4 py-3"
+                  className={inputClass}
                   value={address.addressLabel}
                   onChange={(e) =>
                     setAddress({
@@ -1280,31 +1283,31 @@ export default function Cart() {
                 </select>
               </div>
 
-              <label className="mt-4 flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-700">
+              <label className="mt-3 flex items-center gap-2 rounded-lg bg-gray-50 p-2 text-xs font-semibold text-gray-700">
                 <input
                   type="checkbox"
                   checked={saveAddressForFuture}
                   onChange={(e) => setSaveAddressForFuture(e.target.checked)}
                 />
-                <BookmarkPlus size={16} className="text-green-600" />
-                Save this address for future orders
+                <BookmarkPlus size={14} className="text-green-600" />
+                Save this address
               </label>
 
               {addressMsg && (
-                <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600">
+                <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-600">
                   {addressMsg}
                 </p>
               )}
             </div>
 
-            <div className="rounded-xl border bg-gray-50 p-4">
-              <p className="mb-3 flex items-center gap-2 font-semibold">
-                <Clock size={16} /> Delivery Time
+            <div className={softCardClass}>
+              <p className="mb-2 flex items-center gap-2 text-sm font-bold">
+                <Clock size={15} /> Delivery Time
               </p>
 
               <input
                 type="date"
-                className="w-full rounded-lg border px-3 py-3"
+                className={inputClass}
                 value={slotDate}
                 onChange={(e) => {
                   const newDate = e.target.value;
@@ -1315,6 +1318,7 @@ export default function Cart() {
                     const firstAllowed = slots.find((s) =>
                       isSlotAllowed(newDate, s)
                     );
+
                     if (firstAllowed) setSlotTime(firstAllowed);
                   }
                 }}
@@ -1322,7 +1326,7 @@ export default function Cart() {
               />
 
               <select
-                className="mt-3 w-full rounded-lg border px-3 py-3"
+                className="mt-2 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
                 value={slotTime}
                 onChange={(e) => {
                   setSlotTime(e.target.value);
@@ -1341,16 +1345,16 @@ export default function Cart() {
                 })}
               </select>
 
-              <p className="mt-3 text-xs text-gray-500">
+              <p className="mt-2 text-[11px] text-gray-500">
                 Orders must be placed at least <b>3 hours</b> before your
                 desired time slot.
               </p>
 
               {slotMsg && (
-                <p className="mt-2 text-sm text-red-600">{slotMsg}</p>
+                <p className="mt-2 text-xs text-red-600">{slotMsg}</p>
               )}
 
-              <hr className="my-5" />
+              <hr className="my-4" />
 
               <div className="space-y-2 text-sm">
                 <p className="flex justify-between">
@@ -1363,7 +1367,7 @@ export default function Cart() {
                   <b>-₹{discount}</b>
                 </p>
 
-                <p className="flex justify-between text-lg font-bold">
+                <p className="flex justify-between text-base font-bold">
                   <span>Total Payable</span>
                   <span>₹{payable}</span>
                 </p>
@@ -1372,7 +1376,7 @@ export default function Cart() {
               <button
                 onClick={checkout}
                 disabled={checkingOut}
-                className="mt-6 w-full rounded-xl bg-green-600 py-3 font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                className="mt-4 h-11 w-full rounded-xl bg-green-600 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
               >
                 {checkingOut ? "Processing..." : "Checkout & Pay"}
               </button>
