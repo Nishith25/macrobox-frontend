@@ -30,6 +30,7 @@ export default function Checkout() {
   const [couponApplied, setCouponApplied] = useState<any>(null);
   const [discount, setDiscount] = useState(0);
   const [slot, setSlot] = useState(slots[0]);
+  const [gettingLocation, setGettingLocation] = useState(false);
 
   const [address, setAddress] = useState({
     fullName: "",
@@ -41,7 +42,8 @@ export default function Checkout() {
     pincode: "",
     lat: null as number | null,
     lng: null as number | null,
-    locationMode: "manual",
+    locationMode: "current",
+    locationText: "",
     mapsUrl: "",
   });
 
@@ -52,35 +54,47 @@ export default function Checkout() {
       return toast.error("Geolocation is not supported");
     }
 
+    setGettingLocation(true);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+        const lat = Number(pos.coords.latitude);
+        const lng = Number(pos.coords.longitude);
 
         setAddress((prev) => ({
           ...prev,
           lat,
           lng,
           locationMode: "current",
+          locationText: `${lat}, ${lng}`,
           mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
         }));
 
+        setGettingLocation(false);
         toast.success("Current location added");
       },
-      () => toast.error("Location permission denied"),
-      { enableHighAccuracy: true }
+      () => {
+        setGettingLocation(false);
+        toast.error("Location permission denied");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   };
 
   const applyCoupon = async () => {
     try {
-      const res = await api.post("/coupons/validate", { code: coupon, subtotal });
-      const c = res.data;
+      const res = await api.post("/coupons/validate", {
+        code: coupon,
+        subtotal,
+      });
 
+      const c = res.data;
       let d = 0;
-      if (c.type === "flat") d = c.value;
-      if (c.type === "percent") d = (c.value / 100) * subtotal;
-      d = Math.min(d, c.maxDiscount || d);
+
+      if (c.type === "flat") d = Number(c.value || 0);
+      if (c.type === "percent") d = (Number(c.value || 0) / 100) * subtotal;
+
+      if (c.maxDiscount) d = Math.min(d, Number(c.maxDiscount));
       d = Math.min(d, subtotal);
 
       setDiscount(Math.round(d));
@@ -120,7 +134,10 @@ export default function Checkout() {
       return toast.error("Please fill full address");
     }
 
-    if (!address.lat || !address.lng) {
+    const lat = Number(address.lat);
+    const lng = Number(address.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return toast.error("Please click Use Current Location for live tracking");
     }
 
@@ -128,14 +145,26 @@ export default function Checkout() {
     if (!ok) return toast.error("Razorpay SDK failed to load");
 
     try {
-      const createRes = await api.post("/checkout/create-order", {
+      const payload = {
         items: cart,
-        address,
+        address: {
+          ...address,
+          lat,
+          lng,
+          locationMode: "current",
+          locationText: address.locationText || `${lat}, ${lng}`,
+          mapsUrl: address.mapsUrl || `https://www.google.com/maps?q=${lat},${lng}`,
+        },
         deliverySlot: slot,
         couponCode: couponApplied?.code || null,
-      });
+      };
 
-      const { keyId, razorpayOrderId, amount, currency, orderId } = createRes.data;
+      console.log("CHECKOUT PAYLOAD:", payload);
+
+      const createRes = await api.post("/checkout/create-order", payload);
+
+      const { keyId, razorpayOrderId, amount, currency, orderId } =
+        createRes.data;
 
       const options = {
         key: keyId,
@@ -185,54 +214,120 @@ export default function Checkout() {
           <button
             type="button"
             onClick={useCurrentLocation}
-            className="mb-3 rounded-lg bg-black px-4 py-2 text-white"
+            disabled={gettingLocation}
+            className="mb-3 rounded-lg bg-black px-4 py-2 text-white disabled:opacity-60"
           >
-            Use Current Location
+            {gettingLocation ? "Getting Location..." : "Use Current Location"}
           </button>
 
           {address.lat && address.lng && (
-            <p className="mb-3 text-sm text-green-700">
-              Location added: {address.lat}, {address.lng}
-            </p>
+            <div className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+              <p>Location added successfully.</p>
+              <a
+                href={address.mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                Open current location in Google Maps
+              </a>
+            </div>
           )}
 
           <div className="grid md:grid-cols-2 gap-3">
-            <input className="border p-2 rounded" placeholder="Full name"
-              value={address.fullName} onChange={(e) => setAddress({ ...address, fullName: e.target.value })} />
+            <input
+              className="border p-2 rounded"
+              placeholder="Full name"
+              value={address.fullName}
+              onChange={(e) =>
+                setAddress({ ...address, fullName: e.target.value })
+              }
+            />
 
-            <input className="border p-2 rounded" placeholder="Phone"
-              value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} />
+            <input
+              className="border p-2 rounded"
+              placeholder="Phone"
+              value={address.phone}
+              onChange={(e) =>
+                setAddress({ ...address, phone: e.target.value })
+              }
+            />
 
-            <input className="border p-2 rounded md:col-span-2" placeholder="Address line 1"
-              value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} />
+            <input
+              className="border p-2 rounded md:col-span-2"
+              placeholder="Address line 1"
+              value={address.line1}
+              onChange={(e) =>
+                setAddress({ ...address, line1: e.target.value })
+              }
+            />
 
-            <input className="border p-2 rounded md:col-span-2" placeholder="Address line 2 (optional)"
-              value={address.line2} onChange={(e) => setAddress({ ...address, line2: e.target.value })} />
+            <input
+              className="border p-2 rounded md:col-span-2"
+              placeholder="Address line 2 (optional)"
+              value={address.line2}
+              onChange={(e) =>
+                setAddress({ ...address, line2: e.target.value })
+              }
+            />
 
-            <input className="border p-2 rounded" placeholder="City"
-              value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />
+            <input
+              className="border p-2 rounded"
+              placeholder="City"
+              value={address.city}
+              onChange={(e) =>
+                setAddress({ ...address, city: e.target.value })
+              }
+            />
 
-            <input className="border p-2 rounded" placeholder="State"
-              value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} />
+            <input
+              className="border p-2 rounded"
+              placeholder="State"
+              value={address.state}
+              onChange={(e) =>
+                setAddress({ ...address, state: e.target.value })
+              }
+            />
 
-            <input className="border p-2 rounded" placeholder="Pincode"
-              value={address.pincode} onChange={(e) => setAddress({ ...address, pincode: e.target.value })} />
+            <input
+              className="border p-2 rounded"
+              placeholder="Pincode"
+              value={address.pincode}
+              onChange={(e) =>
+                setAddress({ ...address, pincode: e.target.value })
+              }
+            />
           </div>
         </div>
 
         <div className="border rounded-lg p-4">
           <h2 className="font-semibold text-lg mb-3">Delivery Slot</h2>
-          <select className="border p-2 rounded w-full" value={slot} onChange={(e) => setSlot(e.target.value)}>
-            {slots.map((s) => <option key={s} value={s}>{s}</option>)}
+          <select
+            className="border p-2 rounded w-full"
+            value={slot}
+            onChange={(e) => setSlot(e.target.value)}
+          >
+            {slots.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
         </div>
 
         <div className="border rounded-lg p-4">
           <h2 className="font-semibold text-lg mb-3">Apply Coupon</h2>
           <div className="flex gap-2">
-            <input className="border p-2 rounded w-full" placeholder="Enter coupon code"
-              value={coupon} onChange={(e) => setCoupon(e.target.value)} />
-            <button onClick={applyCoupon} className="bg-black text-white px-4 rounded">
+            <input
+              className="border p-2 rounded w-full"
+              placeholder="Enter coupon code"
+              value={coupon}
+              onChange={(e) => setCoupon(e.target.value)}
+            />
+            <button
+              onClick={applyCoupon}
+              className="bg-black text-white px-4 rounded"
+            >
               Apply
             </button>
           </div>
@@ -243,12 +338,26 @@ export default function Checkout() {
         <h2 className="font-semibold text-lg mb-3">Order Summary</h2>
 
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal}</span></div>
-          <div className="flex justify-between text-green-700"><span>Discount</span><span>- ₹{discount}</span></div>
-          <div className="border-t pt-2 flex justify-between font-bold text-lg"><span>Total</span><span>₹{total}</span></div>
+          <div className="flex justify-between">
+            <span>Subtotal</span>
+            <span>₹{subtotal}</span>
+          </div>
+
+          <div className="flex justify-between text-green-700">
+            <span>Discount</span>
+            <span>- ₹{discount}</span>
+          </div>
+
+          <div className="border-t pt-2 flex justify-between font-bold text-lg">
+            <span>Total</span>
+            <span>₹{total}</span>
+          </div>
         </div>
 
-        <button onClick={handlePay} className="w-full mt-4 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+        <button
+          onClick={handlePay}
+          className="w-full mt-4 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
+        >
           Pay with Razorpay
         </button>
       </div>
