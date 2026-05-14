@@ -470,7 +470,6 @@ export default function DeliveryDashboard() {
               <div className="grid gap-5">
                 {myOrders.map((order) => {
                   const currentStatus = order.delivery?.status || "";
-                  const liveEta = order.delivery?.tracking?.eta;
                   const currentLocation = order.delivery?.tracking?.currentLocation;
                   const canStartTracking =
   currentStatus === "picked_up" || currentStatus === "out_for_delivery";
@@ -600,54 +599,31 @@ export default function DeliveryDashboard() {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                              <div className="rounded-xl bg-blue-50 p-3">
-                                <p className="text-blue-700">ETA</p>
-                                <p className="font-semibold text-blue-900">
-                                  {liveEta?.text || "Not available yet"}
-                                </p>
-                              </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+  <div className="rounded-xl bg-blue-50 p-4">
+    <p className="text-blue-700 font-medium">ETA</p>
+    <p className="font-bold">
+      {order.delivery?.tracking?.eta?.text || "Time calculating..."}
+    </p>
+  </div>
 
-                              <div className="rounded-xl bg-green-50 p-3">
-                                <p className="text-green-700">Distance Left</p>
-                                <p className="font-semibold text-green-900">
-                                  {liveEta?.distanceText || "N/A"}
-                                </p>
-                              </div>
+  <div className="rounded-xl bg-green-50 p-4">
+    <p className="text-green-700 font-medium">Distance Left</p>
+    <p className="font-bold">
+      {order.delivery?.tracking?.eta?.distanceText || "Distance calculating..."}
+    </p>
+  </div>
 
-                              <div className="rounded-xl bg-gray-50 p-3">
-                                <p className="text-gray-500">Tracking</p>
-                                <p className="font-semibold text-gray-900">
-                                  {order.delivery?.tracking?.isLive
-                                    ? "Active"
-                                    : "Inactive"}
-                                </p>
-                              </div>
-                            </div>
+  <div className="rounded-xl bg-gray-50 p-4">
+    <p className="text-gray-500 font-medium">Tracking</p>
+    <p className="font-bold">
+      {order.delivery?.tracking?.isLive ? "Active" : "Not active"}
+    </p>
+  </div>
+</div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                              <div className="rounded-xl bg-gray-50 p-3">
-                                <p className="text-gray-500">Current Coordinates</p>
-                                <p className="font-medium">
-                                  {currentLocation?.lat != null &&
-                                  currentLocation?.lng != null
-                                    ? `${currentLocation.lat}, ${currentLocation.lng}`
-                                    : "Live coordinates not available"}
-                                </p>
-                              </div>
-
-                              <div className="rounded-xl bg-gray-50 p-3">
-                                <p className="text-gray-500">Speed / Heading</p>
-                                <p className="font-medium">
-                                  {currentLocation?.speed != null
-                                    ? `${currentLocation.speed} m/s`
-                                    : "N/A"}
-                                  {" / "}
-                                  {currentLocation?.heading != null
-                                    ? `${Math.round(currentLocation.heading)}°`
-                                    : "N/A"}
-                                </p>
-                              </div>
+                              
                             </div>
                           </div>
 
