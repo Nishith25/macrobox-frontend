@@ -59,6 +59,8 @@ type Summary = {
   totalRevenue: number;
 };
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
 export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -68,12 +70,20 @@ export default function AdminOrders() {
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [deliveryStatus, setDeliveryStatus] = useState("all");
   const [search, setSearch] = useState("");
+  const [from, setFrom] = useState(todayISO());
+  const [to, setTo] = useState(todayISO());
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (customFrom = from, customTo = to) => {
     setLoading(true);
     try {
       const res = await api.get("/admin/orders", {
-        params: { paymentStatus, deliveryStatus, search },
+        params: {
+          paymentStatus,
+          deliveryStatus,
+          search,
+          from: customFrom,
+          to: customTo,
+        },
       });
       setOrders(res.data.orders || []);
       setSummary(res.data.summary || null);
@@ -90,9 +100,23 @@ export default function AdminOrders() {
   };
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(todayISO(), todayISO());
     fetchAgents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const setTodayFilter = () => {
+    const today = todayISO();
+    setFrom(today);
+    setTo(today);
+    fetchOrders(today, today);
+  };
+
+  const clearDateFilter = () => {
+    setFrom("");
+    setTo("");
+    fetchOrders("", "");
+  };
 
   const assignAgent = async (orderId: string, agentId: string) => {
     if (!agentId) return;
@@ -131,7 +155,7 @@ export default function AdminOrders() {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "macrobox-orders.csv";
+    a.download = `macrobox-orders-${from || "all"}-to-${to || "all"}.csv`;
     a.click();
 
     URL.revokeObjectURL(url);
@@ -153,7 +177,10 @@ export default function AdminOrders() {
         <div>
           <h1 className="text-3xl font-bold">Admin Orders</h1>
           <p className="text-gray-600 mt-1">
-            View orders, payments, delivery status, agents, and revenue.
+            View daily orders, payments, delivery status, agents, and revenue.
+          </p>
+          <p className="text-sm text-green-700 mt-2 font-medium">
+            Showing: {from || "All"} → {to || "All"}
           </p>
         </div>
 
@@ -174,12 +201,12 @@ export default function AdminOrders() {
         ))}
       </div>
 
-      <div className="rounded-xl border bg-white p-5 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="rounded-xl border bg-white p-5 mb-4 grid grid-cols-1 md:grid-cols-6 gap-4">
         <input
           placeholder="Search email / phone / order ID"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="rounded-lg border px-3 py-2"
+          className="rounded-lg border px-3 py-2 md:col-span-2"
         />
 
         <select
@@ -207,11 +234,39 @@ export default function AdminOrders() {
           <option value="cancelled">Cancelled</option>
         </select>
 
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          className="rounded-lg border px-3 py-2"
+        />
+
+        <input
+          type="date"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          className="rounded-lg border px-3 py-2"
+        />
+
         <button
-          onClick={fetchOrders}
-          className="rounded-lg bg-black px-4 py-2 font-semibold text-white"
+          onClick={() => fetchOrders()}
+          className="rounded-lg bg-black px-4 py-2 font-semibold text-white md:col-span-2"
         >
           Apply Filters
+        </button>
+
+        <button
+          onClick={setTodayFilter}
+          className="rounded-lg border px-4 py-2 font-semibold hover:bg-gray-50"
+        >
+          Today
+        </button>
+
+        <button
+          onClick={clearDateFilter}
+          className="rounded-lg border px-4 py-2 font-semibold hover:bg-gray-50"
+        >
+          All Dates
         </button>
       </div>
 
@@ -252,11 +307,17 @@ export default function AdminOrders() {
                   <td className="p-4">
                     <p className="font-semibold">{order.user?.name || "N/A"}</p>
                     <p>{order.user?.email || "N/A"}</p>
-                    <p>{order.user?.phone || order.delivery?.address?.phone || "N/A"}</p>
+                    <p>
+                      {order.user?.phone ||
+                        order.delivery?.address?.phone ||
+                        "N/A"}
+                    </p>
                   </td>
 
                   <td className="p-4">
-                    <p className="capitalize font-semibold">{order.payment?.status}</p>
+                    <p className="capitalize font-semibold">
+                      {order.payment?.status}
+                    </p>
                     <p className="break-all text-xs text-gray-500">
                       {order.payment?.razorpayPaymentId || "No payment ID"}
                     </p>
@@ -267,10 +328,12 @@ export default function AdminOrders() {
                       {(order.delivery?.status || "").replaceAll("_", " ")}
                     </p>
                     <p>
-                      {order.delivery?.slot?.date} | {order.delivery?.slot?.time}
+                      {order.delivery?.slot?.date} |{" "}
+                      {order.delivery?.slot?.time}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {order.delivery?.address?.line1}, {order.delivery?.address?.city}
+                      {order.delivery?.address?.line1},{" "}
+                      {order.delivery?.address?.city}
                     </p>
                   </td>
 
@@ -289,12 +352,16 @@ export default function AdminOrders() {
                     </select>
                   </td>
 
-                  <td className="p-4 font-bold">₹{order.totals?.payable || 0}</td>
+                  <td className="p-4 font-bold">
+                    ₹{order.totals?.payable || 0}
+                  </td>
 
                   <td className="p-4">
                     {order.coupon?.code || "-"}
                     {order.coupon?.discount ? (
-                      <p className="text-green-600">-₹{order.coupon.discount}</p>
+                      <p className="text-green-600">
+                        -₹{order.coupon.discount}
+                      </p>
                     ) : null}
                   </td>
 
