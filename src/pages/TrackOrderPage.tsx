@@ -86,6 +86,7 @@ type TrackResponse = {
 type SocketTrackingPayload = {
   orderId?: string;
   deliveryStatus?: string;
+  deliveryAgent?: DeliveryAgent | null;
   currentLocation?: LocationPoint | null;
   eta?: TrackingData["eta"];
   route?: TrackingData["route"];
@@ -174,11 +175,7 @@ function interpolatePoints(
   return frames;
 }
 
-function FitBounds({
-  points,
-}: {
-  points: [number, number][];
-}) {
+function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
 
   useEffect(() => {
@@ -230,6 +227,7 @@ export default function TrackOrderPage() {
   useEffect(() => {
     if (!orderId) return;
     fetchTracking();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
   useEffect(() => {
@@ -265,6 +263,7 @@ export default function TrackOrderPage() {
         return {
           ...prev,
           deliveryStatus: data?.deliveryStatus || prev.deliveryStatus,
+          deliveryAgent: data?.deliveryAgent ?? prev.deliveryAgent,
           tracking: {
             ...(prev.tracking || {}),
             isLive:
@@ -279,7 +278,10 @@ export default function TrackOrderPage() {
         };
       });
 
-      if (data?.currentLocation?.lat != null && data?.currentLocation?.lng != null) {
+      if (
+        data?.currentLocation?.lat != null &&
+        data?.currentLocation?.lng != null
+      ) {
         const nextPosition: [number, number] = [
           data.currentLocation.lat,
           data.currentLocation.lng,
@@ -351,28 +353,28 @@ export default function TrackOrderPage() {
   }, [agentAnimatedPosition, tracking]);
 
   const routePolylinePositions = useMemo<[number, number][]>(() => {
-  const encoded = tracking?.tracking?.route?.encodedPolyline;
-  if (!encoded) return [];
+    const encoded = tracking?.tracking?.route?.encodedPolyline;
+    if (!encoded) return [];
 
-  try {
-    const decoded = polyline.decode(encoded) as [number, number][];
-    return decoded.map(([lat, lng]): [number, number] => [lat, lng]);
-  } catch (error) {
-    console.error("Polyline decode failed:", error);
-    return [];
-  }
-}, [tracking]);
+    try {
+      const decoded = polyline.decode(encoded) as [number, number][];
+      return decoded.map(([lat, lng]): [number, number] => [lat, lng]);
+    } catch (error) {
+      console.error("Polyline decode failed:", error);
+      return [];
+    }
+  }, [tracking]);
 
   const fallbackHistoryPolyline = useMemo<[number, number][]>(() => {
-  const history = tracking?.tracking?.locationHistory || [];
+    const history = tracking?.tracking?.locationHistory || [];
 
-  return history
-    .filter(
-      (p): p is LocationPoint & { lat: number; lng: number } =>
-        typeof p.lat === "number" && typeof p.lng === "number"
-    )
-    .map((p): [number, number] => [p.lat, p.lng]);
-}, [tracking]);
+    return history
+      .filter(
+        (p): p is LocationPoint & { lat: number; lng: number } =>
+          typeof p.lat === "number" && typeof p.lng === "number"
+      )
+      .map((p): [number, number] => [p.lat, p.lng]);
+  }, [tracking]);
 
   const polylinePositions = useMemo<[number, number][]>(() => {
     if (routePolylinePositions.length > 1) return routePolylinePositions;
@@ -422,6 +424,17 @@ export default function TrackOrderPage() {
     ];
   }, [tracking]);
 
+  const agentPhone =
+    tracking?.deliveryAgent?.deliveryProfile?.phone ||
+    tracking?.deliveryAgent?.phone ||
+    "";
+
+  const liveNotice =
+    tracking?.deliveryAgent &&
+    !agentPosition &&
+    tracking.deliveryStatus !== "delivered" &&
+    tracking.deliveryStatus !== "cancelled";
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -455,7 +468,9 @@ export default function TrackOrderPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold mb-1">Order Summary</h2>
-                  <p className="text-sm text-gray-500 break-all">{tracking.orderId}</p>
+                  <p className="text-sm text-gray-500 break-all">
+                    {tracking.orderId}
+                  </p>
                 </div>
 
                 <span
@@ -467,44 +482,49 @@ export default function TrackOrderPage() {
                 </span>
               </div>
 
-              <div className="mt-5 space-y-4 text-sm">
-                <div>
-                  <p className="text-gray-500">Payment Status</p>
-                  <p className="font-medium capitalize">
+              <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-gray-500">Payment</p>
+                  <p className="font-bold capitalize">
                     {tracking.paymentStatus || "N/A"}
                   </p>
                 </div>
 
-                <div>
-                  <p className="text-gray-500">Delivery Slot</p>
-                  <p className="font-medium">
-                    {tracking.slot?.date || "N/A"} | {tracking.slot?.time || "N/A"}
-                  </p>
-                </div>
-
-                <div>
+                <div className="rounded-xl bg-gray-50 p-3">
                   <p className="text-gray-500">Live Tracking</p>
-                  <p className="font-medium">
-                    {tracking.tracking?.isLive ? "Active" : "Not active yet"}
+                  <p className="font-bold">
+                    {tracking.tracking?.isLive ? "Active" : "Not active"}
                   </p>
                 </div>
 
-                <div>
+                <div className="rounded-xl bg-gray-50 p-3 col-span-2">
+                  <p className="text-gray-500">Delivery Slot</p>
+                  <p className="font-bold">
+                    {tracking.slot?.date || "N/A"} |{" "}
+                    {tracking.slot?.time || "N/A"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 p-3">
                   <p className="text-gray-500">ETA</p>
-                  <p className="font-medium">
+                  <p className="font-bold">
                     {tracking.tracking?.eta?.text || "Calculating..."}
                   </p>
-                  {tracking.tracking?.eta?.distanceText ? (
-                    <p className="text-gray-500 mt-1">
-                      Distance left: {tracking.tracking.eta.distanceText}
-                    </p>
-                  ) : null}
                 </div>
 
-                <div>
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-gray-500">Distance</p>
+                  <p className="font-bold">
+                    {tracking.tracking?.eta?.distanceText || "N/A"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 p-3 col-span-2">
                   <p className="text-gray-500">Last ETA Update</p>
-                  <p className="font-medium">
-                    {formatDateTime(tracking.tracking?.eta?.lastCalculatedAt || null)}
+                  <p className="font-bold">
+                    {formatDateTime(
+                      tracking.tracking?.eta?.lastCalculatedAt || null
+                    )}
                   </p>
                 </div>
               </div>
@@ -534,55 +554,84 @@ export default function TrackOrderPage() {
             </div>
 
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4">Delivery Agent</h2>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Delivery Agent</h2>
+                {tracking.deliveryAgent ? (
+                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                    Assigned
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                    Pending
+                  </span>
+                )}
+              </div>
 
               <div className="space-y-3 text-sm">
                 <div>
                   <p className="text-gray-500">Name</p>
-                  <p className="font-medium">
+                  <p className="font-semibold">
                     {tracking.deliveryAgent?.name || "Not assigned yet"}
                   </p>
                 </div>
 
                 <div>
                   <p className="text-gray-500">Email</p>
-                  <p className="font-medium">
+                  <p className="font-semibold">
                     {tracking.deliveryAgent?.email || "N/A"}
                   </p>
                 </div>
 
                 <div>
                   <p className="text-gray-500">Phone</p>
-                  <p className="font-medium">
-                    {tracking.deliveryAgent?.deliveryProfile?.phone ||
-  tracking.deliveryAgent?.phone ||
-  "N/A"}
-                  </p>
+                  <p className="font-semibold">{agentPhone || "N/A"}</p>
                 </div>
 
-                <div>
-                  <p className="text-gray-500">Last Live Update</p>
-                  <p className="font-medium">
-                    {formatDateTime(tracking.tracking?.currentLocation?.updatedAt || null)}
-                  </p>
-                </div>
+                {agentPhone ? (
+                  <a
+                    href={`tel:${agentPhone}`}
+                    className="inline-flex w-full justify-center rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700"
+                  >
+                    Call Delivery Agent
+                  </a>
+                ) : null}
 
-                <div>
-                  <p className="text-gray-500">Heading</p>
-                  <p className="font-medium">
-                    {tracking.tracking?.currentLocation?.heading != null
-                      ? `${Math.round(tracking.tracking.currentLocation.heading)}°`
-                      : "N/A"}
-                  </p>
-                </div>
+                {liveNotice ? (
+                  <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                    Delivery agent has accepted your order. Live location will
+                    appear once the order is picked up and tracking is started.
+                  </div>
+                ) : null}
 
-                <div>
-                  <p className="text-gray-500">Speed</p>
-                  <p className="font-medium">
-                    {tracking.tracking?.currentLocation?.speed != null
-                      ? `${tracking.tracking.currentLocation.speed} m/s`
-                      : "N/A"}
-                  </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-gray-50 p-3">
+                    <p className="text-gray-500">Heading</p>
+                    <p className="font-semibold">
+                      {tracking.tracking?.currentLocation?.heading != null
+                        ? `${Math.round(
+                            tracking.tracking.currentLocation.heading
+                          )}°`
+                        : "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-gray-50 p-3">
+                    <p className="text-gray-500">Speed</p>
+                    <p className="font-semibold">
+                      {tracking.tracking?.currentLocation?.speed != null
+                        ? `${tracking.tracking.currentLocation.speed} m/s`
+                        : "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-gray-50 p-3 col-span-2">
+                    <p className="text-gray-500">Last Live Update</p>
+                    <p className="font-semibold">
+                      {formatDateTime(
+                        tracking.tracking?.currentLocation?.updatedAt || null
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -593,27 +642,29 @@ export default function TrackOrderPage() {
               <div className="space-y-3 text-sm">
                 <div>
                   <p className="text-gray-500">Customer</p>
-                  <p className="font-medium">
+                  <p className="font-semibold">
                     {tracking.deliveryAddress?.fullName || "N/A"}
                   </p>
                 </div>
 
                 <div>
                   <p className="text-gray-500">Phone</p>
-                  <p className="font-medium">
+                  <p className="font-semibold">
                     {tracking.deliveryAddress?.phone || "N/A"}
                   </p>
                 </div>
 
                 <div>
                   <p className="text-gray-500">Address</p>
-                  <p className="font-medium">{formatAddress(tracking.deliveryAddress)}</p>
+                  <p className="font-semibold">
+                    {formatAddress(tracking.deliveryAddress)}
+                  </p>
                 </div>
 
                 {tracking.deliveryAddress?.locationText ? (
                   <div>
                     <p className="text-gray-500">Location Note</p>
-                    <p className="font-medium">
+                    <p className="font-semibold">
                       {tracking.deliveryAddress.locationText}
                     </p>
                   </div>
@@ -624,7 +675,7 @@ export default function TrackOrderPage() {
                     href={tracking.deliveryAddress.mapsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-block text-green-700 hover:underline"
+                    className="inline-flex rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
                   >
                     Open in Google Maps
                   </a>
@@ -646,9 +697,18 @@ export default function TrackOrderPage() {
                 <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
                   {tracking.tracking?.route?.encodedPolyline
                     ? "Google route active"
-                    : "Live history path active"}
+                    : agentPosition
+                    ? "Live tracking active"
+                    : "Waiting for rider location"}
                 </div>
               </div>
+
+              {liveNotice ? (
+                <div className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                  Live map will update automatically when the delivery partner
+                  starts sharing location after pickup.
+                </div>
+              ) : null}
 
               <div className="h-[560px] overflow-hidden rounded-xl">
                 <MapContainer
@@ -662,7 +722,9 @@ export default function TrackOrderPage() {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
 
-                  {fitPoints.length > 0 ? <FitBounds points={fitPoints} /> : null}
+                  {fitPoints.length > 0 ? (
+                    <FitBounds points={fitPoints} />
+                  ) : null}
 
                   {customerPosition ? (
                     <Marker position={customerPosition} icon={customerIcon}>
@@ -692,7 +754,7 @@ export default function TrackOrderPage() {
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div className="rounded-xl bg-gray-50 p-4 text-sm">
                   <p className="text-gray-500">Agent Coordinates</p>
-                  <p className="font-medium">
+                  <p className="font-semibold">
                     {agentPosition
                       ? `${agentPosition[0]}, ${agentPosition[1]}`
                       : "Live location not available yet"}
@@ -701,7 +763,7 @@ export default function TrackOrderPage() {
 
                 <div className="rounded-xl bg-gray-50 p-4 text-sm">
                   <p className="text-gray-500">Customer Coordinates</p>
-                  <p className="font-medium">
+                  <p className="font-semibold">
                     {customerPosition
                       ? `${customerPosition[0]}, ${customerPosition[1]}`
                       : "Customer coordinates not available"}
@@ -710,10 +772,12 @@ export default function TrackOrderPage() {
 
                 <div className="rounded-xl bg-gray-50 p-4 text-sm">
                   <p className="text-gray-500">Path Source</p>
-                  <p className="font-medium">
+                  <p className="font-semibold">
                     {tracking.tracking?.route?.encodedPolyline
                       ? "Google route polyline"
-                      : "Location history polyline"}
+                      : polylinePositions.length > 1
+                      ? "Location history polyline"
+                      : "Waiting for tracking"}
                   </p>
                 </div>
               </div>

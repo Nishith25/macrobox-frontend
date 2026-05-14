@@ -472,7 +472,8 @@ export default function DeliveryDashboard() {
                   const currentStatus = order.delivery?.status || "";
                   const liveEta = order.delivery?.tracking?.eta;
                   const currentLocation = order.delivery?.tracking?.currentLocation;
-                  const canStartTracking = currentStatus === "out_for_delivery";
+                  const canStartTracking =
+  currentStatus === "picked_up" || currentStatus === "out_for_delivery";
 
                   return (
                     <div
