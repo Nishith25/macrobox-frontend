@@ -261,7 +261,7 @@ export default function Cart() {
           lat,
           lng,
           mapsUrl: url,
-          locationText: "",
+          locationText: `${lat}, ${lng}`,
         }));
       },
       (err) => {
@@ -341,84 +341,105 @@ export default function Cart() {
   };
 
   const checkout = async () => {
-    if (!validateCheckout()) return;
+  if (!validateCheckout()) return;
 
-    setCheckingOut(true);
-    setCouponMsg(null);
-    setCouponMsgType(null);
+  const lat = Number(address.lat);
+  const lng = Number(address.lng);
 
-    const ok = await loadRazorpay();
-    if (!ok) {
-      setCheckingOut(false);
-      setCouponMsg("Razorpay failed to load. Try again.");
-      setCouponMsgType("error");
-      return;
-    }
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    setLocationMsg("Please click Use Current Location again.");
+    return;
+  }
 
-    try {
-      const finalCouponCode =
-        discount > 0 && coupon.trim() ? coupon.trim().toUpperCase() : null;
+  setCheckingOut(true);
+  setCouponMsg(null);
+  setCouponMsgType(null);
 
-      const createRes = await api.post("/checkout/create-order", {
-        items: cart.map((i) => ({
-          mealId: i._id,
-          title: i.title,
-          price: i.price,
-          qty: i.qty,
-          protein: i.protein,
-          calories: i.calories,
-        })),
-        couponCode: finalCouponCode,
-        address,
-        deliverySlot: { date: slotDate, time: slotTime },
-      });
+  const ok = await loadRazorpay();
+  if (!ok) {
+    setCheckingOut(false);
+    setCouponMsg("Razorpay failed to load. Try again.");
+    setCouponMsgType("error");
+    return;
+  }
 
-      const { razorpayOrderId, amount, keyId, orderId } = createRes.data;
+  try {
+    const finalCouponCode =
+      discount > 0 && coupon.trim() ? coupon.trim().toUpperCase() : null;
 
-      const rzp = new window.Razorpay({
-        key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount,
-        currency: "INR",
-        name: "MacroBox",
-        description: "Meal Order",
-        order_id: razorpayOrderId,
-        prefill: {
-          name: address.fullName,
-          contact: address.phone,
+    const payload = {
+      items: cart.map((i) => ({
+        mealId: i._id,
+        title: i.title,
+        price: i.price,
+        qty: i.qty,
+        protein: i.protein,
+        calories: i.calories,
+      })),
+      couponCode: finalCouponCode,
+      address: {
+        ...address,
+        locationMode: "current",
+        lat,
+        lng,
+        mapsUrl:
+          address.mapsUrl || `https://www.google.com/maps?q=${lat},${lng}`,
+        locationText: `${lat}, ${lng}`,
+      },
+      deliverySlot: { date: slotDate, time: slotTime },
+    };
+
+    console.log("CREATE ORDER PAYLOAD:", payload);
+
+    const createRes = await api.post("/checkout/create-order", payload);
+
+    const { razorpayOrderId, amount, keyId, orderId } = createRes.data;
+
+    const rzp = new window.Razorpay({
+      key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+      amount,
+      currency: "INR",
+      name: "MacroBox",
+      description: "Meal Order",
+      order_id: razorpayOrderId,
+      prefill: {
+        name: address.fullName,
+        contact: address.phone,
+      },
+      handler: async (response: any) => {
+        await api.post("/checkout/verify", {
+          orderId,
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+        });
+
+        clearCart();
+        setDiscount(0);
+        setCoupon("");
+        setCouponMsg("Payment successful ✅");
+        setCouponMsgType("success");
+
+        setTimeout(() => navigate("/orders"), 800);
+      },
+      modal: {
+        ondismiss: () => {
+          setCouponMsg("Payment cancelled.");
+          setCouponMsgType("error");
         },
-        handler: async (response: any) => {
-          await api.post("/checkout/verify", {
-            orderId,
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          });
+      },
+      theme: { color: "#16a34a" },
+    });
 
-          clearCart();
-          setDiscount(0);
-          setCoupon("");
-          setCouponMsg("Payment successful ✅");
-          setCouponMsgType("success");
-
-          setTimeout(() => navigate("/orders"), 800);
-        },
-        modal: {
-          ondismiss: () => {
-            setCouponMsg("Payment cancelled.");
-            setCouponMsgType("error");
-          },
-        },
-        theme: { color: "#16a34a" },
-      });
-
-      rzp.open();
-    } catch (err: any) {
-      setCouponMsg(err?.response?.data?.message || "Failed to create order");
-      setCouponMsgType("error");
-    } finally {
-      setCheckingOut(false);
-    }
-  };
+    rzp.open();
+  } catch (err: any) {
+    console.log("ORDER CREATE ERROR:", err?.response?.data);
+    setCouponMsg(err?.response?.data?.message || "Failed to create order");
+    setCouponMsgType("error");
+  } finally {
+    setCheckingOut(false);
+  }
+};
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
