@@ -94,12 +94,28 @@ type SocketTrackingPayload = {
   updatedAt?: string;
 };
 
-const agentIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [30, 46],
-  iconAnchor: [15, 46],
-  popupAnchor: [0, -40],
+const agentIcon = L.divIcon({
+  className: "",
+  html: `
+    <div style="
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      background: #16a34a;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 25px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+      border: 3px solid white;
+    ">
+      🏍️
+    </div>
+  `,
+  iconSize: [42, 42],
+  iconAnchor: [21, 21],
+  popupAnchor: [0, -22],
 });
 
 const customerIcon = new L.Icon({
@@ -109,17 +125,6 @@ const customerIcon = new L.Icon({
   iconAnchor: [14, 44],
   popupAnchor: [0, -38],
 });
-
-function formatDateTime(value?: string | null) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-
-  return date.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 function readableStatus(status?: string) {
   if (!status) return "N/A";
@@ -429,6 +434,9 @@ export default function TrackOrderPage() {
     tracking?.deliveryAgent?.phone ||
     "";
 
+  const estimatedTime = tracking?.tracking?.eta?.text || "Not available yet";
+  const distanceLeft = tracking?.tracking?.eta?.distanceText || "N/A";
+
   const liveNotice =
     tracking?.deliveryAgent &&
     !agentPosition &&
@@ -441,7 +449,7 @@ export default function TrackOrderPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Track Order</h1>
           <p className="text-gray-600 mt-2">
-            Live route, rider location, ETA, and delivery updates.
+            Track your delivery partner, estimated time, and delivery progress.
           </p>
         </div>
 
@@ -491,7 +499,7 @@ export default function TrackOrderPage() {
                 </div>
 
                 <div className="rounded-xl bg-gray-50 p-3">
-                  <p className="text-gray-500">Live Tracking</p>
+                  <p className="text-gray-500">Tracking</p>
                   <p className="font-bold">
                     {tracking.tracking?.isLive ? "Active" : "Not active"}
                   </p>
@@ -505,27 +513,14 @@ export default function TrackOrderPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-gray-50 p-3">
-                  <p className="text-gray-500">ETA</p>
-                  <p className="font-bold">
-                    {tracking.tracking?.eta?.text || "Calculating..."}
-                  </p>
+                <div className="rounded-xl bg-blue-50 p-3">
+                  <p className="text-blue-700">Estimated Time</p>
+                  <p className="font-bold">{estimatedTime}</p>
                 </div>
 
-                <div className="rounded-xl bg-gray-50 p-3">
-                  <p className="text-gray-500">Distance</p>
-                  <p className="font-bold">
-                    {tracking.tracking?.eta?.distanceText || "N/A"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 p-3 col-span-2">
-                  <p className="text-gray-500">Last ETA Update</p>
-                  <p className="font-bold">
-                    {formatDateTime(
-                      tracking.tracking?.eta?.lastCalculatedAt || null
-                    )}
-                  </p>
+                <div className="rounded-xl bg-green-50 p-3">
+                  <p className="text-green-700">Distance Left</p>
+                  <p className="font-bold">{distanceLeft}</p>
                 </div>
               </div>
             </div>
@@ -556,6 +551,7 @@ export default function TrackOrderPage() {
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Delivery Agent</h2>
+
                 {tracking.deliveryAgent ? (
                   <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                     Assigned
@@ -598,41 +594,10 @@ export default function TrackOrderPage() {
 
                 {liveNotice ? (
                   <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                    Delivery agent has accepted your order. Live location will
-                    appear once the order is picked up and tracking is started.
+                    Delivery partner is assigned. Live bike location will appear
+                    after pickup and live tracking starts.
                   </div>
                 ) : null}
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-gray-50 p-3">
-                    <p className="text-gray-500">Heading</p>
-                    <p className="font-semibold">
-                      {tracking.tracking?.currentLocation?.heading != null
-                        ? `${Math.round(
-                            tracking.tracking.currentLocation.heading
-                          )}°`
-                        : "N/A"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-gray-50 p-3">
-                    <p className="text-gray-500">Speed</p>
-                    <p className="font-semibold">
-                      {tracking.tracking?.currentLocation?.speed != null
-                        ? `${tracking.tracking.currentLocation.speed} m/s`
-                        : "N/A"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-gray-50 p-3 col-span-2">
-                    <p className="text-gray-500">Last Live Update</p>
-                    <p className="font-semibold">
-                      {formatDateTime(
-                        tracking.tracking?.currentLocation?.updatedAt || null
-                      )}
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -688,18 +653,16 @@ export default function TrackOrderPage() {
             <div className="rounded-2xl border bg-white p-4 shadow-sm">
               <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold">Live Map</h2>
+                  <h2 className="text-xl font-semibold">Live Delivery Map</h2>
                   <p className="text-sm text-gray-500">
-                    Rider route, live position, and destination
+                    Bike location and route to your delivery address.
                   </p>
                 </div>
 
                 <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                  {tracking.tracking?.route?.encodedPolyline
-                    ? "Google route active"
-                    : agentPosition
+                  {agentPosition
                     ? "Live tracking active"
-                    : "Waiting for rider location"}
+                    : "Waiting for bike location"}
                 </div>
               </div>
 
@@ -736,7 +699,7 @@ export default function TrackOrderPage() {
                     <Marker position={agentPosition} icon={agentIcon}>
                       <Popup>
                         <div>
-                          <p className="font-semibold">Delivery Agent</p>
+                          <p className="font-semibold">Delivery Partner</p>
                           <p className="text-sm text-gray-600">
                             {tracking.deliveryAgent?.name || "On the way"}
                           </p>
@@ -749,37 +712,6 @@ export default function TrackOrderPage() {
                     <Polyline positions={polylinePositions} weight={5} />
                   ) : null}
                 </MapContainer>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-xl bg-gray-50 p-4 text-sm">
-                  <p className="text-gray-500">Agent Coordinates</p>
-                  <p className="font-semibold">
-                    {agentPosition
-                      ? `${agentPosition[0]}, ${agentPosition[1]}`
-                      : "Live location not available yet"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 p-4 text-sm">
-                  <p className="text-gray-500">Customer Coordinates</p>
-                  <p className="font-semibold">
-                    {customerPosition
-                      ? `${customerPosition[0]}, ${customerPosition[1]}`
-                      : "Customer coordinates not available"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 p-4 text-sm">
-                  <p className="text-gray-500">Path Source</p>
-                  <p className="font-semibold">
-                    {tracking.tracking?.route?.encodedPolyline
-                      ? "Google route polyline"
-                      : polylinePositions.length > 1
-                      ? "Location history polyline"
-                      : "Waiting for tracking"}
-                  </p>
-                </div>
               </div>
             </div>
           </div>
