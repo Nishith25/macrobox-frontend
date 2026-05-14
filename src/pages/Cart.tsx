@@ -63,13 +63,18 @@ type LocationMode = "manual" | "current";
 type Address = {
   fullName: string;
   phone: string;
-  line1: string;
-  line2: string;
+  flatNo: string;
+  floor: string;
+  buildingName: string;
+  area: string;
+  landmark: string;
   city: string;
   state: string;
   pincode: string;
+  addressLabel: "Home" | "Work" | "Other";
   locationMode: LocationMode;
   locationText: string;
+  formattedAddress: string;
   lat: number | null;
   lng: number | null;
   mapsUrl: string;
@@ -124,13 +129,18 @@ export default function Cart() {
   const [address, setAddress] = useState<Address>({
     fullName: "",
     phone: "",
-    line1: "",
-    line2: "",
+    flatNo: "",
+    floor: "",
+    buildingName: "",
+    area: "",
+    landmark: "",
     city: "",
     state: "",
     pincode: "",
-    locationMode: "manual",
+    addressLabel: "Home",
+    locationMode: "current",
     locationText: "",
+    formattedAddress: "",
     lat: null,
     lng: null,
     mapsUrl: "",
@@ -139,6 +149,7 @@ export default function Cart() {
   const [slotDate, setSlotDate] = useState(
     new Date().toISOString().slice(0, 10)
   );
+
   const slots = useMemo(() => buildSlots(), []);
   const [slotTime, setSlotTime] = useState(slots[0]);
 
@@ -196,14 +207,6 @@ export default function Cart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableCoupons]);
 
-  if (cart.length === 0) {
-    return (
-      <p className="text-center mt-16 text-gray-500 text-lg">
-        Your cart is empty 🛒
-      </p>
-    );
-  }
-
   const applyCoupon = async (codeOverride?: string) => {
     const codeToApply = (codeOverride ?? coupon).trim().toUpperCase();
 
@@ -250,7 +253,7 @@ export default function Cart() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const lat = Number(pos.coords.latitude);
         const lng = Number(pos.coords.longitude);
         const url = makeMapsUrl(lat, lng);
@@ -262,28 +265,16 @@ export default function Cart() {
           lng,
           mapsUrl: url,
           locationText: `${lat}, ${lng}`,
+          formattedAddress: `${lat}, ${lng}`,
         }));
       },
-      (err) => {
-        const msg =
-          err.code === err.PERMISSION_DENIED
-            ? "Location permission denied. Please allow it or use manual location."
-            : "Failed to get current location. Try again or use manual location.";
-        setLocationMsg(msg);
+      () => {
+        setLocationMsg(
+          "Location permission denied. Please allow location access."
+        );
       },
-      { enableHighAccuracy: true, timeout: 12000 }
+      { enableHighAccuracy: true, timeout: 15000 }
     );
-  };
-
-  const switchToManualLocation = () => {
-    setLocationMsg(null);
-    setAddress((prev) => ({
-      ...prev,
-      locationMode: "manual",
-      lat: null,
-      lng: null,
-      mapsUrl: "",
-    }));
   };
 
   const loadRazorpay = () =>
@@ -306,7 +297,8 @@ export default function Cart() {
     if (
       !address.fullName ||
       !address.phone ||
-      !address.line1 ||
+      !address.flatNo ||
+      !address.buildingName ||
       !address.city ||
       !address.state ||
       !address.pincode
@@ -315,15 +307,8 @@ export default function Cart() {
       return false;
     }
 
-    if (address.locationMode === "current") {
-      if (address.lat == null || address.lng == null || !address.mapsUrl) {
-        setLocationMsg("Please click 'Use Current Location' again.");
-        return false;
-      }
-    } else if (!address.locationText.trim()) {
-      setLocationMsg(
-        "Please paste your Google Maps link / Plus Code / location details."
-      );
+    if (address.lat == null || address.lng == null || !address.mapsUrl) {
+      setLocationMsg("Please select exact delivery location.");
       return false;
     }
 
@@ -341,105 +326,120 @@ export default function Cart() {
   };
 
   const checkout = async () => {
-  if (!validateCheckout()) return;
+    if (!validateCheckout()) return;
 
-  const lat = Number(address.lat);
-  const lng = Number(address.lng);
+    const lat = Number(address.lat);
+    const lng = Number(address.lng);
 
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    setLocationMsg("Please click Use Current Location again.");
-    return;
-  }
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setLocationMsg("Please click Use Current Location again.");
+      return;
+    }
 
-  setCheckingOut(true);
-  setCouponMsg(null);
-  setCouponMsgType(null);
+    setCheckingOut(true);
+    setCouponMsg(null);
+    setCouponMsgType(null);
 
-  const ok = await loadRazorpay();
-  if (!ok) {
-    setCheckingOut(false);
-    setCouponMsg("Razorpay failed to load. Try again.");
-    setCouponMsgType("error");
-    return;
-  }
+    const ok = await loadRazorpay();
 
-  try {
-    const finalCouponCode =
-      discount > 0 && coupon.trim() ? coupon.trim().toUpperCase() : null;
+    if (!ok) {
+      setCheckingOut(false);
+      setCouponMsg("Razorpay failed to load. Try again.");
+      setCouponMsgType("error");
+      return;
+    }
 
-    const payload = {
-      items: cart.map((i) => ({
-        mealId: i._id,
-        title: i.title,
-        price: i.price,
-        qty: i.qty,
-        protein: i.protein,
-        calories: i.calories,
-      })),
-      couponCode: finalCouponCode,
-      address: {
-        ...address,
-        locationMode: "current",
-        lat,
-        lng,
-        mapsUrl:
-          address.mapsUrl || `https://www.google.com/maps?q=${lat},${lng}`,
-        locationText: `${lat}, ${lng}`,
-      },
-      deliverySlot: { date: slotDate, time: slotTime },
-    };
+    try {
+      const finalCouponCode =
+        discount > 0 && coupon.trim() ? coupon.trim().toUpperCase() : null;
 
-    console.log("CREATE ORDER PAYLOAD:", payload);
-
-    const createRes = await api.post("/checkout/create-order", payload);
-
-    const { razorpayOrderId, amount, keyId, orderId } = createRes.data;
-
-    const rzp = new window.Razorpay({
-      key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
-      amount,
-      currency: "INR",
-      name: "MacroBox",
-      description: "Meal Order",
-      order_id: razorpayOrderId,
-      prefill: {
-        name: address.fullName,
-        contact: address.phone,
-      },
-      handler: async (response: any) => {
-        await api.post("/checkout/verify", {
-          orderId,
-          razorpay_order_id: response.razorpay_order_id,
-          razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_signature: response.razorpay_signature,
-        });
-
-        clearCart();
-        setDiscount(0);
-        setCoupon("");
-        setCouponMsg("Payment successful ✅");
-        setCouponMsgType("success");
-
-        setTimeout(() => navigate("/orders"), 800);
-      },
-      modal: {
-        ondismiss: () => {
-          setCouponMsg("Payment cancelled.");
-          setCouponMsgType("error");
+      const payload = {
+        items: cart.map((i) => ({
+          mealId: i._id,
+          title: i.title,
+          price: i.price,
+          qty: i.qty,
+          protein: i.protein,
+          calories: i.calories,
+        })),
+        couponCode: finalCouponCode,
+        address: {
+          ...address,
+          locationMode: "current",
+          lat,
+          lng,
+          mapsUrl:
+            address.mapsUrl || `https://www.google.com/maps?q=${lat},${lng}`,
+          locationText: address.locationText || `${lat}, ${lng}`,
+          formattedAddress: address.formattedAddress || `${lat}, ${lng}`,
         },
-      },
-      theme: { color: "#16a34a" },
-    });
+        deliverySlot: {
+          date: slotDate,
+          time: slotTime,
+        },
+      };
 
-    rzp.open();
-  } catch (err: any) {
-    console.log("ORDER CREATE ERROR:", err?.response?.data);
-    setCouponMsg(err?.response?.data?.message || "Failed to create order");
-    setCouponMsgType("error");
-  } finally {
-    setCheckingOut(false);
+      console.log("CREATE ORDER PAYLOAD:", payload);
+
+      const createRes = await api.post("/checkout/create-order", payload);
+
+      const { razorpayOrderId, amount, keyId, orderId } = createRes.data;
+
+      const rzp = new window.Razorpay({
+        key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount,
+        currency: "INR",
+        name: "MacroBox",
+        description: "Meal Order",
+        order_id: razorpayOrderId,
+        prefill: {
+          name: address.fullName,
+          contact: address.phone,
+        },
+        handler: async (response: any) => {
+          await api.post("/checkout/verify", {
+            orderId,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
+
+          clearCart();
+          setDiscount(0);
+          setCoupon("");
+          setCouponMsg("Payment successful ✅");
+          setCouponMsgType("success");
+
+          setTimeout(() => navigate("/orders"), 800);
+        },
+        modal: {
+          ondismiss: () => {
+            setCouponMsg("Payment cancelled.");
+            setCouponMsgType("error");
+          },
+        },
+        theme: {
+          color: "#16a34a",
+        },
+      });
+
+      rzp.open();
+    } catch (err: any) {
+      console.log("ORDER CREATE ERROR:", err?.response?.data);
+      setCouponMsg(err?.response?.data?.message || "Failed to create order");
+      setCouponMsgType("error");
+    } finally {
+      setCheckingOut(false);
+    }
+  };
+
+  if (cart.length === 0) {
+    return (
+      <p className="text-center mt-16 text-gray-500 text-lg">
+        Your cart is empty 🛒
+      </p>
+    );
   }
-};
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -456,10 +456,12 @@ export default function Cart() {
                 <h3 className="text-xl font-bold text-gray-900">
                   {item.title}
                 </h3>
+
                 <p className="mt-1 text-sm text-gray-500">
                   Protein: {item.protein * item.qty}g • Calories:{" "}
                   {item.calories * item.qty}
                 </p>
+
                 <p className="mt-1 font-semibold">
                   ₹{item.price} × {item.qty}
                 </p>
@@ -518,9 +520,11 @@ export default function Cart() {
                     >
                       <div>
                         <p className="font-bold">{c.code}</p>
+
                         <p className="text-sm text-gray-600">
                           {formatCouponLabel(c)} • Min ₹{c.minCartTotal}
                         </p>
+
                         {(from || to) && (
                           <p className="text-xs text-gray-400">
                             Valid: {from || "-"} → {to || "-"}
@@ -569,6 +573,7 @@ export default function Cart() {
             <div className="rounded-xl bg-green-50 p-4">
               <p className="text-sm text-green-700">Payable</p>
               <p className="text-xl font-bold text-green-700">₹{payable}</p>
+
               {discount > 0 && (
                 <p className="mt-1 text-xs text-green-700">
                   You saved ₹{discount}
@@ -626,151 +631,165 @@ export default function Cart() {
             </div>
 
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
-  <div className="mb-5">
-    <p className="flex items-center gap-2 text-lg font-bold text-gray-900">
-      <MapPin size={20} className="text-green-600" />
-      Delivery Address
-    </p>
-    <p className="mt-1 text-sm text-gray-500">
-      Add accurate address and map location for live tracking.
-    </p>
-  </div>
+              <div className="mb-5">
+                <p className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                  <MapPin size={20} className="text-green-600" />
+                  Delivery Address
+                </p>
 
-  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-    <input
-      placeholder="Full name"
-      className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
-      value={address.fullName}
-      onChange={(e) => setAddress({ ...address, fullName: e.target.value })}
-    />
+                <p className="mt-1 text-sm text-gray-500">
+                  Add exact location details for accurate delivery tracking.
+                </p>
+              </div>
 
-    <input
-      placeholder="Phone number"
-      className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
-      value={address.phone}
-      onChange={(e) => setAddress({ ...address, phone: e.target.value })}
-    />
+              <div className="mb-5 rounded-2xl border border-green-100 bg-green-50 p-4">
+                <p className="mb-3 flex items-center gap-2 font-bold text-gray-900">
+                  <Navigation size={18} className="text-green-600" />
+                  Exact Map Location
+                </p>
 
-    <input
-      placeholder="House / Flat / Street"
-      className="sm:col-span-2 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
-      value={address.line1}
-      onChange={(e) => setAddress({ ...address, line1: e.target.value })}
-    />
+                <button
+                  type="button"
+                  onClick={useCurrentLocation}
+                  className="w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700"
+                >
+                  Use Current Location
+                </button>
 
-    <input
-      placeholder="Landmark / Area optional"
-      className="sm:col-span-2 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
-      value={address.line2}
-      onChange={(e) => setAddress({ ...address, line2: e.target.value })}
-    />
+                {address.mapsUrl && (
+                  <a
+                    href={address.mapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-block text-sm font-semibold text-green-700 underline"
+                  >
+                    Open selected location in Google Maps
+                  </a>
+                )}
 
-    <input
-      placeholder="City"
-      className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
-      value={address.city}
-      onChange={(e) => setAddress({ ...address, city: e.target.value })}
-    />
+                {locationMsg && (
+                  <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600">
+                    {locationMsg}
+                  </p>
+                )}
+              </div>
 
-    <input
-      placeholder="State"
-      className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
-      value={address.state}
-      onChange={(e) => setAddress({ ...address, state: e.target.value })}
-    />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <input
+                  placeholder="Full Name"
+                  className="rounded-xl border px-4 py-3"
+                  value={address.fullName}
+                  onChange={(e) =>
+                    setAddress({ ...address, fullName: e.target.value })
+                  }
+                />
 
-    <input
-      placeholder="Pincode"
-      className="sm:col-span-2 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
-      value={address.pincode}
-      onChange={(e) => setAddress({ ...address, pincode: e.target.value })}
-    />
-  </div>
+                <input
+                  placeholder="Phone Number"
+                  className="rounded-xl border px-4 py-3"
+                  value={address.phone}
+                  onChange={(e) =>
+                    setAddress({ ...address, phone: e.target.value })
+                  }
+                />
 
-  <div className="mt-5 rounded-2xl border border-green-100 bg-green-50 p-4">
-    <p className="mb-3 flex items-center gap-2 font-bold text-gray-900">
-      <Navigation size={18} className="text-green-600" />
-      Google Maps Location
-    </p>
+                <input
+                  placeholder="Flat / House No"
+                  className="rounded-xl border px-4 py-3"
+                  value={address.flatNo}
+                  onChange={(e) =>
+                    setAddress({ ...address, flatNo: e.target.value })
+                  }
+                />
 
-    <div className="grid grid-cols-2 gap-3">
-      <button
-        type="button"
-        onClick={useCurrentLocation}
-        className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
-          address.locationMode === "current"
-            ? "border-green-600 bg-green-600 text-white"
-            : "bg-white text-gray-900 hover:bg-gray-50"
-        }`}
-      >
-        Use Current Location
-      </button>
+                <input
+                  placeholder="Floor optional"
+                  className="rounded-xl border px-4 py-3"
+                  value={address.floor}
+                  onChange={(e) =>
+                    setAddress({ ...address, floor: e.target.value })
+                  }
+                />
 
-      <button
-        type="button"
-        onClick={switchToManualLocation}
-        className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
-          address.locationMode === "manual"
-            ? "border-green-600 bg-green-600 text-white"
-            : "bg-white text-gray-900 hover:bg-gray-50"
-        }`}
-      >
-        Add Manually
-      </button>
-    </div>
+                <input
+                  placeholder="Building / Apartment Name"
+                  className="sm:col-span-2 rounded-xl border px-4 py-3"
+                  value={address.buildingName}
+                  onChange={(e) =>
+                    setAddress({ ...address, buildingName: e.target.value })
+                  }
+                />
 
-    {address.locationMode === "current" ? (
-      <div className="mt-3 rounded-xl bg-white p-3 text-sm">
-        {address.mapsUrl ? (
-          <a
-            href={address.mapsUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-green-700 underline"
-          >
-            Open current location in Google Maps
-          </a>
-        ) : (
-          <p className="text-gray-500">
-            Click “Use Current Location” to capture GPS.
-          </p>
-        )}
-      </div>
-    ) : (
-      <div className="mt-3">
-        <input
-          value={address.locationText}
-          onChange={(e) =>
-            setAddress({
-              ...address,
-              locationText: e.target.value,
-              locationMode: "manual",
-            })
-          }
-          placeholder="Paste Google Maps link / Plus Code / Coordinates"
-          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-green-600"
-        />
+                <input
+                  placeholder="Area / Locality"
+                  className="rounded-xl border px-4 py-3"
+                  value={address.area}
+                  onChange={(e) =>
+                    setAddress({ ...address, area: e.target.value })
+                  }
+                />
 
-        <p className="mt-2 text-xs text-gray-500">
-          Example: Google Maps link or Plus Code like{" "}
-          <b>7J4V+5X Hyderabad</b>
-        </p>
-      </div>
-    )}
+                <input
+                  placeholder="Landmark optional"
+                  className="rounded-xl border px-4 py-3"
+                  value={address.landmark}
+                  onChange={(e) =>
+                    setAddress({ ...address, landmark: e.target.value })
+                  }
+                />
 
-    {locationMsg && (
-      <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600">
-        {locationMsg}
-      </p>
-    )}
-  </div>
+                <input
+                  placeholder="City"
+                  className="rounded-xl border px-4 py-3"
+                  value={address.city}
+                  onChange={(e) =>
+                    setAddress({ ...address, city: e.target.value })
+                  }
+                />
 
-  {addressMsg && (
-    <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600">
-      {addressMsg}
-    </p>
-  )}
-</div>
+                <input
+                  placeholder="State"
+                  className="rounded-xl border px-4 py-3"
+                  value={address.state}
+                  onChange={(e) =>
+                    setAddress({ ...address, state: e.target.value })
+                  }
+                />
+
+                <input
+                  placeholder="Pincode"
+                  className="rounded-xl border px-4 py-3"
+                  value={address.pincode}
+                  onChange={(e) =>
+                    setAddress({ ...address, pincode: e.target.value })
+                  }
+                />
+
+                <select
+                  className="rounded-xl border px-4 py-3"
+                  value={address.addressLabel}
+                  onChange={(e) =>
+                    setAddress({
+                      ...address,
+                      addressLabel: e.target.value as
+                        | "Home"
+                        | "Work"
+                        | "Other",
+                    })
+                  }
+                >
+                  <option value="Home">Home</option>
+                  <option value="Work">Work</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {addressMsg && (
+                <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600">
+                  {addressMsg}
+                </p>
+              )}
+            </div>
 
             <div className="rounded-xl border bg-gray-50 p-4">
               <p className="mb-3 flex items-center gap-2 font-semibold">
@@ -832,10 +851,12 @@ export default function Cart() {
                   <span>Subtotal</span>
                   <b>₹{subtotal}</b>
                 </p>
+
                 <p className="flex justify-between text-green-600">
                   <span>Discount</span>
                   <b>-₹{discount}</b>
                 </p>
+
                 <p className="flex justify-between text-lg font-bold">
                   <span>Total Payable</span>
                   <span>₹{payable}</span>
