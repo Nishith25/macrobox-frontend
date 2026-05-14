@@ -98,32 +98,48 @@ const agentIcon = L.divIcon({
   className: "",
   html: `
     <div style="
-      width: 42px;
-      height: 42px;
+      width: 46px;
+      height: 46px;
       border-radius: 999px;
       background: #16a34a;
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 25px;
-      box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+      font-size: 27px;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.28);
       border: 3px solid white;
     ">
       🏍️
     </div>
   `,
-  iconSize: [42, 42],
-  iconAnchor: [21, 21],
-  popupAnchor: [0, -22],
+  iconSize: [46, 46],
+  iconAnchor: [23, 23],
+  popupAnchor: [0, -24],
 });
 
-const customerIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [28, 44],
-  iconAnchor: [14, 44],
-  popupAnchor: [0, -38],
+const customerIcon = L.divIcon({
+  className: "",
+  html: `
+    <div style="
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      background: #111827;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 23px;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.28);
+      border: 3px solid white;
+    ">
+      🏠
+    </div>
+  `,
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+  popupAnchor: [0, -22],
 });
 
 function readableStatus(status?: string) {
@@ -162,6 +178,12 @@ function getStatusBadgeClass(status?: string) {
   }
 }
 
+function formatDistanceAway(meters?: number | null) {
+  if (!meters || Number.isNaN(Number(meters))) return "Distance calculating...";
+  if (meters < 1000) return `${Math.round(meters)} m away`;
+  return `${(meters / 1000).toFixed(1)} km away`;
+}
+
 function interpolatePoints(
   start: [number, number],
   end: [number, number],
@@ -192,7 +214,7 @@ function FitBounds({ points }: { points: [number, number][] }) {
     }
 
     const bounds = L.latLngBounds(points);
-    map.fitBounds(bounds, { padding: [40, 40] });
+    map.fitBounds(bounds, { padding: [70, 70] });
   }, [map, points]);
 
   return null;
@@ -434,8 +456,11 @@ export default function TrackOrderPage() {
     tracking?.deliveryAgent?.phone ||
     "";
 
-  const estimatedTime = tracking?.tracking?.eta?.text || "Not available yet";
-  const distanceLeft = tracking?.tracking?.eta?.distanceText || "N/A";
+  const etaText = tracking?.tracking?.eta?.text || "Time calculating...";
+  const distanceAway = formatDistanceAway(
+    tracking?.tracking?.eta?.distanceValue || null
+  );
+  const distanceText = tracking?.tracking?.eta?.distanceText || distanceAway;
 
   const liveNotice =
     tracking?.deliveryAgent &&
@@ -449,7 +474,7 @@ export default function TrackOrderPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Track Order</h1>
           <p className="text-gray-600 mt-2">
-            Track your delivery partner, estimated time, and delivery progress.
+            Track your delivery route, rider location, distance, and estimated time.
           </p>
         </div>
 
@@ -513,14 +538,18 @@ export default function TrackOrderPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-blue-50 p-3">
-                  <p className="text-blue-700">Estimated Time</p>
-                  <p className="font-bold">{estimatedTime}</p>
+                <div className="rounded-xl bg-green-50 p-3">
+                  <p className="text-green-700">Estimated Time</p>
+                  <p className="text-xl font-extrabold text-green-800">
+                    {etaText}
+                  </p>
                 </div>
 
-                <div className="rounded-xl bg-green-50 p-3">
-                  <p className="text-green-700">Distance Left</p>
-                  <p className="font-bold">{distanceLeft}</p>
+                <div className="rounded-xl bg-blue-50 p-3">
+                  <p className="text-blue-700">Distance Left</p>
+                  <p className="text-xl font-extrabold text-blue-800">
+                    {distanceText}
+                  </p>
                 </div>
               </div>
             </div>
@@ -673,7 +702,7 @@ export default function TrackOrderPage() {
                 </div>
               ) : null}
 
-              <div className="h-[560px] overflow-hidden rounded-xl">
+              <div className="relative h-[620px] overflow-hidden rounded-2xl">
                 <MapContainer
                   center={mapCenter}
                   zoom={15}
@@ -691,7 +720,7 @@ export default function TrackOrderPage() {
 
                   {customerPosition ? (
                     <Marker position={customerPosition} icon={customerIcon}>
-                      <Popup>Customer Delivery Location</Popup>
+                      <Popup>Delivery Address</Popup>
                     </Marker>
                   ) : null}
 
@@ -709,9 +738,42 @@ export default function TrackOrderPage() {
                   ) : null}
 
                   {polylinePositions.length > 1 ? (
-                    <Polyline positions={polylinePositions} weight={5} />
+                    <Polyline
+                      positions={polylinePositions}
+                      pathOptions={{
+                        color: "#2563eb",
+                        weight: 6,
+                        opacity: 0.9,
+                      }}
+                    />
                   ) : null}
                 </MapContainer>
+
+                {agentPosition && customerPosition ? (
+                  <div className="absolute left-1/2 top-6 z-[500] -translate-x-1/2 rounded-full bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-lg">
+                    {distanceText}
+                  </div>
+                ) : null}
+
+                <div className="absolute bottom-5 left-5 right-5 z-[500] rounded-3xl bg-white/95 p-5 shadow-2xl backdrop-blur">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-3xl font-extrabold text-green-700">
+                        ⚡ {etaText}
+                      </p>
+                      <p className="mt-1 text-lg font-semibold italic text-gray-900">
+                        Order on the way
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-gray-500">
+                        {distanceText}
+                      </p>
+                    </div>
+
+                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-green-50 text-5xl shadow-inner">
+                      🛵
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
