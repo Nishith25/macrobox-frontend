@@ -16,7 +16,6 @@ type Coupon = {
   usageLimitTotal?: number;
   usageLimitPerUser?: number;
   usedCount?: number;
-
   scope?: "public" | "specific_user";
   assignedEmail?: string;
   assignedTo?: {
@@ -39,6 +38,14 @@ type FormState = {
   scope: "public" | "specific_user";
   assignedEmail: string;
 };
+
+const inputClass =
+  "w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-100";
+
+const disabledInputClass =
+  "w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3 text-sm text-gray-400 outline-none cursor-not-allowed";
+
+const labelClass = "mb-1.5 block text-sm font-semibold text-gray-700";
 
 const prettyDate = (iso?: string | null) => {
   if (!iso) return "-";
@@ -103,12 +110,10 @@ export default function AdminCoupons() {
       return "Value must be greater than 0";
     if (form.type === "percent" && Number(form.value) > 100)
       return "Percent cannot exceed 100";
-
     if (!form.validFrom || !form.validTo)
       return "Please select both From date and To date";
     if (form.validFrom > form.validTo)
       return "From date cannot be after To date";
-
     if (Number(form.minCartTotal) < 0)
       return "Min cart total cannot be negative";
     if (Number(form.usageLimitTotal) < 0)
@@ -117,7 +122,6 @@ export default function AdminCoupons() {
       return "Per user limit must be at least 1";
     if (form.type === "percent" && Number(form.maxDiscount) < 0)
       return "Max discount cannot be negative";
-
     if (form.scope === "specific_user" && !form.assignedEmail.trim())
       return "User email is required for specific user coupon";
 
@@ -151,6 +155,7 @@ export default function AdminCoupons() {
     }
 
     setSaving(true);
+
     try {
       await api.post("/admin/coupons", {
         code: form.code.toUpperCase().trim(),
@@ -184,6 +189,7 @@ export default function AdminCoupons() {
   const toggleCoupon = async (id: string) => {
     setMsg(null);
     setMsgType(null);
+
     try {
       await api.patch(`/admin/coupons/${id}/toggle`);
       fetchCoupons();
@@ -195,8 +201,10 @@ export default function AdminCoupons() {
 
   const deleteCoupon = async (id: string) => {
     if (!confirm("Delete this coupon?")) return;
+
     setMsg(null);
     setMsgType(null);
+
     try {
       await api.delete(`/admin/coupons/${id}`);
       fetchCoupons();
@@ -207,139 +215,199 @@ export default function AdminCoupons() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-10 px-6">
-      <h1 className="text-3xl font-bold mb-6">Manage Coupons</h1>
+    <div className="mx-auto max-w-7xl px-4 py-10">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Manage Coupons</h1>
+        <p className="mt-2 text-sm text-gray-600">
+          Create public coupons or assign private coupons to specific users.
+        </p>
+      </div>
 
-      <div className="border rounded-lg p-6 mb-8 bg-white">
-        <h2 className="font-semibold mb-4">Create Coupon</h2>
-
-        <div className="grid md:grid-cols-3 gap-4">
-          <input
-            placeholder="CODE (e.g. WELCOME100)"
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value })}
-            className="border rounded px-3 py-2"
-          />
-
-          <select
-            value={form.type}
-            onChange={(e) =>
-              setForm({ ...form, type: e.target.value as "flat" | "percent" })
-            }
-            className="border rounded px-3 py-2"
-          >
-            <option value="flat">Flat ₹</option>
-            <option value="percent">Percent %</option>
-          </select>
-
-          <input
-            type="number"
-            placeholder={
-              form.type === "flat" ? "Flat value (₹)" : "Percent value (%)"
-            }
-            value={form.value}
-            onChange={(e) => setForm({ ...form, value: e.target.value })}
-            className="border rounded px-3 py-2"
-          />
-
-          <input
-            type="number"
-            placeholder="Min Cart Total (₹)"
-            value={form.minCartTotal}
-            onChange={(e) =>
-              setForm({ ...form, minCartTotal: e.target.value })
-            }
-            className="border rounded px-3 py-2"
-          />
-
-          <input
-            type="number"
-            placeholder="Max Discount (₹) (only %)"
-            value={form.maxDiscount}
-            disabled={form.type !== "percent"}
-            onChange={(e) =>
-              setForm({ ...form, maxDiscount: e.target.value })
-            }
-            className={`border rounded px-3 py-2 ${
-              form.type !== "percent" ? "opacity-60" : ""
-            }`}
-          />
-
-          <select
-            value={form.scope}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                scope: e.target.value as "public" | "specific_user",
-                assignedEmail:
-                  e.target.value === "public" ? "" : form.assignedEmail,
-              })
-            }
-            className="border rounded px-3 py-2"
-          >
-            <option value="public">Public Coupon</option>
-            <option value="specific_user">Specific User</option>
-          </select>
-
-          {form.scope === "specific_user" && (
-            <input
-              type="email"
-              placeholder="User email"
-              value={form.assignedEmail}
-              onChange={(e) =>
-                setForm({ ...form, assignedEmail: e.target.value })
-              }
-              className="border rounded px-3 py-2 md:col-span-3"
-            />
-          )}
-
-          <input
-            type="date"
-            value={form.validFrom}
-            onChange={(e) => setForm({ ...form, validFrom: e.target.value })}
-            className="border rounded px-3 py-2"
-          />
-
-          <input
-            type="date"
-            value={form.validTo}
-            onChange={(e) => setForm({ ...form, validTo: e.target.value })}
-            className="border rounded px-3 py-2"
-          />
-
-          <input
-            type="number"
-            placeholder="Total usage limit (0 = unlimited)"
-            value={form.usageLimitTotal}
-            onChange={(e) =>
-              setForm({ ...form, usageLimitTotal: e.target.value })
-            }
-            className="border rounded px-3 py-2"
-          />
-
-          <input
-            type="number"
-            placeholder="Per user limit"
-            value={form.usageLimitPerUser}
-            onChange={(e) =>
-              setForm({ ...form, usageLimitPerUser: e.target.value })
-            }
-            className="border rounded px-3 py-2"
-          />
+      {/* CREATE COUPON */}
+      <div className="mb-8 rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="mb-6 flex flex-col gap-2 border-b pb-4">
+          <h2 className="text-xl font-bold text-gray-900">Create Coupon</h2>
+          <p className="text-sm text-gray-500">
+            Configure discount, validity, usage limits, and coupon visibility.
+          </p>
         </div>
 
-        <button
-          onClick={createCoupon}
-          disabled={saving}
-          className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg disabled:opacity-60"
-        >
-          {saving ? "Creating..." : "Create Coupon"}
-        </button>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className={labelClass}>Coupon Code</label>
+            <input
+              placeholder="WELCOME100"
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Discount Type</label>
+            <select
+              value={form.type}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  type: e.target.value as "flat" | "percent",
+                  maxDiscount: e.target.value === "flat" ? "0" : form.maxDiscount,
+                })
+              }
+              className={inputClass}
+            >
+              <option value="flat">Flat Amount ₹</option>
+              <option value="percent">Percentage %</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelClass}>
+              {form.type === "flat" ? "Flat Value (₹)" : "Percent Value (%)"}
+            </label>
+            <input
+              type="number"
+              placeholder={form.type === "flat" ? "100" : "10"}
+              value={form.value}
+              onChange={(e) => setForm({ ...form, value: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Minimum Cart Total (₹)</label>
+            <input
+              type="number"
+              placeholder="500"
+              value={form.minCartTotal}
+              onChange={(e) =>
+                setForm({ ...form, minCartTotal: e.target.value })
+              }
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Max Discount Cap (₹)</label>
+            <input
+              type="number"
+              placeholder="Only for percentage coupons"
+              value={form.maxDiscount}
+              disabled={form.type !== "percent"}
+              onChange={(e) =>
+                setForm({ ...form, maxDiscount: e.target.value })
+              }
+              className={
+                form.type !== "percent" ? disabledInputClass : inputClass
+              }
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Coupon Visibility</label>
+            <select
+              value={form.scope}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  scope: e.target.value as "public" | "specific_user",
+                  assignedEmail:
+                    e.target.value === "public" ? "" : form.assignedEmail,
+                })
+              }
+              className={inputClass}
+            >
+              <option value="public">Public Coupon</option>
+              <option value="specific_user">Specific User Coupon</option>
+            </select>
+          </div>
+
+          {form.scope === "specific_user" && (
+            <div className="md:col-span-2 lg:col-span-3">
+              <label className={labelClass}>Assign to User Email</label>
+              <input
+                type="email"
+                placeholder="user@example.com"
+                value={form.assignedEmail}
+                onChange={(e) =>
+                  setForm({ ...form, assignedEmail: e.target.value })
+                }
+                className={inputClass}
+              />
+            </div>
+          )}
+
+          <div>
+            <label className={labelClass}>Valid From</label>
+            <input
+              type="date"
+              value={form.validFrom}
+              onChange={(e) => setForm({ ...form, validFrom: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Valid To</label>
+            <input
+              type="date"
+              value={form.validTo}
+              onChange={(e) => setForm({ ...form, validTo: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Total Usage Limit</label>
+            <input
+              type="number"
+              placeholder="0 = unlimited"
+              value={form.usageLimitTotal}
+              onChange={(e) =>
+                setForm({ ...form, usageLimitTotal: e.target.value })
+              }
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Per User Limit</label>
+            <input
+              type="number"
+              placeholder="1"
+              value={form.usageLimitPerUser}
+              onChange={(e) =>
+                setForm({ ...form, usageLimitPerUser: e.target.value })
+              }
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <button
+            onClick={createCoupon}
+            disabled={saving}
+            className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-60"
+          >
+            {saving ? "Creating..." : "Create Coupon"}
+          </button>
+
+          <button
+            type="button"
+            onClick={resetForm}
+            className="rounded-xl border border-gray-300 px-6 py-3 font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Reset
+          </button>
+        </div>
 
         {msg && (
           <p
-            className={`mt-3 text-sm ${
-              msgType === "error" ? "text-red-600" : "text-green-600"
+            className={`mt-4 rounded-xl px-4 py-3 text-sm font-medium ${
+              msgType === "error"
+                ? "bg-red-50 text-red-600"
+                : "bg-green-50 text-green-700"
             }`}
           >
             {msg}
@@ -347,8 +415,9 @@ export default function AdminCoupons() {
         )}
       </div>
 
-      <div className="border rounded-lg p-6 bg-white">
-        <h2 className="font-semibold mb-4">All Coupons</h2>
+      {/* ALL COUPONS */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-xl font-bold text-gray-900">All Coupons</h2>
 
         {loading ? (
           <p className="text-gray-500">Loading...</p>
@@ -358,8 +427,8 @@ export default function AdminCoupons() {
           <div className="overflow-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left border-b">
-                  <th className="py-2">Code</th>
+                <tr className="border-b text-left">
+                  <th className="py-3">Code</th>
                   <th>Scope</th>
                   <th>Assigned To</th>
                   <th>Type</th>
@@ -379,15 +448,15 @@ export default function AdminCoupons() {
 
                   return (
                     <tr key={c._id} className="border-b">
-                      <td className="py-2 font-semibold">{c.code}</td>
+                      <td className="py-3 font-semibold">{c.code}</td>
 
                       <td>
                         {c.scope === "specific_user" ? (
-                          <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
+                          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
                             Specific
                           </span>
                         ) : (
-                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-700">
+                          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                             Public
                           </span>
                         )}
@@ -395,7 +464,7 @@ export default function AdminCoupons() {
 
                       <td>{c.assignedEmail || c.assignedTo?.email || "-"}</td>
 
-                      <td>{c.type}</td>
+                      <td className="capitalize">{c.type}</td>
 
                       <td>
                         {c.type === "flat" ? `₹${c.value}` : `${c.value}%`}
@@ -428,7 +497,7 @@ export default function AdminCoupons() {
 
                       <td>
                         <span
-                          className={`px-2 py-1 rounded text-xs ${
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
                             c.isActive
                               ? "bg-green-100 text-green-700"
                               : "bg-gray-200 text-gray-700"
@@ -441,14 +510,14 @@ export default function AdminCoupons() {
                       <td className="text-right">
                         <button
                           onClick={() => toggleCoupon(c._id)}
-                          className="px-3 py-1 rounded text-sm border mr-2"
+                          className="mr-2 rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50"
                         >
                           Toggle
                         </button>
 
                         <button
                           onClick={() => deleteCoupon(c._id)}
-                          className="text-red-600 text-sm"
+                          className="text-sm font-medium text-red-600"
                         >
                           Delete
                         </button>
