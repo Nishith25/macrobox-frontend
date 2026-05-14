@@ -1,5 +1,5 @@
 // frontend/src/pages/Cart.tsx (FRONTEND)
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import {
   Plus,
   Minus,
@@ -97,23 +97,6 @@ type SavedAddress = Address & {
   isDefault?: boolean;
 };
 
-type AddressSearchResult = {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: {
-    city?: string;
-    town?: string;
-    village?: string;
-    suburb?: string;
-    neighbourhood?: string;
-    state?: string;
-    postcode?: string;
-    road?: string;
-  };
-};
-
 type MsgType = "success" | "error" | null;
 
 type AvailableCoupon = {
@@ -149,6 +132,40 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
+const getAddressComponent = (
+  components: google.maps.GeocoderAddressComponent[] | undefined,
+  type: string
+) => {
+  if (!components) return "";
+
+  const found = components.find((component) =>
+    component.types.includes(type)
+  );
+
+  return found?.long_name || "";
+};
+
+const getGoogleCity = (
+  components: google.maps.GeocoderAddressComponent[] | undefined
+) => {
+  return (
+    getAddressComponent(components, "locality") ||
+    getAddressComponent(components, "administrative_area_level_3") ||
+    getAddressComponent(components, "administrative_area_level_2")
+  );
+};
+
+const getGoogleArea = (
+  components: google.maps.GeocoderAddressComponent[] | undefined
+) => {
+  return (
+    getAddressComponent(components, "sublocality_level_1") ||
+    getAddressComponent(components, "sublocality") ||
+    getAddressComponent(components, "neighborhood") ||
+    getAddressComponent(components, "route")
+  );
+};
+
 function MapClickHandler({
   onPick,
 }: {
@@ -172,6 +189,37 @@ function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
 
   return null;
 }
+
+const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (window.google?.maps?.places) {
+      resolve();
+      return;
+    }
+
+    const existingScript = document.getElementById("google-maps-script");
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve());
+      existingScript.addEventListener("error", () =>
+        reject(new Error("Google Maps script failed to load"))
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => resolve();
+    script.onerror = () =>
+      reject(new Error("Google Maps script failed to load"));
+
+    document.head.appendChild(script);
+  });
+};
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -212,10 +260,13 @@ export default function Cart() {
   });
 
   const [addressSearch, setAddressSearch] = useState("");
-  const [addressResults, setAddressResults] = useState<AddressSearchResult[]>(
-    []
-  );
+  const addressInputRef = useRef<HTMLInputElement | null>(null);
+  const googleAutocompleteRef =
+    useRef<google.maps.places.Autocomplete | null>(null);
+
+  const [googleSearchReady, setGoogleSearchReady] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
+
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [loadingSavedAddresses, setLoadingSavedAddresses] = useState(false);
   const [saveAddressForFuture, setSaveAddressForFuture] = useState(true);
@@ -297,6 +348,132 @@ export default function Cart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableCoupons]);
 
+  const applyLocationToAddress = ({
+    lat,
+    lng,
+    formattedAddress,
+    components,
+    mode,
+  }: {
+    lat: number;
+    lng: number;
+    formattedAddress: string;
+    components?: google.maps.GeocoderAddressComponent[];
+    mode: LocationMode;
+  }) => {
+    const city = getGoogleCity(components);
+    const area = getGoogleArea(components);
+    const state = getAddressComponent(components, "administrative_area_level_1");
+    const pincode = getAddressComponent(components, "postal_code");
+    const url = makeMapsUrl(lat, lng);
+
+    setAddress((prev) => ({
+      ...prev,
+      locationMode: mode,
+      lat,
+      lng,
+      mapsUrl: url,
+      locationText: formattedAddress || `${lat}, ${lng}`,
+      formattedAddress: formattedAddress || `${lat}, ${lng}`,
+      area: area || prev.area,
+      city: city || prev.city,
+      state: state || prev.state,
+      pincode: pincode || prev.pincode,
+    }));
+
+    setAddressSearch(formattedAddress || `${lat}, ${lng}`);
+    setLocationMsg(null);
+  };
+
+  const reverseGeocodeLatLng = async (lat: number, lng: number) => {
+    if (!window.google?.maps) {
+      return null;
+    }
+
+    return new Promise<{
+      formattedAddress: string;
+      components?: google.maps.GeocoderAddressComponent[];
+    } | null>((resolve) => {
+      const geocoder = new google.maps.Geocoder();
+
+      geocoder.geocode(
+        {
+          location: { lat, lng },
+        },
+        (results, status) => {
+          if (status !== "OK" || !results || results.length === 0) {
+            resolve(null);
+            return;
+          }
+
+          resolve({
+            formattedAddress: results[0].formatted_address || `${lat}, ${lng}`,
+            components: results[0].address_components,
+          });
+        }
+      );
+    });
+  };
+
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey) {
+      setLocationMsg("Google Maps API key is missing.");
+      return;
+    }
+
+    if (!addressInputRef.current) return;
+
+    loadGoogleMapsScript(apiKey)
+  .then(() => {
+    if (!addressInputRef.current) return;
+
+    const autocomplete = new google.maps.places.Autocomplete(
+      addressInputRef.current,
+      {
+        componentRestrictions: { country: "in" },
+        fields: [
+          "place_id",
+          "name",
+          "formatted_address",
+          "geometry",
+          "address_components",
+        ],
+      }
+    );
+
+    googleAutocompleteRef.current = autocomplete;
+
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+
+      const lat = place.geometry?.location?.lat();
+      const lng = place.geometry?.location?.lng();
+
+      if (lat == null || lng == null) {
+        setLocationMsg("Please select a valid address from suggestions.");
+        return;
+      }
+
+      applyLocationToAddress({
+        lat,
+        lng,
+        formattedAddress: place.formatted_address || place.name || "",
+        components: place.address_components,
+        mode: "manual",
+      });
+    });
+
+    setGoogleSearchReady(true);
+  })
+  .catch((error: unknown) => {
+    console.error("GOOGLE MAPS LOAD ERROR:", error);
+    setLocationMsg("Google address search failed to load.");
+  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const applyCoupon = async (codeOverride?: string) => {
     const codeToApply = (codeOverride ?? coupon).trim().toUpperCase();
 
@@ -346,19 +523,16 @@ export default function Cart() {
       async (pos) => {
         const lat = Number(pos.coords.latitude);
         const lng = Number(pos.coords.longitude);
-        const url = makeMapsUrl(lat, lng);
 
-        setAddress((prev) => ({
-          ...prev,
-          locationMode: "current",
+        const reverse = await reverseGeocodeLatLng(lat, lng);
+
+        applyLocationToAddress({
           lat,
           lng,
-          mapsUrl: url,
-          locationText: `${lat}, ${lng}`,
-          formattedAddress: `${lat}, ${lng}`,
-        }));
-
-        setAddressSearch(`${lat}, ${lng}`);
+          formattedAddress: reverse?.formattedAddress || `${lat}, ${lng}`,
+          components: reverse?.components,
+          mode: "current",
+        });
       },
       () => {
         setLocationMsg(
@@ -369,11 +543,16 @@ export default function Cart() {
     );
   };
 
-  const searchAddress = async () => {
+  const geocodeTypedAddress = async () => {
     const query = addressSearch.trim();
 
     if (!query) {
-      setAddressResults([]);
+      setLocationMsg("Please enter an address or landmark.");
+      return;
+    }
+
+    if (!window.google?.maps) {
+      setLocationMsg("Google Maps is still loading. Try again.");
       return;
     }
 
@@ -381,77 +560,57 @@ export default function Cart() {
       setSearchingAddress(true);
       setLocationMsg(null);
 
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(
-          query
-        )}`
+      const geocoder = new google.maps.Geocoder();
+
+      geocoder.geocode(
+        {
+          address: query,
+          componentRestrictions: { country: "IN" },
+        },
+        (
+  results: google.maps.GeocoderResult[] | null,
+  status: string
+) => {
+          setSearchingAddress(false);
+
+          if (status !== "OK" || !results || results.length === 0) {
+            setLocationMsg("No address found. Try a nearby landmark.");
+            return;
+          }
+
+          const result = results[0];
+          const lat = result.geometry.location.lat();
+          const lng = result.geometry.location.lng();
+
+          applyLocationToAddress({
+            lat,
+            lng,
+            formattedAddress: result.formatted_address || query,
+            components: result.address_components,
+            mode: "manual",
+          });
+        }
       );
-
-      const data = await res.json();
-      setAddressResults(data || []);
-
-      if (!data || data.length === 0) {
-        setLocationMsg("No address found. Try a nearby landmark or area name.");
-      }
-    } catch {
-      setLocationMsg("Unable to search address. Please try again.");
-    } finally {
+    } catch (error) {
       setSearchingAddress(false);
+      console.error("GEOCODE ERROR:", error);
+      setLocationMsg("Unable to search address. Please try again.");
     }
   };
 
-  const selectSearchedAddress = (result: AddressSearchResult) => {
-    const lat = Number(result.lat);
-    const lng = Number(result.lon);
-    const url = makeMapsUrl(lat, lng);
-
-    const city =
-      result.address?.city ||
-      result.address?.town ||
-      result.address?.village ||
-      "";
-
-    const area =
-      result.address?.suburb ||
-      result.address?.neighbourhood ||
-      result.address?.road ||
-      "";
-
-    setAddress((prev) => ({
-      ...prev,
-      locationMode: "manual",
-      lat,
-      lng,
-      mapsUrl: url,
-      locationText: result.display_name,
-      formattedAddress: result.display_name,
-      city: prev.city || city,
-      state: prev.state || result.address?.state || "",
-      pincode: prev.pincode || result.address?.postcode || "",
-      area: prev.area || area,
-    }));
-
-    setAddressSearch(result.display_name);
-    setAddressResults([]);
-    setLocationMsg(null);
-  };
-
-  const pinLocationOnMap = (lat: number, lng: number) => {
+  const pinLocationOnMap = async (lat: number, lng: number) => {
     const cleanLat = Number(lat);
     const cleanLng = Number(lng);
-    const url = makeMapsUrl(cleanLat, cleanLng);
 
-    setAddress((prev) => ({
-      ...prev,
-      locationMode: "manual",
+    const reverse = await reverseGeocodeLatLng(cleanLat, cleanLng);
+
+    applyLocationToAddress({
       lat: cleanLat,
       lng: cleanLng,
-      mapsUrl: url,
-      locationText: `${cleanLat}, ${cleanLng}`,
-      formattedAddress: prev.formattedAddress || `${cleanLat}, ${cleanLng}`,
-    }));
-
-    setLocationMsg(null);
+      formattedAddress: reverse?.formattedAddress || `${cleanLat}, ${cleanLng}`,
+      components: reverse?.components,
+      mode: "manual",
+    });
   };
 
   const selectSavedAddress = (saved: SavedAddress) => {
@@ -866,7 +1025,8 @@ export default function Cart() {
                 </p>
 
                 <p className="mt-1 text-sm text-gray-500">
-                  Search, pin exact location, and add complete delivery details.
+                  Search like food delivery apps, pin exact location, and save
+                  addresses.
                 </p>
               </div>
 
@@ -915,21 +1075,26 @@ export default function Cart() {
 
                 <div className="flex gap-2">
                   <input
+                    ref={addressInputRef}
                     value={addressSearch}
                     onChange={(e) => setAddressSearch(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        searchAddress();
+                        geocodeTypedAddress();
                       }
                     }}
-                    placeholder="Search apartment, area, landmark..."
+                    placeholder={
+                      googleSearchReady
+                        ? "Search apartment, area, landmark..."
+                        : "Loading Google address search..."
+                    }
                     className="w-full rounded-xl border px-4 py-3"
                   />
 
                   <button
                     type="button"
-                    onClick={searchAddress}
+                    onClick={geocodeTypedAddress}
                     disabled={searchingAddress}
                     className="rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 disabled:opacity-60"
                   >
@@ -937,20 +1102,9 @@ export default function Cart() {
                   </button>
                 </div>
 
-                {addressResults.length > 0 && (
-                  <div className="mt-3 max-h-56 overflow-y-auto rounded-xl border bg-white">
-                    {addressResults.map((result) => (
-                      <button
-                        key={result.place_id}
-                        type="button"
-                        onClick={() => selectSearchedAddress(result)}
-                        className="block w-full border-b p-3 text-left text-sm hover:bg-green-50"
-                      >
-                        {result.display_name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <p className="mt-2 text-xs text-gray-500">
+                  Start typing and select an address from Google suggestions.
+                </p>
 
                 <button
                   type="button"

@@ -1,4 +1,3 @@
-/* frontend/src/index.css (FRONTEND) */
 @import "tailwindcss";
 
 .leaflet-container,
@@ -6,4 +5,12 @@
 .leaflet-top,
 .leaflet-bottom {
   z-index: 0 !important;
+}
+
+/* Google Places dropdown should appear above navbar/cards */
+.pac-container {
+  z-index: 99999 !important;
+  border-radius: 12px;
+  margin-top: 6px;
+  font-family: inherit;
 }
