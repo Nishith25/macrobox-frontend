@@ -108,24 +108,23 @@ const agentIcon = L.divIcon({
   className: "",
   html: `
     <div style="
-      width: 50px;
-      height: 50px;
+      width: 48px;
+      height: 48px;
       border-radius: 999px;
-      background: #16a34a;
-      color: white;
+      background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
       box-shadow: 0 10px 24px rgba(0,0,0,0.28);
-      border: 4px solid white;
+      border: 4px solid #16a34a;
+      font-size: 30px;
     ">
-      🛺
+      🏍️
     </div>
   `,
-  iconSize: [50, 50],
-  iconAnchor: [25, 25],
-  popupAnchor: [0, -25],
+  iconSize: [48, 48],
+  iconAnchor: [24, 24],
+  popupAnchor: [0, -26],
 });
 
 const customerIcon = L.divIcon({
@@ -744,9 +743,9 @@ export default function TrackOrderPage() {
                 <div className="absolute bottom-5 left-5 right-5 z-[10] rounded-3xl border border-green-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.6fr_1fr_1fr] md:items-center">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-green-600 bg-green-50 text-4xl shadow-sm">
-                        🛺
-                      </div>
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-green-500 bg-white text-4xl shadow-md">
+  🏍️
+</div>
 
                       <div>
                         <p className="text-xl font-extrabold text-gray-900">
@@ -761,7 +760,7 @@ export default function TrackOrderPage() {
                           <span className="h-1.5 w-8 rounded-full bg-green-300"></span>
                           <span className="h-1.5 w-8 rounded-full bg-green-200"></span>
                           <span className="h-1.5 w-8 rounded-full bg-green-100"></span>
-                          <span className="text-2xl">🛺</span>
+                          <span className="text-2xl">🏍️</span>
                         </div>
                       </div>
                     </div>
