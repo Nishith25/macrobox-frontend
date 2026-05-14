@@ -751,17 +751,9 @@ export default function TrackOrderPage() {
                         <p className="text-xl font-extrabold text-gray-900">
                           Order on the way
                         </p>
-                        <p className="text-sm font-medium text-gray-500">
-                          We're almost there!
-                        </p>
+                        
 
-                        <div className="mt-3 flex items-center gap-2">
-                          <span className="h-1.5 w-8 rounded-full bg-green-600"></span>
-                          <span className="h-1.5 w-8 rounded-full bg-green-300"></span>
-                          <span className="h-1.5 w-8 rounded-full bg-green-200"></span>
-                          <span className="h-1.5 w-8 rounded-full bg-green-100"></span>
-                          <span className="text-2xl">🏍️</span>
-                        </div>
+                        
                       </div>
                     </div>
 
