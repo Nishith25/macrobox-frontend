@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   TicketPercent,
   Truck,
+  ReceiptText,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -47,6 +48,11 @@ export default function Navbar() {
 
   const adminMiniLinkClass = ({ isActive }: { isActive: boolean }) =>
     `px-2 py-1 rounded-md text-sm font-semibold ${
+      isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
+    }`;
+
+  const adminIconLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `px-2 py-1 rounded-md text-sm font-semibold flex items-center gap-1 ${
       isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
     }`;
 
@@ -88,10 +94,10 @@ export default function Navbar() {
               </NavLink>
 
               {user?.role === "delivery" && (
-  <NavLink to="/delivery" className={navLinkClass}>
-    Delivery
-  </NavLink>
-)}
+                <NavLink to="/delivery" className={navLinkClass}>
+                  Delivery
+                </NavLink>
+              )}
             </>
           )}
 
@@ -108,29 +114,19 @@ export default function Navbar() {
                 Users
               </NavLink>
 
-              <NavLink
-                to="/admin/coupons"
-                className={({ isActive }) =>
-                  `px-2 py-1 rounded-md text-sm font-semibold flex items-center gap-1 ${
-                    isActive
-                      ? "text-red-700 underline"
-                      : "text-red-600 hover:underline"
-                  }`
-                }
-              >
+              <NavLink to="/admin/orders" className={adminIconLinkClass}>
+                <ReceiptText size={14} />
+                Orders
+              </NavLink>
+
+              <NavLink to="/admin/coupons" className={adminIconLinkClass}>
                 <TicketPercent size={14} />
                 Coupons
               </NavLink>
 
               <NavLink
                 to="/admin/delivery-agents"
-                className={({ isActive }) =>
-                  `px-2 py-1 rounded-md text-sm font-semibold flex items-center gap-1 ${
-                    isActive
-                      ? "text-red-700 underline"
-                      : "text-red-600 hover:underline"
-                  }`
-                }
+                className={adminIconLinkClass}
               >
                 <Truck size={14} />
                 Delivery Agents
@@ -189,7 +185,6 @@ export default function Navbar() {
                 >
                   Signup
                 </NavLink>
-
               </>
             )}
           </div>
@@ -301,13 +296,15 @@ export default function Navbar() {
                   </NavLink>
 
                   {user?.role === "delivery" && (
-  <NavLink to="/delivery" className={mobileLinkClass} onClick={closeMenu}>
-    Delivery
-  </NavLink>
-)}
+                    <NavLink
+                      to="/delivery"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
+                      Delivery
+                    </NavLink>
+                  )}
                 </>
-
-                
               )}
 
               {isAdmin && (
@@ -333,6 +330,14 @@ export default function Navbar() {
                     onClick={closeMenu}
                   >
                     Users
+                  </NavLink>
+
+                  <NavLink
+                    to="/admin/orders"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
+                    Orders
                   </NavLink>
 
                   <NavLink
@@ -385,7 +390,6 @@ export default function Navbar() {
                   >
                     Signup
                   </NavLink>
-
                 </>
               )}
             </div>

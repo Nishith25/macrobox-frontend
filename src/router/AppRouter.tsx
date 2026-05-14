@@ -35,6 +35,7 @@ import AdminUsers from "../pages/AdminUsers";
 import AdminMeals from "../pages/AdminMeals";
 import AdminCoupons from "../pages/AdminCoupons";
 import AdminDeliveryAgents from "../pages/AdminDeliveryAgents";
+import AdminOrders from "../pages/AdminOrders";
 
 // Route Guards
 import ProtectedRoute from "./ProtectedRoute";
@@ -172,6 +173,15 @@ export default function AppRouter() {
   element={
     <AdminRoute>
       <AdminDeliveryAgents />
+    </AdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/orders"
+  element={
+    <AdminRoute>
+      <AdminOrders />
     </AdminRoute>
   }
 />
