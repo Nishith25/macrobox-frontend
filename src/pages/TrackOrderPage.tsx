@@ -110,7 +110,7 @@ const agentIcon = L.divIcon({
       box-shadow: 0 10px 22px rgba(0,0,0,0.28);
       border: 3px solid white;
     ">
-      🏍️
+      🛵
     </div>
   `,
   iconSize: [46, 46],
@@ -122,24 +122,15 @@ const customerIcon = L.divIcon({
   className: "",
   html: `
     <div style="
-      width: 44px;
-      height: 44px;
-      border-radius: 999px;
-      background: #111827;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 23px;
-      box-shadow: 0 10px 22px rgba(0,0,0,0.28);
-      border: 3px solid white;
+      font-size: 40px;
+      filter: drop-shadow(0 8px 12px rgba(0,0,0,0.35));
     ">
-      🏠
+      📍
     </div>
   `,
-  iconSize: [44, 44],
-  iconAnchor: [22, 22],
-  popupAnchor: [0, -22],
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40],
 });
 
 function readableStatus(status?: string) {
@@ -515,7 +506,7 @@ export default function TrackOrderPage() {
                 </span>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+              <div className="mt-5 grid grid-cols-1 gap-3 text-sm">
                 <div className="rounded-xl bg-gray-50 p-3">
                   <p className="text-gray-500">Payment</p>
                   <p className="font-bold capitalize">
@@ -524,31 +515,10 @@ export default function TrackOrderPage() {
                 </div>
 
                 <div className="rounded-xl bg-gray-50 p-3">
-                  <p className="text-gray-500">Tracking</p>
-                  <p className="font-bold">
-                    {tracking.tracking?.isLive ? "Active" : "Not active"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 p-3 col-span-2">
                   <p className="text-gray-500">Delivery Slot</p>
                   <p className="font-bold">
                     {tracking.slot?.date || "N/A"} |{" "}
                     {tracking.slot?.time || "N/A"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-green-50 p-3">
-                  <p className="text-green-700">Estimated Time</p>
-                  <p className="text-xl font-extrabold text-green-800">
-                    {etaText}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-blue-50 p-3">
-                  <p className="text-blue-700">Distance Left</p>
-                  <p className="text-xl font-extrabold text-blue-800">
-                    {distanceText}
                   </p>
                 </div>
               </div>
