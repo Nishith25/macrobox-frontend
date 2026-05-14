@@ -29,8 +29,8 @@ export default function Checkout() {
   const [coupon, setCoupon] = useState("");
   const [couponApplied, setCouponApplied] = useState<any>(null);
   const [discount, setDiscount] = useState(0);
-
   const [slot, setSlot] = useState(slots[0]);
+
   const [address, setAddress] = useState({
     fullName: "",
     phone: "",
@@ -39,19 +39,48 @@ export default function Checkout() {
     city: "",
     state: "",
     pincode: "",
+    lat: null as number | null,
+    lng: null as number | null,
+    locationMode: "manual",
+    mapsUrl: "",
   });
 
   const total = Math.max(subtotal - discount, 0);
 
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      return toast.error("Geolocation is not supported");
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        setAddress((prev) => ({
+          ...prev,
+          lat,
+          lng,
+          locationMode: "current",
+          mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
+        }));
+
+        toast.success("Current location added");
+      },
+      () => toast.error("Location permission denied"),
+      { enableHighAccuracy: true }
+    );
+  };
+
   const applyCoupon = async () => {
     try {
       const res = await api.post("/coupons/validate", { code: coupon, subtotal });
-
       const c = res.data;
+
       let d = 0;
       if (c.type === "flat") d = c.value;
       if (c.type === "percent") d = (c.value / 100) * subtotal;
-      d = Math.min(d, c.maxDiscount);
+      d = Math.min(d, c.maxDiscount || d);
       d = Math.min(d, subtotal);
 
       setDiscount(Math.round(d));
@@ -79,15 +108,26 @@ export default function Checkout() {
 
   const handlePay = async () => {
     if (!cart.length) return toast.error("Cart empty");
-    if (!address.fullName || !address.phone || !address.line1 || !address.city || !address.state || !address.pincode) {
+
+    if (
+      !address.fullName ||
+      !address.phone ||
+      !address.line1 ||
+      !address.city ||
+      !address.state ||
+      !address.pincode
+    ) {
       return toast.error("Please fill full address");
+    }
+
+    if (!address.lat || !address.lng) {
+      return toast.error("Please click Use Current Location for live tracking");
     }
 
     const ok = await loadRazorpay();
     if (!ok) return toast.error("Razorpay SDK failed to load");
 
     try {
-      // Create order on backend
       const createRes = await api.post("/checkout/create-order", {
         items: cart,
         address,
@@ -136,27 +176,42 @@ export default function Checkout() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 grid md:grid-cols-3 gap-6">
-      {/* LEFT */}
       <div className="md:col-span-2 space-y-6">
         <h1 className="text-3xl font-bold">Checkout</h1>
 
-        {/* ADDRESS */}
         <div className="border rounded-lg p-4">
           <h2 className="font-semibold text-lg mb-3">Delivery Address</h2>
+
+          <button
+            type="button"
+            onClick={useCurrentLocation}
+            className="mb-3 rounded-lg bg-black px-4 py-2 text-white"
+          >
+            Use Current Location
+          </button>
+
+          {address.lat && address.lng && (
+            <p className="mb-3 text-sm text-green-700">
+              Location added: {address.lat}, {address.lng}
+            </p>
+          )}
 
           <div className="grid md:grid-cols-2 gap-3">
             <input className="border p-2 rounded" placeholder="Full name"
               value={address.fullName} onChange={(e) => setAddress({ ...address, fullName: e.target.value })} />
+
             <input className="border p-2 rounded" placeholder="Phone"
               value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} />
 
             <input className="border p-2 rounded md:col-span-2" placeholder="Address line 1"
               value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} />
+
             <input className="border p-2 rounded md:col-span-2" placeholder="Address line 2 (optional)"
               value={address.line2} onChange={(e) => setAddress({ ...address, line2: e.target.value })} />
 
             <input className="border p-2 rounded" placeholder="City"
               value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />
+
             <input className="border p-2 rounded" placeholder="State"
               value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} />
 
@@ -165,67 +220,37 @@ export default function Checkout() {
           </div>
         </div>
 
-        {/* SLOT */}
         <div className="border rounded-lg p-4">
           <h2 className="font-semibold text-lg mb-3">Delivery Slot</h2>
           <select className="border p-2 rounded w-full" value={slot} onChange={(e) => setSlot(e.target.value)}>
-            {slots.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
+            {slots.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
-        {/* COUPON */}
         <div className="border rounded-lg p-4">
           <h2 className="font-semibold text-lg mb-3">Apply Coupon</h2>
           <div className="flex gap-2">
-            <input
-              className="border p-2 rounded w-full"
-              placeholder="Enter coupon code"
-              value={coupon}
-              onChange={(e) => setCoupon(e.target.value)}
-            />
+            <input className="border p-2 rounded w-full" placeholder="Enter coupon code"
+              value={coupon} onChange={(e) => setCoupon(e.target.value)} />
             <button onClick={applyCoupon} className="bg-black text-white px-4 rounded">
               Apply
             </button>
           </div>
-          {couponApplied && (
-            <p className="text-sm text-green-700 mt-2">
-              Applied: {couponApplied.code} ✅
-            </p>
-          )}
         </div>
       </div>
 
-      {/* RIGHT SUMMARY */}
       <div className="border rounded-lg p-4 h-fit">
         <h2 className="font-semibold text-lg mb-3">Order Summary</h2>
 
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal</span>
-            <span>₹{subtotal}</span>
-          </div>
-          <div className="flex justify-between text-green-700">
-            <span>Discount</span>
-            <span>- ₹{discount}</span>
-          </div>
-          <div className="border-t pt-2 flex justify-between font-bold text-lg">
-            <span>Total</span>
-            <span>₹{total}</span>
-          </div>
+          <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal}</span></div>
+          <div className="flex justify-between text-green-700"><span>Discount</span><span>- ₹{discount}</span></div>
+          <div className="border-t pt-2 flex justify-between font-bold text-lg"><span>Total</span><span>₹{total}</span></div>
         </div>
 
-        <button
-          onClick={handlePay}
-          className="w-full mt-4 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
-        >
+        <button onClick={handlePay} className="w-full mt-4 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
           Pay with Razorpay
         </button>
-
-        <p className="text-xs text-gray-500 mt-2">
-          Secure payment powered by Razorpay.
-        </p>
       </div>
     </div>
   );
