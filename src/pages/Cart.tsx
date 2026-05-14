@@ -625,115 +625,152 @@ export default function Cart() {
               )}
             </div>
 
-            <div className="rounded-xl border bg-gray-50 p-4">
-              <p className="mb-3 flex items-center gap-2 font-semibold">
-                <MapPin size={16} /> Delivery Address
-              </p>
+            <div className="rounded-2xl border bg-white p-5 shadow-sm">
+  <div className="mb-5">
+    <p className="flex items-center gap-2 text-lg font-bold text-gray-900">
+      <MapPin size={20} className="text-green-600" />
+      Delivery Address
+    </p>
+    <p className="mt-1 text-sm text-gray-500">
+      Add accurate address and map location for live tracking.
+    </p>
+  </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {(
-                  [
-                    "fullName",
-                    "phone",
-                    "line1",
-                    "line2",
-                    "city",
-                    "state",
-                    "pincode",
-                  ] as const
-                ).map((k) => (
-                  <input
-                    key={k}
-                    placeholder={k}
-                    className={`w-full rounded-lg border px-3 py-3 ${
-                      k === "line1" ? "sm:col-span-2" : ""
-                    }`}
-                    value={address[k]}
-                    onChange={(e) =>
-                      setAddress({ ...address, [k]: e.target.value })
-                    }
-                  />
-                ))}
-              </div>
+  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <input
+      placeholder="Full name"
+      className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
+      value={address.fullName}
+      onChange={(e) => setAddress({ ...address, fullName: e.target.value })}
+    />
 
-              <div className="mt-4 rounded-xl border bg-white p-4">
-                <p className="mb-3 flex items-center gap-2 font-semibold">
-                  <Navigation size={16} /> Google Maps Location
-                </p>
+    <input
+      placeholder="Phone number"
+      className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
+      value={address.phone}
+      onChange={(e) => setAddress({ ...address, phone: e.target.value })}
+    />
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={useCurrentLocation}
-                    className={`rounded-lg border px-3 py-3 text-sm ${
-                      address.locationMode === "current"
-                        ? "bg-green-600 text-white"
-                        : "bg-white"
-                    }`}
-                  >
-                    Use Current Location
-                  </button>
+    <input
+      placeholder="House / Flat / Street"
+      className="sm:col-span-2 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
+      value={address.line1}
+      onChange={(e) => setAddress({ ...address, line1: e.target.value })}
+    />
 
-                  <button
-                    type="button"
-                    onClick={switchToManualLocation}
-                    className={`rounded-lg border px-3 py-3 text-sm ${
-                      address.locationMode === "manual"
-                        ? "bg-green-600 text-white"
-                        : "bg-white"
-                    }`}
-                  >
-                    Add Manually
-                  </button>
-                </div>
+    <input
+      placeholder="Landmark / Area optional"
+      className="sm:col-span-2 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
+      value={address.line2}
+      onChange={(e) => setAddress({ ...address, line2: e.target.value })}
+    />
 
-                {address.locationMode === "current" ? (
-                  <div className="mt-3 text-sm text-gray-700">
-                    {address.mapsUrl ? (
-                      <a
-                        href={address.mapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-green-700 underline"
-                      >
-                        Open current location in Google Maps
-                      </a>
-                    ) : (
-                      <p className="text-gray-500">
-                        Click “Use Current Location” to capture GPS.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-3">
-                    <input
-                      value={address.locationText}
-                      onChange={(e) =>
-                        setAddress({
-                          ...address,
-                          locationText: e.target.value,
-                          locationMode: "manual",
-                        })
-                      }
-                      placeholder="Paste Google Maps link / Plus Code / Coordinates"
-                      className="w-full rounded-lg border px-3 py-3"
-                    />
+    <input
+      placeholder="City"
+      className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
+      value={address.city}
+      onChange={(e) => setAddress({ ...address, city: e.target.value })}
+    />
 
-                    <p className="mt-1 text-xs text-gray-500">
-                      Example: Plus Code like <b>7J4V+5X Hyderabad</b>
-                    </p>
-                  </div>
-                )}
+    <input
+      placeholder="State"
+      className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
+      value={address.state}
+      onChange={(e) => setAddress({ ...address, state: e.target.value })}
+    />
 
-                {locationMsg && (
-                  <p className="mt-2 text-sm text-red-600">{locationMsg}</p>
-                )}
-              </div>
+    <input
+      placeholder="Pincode"
+      className="sm:col-span-2 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 outline-none focus:border-green-600 focus:bg-white"
+      value={address.pincode}
+      onChange={(e) => setAddress({ ...address, pincode: e.target.value })}
+    />
+  </div>
 
-              {addressMsg && (
-                <p className="mt-2 text-sm text-red-600">{addressMsg}</p>
-              )}
-            </div>
+  <div className="mt-5 rounded-2xl border border-green-100 bg-green-50 p-4">
+    <p className="mb-3 flex items-center gap-2 font-bold text-gray-900">
+      <Navigation size={18} className="text-green-600" />
+      Google Maps Location
+    </p>
+
+    <div className="grid grid-cols-2 gap-3">
+      <button
+        type="button"
+        onClick={useCurrentLocation}
+        className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
+          address.locationMode === "current"
+            ? "border-green-600 bg-green-600 text-white"
+            : "bg-white text-gray-900 hover:bg-gray-50"
+        }`}
+      >
+        Use Current Location
+      </button>
+
+      <button
+        type="button"
+        onClick={switchToManualLocation}
+        className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
+          address.locationMode === "manual"
+            ? "border-green-600 bg-green-600 text-white"
+            : "bg-white text-gray-900 hover:bg-gray-50"
+        }`}
+      >
+        Add Manually
+      </button>
+    </div>
+
+    {address.locationMode === "current" ? (
+      <div className="mt-3 rounded-xl bg-white p-3 text-sm">
+        {address.mapsUrl ? (
+          <a
+            href={address.mapsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-green-700 underline"
+          >
+            Open current location in Google Maps
+          </a>
+        ) : (
+          <p className="text-gray-500">
+            Click “Use Current Location” to capture GPS.
+          </p>
+        )}
+      </div>
+    ) : (
+      <div className="mt-3">
+        <input
+          value={address.locationText}
+          onChange={(e) =>
+            setAddress({
+              ...address,
+              locationText: e.target.value,
+              locationMode: "manual",
+            })
+          }
+          placeholder="Paste Google Maps link / Plus Code / Coordinates"
+          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-green-600"
+        />
+
+        <p className="mt-2 text-xs text-gray-500">
+          Example: Google Maps link or Plus Code like{" "}
+          <b>7J4V+5X Hyderabad</b>
+        </p>
+      </div>
+    )}
+
+    {locationMsg && (
+      <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600">
+        {locationMsg}
+      </p>
+    )}
+  </div>
+
+  {addressMsg && (
+    <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600">
+      {addressMsg}
+    </p>
+  )}
+</div>
 
             <div className="rounded-xl border bg-gray-50 p-4">
               <p className="mb-3 flex items-center gap-2 font-semibold">
