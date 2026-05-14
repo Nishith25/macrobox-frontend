@@ -8,10 +8,22 @@ import {
   Clock,
   Tag,
   Navigation,
+  Search,
+  BookmarkPlus,
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import api from "../api/api";
 import { useNavigate } from "react-router-dom";
+
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents,
+  useMap,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 declare global {
   interface Window {
@@ -80,6 +92,28 @@ type Address = {
   mapsUrl: string;
 };
 
+type SavedAddress = Address & {
+  _id?: string;
+  isDefault?: boolean;
+};
+
+type AddressSearchResult = {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    suburb?: string;
+    neighbourhood?: string;
+    state?: string;
+    postcode?: string;
+    road?: string;
+  };
+};
+
 type MsgType = "success" | "error" | null;
 
 type AvailableCoupon = {
@@ -107,6 +141,37 @@ const prettyDate = (iso?: string | null) => {
 
 const makeMapsUrl = (lat: number, lng: number) =>
   `https://www.google.com/maps?q=${lat},${lng}`;
+
+const markerIcon = new L.Icon({
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+function MapClickHandler({
+  onPick,
+}: {
+  onPick: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
+function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView([lat, lng], 17);
+  }, [lat, lng, map]);
+
+  return null;
+}
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -145,6 +210,15 @@ export default function Cart() {
     lng: null,
     mapsUrl: "",
   });
+
+  const [addressSearch, setAddressSearch] = useState("");
+  const [addressResults, setAddressResults] = useState<AddressSearchResult[]>(
+    []
+  );
+  const [searchingAddress, setSearchingAddress] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [loadingSavedAddresses, setLoadingSavedAddresses] = useState(false);
+  const [saveAddressForFuture, setSaveAddressForFuture] = useState(true);
 
   const [slotDate, setSlotDate] = useState(
     new Date().toISOString().slice(0, 10)
@@ -186,6 +260,22 @@ export default function Cart() {
       setLoadingCoupons(false);
     }
   };
+
+  const fetchSavedAddresses = async () => {
+    try {
+      setLoadingSavedAddresses(true);
+      const res = await api.get("/user/addresses");
+      setSavedAddresses(res.data || []);
+    } catch {
+      setSavedAddresses([]);
+    } finally {
+      setLoadingSavedAddresses(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSavedAddresses();
+  }, []);
 
   useEffect(() => {
     if (cart.length > 0) fetchAvailableCoupons();
@@ -267,6 +357,8 @@ export default function Cart() {
           locationText: `${lat}, ${lng}`,
           formattedAddress: `${lat}, ${lng}`,
         }));
+
+        setAddressSearch(`${lat}, ${lng}`);
       },
       () => {
         setLocationMsg(
@@ -275,6 +367,139 @@ export default function Cart() {
       },
       { enableHighAccuracy: true, timeout: 15000 }
     );
+  };
+
+  const searchAddress = async () => {
+    const query = addressSearch.trim();
+
+    if (!query) {
+      setAddressResults([]);
+      return;
+    }
+
+    try {
+      setSearchingAddress(true);
+      setLocationMsg(null);
+
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(
+          query
+        )}`
+      );
+
+      const data = await res.json();
+      setAddressResults(data || []);
+
+      if (!data || data.length === 0) {
+        setLocationMsg("No address found. Try a nearby landmark or area name.");
+      }
+    } catch {
+      setLocationMsg("Unable to search address. Please try again.");
+    } finally {
+      setSearchingAddress(false);
+    }
+  };
+
+  const selectSearchedAddress = (result: AddressSearchResult) => {
+    const lat = Number(result.lat);
+    const lng = Number(result.lon);
+    const url = makeMapsUrl(lat, lng);
+
+    const city =
+      result.address?.city ||
+      result.address?.town ||
+      result.address?.village ||
+      "";
+
+    const area =
+      result.address?.suburb ||
+      result.address?.neighbourhood ||
+      result.address?.road ||
+      "";
+
+    setAddress((prev) => ({
+      ...prev,
+      locationMode: "manual",
+      lat,
+      lng,
+      mapsUrl: url,
+      locationText: result.display_name,
+      formattedAddress: result.display_name,
+      city: prev.city || city,
+      state: prev.state || result.address?.state || "",
+      pincode: prev.pincode || result.address?.postcode || "",
+      area: prev.area || area,
+    }));
+
+    setAddressSearch(result.display_name);
+    setAddressResults([]);
+    setLocationMsg(null);
+  };
+
+  const pinLocationOnMap = (lat: number, lng: number) => {
+    const cleanLat = Number(lat);
+    const cleanLng = Number(lng);
+    const url = makeMapsUrl(cleanLat, cleanLng);
+
+    setAddress((prev) => ({
+      ...prev,
+      locationMode: "manual",
+      lat: cleanLat,
+      lng: cleanLng,
+      mapsUrl: url,
+      locationText: `${cleanLat}, ${cleanLng}`,
+      formattedAddress: prev.formattedAddress || `${cleanLat}, ${cleanLng}`,
+    }));
+
+    setLocationMsg(null);
+  };
+
+  const selectSavedAddress = (saved: SavedAddress) => {
+    setAddress({
+      fullName: saved.fullName || "",
+      phone: saved.phone || "",
+      flatNo: saved.flatNo || "",
+      floor: saved.floor || "",
+      buildingName: saved.buildingName || "",
+      area: saved.area || "",
+      landmark: saved.landmark || "",
+      city: saved.city || "",
+      state: saved.state || "",
+      pincode: saved.pincode || "",
+      addressLabel: saved.addressLabel || "Home",
+      locationMode: saved.locationMode || "manual",
+      locationText: saved.locationText || "",
+      formattedAddress: saved.formattedAddress || "",
+      lat: saved.lat ?? null,
+      lng: saved.lng ?? null,
+      mapsUrl: saved.mapsUrl || "",
+    });
+
+    setAddressSearch(saved.formattedAddress || saved.locationText || "");
+    setLocationMsg(null);
+    setAddressMsg(null);
+  };
+
+  const saveCurrentAddress = async () => {
+    try {
+      const lat = Number(address.lat);
+      const lng = Number(address.lng);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+      await api.post("/user/addresses", {
+        ...address,
+        lat,
+        lng,
+        mapsUrl: address.mapsUrl || makeMapsUrl(lat, lng),
+        locationText: address.locationText || `${lat}, ${lng}`,
+        formattedAddress: address.formattedAddress || `${lat}, ${lng}`,
+      });
+
+      fetchSavedAddresses();
+    } catch (error) {
+      console.log("SAVE ADDRESS ERROR:", error);
+    }
   };
 
   const loadRazorpay = () =>
@@ -332,7 +557,7 @@ export default function Cart() {
     const lng = Number(address.lng);
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      setLocationMsg("Please click Use Current Location again.");
+      setLocationMsg("Please select exact delivery location again.");
       return;
     }
 
@@ -365,11 +590,10 @@ export default function Cart() {
         couponCode: finalCouponCode,
         address: {
           ...address,
-          locationMode: "current",
+          locationMode: address.locationMode || "manual",
           lat,
           lng,
-          mapsUrl:
-            address.mapsUrl || `https://www.google.com/maps?q=${lat},${lng}`,
+          mapsUrl: address.mapsUrl || makeMapsUrl(lat, lng),
           locationText: address.locationText || `${lat}, ${lng}`,
           formattedAddress: address.formattedAddress || `${lat}, ${lng}`,
         },
@@ -378,6 +602,10 @@ export default function Cart() {
           time: slotTime,
         },
       };
+
+      if (saveAddressForFuture) {
+        await saveCurrentAddress();
+      }
 
       console.log("CREATE ORDER PAYLOAD:", payload);
 
@@ -638,23 +866,131 @@ export default function Cart() {
                 </p>
 
                 <p className="mt-1 text-sm text-gray-500">
-                  Add exact location details for accurate delivery tracking.
+                  Search, pin exact location, and add complete delivery details.
                 </p>
               </div>
 
+              {savedAddresses.length > 0 && (
+                <div className="mb-5 rounded-2xl border bg-gray-50 p-4">
+                  <p className="mb-3 font-bold text-gray-900">
+                    Saved Addresses
+                  </p>
+
+                  {loadingSavedAddresses ? (
+                    <p className="text-sm text-gray-500">
+                      Loading saved addresses...
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {savedAddresses.slice(0, 3).map((saved) => (
+                        <button
+                          key={saved._id}
+                          type="button"
+                          onClick={() => selectSavedAddress(saved)}
+                          className="w-full rounded-xl border bg-white p-3 text-left hover:border-green-500"
+                        >
+                          <p className="font-bold text-gray-900">
+                            {saved.addressLabel} - {saved.fullName}
+                          </p>
+
+                          <p className="mt-1 text-sm text-gray-600">
+                            {saved.flatNo}, {saved.buildingName}, {saved.area}
+                          </p>
+
+                          <p className="text-sm text-gray-500">
+                            {saved.city}, {saved.state} - {saved.pincode}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="mb-5 rounded-2xl border border-green-100 bg-green-50 p-4">
                 <p className="mb-3 flex items-center gap-2 font-bold text-gray-900">
-                  <Navigation size={18} className="text-green-600" />
-                  Exact Map Location
+                  <Search size={18} className="text-green-600" />
+                  Search Delivery Location
                 </p>
+
+                <div className="flex gap-2">
+                  <input
+                    value={addressSearch}
+                    onChange={(e) => setAddressSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        searchAddress();
+                      }
+                    }}
+                    placeholder="Search apartment, area, landmark..."
+                    className="w-full rounded-xl border px-4 py-3"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={searchAddress}
+                    disabled={searchingAddress}
+                    className="rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                  >
+                    {searchingAddress ? "..." : "Search"}
+                  </button>
+                </div>
+
+                {addressResults.length > 0 && (
+                  <div className="mt-3 max-h-56 overflow-y-auto rounded-xl border bg-white">
+                    {addressResults.map((result) => (
+                      <button
+                        key={result.place_id}
+                        type="button"
+                        onClick={() => selectSearchedAddress(result)}
+                        className="block w-full border-b p-3 text-left text-sm hover:bg-green-50"
+                      >
+                        {result.display_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <button
                   type="button"
                   onClick={useCurrentLocation}
-                  className="w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700"
+                  className="mt-3 w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700"
                 >
+                  <Navigation size={16} className="mr-2 inline" />
                   Use Current Location
                 </button>
+
+                {address.lat != null && address.lng != null && (
+                  <div className="mt-4 overflow-hidden rounded-2xl border">
+                    <div className="h-64 w-full">
+                      <MapContainer
+                        center={[address.lat, address.lng]}
+                        zoom={17}
+                        scrollWheelZoom={true}
+                        className="h-full w-full"
+                      >
+                        <TileLayer
+                          attribution='&copy; OpenStreetMap contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+
+                        <RecenterMap lat={address.lat} lng={address.lng} />
+
+                        <MapClickHandler onPick={pinLocationOnMap} />
+
+                        <Marker
+                          position={[address.lat, address.lng]}
+                          icon={markerIcon}
+                        />
+                      </MapContainer>
+                    </div>
+
+                    <p className="bg-white px-3 py-2 text-xs text-gray-500">
+                      Tap anywhere on the map to adjust the exact delivery pin.
+                    </p>
+                  </div>
+                )}
 
                 {address.mapsUrl && (
                   <a
@@ -665,6 +1001,12 @@ export default function Cart() {
                   >
                     Open selected location in Google Maps
                   </a>
+                )}
+
+                {address.formattedAddress && (
+                  <p className="mt-3 rounded-xl bg-white p-3 text-sm text-gray-600">
+                    <b>Selected:</b> {address.formattedAddress}
+                  </p>
                 )}
 
                 {locationMsg && (
@@ -713,7 +1055,7 @@ export default function Cart() {
 
                 <input
                   placeholder="Building / Apartment Name"
-                  className="sm:col-span-2 rounded-xl border px-4 py-3"
+                  className="rounded-xl border px-4 py-3 sm:col-span-2"
                   value={address.buildingName}
                   onChange={(e) =>
                     setAddress({ ...address, buildingName: e.target.value })
@@ -783,6 +1125,16 @@ export default function Cart() {
                   <option value="Other">Other</option>
                 </select>
               </div>
+
+              <label className="mt-4 flex items-center gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={saveAddressForFuture}
+                  onChange={(e) => setSaveAddressForFuture(e.target.checked)}
+                />
+                <BookmarkPlus size={16} className="text-green-600" />
+                Save this address for future orders
+              </label>
 
               {addressMsg && (
                 <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600">

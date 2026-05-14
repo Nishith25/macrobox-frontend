@@ -1,3 +1,4 @@
+// frontend/src/api/api.ts (FRONTEND)
 import axios from "axios";
 
 // Normalize API base to include /api exactly once
@@ -16,13 +17,12 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// 🔐 Attach JWT token automatically (Axios v1+ safe)
+// 🔐 Attach JWT token automatically
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
 
     if (token) {
-      // ✅ DO NOT replace headers object
       config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
     }

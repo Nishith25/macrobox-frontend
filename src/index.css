@@ -1,1 +1,9 @@
+/* frontend/src/index.css (FRONTEND) */
 @import "tailwindcss";
+
+.leaflet-container,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 0 !important;
+}
