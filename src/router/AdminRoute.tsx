@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import toast from "react-hot-toast";
 
 export default function AdminRoute({

@@ -9,18 +9,21 @@ type Coupon = {
   value: number;
   minCartTotal: number;
   maxDiscount: number;
-
   validFrom?: string | null;
   validTo?: string | null;
-
-  // backward compat
   expiresAt?: string | null;
-
   isActive: boolean;
-
-  usageLimitTotal?: number; // 0 = unlimited
+  usageLimitTotal?: number;
   usageLimitPerUser?: number;
   usedCount?: number;
+
+  scope?: "public" | "specific_user";
+  assignedEmail?: string;
+  assignedTo?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  } | null;
 };
 
 type FormState = {
@@ -29,12 +32,12 @@ type FormState = {
   value: string;
   minCartTotal: string;
   maxDiscount: string;
-
-  validFrom: string; // YYYY-MM-DD
-  validTo: string; // YYYY-MM-DD
-
-  usageLimitTotal: string; // "0" = unlimited
-  usageLimitPerUser: string; // default "1"
+  validFrom: string;
+  validTo: string;
+  usageLimitTotal: string;
+  usageLimitPerUser: string;
+  scope: "public" | "specific_user";
+  assignedEmail: string;
 };
 
 const prettyDate = (iso?: string | null) => {
@@ -43,7 +46,6 @@ const prettyDate = (iso?: string | null) => {
   return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
 };
 
-// ✅ helpers: keep From at start-of-day, To at end-of-day (inclusive)
 const startOfDayISO = (yyyyMmDd: string) => {
   const d = new Date(yyyyMmDd);
   d.setHours(0, 0, 0, 0);
@@ -74,9 +76,10 @@ export default function AdminCoupons() {
     validTo: "",
     usageLimitTotal: "0",
     usageLimitPerUser: "1",
+    scope: "public",
+    assignedEmail: "",
   });
 
-  // ✅ Admin routes are under /api/admin/coupons
   const fetchCoupons = async () => {
     setLoading(true);
     try {
@@ -96,19 +99,46 @@ export default function AdminCoupons() {
 
   const formError = useMemo(() => {
     if (!form.code.trim()) return "Coupon code is required";
-    if (!form.value || Number(form.value) <= 0) return "Value must be greater than 0";
-    if (form.type === "percent" && Number(form.value) > 100) return "Percent cannot exceed 100";
+    if (!form.value || Number(form.value) <= 0)
+      return "Value must be greater than 0";
+    if (form.type === "percent" && Number(form.value) > 100)
+      return "Percent cannot exceed 100";
 
-    if (!form.validFrom || !form.validTo) return "Please select both From date and To date";
-    if (form.validFrom > form.validTo) return "From date cannot be after To date";
+    if (!form.validFrom || !form.validTo)
+      return "Please select both From date and To date";
+    if (form.validFrom > form.validTo)
+      return "From date cannot be after To date";
 
-    if (Number(form.minCartTotal) < 0) return "Min cart total cannot be negative";
-    if (Number(form.usageLimitTotal) < 0) return "Total usage limit cannot be negative";
-    if (Number(form.usageLimitPerUser) < 1) return "Per user limit must be at least 1";
-    if (form.type === "percent" && Number(form.maxDiscount) < 0) return "Max discount cannot be negative";
+    if (Number(form.minCartTotal) < 0)
+      return "Min cart total cannot be negative";
+    if (Number(form.usageLimitTotal) < 0)
+      return "Total usage limit cannot be negative";
+    if (Number(form.usageLimitPerUser) < 1)
+      return "Per user limit must be at least 1";
+    if (form.type === "percent" && Number(form.maxDiscount) < 0)
+      return "Max discount cannot be negative";
+
+    if (form.scope === "specific_user" && !form.assignedEmail.trim())
+      return "User email is required for specific user coupon";
 
     return null;
   }, [form]);
+
+  const resetForm = () => {
+    setForm({
+      code: "",
+      type: "flat",
+      value: "",
+      minCartTotal: "0",
+      maxDiscount: "0",
+      validFrom: "",
+      validTo: "",
+      usageLimitTotal: "0",
+      usageLimitPerUser: "1",
+      scope: "public",
+      assignedEmail: "",
+    });
+  };
 
   const createCoupon = async () => {
     setMsg(null);
@@ -128,30 +158,20 @@ export default function AdminCoupons() {
         value: Number(form.value),
         minCartTotal: Number(form.minCartTotal),
         maxDiscount: form.type === "percent" ? Number(form.maxDiscount) : 0,
-
-        // ✅ inclusive validity
         validFrom: form.validFrom ? startOfDayISO(form.validFrom) : null,
         validTo: form.validTo ? endOfDayISO(form.validTo) : null,
-
-        usageLimitTotal: Number(form.usageLimitTotal), // 0 unlimited
+        usageLimitTotal: Number(form.usageLimitTotal),
         usageLimitPerUser: Number(form.usageLimitPerUser),
+        scope: form.scope,
+        assignedEmail:
+          form.scope === "specific_user"
+            ? form.assignedEmail.trim().toLowerCase()
+            : "",
       });
 
       setMsg("Coupon created successfully");
       setMsgType("success");
-
-      setForm({
-        code: "",
-        type: "flat",
-        value: "",
-        minCartTotal: "0",
-        maxDiscount: "0",
-        validFrom: "",
-        validTo: "",
-        usageLimitTotal: "0",
-        usageLimitPerUser: "1",
-      });
-
+      resetForm();
       fetchCoupons();
     } catch (e: any) {
       setMsg(e?.response?.data?.message || "Failed to create coupon");
@@ -190,7 +210,6 @@ export default function AdminCoupons() {
     <div className="max-w-6xl mx-auto py-10 px-6">
       <h1 className="text-3xl font-bold mb-6">Manage Coupons</h1>
 
-      {/* CREATE */}
       <div className="border rounded-lg p-6 mb-8 bg-white">
         <h2 className="font-semibold mb-4">Create Coupon</h2>
 
@@ -204,7 +223,9 @@ export default function AdminCoupons() {
 
           <select
             value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value as any })}
+            onChange={(e) =>
+              setForm({ ...form, type: e.target.value as "flat" | "percent" })
+            }
             className="border rounded px-3 py-2"
           >
             <option value="flat">Flat ₹</option>
@@ -213,7 +234,9 @@ export default function AdminCoupons() {
 
           <input
             type="number"
-            placeholder={form.type === "flat" ? "Flat value (₹)" : "Percent value (%)"}
+            placeholder={
+              form.type === "flat" ? "Flat value (₹)" : "Percent value (%)"
+            }
             value={form.value}
             onChange={(e) => setForm({ ...form, value: e.target.value })}
             className="border rounded px-3 py-2"
@@ -223,7 +246,9 @@ export default function AdminCoupons() {
             type="number"
             placeholder="Min Cart Total (₹)"
             value={form.minCartTotal}
-            onChange={(e) => setForm({ ...form, minCartTotal: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, minCartTotal: e.target.value })
+            }
             className="border rounded px-3 py-2"
           />
 
@@ -232,9 +257,41 @@ export default function AdminCoupons() {
             placeholder="Max Discount (₹) (only %)"
             value={form.maxDiscount}
             disabled={form.type !== "percent"}
-            onChange={(e) => setForm({ ...form, maxDiscount: e.target.value })}
-            className={`border rounded px-3 py-2 ${form.type !== "percent" ? "opacity-60" : ""}`}
+            onChange={(e) =>
+              setForm({ ...form, maxDiscount: e.target.value })
+            }
+            className={`border rounded px-3 py-2 ${
+              form.type !== "percent" ? "opacity-60" : ""
+            }`}
           />
+
+          <select
+            value={form.scope}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                scope: e.target.value as "public" | "specific_user",
+                assignedEmail:
+                  e.target.value === "public" ? "" : form.assignedEmail,
+              })
+            }
+            className="border rounded px-3 py-2"
+          >
+            <option value="public">Public Coupon</option>
+            <option value="specific_user">Specific User</option>
+          </select>
+
+          {form.scope === "specific_user" && (
+            <input
+              type="email"
+              placeholder="User email"
+              value={form.assignedEmail}
+              onChange={(e) =>
+                setForm({ ...form, assignedEmail: e.target.value })
+              }
+              className="border rounded px-3 py-2 md:col-span-3"
+            />
+          )}
 
           <input
             type="date"
@@ -242,6 +299,7 @@ export default function AdminCoupons() {
             onChange={(e) => setForm({ ...form, validFrom: e.target.value })}
             className="border rounded px-3 py-2"
           />
+
           <input
             type="date"
             value={form.validTo}
@@ -253,14 +311,19 @@ export default function AdminCoupons() {
             type="number"
             placeholder="Total usage limit (0 = unlimited)"
             value={form.usageLimitTotal}
-            onChange={(e) => setForm({ ...form, usageLimitTotal: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, usageLimitTotal: e.target.value })
+            }
             className="border rounded px-3 py-2"
           />
+
           <input
             type="number"
             placeholder="Per user limit"
             value={form.usageLimitPerUser}
-            onChange={(e) => setForm({ ...form, usageLimitPerUser: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, usageLimitPerUser: e.target.value })
+            }
             className="border rounded px-3 py-2"
           />
         </div>
@@ -274,13 +337,16 @@ export default function AdminCoupons() {
         </button>
 
         {msg && (
-          <p className={`mt-3 text-sm ${msgType === "error" ? "text-red-600" : "text-green-600"}`}>
+          <p
+            className={`mt-3 text-sm ${
+              msgType === "error" ? "text-red-600" : "text-green-600"
+            }`}
+          >
             {msg}
           </p>
         )}
       </div>
 
-      {/* LIST */}
       <div className="border rounded-lg p-6 bg-white">
         <h2 className="font-semibold mb-4">All Coupons</h2>
 
@@ -294,6 +360,8 @@ export default function AdminCoupons() {
               <thead>
                 <tr className="text-left border-b">
                   <th className="py-2">Code</th>
+                  <th>Scope</th>
+                  <th>Assigned To</th>
                   <th>Type</th>
                   <th>Value</th>
                   <th>Min Cart</th>
@@ -309,19 +377,31 @@ export default function AdminCoupons() {
                   const from = c.validFrom ?? null;
                   const to = c.validTo ?? c.expiresAt ?? null;
 
-                  const usedCount = c.usedCount ?? 0;
-                  const totalLimit = c.usageLimitTotal ?? 0;
-                  const perUser = c.usageLimitPerUser ?? 1;
-
                   return (
                     <tr key={c._id} className="border-b">
                       <td className="py-2 font-semibold">{c.code}</td>
+
+                      <td>
+                        {c.scope === "specific_user" ? (
+                          <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
+                            Specific
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-700">
+                            Public
+                          </span>
+                        )}
+                      </td>
+
+                      <td>{c.assignedEmail || c.assignedTo?.email || "-"}</td>
 
                       <td>{c.type}</td>
 
                       <td>
                         {c.type === "flat" ? `₹${c.value}` : `${c.value}%`}
-                        {c.type === "percent" && c.maxDiscount > 0 ? ` (cap ₹${c.maxDiscount})` : ""}
+                        {c.type === "percent" && c.maxDiscount > 0
+                          ? ` (cap ₹${c.maxDiscount})`
+                          : ""}
                       </td>
 
                       <td>₹{c.minCartTotal || 0}</td>
@@ -337,15 +417,21 @@ export default function AdminCoupons() {
                       </td>
 
                       <td>
-                        {usedCount}
-                        {totalLimit > 0 ? ` / ${totalLimit}` : ""}
-                        <div className="text-xs text-gray-500">Per user: {perUser}</div>
+                        {c.usedCount ?? 0}
+                        {(c.usageLimitTotal ?? 0) > 0
+                          ? ` / ${c.usageLimitTotal}`
+                          : ""}
+                        <div className="text-xs text-gray-500">
+                          Per user: {c.usageLimitPerUser ?? 1}
+                        </div>
                       </td>
 
                       <td>
                         <span
                           className={`px-2 py-1 rounded text-xs ${
-                            c.isActive ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
+                            c.isActive
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-200 text-gray-700"
                           }`}
                         >
                           {c.isActive ? "Active" : "Inactive"}
@@ -360,7 +446,10 @@ export default function AdminCoupons() {
                           Toggle
                         </button>
 
-                        <button onClick={() => deleteCoupon(c._id)} className="text-red-600 text-sm">
+                        <button
+                          onClick={() => deleteCoupon(c._id)}
+                          className="text-red-600 text-sm"
+                        >
                           Delete
                         </button>
                       </td>
@@ -372,10 +461,6 @@ export default function AdminCoupons() {
           </div>
         )}
       </div>
-
-      <p className="text-xs text-gray-500 mt-4">
-        Validity is shown as From → To. For older coupons, To may show the old expiresAt if present.
-      </p>
     </div>
   );
 }
