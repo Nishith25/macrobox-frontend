@@ -71,6 +71,11 @@ type TrackResponse = {
   paymentStatus?: string;
   deliveryStatus?: string;
   deliveryAgent?: DeliveryAgent | null;
+  agentLocation?: LocationPoint | null;
+  deliveryLocation?: {
+    lat?: number | null;
+    lng?: number | null;
+  } | null;
   tracking?: TrackingData;
   deliveryAddress?: DeliveryAddress | null;
   customerLocation?: {
@@ -88,6 +93,11 @@ type SocketTrackingPayload = {
   deliveryStatus?: string;
   deliveryAgent?: DeliveryAgent | null;
   currentLocation?: LocationPoint | null;
+  agentLocation?: LocationPoint | null;
+  deliveryLocation?: {
+    lat?: number | null;
+    lng?: number | null;
+  } | null;
   eta?: TrackingData["eta"];
   route?: TrackingData["route"];
   isLive?: boolean;
@@ -98,39 +108,39 @@ const agentIcon = L.divIcon({
   className: "",
   html: `
     <div style="
-      width: 46px;
-      height: 46px;
+      width: 50px;
+      height: 50px;
       border-radius: 999px;
       background: #16a34a;
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 27px;
-      box-shadow: 0 10px 22px rgba(0,0,0,0.28);
-      border: 3px solid white;
+      font-size: 28px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.28);
+      border: 4px solid white;
     ">
-      🛵
+      🛺
     </div>
   `,
-  iconSize: [46, 46],
-  iconAnchor: [23, 23],
-  popupAnchor: [0, -24],
+  iconSize: [50, 50],
+  iconAnchor: [25, 25],
+  popupAnchor: [0, -25],
 });
 
 const customerIcon = L.divIcon({
   className: "",
   html: `
     <div style="
-      font-size: 40px;
+      font-size: 46px;
       filter: drop-shadow(0 8px 12px rgba(0,0,0,0.35));
     ">
       📍
     </div>
   `,
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40],
+  iconSize: [46, 46],
+  iconAnchor: [23, 46],
+  popupAnchor: [0, -42],
 });
 
 function readableStatus(status?: string) {
@@ -170,9 +180,9 @@ function getStatusBadgeClass(status?: string) {
 }
 
 function formatDistanceAway(meters?: number | null) {
-  if (!meters || Number.isNaN(Number(meters))) return "Distance calculating...";
-  if (meters < 1000) return `${Math.round(meters)} m away`;
-  return `${(meters / 1000).toFixed(1)} km away`;
+  if (!meters || Number.isNaN(Number(meters))) return "Calculating...";
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
 }
 
 function interpolatePoints(
@@ -200,12 +210,12 @@ function FitBounds({ points }: { points: [number, number][] }) {
     if (!points.length) return;
 
     if (points.length === 1) {
-      map.setView(points[0], 15);
+      map.setView(points[0], 16);
       return;
     }
 
     const bounds = L.latLngBounds(points);
-    map.fitBounds(bounds, { padding: [70, 70] });
+    map.fitBounds(bounds, { padding: [80, 80] });
   }, [map, points]);
 
   return null;
@@ -230,7 +240,9 @@ export default function TrackOrderPage() {
       const res = await api.get<TrackResponse>(`/delivery/track/${orderId}`);
       setTracking(res.data);
 
-      const initialLocation = res.data?.tracking?.currentLocation;
+      const initialLocation =
+        res.data?.agentLocation || res.data?.tracking?.currentLocation;
+
       if (initialLocation?.lat != null && initialLocation?.lng != null) {
         setAgentAnimatedPosition([initialLocation.lat, initialLocation.lng]);
       }
@@ -256,11 +268,13 @@ export default function TrackOrderPage() {
     const handleDeliveryUpdate = (data: SocketTrackingPayload) => {
       if (String(data?.orderId) !== String(orderId)) return;
 
+      const socketLocation = data?.agentLocation || data?.currentLocation || null;
+
       setTracking((prev) => {
         if (!prev) return prev;
 
         const previousCurrent = prev.tracking?.currentLocation || null;
-        const nextCurrent = data?.currentLocation ?? previousCurrent;
+        const nextCurrent = socketLocation ?? previousCurrent;
         const previousHistory = prev.tracking?.locationHistory || [];
 
         let updatedHistory = previousHistory;
@@ -282,6 +296,8 @@ export default function TrackOrderPage() {
           ...prev,
           deliveryStatus: data?.deliveryStatus || prev.deliveryStatus,
           deliveryAgent: data?.deliveryAgent ?? prev.deliveryAgent,
+          agentLocation: nextCurrent,
+          deliveryLocation: data?.deliveryLocation ?? prev.deliveryLocation,
           tracking: {
             ...(prev.tracking || {}),
             isLive:
@@ -296,13 +312,10 @@ export default function TrackOrderPage() {
         };
       });
 
-      if (
-        data?.currentLocation?.lat != null &&
-        data?.currentLocation?.lng != null
-      ) {
+      if (socketLocation?.lat != null && socketLocation?.lng != null) {
         const nextPosition: [number, number] = [
-          data.currentLocation.lat,
-          data.currentLocation.lng,
+          socketLocation.lat,
+          socketLocation.lng,
         ];
 
         setAgentAnimatedPosition((prevPos) => {
@@ -343,6 +356,13 @@ export default function TrackOrderPage() {
 
   const customerPosition = useMemo<[number, number] | null>(() => {
     if (
+      tracking?.deliveryLocation?.lat != null &&
+      tracking?.deliveryLocation?.lng != null
+    ) {
+      return [tracking.deliveryLocation.lat, tracking.deliveryLocation.lng];
+    }
+
+    if (
       tracking?.customerLocation?.lat != null &&
       tracking?.customerLocation?.lng != null
     ) {
@@ -362,7 +382,7 @@ export default function TrackOrderPage() {
   const agentPosition = useMemo<[number, number] | null>(() => {
     if (agentAnimatedPosition) return agentAnimatedPosition;
 
-    const current = tracking?.tracking?.currentLocation;
+    const current = tracking?.agentLocation || tracking?.tracking?.currentLocation;
     if (current?.lat != null && current?.lng != null) {
       return [current.lat, current.lng];
     }
@@ -447,11 +467,10 @@ export default function TrackOrderPage() {
     tracking?.deliveryAgent?.phone ||
     "";
 
-  const etaText = tracking?.tracking?.eta?.text || "Time calculating...";
-  const distanceAway = formatDistanceAway(
-    tracking?.tracking?.eta?.distanceValue || null
-  );
-  const distanceText = tracking?.tracking?.eta?.distanceText || distanceAway;
+  const etaText = tracking?.tracking?.eta?.text || "Calculating...";
+  const distanceText =
+    tracking?.tracking?.eta?.distanceText ||
+    formatDistanceAway(tracking?.tracking?.eta?.distanceValue || null);
 
   const liveNotice =
     tracking?.deliveryAgent &&
@@ -461,6 +480,17 @@ export default function TrackOrderPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
+      <style>
+        {`
+          .leaflet-container,
+          .leaflet-pane,
+          .leaflet-top,
+          .leaflet-bottom {
+            z-index: 0 !important;
+          }
+        `}
+      </style>
+
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Track Order</h1>
@@ -625,15 +655,6 @@ export default function TrackOrderPage() {
                   </p>
                 </div>
 
-                {tracking.deliveryAddress?.locationText ? (
-                  <div>
-                    <p className="text-gray-500">Location Note</p>
-                    <p className="font-semibold">
-                      {tracking.deliveryAddress.locationText}
-                    </p>
-                  </div>
-                ) : null}
-
                 {tracking.deliveryAddress?.mapsUrl ? (
                   <a
                     href={tracking.deliveryAddress.mapsUrl}
@@ -654,11 +675,12 @@ export default function TrackOrderPage() {
                 <div>
                   <h2 className="text-xl font-semibold">Live Delivery Map</h2>
                   <p className="text-sm text-gray-500">
-                    Bike location and route to your delivery address.
+                    Track your order in real-time.
                   </p>
                 </div>
 
                 <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                  <span className="mr-1 inline-block h-2 w-2 rounded-full bg-green-600" />
                   {agentPosition
                     ? "Live tracking active"
                     : "Waiting for bike location"}
@@ -672,7 +694,7 @@ export default function TrackOrderPage() {
                 </div>
               ) : null}
 
-              <div className="relative h-[620px] overflow-hidden rounded-2xl">
+              <div className="relative z-0 h-[620px] overflow-hidden rounded-2xl">
                 <MapContainer
                   center={mapCenter}
                   zoom={15}
@@ -711,36 +733,53 @@ export default function TrackOrderPage() {
                     <Polyline
                       positions={polylinePositions}
                       pathOptions={{
-                        color: "#2563eb",
+                        color: "#16a34a",
                         weight: 6,
-                        opacity: 0.9,
+                        opacity: 0.95,
                       }}
                     />
                   ) : null}
                 </MapContainer>
 
-                {agentPosition && customerPosition ? (
-                  <div className="absolute left-1/2 top-6 z-[500] -translate-x-1/2 rounded-full bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-lg">
-                    {distanceText}
-                  </div>
-                ) : null}
+                <div className="absolute bottom-5 left-5 right-5 z-[10] rounded-3xl border border-green-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.6fr_1fr_1fr] md:items-center">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-green-600 bg-green-50 text-4xl shadow-sm">
+                        🛺
+                      </div>
 
-                <div className="absolute bottom-5 left-5 right-5 z-[500] rounded-3xl bg-white/95 p-5 shadow-2xl backdrop-blur">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-3xl font-extrabold text-green-700">
-                        ⚡ {etaText}
-                      </p>
-                      <p className="mt-1 text-lg font-semibold italic text-gray-900">
-                        Order on the way
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-gray-500">
-                        {distanceText}
+                      <div>
+                        <p className="text-xl font-extrabold text-gray-900">
+                          Order on the way
+                        </p>
+                        <p className="text-sm font-medium text-gray-500">
+                          We're almost there!
+                        </p>
+
+                        <div className="mt-3 flex items-center gap-2">
+                          <span className="h-1.5 w-8 rounded-full bg-green-600"></span>
+                          <span className="h-1.5 w-8 rounded-full bg-green-300"></span>
+                          <span className="h-1.5 w-8 rounded-full bg-green-200"></span>
+                          <span className="h-1.5 w-8 rounded-full bg-green-100"></span>
+                          <span className="text-2xl">🛺</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border-l border-gray-200 px-4 text-center">
+                      <p className="text-sm font-semibold text-gray-500">ETA</p>
+                      <p className="mt-1 text-2xl font-extrabold text-green-700">
+                        {etaText}
                       </p>
                     </div>
 
-                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-green-50 text-5xl shadow-inner">
-                      🛵
+                    <div className="rounded-2xl border-l border-gray-200 px-4 text-center">
+                      <p className="text-sm font-semibold text-gray-500">
+                        Distance
+                      </p>
+                      <p className="mt-1 text-2xl font-extrabold text-green-700">
+                        ~{distanceText}
+                      </p>
                     </div>
                   </div>
                 </div>
