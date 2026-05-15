@@ -1,13 +1,16 @@
 // frontend/src/pages/Meals.tsx (FRONTEND)
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MealCard from "../components/MealCard";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
 import toast from "react-hot-toast";
 import type { Meal } from "./Home";
 
+type FilterType = "all" | "veg" | "nonveg";
+
 export default function Meals() {
   const [meals, setMeals] = useState<Meal[]>([]);
+  const [filter, setFilter] = useState<FilterType>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { addToCart } = useCart();
@@ -20,7 +23,7 @@ export default function Meals() {
         setLoading(true);
         setError(null);
 
-        const res = await api.get<Meal[]>("/meals?featured=false");
+        const res = await api.get<Meal[]>("/meals");
 
         if (!mounted) return;
         setMeals(res.data || []);
@@ -39,6 +42,11 @@ export default function Meals() {
     };
   }, []);
 
+  const filteredMeals = useMemo(() => {
+    if (filter === "all") return meals;
+    return meals.filter((meal) => meal.foodType === filter);
+  }, [meals, filter]);
+
   const handleAddToCart = (meal: Meal) => {
     addToCart({
       _id: meal._id,
@@ -48,6 +56,7 @@ export default function Meals() {
       calories: meal.calories,
       carbs: meal.carbs || 0,
       fat: meal.fat || 0,
+      imageUrl: meal.imageUrl,
     });
 
     toast.success("Added to cart");
@@ -55,24 +64,61 @@ export default function Meals() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-16">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900">Meals</h1>
-        <p className="mt-2 text-gray-500">
-          Choose meals with complete calories, protein, carbs and fat tracking.
-        </p>
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-gray-900">Meals</h1>
+          <p className="mt-2 text-gray-500">
+            Choose meals with complete calories, protein, carbs and fat tracking.
+          </p>
+        </div>
+
+        <div className="flex w-fit gap-2 rounded-xl bg-gray-100 p-1">
+          <button
+            onClick={() => setFilter("all")}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+              filter === "all"
+                ? "bg-white text-gray-900 shadow"
+                : "text-gray-600"
+            }`}
+          >
+            All
+          </button>
+
+          <button
+            onClick={() => setFilter("veg")}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+              filter === "veg"
+                ? "bg-white text-green-700 shadow"
+                : "text-gray-600"
+            }`}
+          >
+            Veg
+          </button>
+
+          <button
+            onClick={() => setFilter("nonveg")}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+              filter === "nonveg"
+                ? "bg-white text-red-700 shadow"
+                : "text-gray-600"
+            }`}
+          >
+            Non-Veg
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <p className="py-10 text-center">Loading...</p>
       ) : error ? (
         <p className="py-10 text-center text-red-600">{error}</p>
-      ) : meals.length === 0 ? (
+      ) : filteredMeals.length === 0 ? (
         <p className="py-10 text-center text-gray-500">
-          No meals available.
+          No meals available for this filter.
         </p>
       ) : (
         <div className="grid gap-8 md:grid-cols-3">
-          {meals.map((meal) => (
+          {filteredMeals.map((meal) => (
             <MealCard
               key={meal._id}
               meal={meal}

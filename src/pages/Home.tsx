@@ -1,12 +1,7 @@
 // frontend/src/pages/Home.tsx (FRONTEND)
-import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Container from "../components/Container";
 import SectionTitle from "../components/SectionTitle";
-import MealCard from "../components/MealCard";
-import api from "../api/api";
-import { useAuth } from "../context/AuthContext";
-import { useCart } from "../context/CartContext";
-import toast from "react-hot-toast";
 
 /* ================= TYPES ================= */
 
@@ -20,100 +15,84 @@ export type Meal = {
   carbs: number;
   fat: number;
   price: number;
-  isFeatured: boolean;
+  foodType: "veg" | "nonveg";
+  isFeatured?: boolean;
 };
 
 /* ================= PAGE ================= */
 
 export default function Home() {
-  const { isAdmin } = useAuth();
-  const { addToCart } = useCart();
-
-  const [meals, setMeals] = useState<Meal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const fetchFeatured = async (withSpinner = true) => {
-    if (withSpinner) setLoading(true);
-
-    try {
-      const res = await api.get<Meal[]>("/meals?featured=true");
-      setMeals(res.data || []);
-    } catch {
-      setMeals([]);
-    } finally {
-      if (withSpinner) setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFeatured();
-  }, []);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchFeatured(false);
-    setRefreshing(false);
-  };
-
-  const handleAddToCart = (meal: Meal) => {
-    addToCart({
-      _id: meal._id,
-      title: meal.title,
-      price: meal.price,
-      protein: meal.protein,
-      calories: meal.calories,
-      carbs: meal.carbs || 0,
-      fat: meal.fat || 0,
-      imageUrl: meal.imageUrl,
-    });
-
-    toast.success("Added to cart");
-  };
-
   return (
     <>
-      <div className="bg-gradient-to-b from-green-50 to-white px-4 py-16 text-center">
-        <h1 className="mb-4 text-4xl font-bold text-gray-900">
+      <div className="bg-gradient-to-b from-green-50 to-white px-4 py-20 text-center">
+        <h1 className="mx-auto mb-4 max-w-4xl text-5xl font-bold text-gray-900">
           Fuel Your Day with MacroBox
         </h1>
-        <p className="mx-auto max-w-2xl text-gray-600">
-          High-protein, macro-friendly meals built for daily health, fitness and
-          clean eating.
+
+        <p className="mx-auto max-w-2xl text-lg text-gray-600">
+          Goal-based meals for fat loss, muscle gain, weight gain and everyday
+          clean eating — with complete calories, protein, carbs and fat tracking.
         </p>
+
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <Link
+            to="/meals"
+            className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white hover:bg-green-700"
+          >
+            Explore Meals
+          </Link>
+
+          <Link
+            to="/dashboard"
+            className="rounded-xl border border-green-600 px-6 py-3 font-semibold text-green-700 hover:bg-green-50"
+          >
+            Open MacroTrack
+          </Link>
+
+          <Link
+            to="/plan-my-day"
+            className="rounded-xl border px-6 py-3 font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Smart Day Planner
+          </Link>
+        </div>
       </div>
 
       <Container>
-        <div className="mb-4 flex items-center justify-between">
-          <SectionTitle title="Featured" />
+        <SectionTitle title="Why MacroBox?" />
 
-          {isAdmin && (
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="rounded-lg border border-emerald-200 px-3 py-1 text-sm text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
-            >
-              {refreshing ? "Refreshing..." : "Refresh featured"}
-            </button>
-          )}
+        <div className="grid gap-6 md:grid-cols-3">
+          <FeatureCard
+            title="Goal-Based Meals"
+            description="Choose meals based on fat loss, weight gain, muscle gain or maintenance goals."
+          />
+
+          <FeatureCard
+            title="Complete Macro Tracking"
+            description="Every meal includes calories, protein, carbs and fat for accurate tracking."
+          />
+
+          <FeatureCard
+            title="Smart Day Planner"
+            description="Build a full-day meal plan based on your daily macro targets."
+          />
         </div>
-
-        {loading ? (
-          <p className="py-10 text-center">Loading...</p>
-        ) : meals.length === 0 ? (
-          <p className="py-10 text-center text-gray-500">No featured meals</p>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-3">
-            {meals.map((meal) => (
-              <MealCard
-                key={meal._id}
-                meal={meal}
-                onAddToCart={handleAddToCart}
-              />
-            ))}
-          </div>
-        )}
       </Container>
     </>
+  );
+}
+
+function FeatureCard({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+      <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+      <p className="mt-2 text-gray-600">{description}</p>
+    </div>
   );
 }

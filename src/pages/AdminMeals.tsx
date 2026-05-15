@@ -1,21 +1,12 @@
 // frontend/src/pages/AdminMeals.tsx (FRONTEND)
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 import toast from "react-hot-toast";
-import {
-  DndContext,
-  closestCenter,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 /* ================= TYPES ================= */
+
+type FoodType = "veg" | "nonveg";
+
 type Meal = {
   _id: string;
   title: string;
@@ -25,132 +16,59 @@ type Meal = {
   fat: number;
   price: number;
   imageUrl: string;
-  isFeatured: boolean;
+  foodType: FoodType;
 };
 
-/* ================= SORTABLE CARD ================= */
-function SortableMeal({
+/* ================= MEAL CARD ================= */
+
+function MealRow({
   meal,
   onEdit,
   onDelete,
-  onToggleFeatured,
-  toggling,
 }: {
   meal: Meal;
   onEdit: () => void;
   onDelete: () => void;
-  onToggleFeatured: (val: boolean) => void;
-  toggling: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: meal._id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex gap-4 rounded-2xl border bg-white p-4 shadow-sm"
-    >
-      <div
-        {...attributes}
-        {...listeners}
-        className="flex cursor-grab select-none items-center text-xl active:cursor-grabbing"
-        title="Drag to reorder"
-      >
-        ☰
-      </div>
-
+    <div className="flex gap-4 rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
       <img
         src={meal.imageUrl || "/placeholder-meal.png"}
         className="h-24 w-24 rounded-xl object-cover"
         onError={(e) => (e.currentTarget.src = "/placeholder-meal.png")}
       />
 
-      <div className="flex-1">
-        <h3 className="font-semibold text-gray-900">{meal.title}</h3>
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-start justify-between gap-3">
+          <h3 className="truncate font-bold text-gray-900">{meal.title}</h3>
 
-        <p className="mt-1 text-sm text-slate-500">
-          {meal.calories} kcal · {meal.protein}g protein · {meal.carbs}g carbs ·{" "}
-          {meal.fat}g fat · ₹{meal.price}
-        </p>
-
-        <label className="mt-2 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={meal.isFeatured}
-            disabled={toggling}
-            onChange={(e) => onToggleFeatured(e.target.checked)}
-          />
-          Feature on homepage
-        </label>
-
-        <div className="mt-3 flex gap-3">
-          <button onClick={onEdit} className="rounded-lg border px-3 py-1 text-sm">
-            Edit
-          </button>
-
-          <button
-            onClick={onDelete}
-            className="rounded-lg border border-red-300 px-3 py-1 text-sm text-red-600"
+          <span
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+              meal.foodType === "nonveg"
+                ? "bg-red-50 text-red-700"
+                : "bg-green-50 text-green-700"
+            }`}
           >
-            Delete
-          </button>
+            {meal.foodType === "nonveg" ? "Non-Veg" : "Veg"}
+          </span>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ================= NORMAL MEAL CARD ================= */
-function MealCard({
-  meal,
-  onEdit,
-  onDelete,
-  onToggleFeatured,
-}: {
-  meal: Meal;
-  onEdit: () => void;
-  onDelete: () => void;
-  onToggleFeatured: (val: boolean) => void;
-}) {
-  return (
-    <div className="flex gap-4 rounded-2xl border bg-white p-4 shadow-sm">
-      <img
-        src={meal.imageUrl || "/placeholder-meal.png"}
-        className="h-24 w-24 rounded-xl object-cover"
-        onError={(e) => (e.currentTarget.src = "/placeholder-meal.png")}
-      />
-
-      <div className="flex-1">
-        <h3 className="font-semibold text-gray-900">{meal.title}</h3>
 
         <p className="mt-1 text-sm text-slate-500">
           {meal.calories} kcal · {meal.protein}g protein · {meal.carbs}g carbs ·{" "}
           {meal.fat}g fat · ₹{meal.price}
         </p>
 
-        <label className="mt-2 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={meal.isFeatured}
-            onChange={(e) => onToggleFeatured(e.target.checked)}
-          />
-          Feature on homepage
-        </label>
-
         <div className="mt-3 flex gap-3">
-          <button onClick={onEdit} className="rounded-lg border px-3 py-1 text-sm">
+          <button
+            onClick={onEdit}
+            className="rounded-lg border px-3 py-1 text-sm font-medium hover:bg-gray-50"
+          >
             Edit
           </button>
 
           <button
             onClick={onDelete}
-            className="rounded-lg border border-red-300 px-3 py-1 text-sm text-red-600"
+            className="rounded-lg border border-red-300 px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-50"
           >
             Delete
           </button>
@@ -161,11 +79,11 @@ function MealCard({
 }
 
 /* ================= MAIN ================= */
+
 export default function AdminMeals() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -174,13 +92,12 @@ export default function AdminMeals() {
     carbs: "",
     fat: "",
     price: "",
-    isFeatured: false,
+    foodType: "veg" as FoodType,
   });
 
   const [image, setImage] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  /* -------- FETCH -------- */
   const fetchMeals = async () => {
     setLoading(true);
 
@@ -198,7 +115,6 @@ export default function AdminMeals() {
     fetchMeals();
   }, []);
 
-  /* -------- FORM -------- */
   const resetForm = () => {
     setForm({
       title: "",
@@ -207,7 +123,7 @@ export default function AdminMeals() {
       carbs: "",
       fat: "",
       price: "",
-      isFeatured: false,
+      foodType: "veg",
     });
 
     setImage(null);
@@ -223,7 +139,7 @@ export default function AdminMeals() {
       !form.fat ||
       !form.price
     ) {
-      toast.error("Fill all fields including carbs and fat");
+      toast.error("Fill all fields");
       return;
     }
 
@@ -239,7 +155,7 @@ export default function AdminMeals() {
     data.append("carbs", form.carbs);
     data.append("fat", form.fat);
     data.append("price", form.price);
-    data.append("isFeatured", String(form.isFeatured));
+    data.append("foodType", form.foodType);
 
     if (image) data.append("image", image);
 
@@ -270,28 +186,6 @@ export default function AdminMeals() {
     }
   };
 
-  /* -------- FEATURE TOGGLE -------- */
-  const toggleFeatured = async (mealId: string, value: boolean) => {
-    setTogglingId(mealId);
-
-    try {
-      const res = await api.patch(`/admin/meals/${mealId}/featured`, {
-        isFeatured: value,
-      });
-
-      setMeals((prev) =>
-        prev.map((m) =>
-          m._id === mealId ? { ...m, isFeatured: res.data.isFeatured } : m
-        )
-      );
-    } catch {
-      toast.error("Failed to update featured");
-    } finally {
-      setTogglingId(null);
-    }
-  };
-
-  /* -------- DELETE -------- */
   const handleDelete = async (meal: Meal) => {
     if (!window.confirm(`Delete "${meal.title}"?`)) return;
 
@@ -304,7 +198,6 @@ export default function AdminMeals() {
     }
   };
 
-  /* -------- EDIT -------- */
   const handleEdit = (meal: Meal) => {
     setEditingId(meal._id);
 
@@ -315,53 +208,54 @@ export default function AdminMeals() {
       carbs: String(meal.carbs ?? ""),
       fat: String(meal.fat ?? ""),
       price: String(meal.price ?? ""),
-      isFeatured: meal.isFeatured,
+      foodType: meal.foodType || "veg",
     });
 
     setImage(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /* -------- DRAG END -------- */
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
+  const stats = useMemo(() => {
+    const veg = meals.filter((m) => m.foodType === "veg").length;
+    const nonveg = meals.filter((m) => m.foodType === "nonveg").length;
 
-    if (!over || active.id === over.id) return;
+    return {
+      total: meals.length,
+      veg,
+      nonveg,
+    };
+  }, [meals]);
 
-    const featured = meals.filter((m) => m.isFeatured);
-    const oldIndex = featured.findIndex((m) => m._id === active.id);
-    const newIndex = featured.findIndex((m) => m._id === over.id);
+  const vegMeals = meals.filter((m) => m.foodType === "veg");
+  const nonVegMeals = meals.filter((m) => m.foodType === "nonveg");
 
-    const reordered = arrayMove(featured, oldIndex, newIndex);
-    const orderedIds = reordered.map((m) => m._id);
-
-    setMeals((prev) => {
-      const nonFeatured = prev.filter((m) => !m.isFeatured);
-      return [...reordered, ...nonFeatured];
-    });
-
-    try {
-      await api.patch("/admin/meals/reorder", { orderedIds });
-      toast.success("Featured order updated");
-    } catch {
-      toast.error("Failed to update featured order");
-    }
-  };
-
-  const featuredMeals = meals.filter((m) => m.isFeatured);
-  const otherMeals = meals.filter((m) => !m.isFeatured);
-
-  /* ================= UI ================= */
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Manage Day Packs</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Manage Meals</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Add meals with full macro values for MacroTrack suggestions.
+          Create MacroBox meals with full macros and Veg / Non-Veg category.
         </p>
       </div>
 
-      {/* ---------- FORM ---------- */}
+      <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <p className="text-sm text-gray-500">Total Meals</p>
+          <p className="mt-1 text-2xl font-bold">{stats.total}</p>
+        </div>
+
+        <div className="rounded-2xl border bg-green-50 p-4 shadow-sm">
+          <p className="text-sm text-green-700">Veg Meals</p>
+          <p className="mt-1 text-2xl font-bold text-green-700">{stats.veg}</p>
+        </div>
+
+        <div className="rounded-2xl border bg-red-50 p-4 shadow-sm">
+          <p className="text-sm text-red-700">Non-Veg Meals</p>
+          <p className="mt-1 text-2xl font-bold text-red-700">{stats.nonveg}</p>
+        </div>
+      </div>
+
+      {/* FORM */}
       <div className="mb-10 rounded-2xl border bg-white p-6 shadow-sm">
         <h2 className="mb-4 font-semibold">
           {editingId ? "Update meal" : "Create a new meal"}
@@ -414,29 +308,32 @@ export default function AdminMeals() {
             onChange={(e) => setForm({ ...form, fat: e.target.value })}
             className="rounded-lg border px-3 py-2"
           />
+
+          <select
+            value={form.foodType}
+            onChange={(e) =>
+              setForm({ ...form, foodType: e.target.value as FoodType })
+            }
+            className="rounded-lg border px-3 py-2"
+          >
+            <option value="veg">Veg</option>
+            <option value="nonveg">Non-Veg</option>
+          </select>
         </div>
 
-        <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center">
+        <div className="mt-4">
           <input
             type="file"
             onChange={(e) => setImage(e.target.files?.[0] || null)}
           />
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.isFeatured}
-              onChange={(e) =>
-                setForm({ ...form, isFeatured: e.target.checked })
-              }
-            />
-            Feature on homepage
-          </label>
         </div>
 
         <div className="mt-6 flex gap-3">
           {editingId && (
-            <button onClick={resetForm} className="rounded-lg border px-4 py-2">
+            <button
+              onClick={resetForm}
+              className="rounded-lg border px-4 py-2 hover:bg-gray-50"
+            >
               Cancel
             </button>
           )}
@@ -446,53 +343,37 @@ export default function AdminMeals() {
             disabled={saving}
             className="rounded-lg bg-emerald-600 px-5 py-2 font-semibold text-white disabled:opacity-60"
           >
-            {saving
-              ? "Saving..."
-              : editingId
-              ? "Save changes"
-              : "Add meal"}
+            {saving ? "Saving..." : editingId ? "Save changes" : "Add meal"}
           </button>
         </div>
       </div>
 
-      {/* ---------- FEATURED ---------- */}
       <h2 className="mb-4 text-lg font-semibold">
-        Featured meals {loading ? "(loading...)" : `(${featuredMeals.length})`}
+        Veg Meals {loading ? "(loading...)" : `(${vegMeals.length})`}
       </h2>
 
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext
-          items={featuredMeals.map((m) => m._id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="mb-10 grid gap-4 md:grid-cols-2">
-            {featuredMeals.map((meal) => (
-              <SortableMeal
-                key={meal._id}
-                meal={meal}
-                toggling={togglingId === meal._id}
-                onEdit={() => handleEdit(meal)}
-                onDelete={() => handleDelete(meal)}
-                onToggleFeatured={(val) => toggleFeatured(meal._id, val)}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
-
-      {/* ---------- OTHER ---------- */}
-      <h2 className="mb-4 text-lg font-semibold">
-        Other meals ({otherMeals.length})
-      </h2>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {otherMeals.map((meal) => (
-          <MealCard
+      <div className="mb-10 grid gap-4 md:grid-cols-2">
+        {vegMeals.map((meal) => (
+          <MealRow
             key={meal._id}
             meal={meal}
             onEdit={() => handleEdit(meal)}
             onDelete={() => handleDelete(meal)}
-            onToggleFeatured={(val) => toggleFeatured(meal._id, val)}
+          />
+        ))}
+      </div>
+
+      <h2 className="mb-4 text-lg font-semibold">
+        Non-Veg Meals ({nonVegMeals.length})
+      </h2>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {nonVegMeals.map((meal) => (
+          <MealRow
+            key={meal._id}
+            meal={meal}
+            onEdit={() => handleEdit(meal)}
+            onDelete={() => handleDelete(meal)}
           />
         ))}
       </div>
