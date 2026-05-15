@@ -1,3 +1,4 @@
+// frontend/src/pages/AdminMeals.tsx (FRONTEND)
 import { useEffect, useState } from "react";
 import api from "../api/api";
 import toast from "react-hot-toast";
@@ -20,6 +21,8 @@ type Meal = {
   title: string;
   protein: number;
   calories: number;
+  carbs: number;
+  fat: number;
   price: number;
   imageUrl: string;
   isFeatured: boolean;
@@ -39,13 +42,8 @@ function SortableMeal({
   onToggleFeatured: (val: boolean) => void;
   toggling: boolean;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: meal._id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: meal._id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -56,35 +54,32 @@ function SortableMeal({
     <div
       ref={setNodeRef}
       style={style}
-      className="border rounded-2xl p-4 bg-white flex gap-4"
+      className="flex gap-4 rounded-2xl border bg-white p-4 shadow-sm"
     >
-      {/* 🔹 DRAG HANDLE (ONLY THIS DRAGS) */}
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing flex items-center text-xl select-none"
+        className="flex cursor-grab select-none items-center text-xl active:cursor-grabbing"
         title="Drag to reorder"
       >
         ☰
       </div>
 
-      {/* IMAGE */}
       <img
         src={meal.imageUrl || "/placeholder-meal.png"}
-        className="w-24 h-24 rounded-xl object-cover"
-        onError={(e) =>
-          (e.currentTarget.src = "/placeholder-meal.png")
-        }
+        className="h-24 w-24 rounded-xl object-cover"
+        onError={(e) => (e.currentTarget.src = "/placeholder-meal.png")}
       />
 
-      {/* CONTENT */}
       <div className="flex-1">
-        <h3 className="font-semibold">{meal.title}</h3>
-        <p className="text-sm text-slate-500">
-          {meal.protein}g protein · {meal.calories} kcal · ₹{meal.price}
+        <h3 className="font-semibold text-gray-900">{meal.title}</h3>
+
+        <p className="mt-1 text-sm text-slate-500">
+          {meal.calories} kcal · {meal.protein}g protein · {meal.carbs}g carbs ·{" "}
+          {meal.fat}g fat · ₹{meal.price}
         </p>
 
-        <label className="flex items-center gap-2 mt-2 text-sm">
+        <label className="mt-2 flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={meal.isFeatured}
@@ -94,17 +89,14 @@ function SortableMeal({
           Feature on homepage
         </label>
 
-        {/* ACTIONS */}
-        <div className="flex gap-3 mt-3">
-          <button
-            onClick={onEdit}
-            className="text-sm border px-3 py-1 rounded-lg"
-          >
+        <div className="mt-3 flex gap-3">
+          <button onClick={onEdit} className="rounded-lg border px-3 py-1 text-sm">
             Edit
           </button>
+
           <button
             onClick={onDelete}
-            className="text-sm border border-red-300 text-red-600 px-3 py-1 rounded-lg"
+            className="rounded-lg border border-red-300 px-3 py-1 text-sm text-red-600"
           >
             Delete
           </button>
@@ -114,6 +106,59 @@ function SortableMeal({
   );
 }
 
+/* ================= NORMAL MEAL CARD ================= */
+function MealCard({
+  meal,
+  onEdit,
+  onDelete,
+  onToggleFeatured,
+}: {
+  meal: Meal;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggleFeatured: (val: boolean) => void;
+}) {
+  return (
+    <div className="flex gap-4 rounded-2xl border bg-white p-4 shadow-sm">
+      <img
+        src={meal.imageUrl || "/placeholder-meal.png"}
+        className="h-24 w-24 rounded-xl object-cover"
+        onError={(e) => (e.currentTarget.src = "/placeholder-meal.png")}
+      />
+
+      <div className="flex-1">
+        <h3 className="font-semibold text-gray-900">{meal.title}</h3>
+
+        <p className="mt-1 text-sm text-slate-500">
+          {meal.calories} kcal · {meal.protein}g protein · {meal.carbs}g carbs ·{" "}
+          {meal.fat}g fat · ₹{meal.price}
+        </p>
+
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={meal.isFeatured}
+            onChange={(e) => onToggleFeatured(e.target.checked)}
+          />
+          Feature on homepage
+        </label>
+
+        <div className="mt-3 flex gap-3">
+          <button onClick={onEdit} className="rounded-lg border px-3 py-1 text-sm">
+            Edit
+          </button>
+
+          <button
+            onClick={onDelete}
+            className="rounded-lg border border-red-300 px-3 py-1 text-sm text-red-600"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ================= MAIN ================= */
 export default function AdminMeals() {
@@ -126,6 +171,8 @@ export default function AdminMeals() {
     title: "",
     protein: "",
     calories: "",
+    carbs: "",
+    fat: "",
     price: "",
     isFeatured: false,
   });
@@ -136,9 +183,10 @@ export default function AdminMeals() {
   /* -------- FETCH -------- */
   const fetchMeals = async () => {
     setLoading(true);
+
     try {
       const res = await api.get("/admin/meals");
-      setMeals(res.data);
+      setMeals(res.data || []);
     } catch {
       toast.error("Failed to load meals");
     } finally {
@@ -156,16 +204,26 @@ export default function AdminMeals() {
       title: "",
       protein: "",
       calories: "",
+      carbs: "",
+      fat: "",
       price: "",
       isFeatured: false,
     });
+
     setImage(null);
     setEditingId(null);
   };
 
   const saveMeal = async () => {
-    if (!form.title || !form.protein || !form.calories || !form.price) {
-      toast.error("Fill all fields");
+    if (
+      !form.title ||
+      !form.protein ||
+      !form.calories ||
+      !form.carbs ||
+      !form.fat ||
+      !form.price
+    ) {
+      toast.error("Fill all fields including carbs and fat");
       return;
     }
 
@@ -178,23 +236,32 @@ export default function AdminMeals() {
     data.append("title", form.title);
     data.append("protein", form.protein);
     data.append("calories", form.calories);
+    data.append("carbs", form.carbs);
+    data.append("fat", form.fat);
     data.append("price", form.price);
     data.append("isFeatured", String(form.isFeatured));
+
     if (image) data.append("image", image);
 
     try {
       setSaving(true);
+
       if (editingId) {
         const res = await api.put(`/admin/meals/${editingId}`, data);
+
         setMeals((prev) =>
           prev.map((m) => (m._id === editingId ? res.data : m))
         );
+
         toast.success("Meal updated");
       } else {
         const res = await api.post("/admin/meals", data);
+
         setMeals((prev) => [res.data, ...prev]);
+
         toast.success("Meal added");
       }
+
       resetForm();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Save failed");
@@ -206,10 +273,12 @@ export default function AdminMeals() {
   /* -------- FEATURE TOGGLE -------- */
   const toggleFeatured = async (mealId: string, value: boolean) => {
     setTogglingId(mealId);
+
     try {
       const res = await api.patch(`/admin/meals/${mealId}/featured`, {
         isFeatured: value,
       });
+
       setMeals((prev) =>
         prev.map((m) =>
           m._id === mealId ? { ...m, isFeatured: res.data.isFeatured } : m
@@ -225,6 +294,7 @@ export default function AdminMeals() {
   /* -------- DELETE -------- */
   const handleDelete = async (meal: Meal) => {
     if (!window.confirm(`Delete "${meal.title}"?`)) return;
+
     try {
       await api.delete(`/admin/meals/${meal._id}`);
       setMeals((prev) => prev.filter((m) => m._id !== meal._id));
@@ -237,13 +307,17 @@ export default function AdminMeals() {
   /* -------- EDIT -------- */
   const handleEdit = (meal: Meal) => {
     setEditingId(meal._id);
+
     setForm({
       title: meal.title,
-      protein: String(meal.protein),
-      calories: String(meal.calories),
-      price: String(meal.price),
+      protein: String(meal.protein ?? ""),
+      calories: String(meal.calories ?? ""),
+      carbs: String(meal.carbs ?? ""),
+      fat: String(meal.fat ?? ""),
+      price: String(meal.price ?? ""),
       isFeatured: meal.isFeatured,
     });
+
     setImage(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -251,6 +325,7 @@ export default function AdminMeals() {
   /* -------- DRAG END -------- */
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+
     if (!over || active.id === over.id) return;
 
     const featured = meals.filter((m) => m.isFeatured);
@@ -265,8 +340,12 @@ export default function AdminMeals() {
       return [...reordered, ...nonFeatured];
     });
 
-    await api.patch("/admin/meals/reorder", { orderedIds });
-    toast.success("Featured order updated");
+    try {
+      await api.patch("/admin/meals/reorder", { orderedIds });
+      toast.success("Featured order updated");
+    } catch {
+      toast.error("Failed to update featured order");
+    }
   };
 
   const featuredMeals = meals.filter((m) => m.isFeatured);
@@ -274,47 +353,75 @@ export default function AdminMeals() {
 
   /* ================= UI ================= */
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold mb-6">Manage Day Packs</h1>
+    <div className="mx-auto max-w-6xl px-4 py-10">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Manage Day Packs</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Add meals with full macro values for MacroTrack suggestions.
+        </p>
+      </div>
 
       {/* ---------- FORM ---------- */}
-      <div className="bg-white border rounded-2xl p-6 mb-10">
-        <h2 className="font-semibold mb-4">
+      <div className="mb-10 rounded-2xl border bg-white p-6 shadow-sm">
+        <h2 className="mb-4 font-semibold">
           {editingId ? "Update meal" : "Create a new meal"}
         </h2>
 
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid gap-4 md:grid-cols-3">
           <input
             placeholder="Title"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className="border rounded-lg px-3 py-2"
+            className="rounded-lg border px-3 py-2 md:col-span-2"
           />
+
           <input
             placeholder="Price (₹)"
             type="number"
             value={form.price}
             onChange={(e) => setForm({ ...form, price: e.target.value })}
-            className="border rounded-lg px-3 py-2"
+            className="rounded-lg border px-3 py-2"
           />
-          <input
-            placeholder="Protein (g)"
-            type="number"
-            value={form.protein}
-            onChange={(e) => setForm({ ...form, protein: e.target.value })}
-            className="border rounded-lg px-3 py-2"
-          />
+
           <input
             placeholder="Calories"
             type="number"
             value={form.calories}
             onChange={(e) => setForm({ ...form, calories: e.target.value })}
-            className="border rounded-lg px-3 py-2"
+            className="rounded-lg border px-3 py-2"
+          />
+
+          <input
+            placeholder="Protein (g)"
+            type="number"
+            value={form.protein}
+            onChange={(e) => setForm({ ...form, protein: e.target.value })}
+            className="rounded-lg border px-3 py-2"
+          />
+
+          <input
+            placeholder="Carbs (g)"
+            type="number"
+            value={form.carbs}
+            onChange={(e) => setForm({ ...form, carbs: e.target.value })}
+            className="rounded-lg border px-3 py-2"
+          />
+
+          <input
+            placeholder="Fat (g)"
+            type="number"
+            value={form.fat}
+            onChange={(e) => setForm({ ...form, fat: e.target.value })}
+            className="rounded-lg border px-3 py-2"
           />
         </div>
 
-        <div className="flex items-center gap-4 mt-4">
-          <input type="file" onChange={(e) => setImage(e.target.files?.[0] || null)} />
+        <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center">
+          <input
+            type="file"
+            onChange={(e) => setImage(e.target.files?.[0] || null)}
+          />
+
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -329,23 +436,28 @@ export default function AdminMeals() {
 
         <div className="mt-6 flex gap-3">
           {editingId && (
-            <button onClick={resetForm} className="border px-4 py-2 rounded-lg">
+            <button onClick={resetForm} className="rounded-lg border px-4 py-2">
               Cancel
             </button>
           )}
+
           <button
             onClick={saveMeal}
             disabled={saving}
-            className="bg-emerald-600 text-white px-5 py-2 rounded-lg"
+            className="rounded-lg bg-emerald-600 px-5 py-2 font-semibold text-white disabled:opacity-60"
           >
-            {editingId ? "Save changes" : "Add meal"}
+            {saving
+              ? "Saving..."
+              : editingId
+              ? "Save changes"
+              : "Add meal"}
           </button>
         </div>
       </div>
 
       {/* ---------- FEATURED ---------- */}
-      <h2 className="text-lg font-semibold mb-4">
-        Featured meals (drag to reorder)
+      <h2 className="mb-4 text-lg font-semibold">
+        Featured meals {loading ? "(loading...)" : `(${featuredMeals.length})`}
       </h2>
 
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -353,7 +465,7 @@ export default function AdminMeals() {
           items={featuredMeals.map((m) => m._id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="grid md:grid-cols-2 gap-4 mb-10">
+          <div className="mb-10 grid gap-4 md:grid-cols-2">
             {featuredMeals.map((meal) => (
               <SortableMeal
                 key={meal._id}
@@ -361,9 +473,7 @@ export default function AdminMeals() {
                 toggling={togglingId === meal._id}
                 onEdit={() => handleEdit(meal)}
                 onDelete={() => handleDelete(meal)}
-                onToggleFeatured={(val) =>
-                  toggleFeatured(meal._id, val)
-                }
+                onToggleFeatured={(val) => toggleFeatured(meal._id, val)}
               />
             ))}
           </div>
@@ -371,51 +481,19 @@ export default function AdminMeals() {
       </DndContext>
 
       {/* ---------- OTHER ---------- */}
-      <h2 className="text-lg font-semibold mb-4">
+      <h2 className="mb-4 text-lg font-semibold">
         Other meals ({otherMeals.length})
       </h2>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
         {otherMeals.map((meal) => (
-          <div
+          <MealCard
             key={meal._id}
-            className="border rounded-2xl p-4 bg-white flex gap-4"
-          >
-            <img
-              src={meal.imageUrl || "/placeholder-meal.png"}
-              className="w-24 h-24 rounded-xl object-cover"
-            />
-            <div className="flex-1">
-              <h3 className="font-semibold">{meal.title}</h3>
-              <p className="text-sm text-slate-500">
-                {meal.protein}g protein · {meal.calories} kcal · ₹{meal.price}
-              </p>
-              <label className="flex items-center gap-2 mt-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={meal.isFeatured}
-                  onChange={(e) =>
-                    toggleFeatured(meal._id, e.target.checked)
-                  }
-                />
-                Feature on homepage
-              </label>
-              <div className="flex gap-3 mt-3">
-                <button
-                  onClick={() => handleEdit(meal)}
-                  className="text-sm border px-3 py-1 rounded-lg"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(meal)}
-                  className="text-sm border border-red-300 text-red-600 px-3 py-1 rounded-lg"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
+            meal={meal}
+            onEdit={() => handleEdit(meal)}
+            onDelete={() => handleDelete(meal)}
+            onToggleFeatured={(val) => toggleFeatured(meal._id, val)}
+          />
         ))}
       </div>
     </div>
