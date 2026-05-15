@@ -25,7 +25,7 @@ export default function AdminRoute({
       toast.error("Access denied. Admins only.");
     }
 
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/macrotrack" replace />;
   }
 
   // ✅ Admin access granted

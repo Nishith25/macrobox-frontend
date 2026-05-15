@@ -68,22 +68,22 @@ export default function AppRouter() {
 
         {/* ================= USER ROUTES ================= */}
         <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
+  path="/macrotrack"
+  element={
+    <ProtectedRoute>
+      <Dashboard />
+    </ProtectedRoute>
+  }
+/>
 
         <Route
-          path="/plan-my-day"
-          element={
-            <ProtectedRoute>
-              <PlanMyDay />
-            </ProtectedRoute>
-          }
-        />
+  path="/smart-day-planner"
+  element={
+    <ProtectedRoute>
+      <PlanMyDay />
+    </ProtectedRoute>
+  }
+/>
 
         <Route
           path="/cart"

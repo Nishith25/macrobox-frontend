@@ -42,19 +42,13 @@ export default function Home() {
             Explore Meals
           </Link>
 
-          <Link
-            to="/dashboard"
-            className="rounded-xl border border-green-600 px-6 py-3 font-semibold text-green-700 hover:bg-green-50"
-          >
-            Open MacroTrack
-          </Link>
+          <Link to="/macrotrack">
+  Open MacroTrack
+</Link>
 
-          <Link
-            to="/plan-my-day"
-            className="rounded-xl border px-6 py-3 font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            Smart Day Planner
-          </Link>
+          <Link to="/smart-day-planner">
+  Smart Day Planner
+</Link>
         </div>
       </div>
 

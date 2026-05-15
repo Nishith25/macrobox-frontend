@@ -22,7 +22,7 @@ export default function Login() {
       await login(form);
 
       toast.success("Login successful!");
-      navigate("/dashboard");
+      navigate("/", { replace: true });
 
     } catch (error: any) {
       const status = error?.response?.status;

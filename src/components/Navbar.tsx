@@ -81,16 +81,16 @@ export default function Navbar() {
           {/* USER FEATURES */}
           {isAuthenticated && (
             <>
-              <NavLink to="/plan-my-day" className={navLinkClass}>
-                Plan My Day
+              <NavLink to="/smart-day-planner" className={navLinkClass}>
+                Smart Day Planner
               </NavLink>
 
               <NavLink to="/orders" className={navLinkClass}>
                 Orders
               </NavLink>
 
-              <NavLink to="/dashboard" className={navLinkClass}>
-                Dashboard
+              <NavLink to="/macrotrack" className={navLinkClass}>
+                MacroTrack
               </NavLink>
 
               {user?.role === "delivery" && (
@@ -272,11 +272,11 @@ export default function Navbar() {
               {isAuthenticated && (
                 <>
                   <NavLink
-                    to="/plan-my-day"
+                    to="/smart-day-planner"
                     className={mobileLinkClass}
                     onClick={closeMenu}
                   >
-                    Plan My Day
+                    Smart Day Planner
                   </NavLink>
 
                   <NavLink
@@ -288,11 +288,11 @@ export default function Navbar() {
                   </NavLink>
 
                   <NavLink
-                    to="/dashboard"
+                    to="/macrotrack"
                     className={mobileLinkClass}
                     onClick={closeMenu}
                   >
-                    Dashboard
+                    MacroTrack
                   </NavLink>
 
                   {user?.role === "delivery" && (

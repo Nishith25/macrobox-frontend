@@ -1,4 +1,4 @@
-// frontend/src/pages/PlanMyDay.tsx (FRONTEND)
+// frontend/src/pages/SmartDayPlanner.tsx (FRONTEND)
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
@@ -95,7 +95,7 @@ const todayText = () =>
     year: "numeric",
   });
 
-export default function PlanMyDay() {
+export default function SmartDayPlanner() {
   const { user } = useAuth();
   const { addToCart } = useCart();
 
@@ -309,14 +309,14 @@ export default function PlanMyDay() {
     return proteinScore + calorieFit + goalBonus + carbBonus - macroPenalty;
   };
 
-  const autoPlanMyDay = () => {
+  const autoSmartDayPlanner = () => {
     if (!meals.length) {
       toast.error("No meals available");
       return;
     }
 
     if (!macroGoals.calories) {
-      toast.error("Please complete body details in Dashboard first");
+      toast.error("Please complete body details in MacroTrack first");
       return;
     }
 
@@ -470,7 +470,7 @@ export default function PlanMyDay() {
 
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={autoPlanMyDay}
+              onClick={autoSmartDayPlanner}
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700"
             >
               <Sparkles size={16} />
@@ -529,7 +529,7 @@ export default function PlanMyDay() {
 
       {!macroGoals.calories && (
         <div className="mb-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-          Complete your body details in Dashboard first to get accurate macro targets.
+          Complete your body details in MacroTrack first to get accurate macro targets.
         </div>
       )}
 
