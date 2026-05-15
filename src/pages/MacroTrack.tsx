@@ -85,9 +85,9 @@ const clamp = (value: number, min: number, max: number) =>
 
 const round = (value: number) => Math.round(value);
 
-/* ================= DASHBOARD ================= */
+/* ================= MACROTRACK================ */
 
-export default function Dashboard() {
+export default function MacroTrack() {
   const { user } = useAuth();
 
   /* ================= BODY STATE ================= */
@@ -145,7 +145,7 @@ export default function Dashboard() {
           setMeals(Array.isArray(data) ? data : data?.meals || []);
         }
       } catch (error) {
-        console.error("DASHBOARD LOAD ERROR:", error);
+        console.error("MACROTRACK LOAD ERROR:", error);
       } finally {
         setLoading(false);
       }
@@ -424,7 +424,7 @@ export default function Dashboard() {
   if (loading) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <p className="text-gray-500">Loading dashboard...</p>
+      <p className="text-gray-500">Loading MacroTrack...</p>
     </div>
   );
 }
@@ -551,7 +551,7 @@ export default function Dashboard() {
           title="Protein Goal"
           value={macroGoals.protein ? `${macroGoals.protein} g` : "—"}
           label="Daily protein"
-          highlight
+          
         />
         <Stat
           icon={<Target size={20} />}

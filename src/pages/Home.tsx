@@ -35,21 +35,27 @@ export default function Home() {
         </p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Link
-            to="/meals"
-            className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white hover:bg-green-700"
-          >
-            Explore Meals
-          </Link>
+  <Link
+    to="/meals"
+    className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-green-700"
+  >
+    Explore Meals
+  </Link>
 
-          <Link to="/macrotrack">
-  Open MacroTrack
-</Link>
+  <Link
+    to="/macrotrack"
+    className="rounded-xl border border-green-600 bg-white px-6 py-3 font-semibold text-green-700 shadow-sm transition hover:bg-green-50"
+  >
+    Open MacroTrack
+  </Link>
 
-          <Link to="/smart-day-planner">
-  Smart Day Planner
-</Link>
-        </div>
+  <Link
+    to="/smart-day-planner"
+    className="rounded-xl border border-green-600 bg-white px-6 py-3 font-semibold text-green-700 shadow-sm transition hover:bg-green-50"
+  >
+    Smart Day Planner
+  </Link>
+</div>
       </div>
 
       <Container>

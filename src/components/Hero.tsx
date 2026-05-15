@@ -15,7 +15,7 @@ export default function Hero() {
 
           <div className="mt-8 flex gap-4">
             <button className="bg-green-500 hover:bg-green-600 px-6 py-3 rounded-lg font-semibold">
-              Plan My Day
+              Smart Day Planner
             </button>
 
             <button className="border border-gray-300 hover:border-white px-6 py-3 rounded-lg font-semibold">

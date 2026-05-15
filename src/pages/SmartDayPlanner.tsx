@@ -474,7 +474,7 @@ export default function SmartDayPlanner() {
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700"
             >
               <Sparkles size={16} />
-              Auto Smart Day Planner
+              Auto Smart Day Plam
             </button>
 
             <button
@@ -505,7 +505,7 @@ export default function SmartDayPlanner() {
           target={macroGoals.protein}
           remaining={remaining.protein}
           unit="g"
-          highlight
+          
         />
 
         <GoalCard
