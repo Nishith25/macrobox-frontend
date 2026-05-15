@@ -21,8 +21,8 @@ import ResendVerification from "../pages/ResendVerification";
 import DeliveryRoute from "./DeliveryRoute";
 
 // User Pages (Protected)
-import Dashboard from "../pages/Dashboard";
-import PlanMyDay from "../pages/PlanMyDay";
+import MacroTrack from "../pages/MacroTrack";
+import SmartDayPlanner from "../pages/SmartDayPlanner";
 import Cart from "../pages/Cart";
 import Checkout from "../pages/Checkout";
 import Orders from "../pages/Orders";
@@ -71,7 +71,7 @@ export default function AppRouter() {
   path="/macrotrack"
   element={
     <ProtectedRoute>
-      <Dashboard />
+      <MacroTrack />
     </ProtectedRoute>
   }
 />
@@ -80,7 +80,7 @@ export default function AppRouter() {
   path="/smart-day-planner"
   element={
     <ProtectedRoute>
-      <PlanMyDay />
+      <SmartDayPlanner />
     </ProtectedRoute>
   }
 />

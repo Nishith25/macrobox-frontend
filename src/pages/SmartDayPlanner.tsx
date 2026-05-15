@@ -136,7 +136,7 @@ export default function SmartDayPlanner() {
           setBodyMetrics(userRes.value.data?.bodyMetrics || null);
         }
       } catch (error) {
-        console.error("PLAN MY DAY LOAD ERROR:", error);
+        console.error("SMART DAY PLANNER LOAD ERROR:", error);
         toast.error("Failed to load Smart Day Planner");
       } finally {
         setLoading(false);
@@ -474,7 +474,7 @@ export default function SmartDayPlanner() {
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700"
             >
               <Sparkles size={16} />
-              Auto Plan My Day
+              Auto Smart Day Planner
             </button>
 
             <button
