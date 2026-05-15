@@ -162,7 +162,7 @@ export default function Dashboard() {
     localStorage.setItem(goalStorageKey(user?._id), goal);
   }, [goal, user?._id]);
 
-  if (loading) return null;
+
 
   /* ================= PARSED VALUES ================= */
   const h = Number(height);
@@ -421,6 +421,13 @@ export default function Dashboard() {
   };
 
   /* ================= UI ================= */
+  if (loading) {
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-10">
+      <p className="text-gray-500">Loading dashboard...</p>
+    </div>
+  );
+}
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-7">
