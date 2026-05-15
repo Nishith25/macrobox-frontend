@@ -287,16 +287,26 @@ export default function Cart() {
   );
 
   const totalProtein = useMemo(
-    () => cart.reduce((s, i) => s + i.protein * i.qty, 0),
-    [cart]
-  );
+  () => cart.reduce((s, i) => s + i.protein * i.qty, 0),
+  [cart]
+);
 
-  const totalCalories = useMemo(
-    () => cart.reduce((s, i) => s + i.calories * i.qty, 0),
-    [cart]
-  );
+const totalCalories = useMemo(
+  () => cart.reduce((s, i) => s + i.calories * i.qty, 0),
+  [cart]
+);
 
-  const payable = Math.max(subtotal - discount, 0);
+const totalCarbs = useMemo(
+  () => cart.reduce((s, i) => s + (i.carbs || 0) * i.qty, 0),
+  [cart]
+);
+
+const totalFat = useMemo(
+  () => cart.reduce((s, i) => s + (i.fat || 0) * i.qty, 0),
+  [cart]
+);
+
+const payable = Math.max(subtotal - discount, 0);
 
   const cardClass = "rounded-xl border bg-white p-4 shadow-sm";
   const softCardClass = "rounded-xl border bg-gray-50 p-3";
@@ -745,13 +755,15 @@ export default function Cart() {
 
       const payload = {
         items: cart.map((i) => ({
-          mealId: i._id,
-          title: i.title,
-          price: i.price,
-          qty: i.qty,
-          protein: i.protein,
-          calories: i.calories,
-        })),
+  mealId: i._id,
+  title: i.title,
+  price: i.price,
+  qty: i.qty,
+  protein: i.protein,
+  calories: i.calories,
+  carbs: i.carbs || 0,
+  fat: i.fat || 0,
+})),
         couponCode: finalCouponCode,
         address: {
           ...address,
@@ -947,7 +959,7 @@ export default function Cart() {
         <div className="rounded-2xl border bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-xl font-bold">Order Summary</h2>
 
-          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-6">
             <div className="rounded-xl bg-gray-50 p-3">
               <p className="text-xs text-gray-500">Protein</p>
               <p className="text-lg font-bold">{totalProtein} g</p>
@@ -957,6 +969,16 @@ export default function Cart() {
               <p className="text-xs text-gray-500">Calories</p>
               <p className="text-lg font-bold">{totalCalories}</p>
             </div>
+
+            <div className="rounded-xl bg-gray-50 p-3">
+  <p className="text-xs text-gray-500">Carbs</p>
+  <p className="text-lg font-bold">{totalCarbs} g</p>
+</div>
+
+<div className="rounded-xl bg-gray-50 p-3">
+  <p className="text-xs text-gray-500">Fat</p>
+  <p className="text-lg font-bold">{totalFat} g</p>
+</div>
 
             <div className="rounded-xl bg-gray-50 p-3">
               <p className="text-xs text-gray-500">Subtotal</p>

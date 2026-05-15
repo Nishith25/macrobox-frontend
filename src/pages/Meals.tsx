@@ -9,7 +9,7 @@ import type { Meal } from "./Home";
 export default function Meals() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // ✅ small UX improvement
+  const [error, setError] = useState<string | null>(null);
   const { addToCart } = useCart();
 
   useEffect(() => {
@@ -20,8 +20,6 @@ export default function Meals() {
         setLoading(true);
         setError(null);
 
-        // ✅ Fetch only NON-featured meals
-        // (You can also do "/meals" if backend default is non-featured)
         const res = await api.get<Meal[]>("/meals?featured=false");
 
         if (!mounted) return;
@@ -48,24 +46,32 @@ export default function Meals() {
       price: meal.price,
       protein: meal.protein,
       calories: meal.calories,
+      carbs: meal.carbs || 0,
+      fat: meal.fat || 0,
     });
+
     toast.success("Added to cart");
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-16 px-6">
-      <h1 className="text-4xl font-bold mb-8">Meals</h1>
+    <div className="mx-auto max-w-6xl px-6 py-16">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-900">Meals</h1>
+        <p className="mt-2 text-gray-500">
+          Choose meals with complete calories, protein, carbs and fat tracking.
+        </p>
+      </div>
 
       {loading ? (
-        <p className="text-center py-10">Loading...</p>
+        <p className="py-10 text-center">Loading...</p>
       ) : error ? (
-        <p className="text-center py-10 text-red-600">{error}</p>
+        <p className="py-10 text-center text-red-600">{error}</p>
       ) : meals.length === 0 ? (
-        <p className="text-center py-10 text-gray-500">
-          No meals available (non-featured).
+        <p className="py-10 text-center text-gray-500">
+          No meals available.
         </p>
       ) : (
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid gap-8 md:grid-cols-3">
           {meals.map((meal) => (
             <MealCard
               key={meal._id}
