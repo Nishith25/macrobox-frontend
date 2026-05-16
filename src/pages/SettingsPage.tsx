@@ -227,9 +227,7 @@ export default function SettingsPage() {
           <Settings size={28} className="text-green-600" />
           Settings
         </h1>
-        <p className="mt-1 text-gray-500">
-          Manage your profile, security, phone number and saved addresses.
-        </p>
+        
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
@@ -376,10 +374,6 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-3 text-sm text-gray-600">
-            <p>
-              Manage account status and privacy controls. More options like
-              notification preferences and diet preference can be added here.
-            </p>
 
             <button
               onClick={deactivateAccount}
