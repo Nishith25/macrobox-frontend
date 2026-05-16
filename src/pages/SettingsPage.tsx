@@ -57,6 +57,9 @@ export default function SettingsPage() {
   const [savingPhone, setSavingPhone] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+
   const loadSettings = async () => {
     try {
       setLoading(true);
@@ -76,7 +79,7 @@ export default function SettingsPage() {
       if (addressRes.status === "fulfilled") {
         setAddresses(addressRes.value.data || []);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load settings");
     } finally {
       setLoading(false);
@@ -195,20 +198,23 @@ export default function SettingsPage() {
   };
 
   const deactivateAccount = async () => {
-    const ok = window.confirm(
-      "Are you sure you want to deactivate your account? You can reactivate later by signing up again."
-    );
-
-    if (!ok) return;
-
     try {
+      setDeactivating(true);
+
       await api.put("/user/deactivate");
+
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+
       toast.success("Account deactivated");
+
       window.location.href = "/login";
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to deactivate account");
+      toast.error(
+        err?.response?.data?.message || "Failed to deactivate account"
+      );
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -227,7 +233,6 @@ export default function SettingsPage() {
           <Settings size={28} className="text-green-600" />
           Settings
         </h1>
-        
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
@@ -374,13 +379,43 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-3 text-sm text-gray-600">
-
             <button
-              onClick={deactivateAccount}
+              onClick={() => setShowDeactivateConfirm(true)}
               className="rounded-xl border border-red-300 px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
             >
               Deactivate Account
             </button>
+
+            {showDeactivateConfirm && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                <p className="font-semibold text-red-700">
+                  Are you sure you want to deactivate your account?
+                </p>
+
+                <p className="mt-1 text-sm text-red-600">
+                  You can reactivate later by signing up again with the same
+                  email.
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    onClick={deactivateAccount}
+                    disabled={deactivating}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                  >
+                    {deactivating ? "Deactivating..." : "Yes, deactivate"}
+                  </button>
+
+                  <button
+                    onClick={() => setShowDeactivateConfirm(false)}
+                    disabled={deactivating}
+                    className="rounded-lg border px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-white"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
