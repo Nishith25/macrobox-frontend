@@ -1,4 +1,5 @@
 // frontend/src/components/MealCard.tsx (FRONTEND)
+import { useState } from "react";
 import Button from "./Button";
 import type { Meal } from "../pages/Home";
 
@@ -8,6 +9,8 @@ type MealCardProps = {
 };
 
 export default function MealCard({ meal, onAddToCart }: MealCardProps) {
+  const [showDescription, setShowDescription] = useState(false);
+
   return (
     <div className="w-full overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:-translate-y-1 hover:shadow-lg">
       <img
@@ -37,10 +40,22 @@ export default function MealCard({ meal, onAddToCart }: MealCardProps) {
           </span>
         </div>
 
-        {meal.description && (
-          <p className="mt-1 line-clamp-2 text-sm text-gray-600">
+        {meal.description ? (
+          <button
+            type="button"
+            onClick={() => setShowDescription((prev) => !prev)}
+            className="mt-1 text-sm font-semibold text-green-700 underline"
+          >
+            {showDescription ? "Hide Description" : "View Description"}
+          </button>
+        ) : (
+          <p className="mt-1 text-sm text-gray-400">No description added</p>
+        )}
+
+        {showDescription && meal.description && (
+          <div className="mt-3 rounded-xl bg-gray-50 p-3 text-sm leading-6 text-gray-700">
             {meal.description}
-          </p>
+          </div>
         )}
 
         <div className="mt-4 grid grid-cols-2 gap-2">
