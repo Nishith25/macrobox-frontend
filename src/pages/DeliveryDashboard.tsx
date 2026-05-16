@@ -1,5 +1,5 @@
 // frontend/src/pages/DeliveryDashboard.tsx (FRONTEND)
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
 import {
@@ -10,6 +10,7 @@ import {
   PackageCheck,
   RefreshCw,
   Route,
+  Search,
   User,
 } from "lucide-react";
 
@@ -115,6 +116,8 @@ type Order = {
   createdAt?: string;
 };
 
+type ActiveTab = "available" | "my";
+
 const STATUS_OPTIONS = [
   { value: "accepted", label: "Accepted" },
   { value: "picked_up", label: "Picked Up" },
@@ -207,9 +210,38 @@ function getMapsUrl(address?: DeliveryAddress) {
   )}`;
 }
 
+function matchesSearch(order: Order, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const address = formatAddress(order.delivery?.address);
+  const items = order.items?.map((item) => item.title || "").join(" ") || "";
+
+  const haystack = [
+    order._id,
+    order.user?.name,
+    order.user?.email,
+    order.user?.phone,
+    order.payment?.status,
+    order.delivery?.status,
+    order.delivery?.slot?.date,
+    order.delivery?.slot?.time,
+    address,
+    items,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(q);
+}
+
 export default function DeliveryDashboard() {
   const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("available");
+  const [search, setSearch] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
@@ -251,11 +283,23 @@ export default function DeliveryDashboard() {
     };
   }, []);
 
+  const filteredAvailableOrders = useMemo(() => {
+    return availableOrders.filter((order) => matchesSearch(order, search));
+  }, [availableOrders, search]);
+
+  const filteredMyOrders = useMemo(() => {
+    return myOrders.filter((order) => matchesSearch(order, search));
+  }, [myOrders, search]);
+
+  const activeOrders =
+    activeTab === "available" ? filteredAvailableOrders : filteredMyOrders;
+
   const acceptOrder = async (orderId: string) => {
     try {
       setBusyOrderId(orderId);
       await api.post(`/delivery/${orderId}/accept`);
       await fetchOrders();
+      setActiveTab("my");
       alert("Order accepted successfully.");
     } catch (error: any) {
       console.error("Accept order error:", error);
@@ -390,7 +434,7 @@ export default function DeliveryDashboard() {
             Delivery Dashboard
           </h1>
           <p className="mt-2 text-gray-600">
-            Accept orders, update delivery status and share live location.
+            Accept orders, manage assigned deliveries and update live tracking.
           </p>
         </div>
 
@@ -403,103 +447,147 @@ export default function DeliveryDashboard() {
         </button>
       </div>
 
+      {/* TABS + SEARCH */}
+      <div className="mb-6 rounded-2xl border bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex w-fit gap-2 rounded-xl bg-gray-100 p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("available")}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                activeTab === "available"
+                  ? "bg-white text-green-700 shadow"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Available Orders ({availableOrders.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("my")}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                activeTab === "my"
+                  ? "bg-white text-green-700 shadow"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              My Delivery Orders ({myOrders.length})
+            </button>
+          </div>
+
+          <div className="relative w-full lg:max-w-md">
+            <Search
+              size={17}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search order ID, customer, email, address, item..."
+              className="h-11 w-full rounded-xl border bg-white pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+            />
+          </div>
+        </div>
+      </div>
+
       {loading ? (
         <div className="rounded-2xl border bg-white p-6 shadow-sm">
           Loading delivery dashboard...
         </div>
-      ) : (
-        <div className="space-y-8">
-          {/* ================= AVAILABLE ORDERS ================= */}
-          <section>
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Available Orders
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Orders ready for delivery assignment.
-                </p>
-              </div>
+      ) : activeTab === "available" ? (
+        <section>
+          <SectionHeader
+            title="Available Orders"
+            subtitle="Orders ready for delivery assignment."
+            count={`${filteredAvailableOrders.length} shown`}
+          />
 
-              <span className="rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
-                {availableOrders.length} available
-              </span>
+          {filteredAvailableOrders.length === 0 ? (
+            <EmptyCard text="No available orders found." />
+          ) : (
+            <div className="grid gap-4">
+              {filteredAvailableOrders.map((order) => (
+                <AvailableOrderCard
+                  key={order._id}
+                  order={order}
+                  busy={busyOrderId === order._id}
+                  onAccept={() => acceptOrder(order._id)}
+                />
+              ))}
             </div>
+          )}
+        </section>
+      ) : (
+        <section>
+          <SectionHeader
+            title="My Delivery Orders"
+            subtitle="Your assigned orders with delivery controls."
+            count={`${filteredMyOrders.length} shown`}
+          />
 
-            {availableOrders.length === 0 ? (
-              <EmptyCard text="No available orders right now." />
-            ) : (
-              <div className="grid gap-4">
-                {availableOrders.map((order) => (
-                  <AvailableOrderCard
+          {filteredMyOrders.length === 0 ? (
+            <EmptyCard text="No assigned delivery orders found." />
+          ) : (
+            <div className="grid gap-4">
+              {filteredMyOrders.map((order) => {
+                const currentStatus = order.delivery?.status || "";
+                const currentLocation =
+                  order.delivery?.tracking?.currentLocation;
+
+                const canStartTracking =
+                  currentStatus === "picked_up" ||
+                  currentStatus === "out_for_delivery";
+
+                return (
+                  <MyDeliveryOrderCard
                     key={order._id}
                     order={order}
+                    currentStatus={currentStatus}
+                    currentLocation={currentLocation}
                     busy={busyOrderId === order._id}
-                    onAccept={() => acceptOrder(order._id)}
+                    isLiveTracking={isTracking(order._id)}
+                    trackingOrderId={trackingOrderId}
+                    canStartTracking={canStartTracking}
+                    onStatusChange={(status) => updateStatus(order._id, status)}
+                    onStartTracking={() => startLiveTracking(order._id)}
+                    onStopTracking={() => stopLiveTracking(order._id)}
                   />
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* ================= MY DELIVERY ORDERS ================= */}
-          <section>
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  My Delivery Orders
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Orders accepted by you with status and live tracking controls.
-                </p>
-              </div>
-
-              <span className="rounded-full bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
-                {myOrders.length} assigned
-              </span>
+                );
+              })}
             </div>
-
-            {myOrders.length === 0 ? (
-              <EmptyCard text="No assigned delivery orders yet." />
-            ) : (
-              <div className="grid gap-4">
-                {myOrders.map((order) => {
-                  const currentStatus = order.delivery?.status || "";
-                  const currentLocation =
-                    order.delivery?.tracking?.currentLocation;
-
-                  const canStartTracking =
-                    currentStatus === "picked_up" ||
-                    currentStatus === "out_for_delivery";
-
-                  return (
-                    <MyDeliveryOrderCard
-                      key={order._id}
-                      order={order}
-                      currentStatus={currentStatus}
-                      currentLocation={currentLocation}
-                      busy={busyOrderId === order._id}
-                      isLiveTracking={isTracking(order._id)}
-                      trackingOrderId={trackingOrderId}
-                      canStartTracking={canStartTracking}
-                      onStatusChange={(status) =>
-                        updateStatus(order._id, status)
-                      }
-                      onStartTracking={() => startLiveTracking(order._id)}
-                      onStopTracking={() => stopLiveTracking(order._id)}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </div>
+          )}
+        </section>
       )}
     </div>
   );
 }
 
 /* ================= COMPONENTS ================= */
+
+function SectionHeader({
+  title,
+  subtitle,
+  count,
+}: {
+  title: string;
+  subtitle: string;
+  count: string;
+}) {
+  return (
+    <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+        <p className="text-sm text-gray-500">{subtitle}</p>
+      </div>
+
+      <span className="w-fit rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
+        {count}
+      </span>
+    </div>
+  );
+}
 
 function EmptyCard({ text }: { text: string }) {
   return (
