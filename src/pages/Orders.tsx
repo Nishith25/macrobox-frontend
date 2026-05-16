@@ -9,7 +9,6 @@ import {
   PackageCheck,
   Phone,
   ReceiptText,
-  Route,
   Truck,
 } from "lucide-react";
 

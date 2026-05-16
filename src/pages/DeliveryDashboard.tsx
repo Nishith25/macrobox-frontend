@@ -2,6 +2,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
+import {
+  CalendarClock,
+  IndianRupee,
+  MapPin,
+  Navigation,
+  PackageCheck,
+  RefreshCw,
+  Route,
+  User,
+} from "lucide-react";
 
 type OrderItem = {
   meal?: string;
@@ -9,6 +19,8 @@ type OrderItem = {
   price?: number;
   protein?: number;
   calories?: number;
+  carbs?: number;
+  fat?: number;
   qty?: number;
 };
 
@@ -16,18 +28,30 @@ type OrderUser = {
   _id?: string;
   name?: string;
   email?: string;
+  phone?: string;
 };
 
 type DeliveryAddress = {
   fullName?: string;
   phone?: string;
+
+  flatNo?: string;
+  floor?: string;
+  buildingName?: string;
+  area?: string;
+  landmark?: string;
+
   line1?: string;
   line2?: string;
+
   city?: string;
   state?: string;
   pincode?: string;
+
   locationMode?: "manual" | "current";
   locationText?: string;
+  formattedAddress?: string;
+
   lat?: number | null;
   lng?: number | null;
   mapsUrl?: string;
@@ -64,6 +88,8 @@ type Order = {
     payable?: number;
     totalProtein?: number;
     totalCalories?: number;
+    totalCarbs?: number;
+    totalFat?: number;
   };
   delivery?: {
     address?: DeliveryAddress;
@@ -114,12 +140,52 @@ function formatDateTime(value?: string | null) {
   });
 }
 
+function readableStatus(status?: string) {
+  if (!status) return "N/A";
+  return status
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getStatusBadgeClass(status?: string) {
+  switch (status) {
+    case "accepted":
+      return "bg-blue-50 text-blue-700 border-blue-100";
+    case "picked_up":
+      return "bg-indigo-50 text-indigo-700 border-indigo-100";
+    case "out_for_delivery":
+      return "bg-orange-50 text-orange-700 border-orange-100";
+    case "delivered":
+      return "bg-green-50 text-green-700 border-green-100";
+    case "cancelled":
+      return "bg-red-50 text-red-700 border-red-100";
+    default:
+      return "bg-gray-50 text-gray-700 border-gray-100";
+  }
+}
+
+function getPaymentBadgeClass(status?: string) {
+  switch (status) {
+    case "paid":
+      return "bg-green-50 text-green-700 border-green-100";
+    case "failed":
+      return "bg-red-50 text-red-700 border-red-100";
+    default:
+      return "bg-yellow-50 text-yellow-700 border-yellow-100";
+  }
+}
+
 function formatAddress(address?: DeliveryAddress) {
   if (!address) return "N/A";
 
+  if (address.formattedAddress) return address.formattedAddress;
+
   const parts = [
-    address.line1,
-    address.line2,
+    address.flatNo || address.line1,
+    address.floor,
+    address.buildingName || address.line2,
+    address.area,
+    address.landmark,
     address.city,
     address.state,
     address.pincode,
@@ -128,26 +194,17 @@ function formatAddress(address?: DeliveryAddress) {
   return parts.join(", ") || "N/A";
 }
 
-function readableStatus(status?: string) {
-  if (!status) return "N/A";
-  return status.replaceAll("_", " ");
-}
+function getMapsUrl(address?: DeliveryAddress) {
+  if (!address) return "";
 
-function getStatusBadgeClass(status?: string) {
-  switch (status) {
-    case "accepted":
-      return "bg-blue-100 text-blue-700";
-    case "picked_up":
-      return "bg-yellow-100 text-yellow-700";
-    case "out_for_delivery":
-      return "bg-orange-100 text-orange-700";
-    case "delivered":
-      return "bg-green-100 text-green-700";
-    case "cancelled":
-      return "bg-red-100 text-red-700";
-    default:
-      return "bg-gray-100 text-gray-700";
-  }
+  if (address.mapsUrl) return address.mapsUrl;
+
+  const query = address.formattedAddress || address.locationText;
+  if (!query) return "";
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    query
+  )}`;
 }
 
 export default function DeliveryDashboard() {
@@ -169,7 +226,9 @@ export default function DeliveryDashboard() {
         api.get("/delivery/my-orders"),
       ]);
 
-      setAvailableOrders(Array.isArray(availableRes.data) ? availableRes.data : []);
+      setAvailableOrders(
+        Array.isArray(availableRes.data) ? availableRes.data : []
+      );
       setMyOrders(Array.isArray(myOrdersRes.data) ? myOrdersRes.data : []);
     } catch (error) {
       console.error("Failed to fetch delivery orders:", error);
@@ -186,6 +245,7 @@ export default function DeliveryDashboard() {
       Object.values(watchIdsRef.current).forEach((watchId) => {
         navigator.geolocation.clearWatch(watchId);
       });
+
       watchIdsRef.current = {};
       lastSentRef.current = {};
     };
@@ -212,12 +272,16 @@ export default function DeliveryDashboard() {
 
       if (status === "delivered" || status === "cancelled") {
         const watchId = watchIdsRef.current[orderId];
+
         if (watchId) {
           navigator.geolocation.clearWatch(watchId);
           delete watchIdsRef.current[orderId];
           delete lastSentRef.current[orderId];
         }
-        setTrackingOrderId((current) => (current === orderId ? null : current));
+
+        setTrackingOrderId((current) =>
+          current === orderId ? null : current
+        );
       }
 
       await fetchOrders();
@@ -282,7 +346,9 @@ export default function DeliveryDashboard() {
         }
 
         delete lastSentRef.current[orderId];
-        setTrackingOrderId((current) => (current === orderId ? null : current));
+        setTrackingOrderId((current) =>
+          current === orderId ? null : current
+        );
       },
       {
         enableHighAccuracy: true,
@@ -317,20 +383,22 @@ export default function DeliveryDashboard() {
   const isTracking = (orderId: string) => Boolean(watchIdsRef.current[orderId]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="mx-auto max-w-7xl px-4 py-6">
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Delivery Dashboard</h1>
-          <p className="text-gray-600 mt-2">
-            View available orders, accept deliveries, update status, and share
-            live location.
+          <h1 className="text-3xl font-bold text-gray-900">
+            Delivery Dashboard
+          </h1>
+          <p className="mt-2 text-gray-600">
+            Accept orders, update delivery status and share live location.
           </p>
         </div>
 
         <button
           onClick={fetchOrders}
-          className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50"
+          className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-gray-50"
         >
+          <RefreshCw size={16} />
           Refresh
         </button>
       </div>
@@ -340,363 +408,487 @@ export default function DeliveryDashboard() {
           Loading delivery dashboard...
         </div>
       ) : (
-        <>
-          <section className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Available Orders
-              </h2>
+        <div className="space-y-8">
+          {/* ================= AVAILABLE ORDERS ================= */}
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Available Orders
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Orders ready for delivery assignment.
+                </p>
+              </div>
+
+              <span className="rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
+                {availableOrders.length} available
+              </span>
             </div>
 
             {availableOrders.length === 0 ? (
-              <div className="rounded-2xl border bg-white p-6 shadow-sm text-gray-600">
-                No available orders right now.
-              </div>
+              <EmptyCard text="No available orders right now." />
             ) : (
-              <div className="grid gap-5">
+              <div className="grid gap-4">
                 {availableOrders.map((order) => (
-                  <div
+                  <AvailableOrderCard
                     key={order._id}
-                    className="rounded-2xl border bg-white p-5 shadow-sm"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm text-gray-500">Order ID</p>
-                          <p className="font-semibold break-all">{order._id}</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <p className="text-sm text-gray-500">Customer</p>
-                            <p className="font-medium">
-                              {order.user?.name || "N/A"}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              {order.user?.email || "N/A"}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-sm text-gray-500">Payment</p>
-                            <p className="font-medium capitalize">
-                              {order.payment?.status || "N/A"}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-sm text-gray-500">Delivery Slot</p>
-                            <p className="font-medium">
-                              {order.delivery?.slot?.date || "N/A"} |{" "}
-                              {order.delivery?.slot?.time || "N/A"}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-sm text-gray-500">Amount</p>
-                            <p className="font-medium">
-                              {formatCurrency(order.totals?.payable)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-sm text-gray-500">Address</p>
-                          <p className="font-medium">
-                            {formatAddress(order.delivery?.address)}
-                          </p>
-
-                          {order.delivery?.address?.locationText ? (
-                            <p className="text-sm text-gray-600 mt-1">
-                              {order.delivery.address.locationText}
-                            </p>
-                          ) : null}
-
-                          {order.delivery?.address?.mapsUrl ? (
-                            <a
-                              href={order.delivery.address.mapsUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-block mt-1 text-sm text-green-700 hover:underline"
-                            >
-                              Open in Google Maps
-                            </a>
-                          ) : null}
-                        </div>
-
-                        <div>
-                          <p className="text-sm text-gray-500 mb-1">Items</p>
-                          <div className="flex flex-wrap gap-2">
-                            {order.items?.map((item, index) => (
-                              <span
-                                key={`${order._id}-${index}`}
-                                className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
-                              >
-                                {item.title || "Meal"} x{item.qty || 1}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="lg:min-w-[180px]">
-                        <button
-                          onClick={() => acceptOrder(order._id)}
-                          disabled={busyOrderId === order._id}
-                          className="w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 disabled:opacity-60"
-                        >
-                          {busyOrderId === order._id
-                            ? "Accepting..."
-                            : "Accept Delivery"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                    order={order}
+                    busy={busyOrderId === order._id}
+                    onAccept={() => acceptOrder(order._id)}
+                  />
                 ))}
               </div>
             )}
           </section>
 
+          {/* ================= MY DELIVERY ORDERS ================= */}
           <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              My Delivery Orders
-            </h2>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  My Delivery Orders
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Orders accepted by you with status and live tracking controls.
+                </p>
+              </div>
+
+              <span className="rounded-full bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
+                {myOrders.length} assigned
+              </span>
+            </div>
 
             {myOrders.length === 0 ? (
-              <div className="rounded-2xl border bg-white p-6 shadow-sm text-gray-600">
-                No assigned delivery orders yet.
-              </div>
+              <EmptyCard text="No assigned delivery orders yet." />
             ) : (
-              <div className="grid gap-5">
+              <div className="grid gap-4">
                 {myOrders.map((order) => {
                   const currentStatus = order.delivery?.status || "";
-                  const currentLocation = order.delivery?.tracking?.currentLocation;
+                  const currentLocation =
+                    order.delivery?.tracking?.currentLocation;
+
                   const canStartTracking =
-  currentStatus === "picked_up" || currentStatus === "out_for_delivery";
+                    currentStatus === "picked_up" ||
+                    currentStatus === "out_for_delivery";
 
                   return (
-                    <div
+                    <MyDeliveryOrderCard
                       key={order._id}
-                      className="rounded-2xl border bg-white p-5 shadow-sm"
-                    >
-                      <div className="flex flex-col gap-5">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-sm text-gray-500">Order ID</p>
-                              <p className="font-semibold break-all">{order._id}</p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div>
-                                <p className="text-sm text-gray-500">Customer</p>
-                                <p className="font-medium">
-                                  {order.user?.name || "N/A"}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  {order.user?.email || "N/A"}
-                                </p>
-                              </div>
-
-                              <div>
-                                <p className="text-sm text-gray-500">
-                                  Delivery Status
-                                </p>
-                                <div className="mt-1">
-                                  <span
-                                    className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getStatusBadgeClass(
-                                      currentStatus
-                                    )}`}
-                                  >
-                                    {readableStatus(currentStatus)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div>
-                                <p className="text-sm text-gray-500">Slot</p>
-                                <p className="font-medium">
-                                  {order.delivery?.slot?.date || "N/A"} |{" "}
-                                  {order.delivery?.slot?.time || "N/A"}
-                                </p>
-                              </div>
-
-                              <div>
-                                <p className="text-sm text-gray-500">Amount</p>
-                                <p className="font-medium">
-                                  {formatCurrency(order.totals?.payable)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div>
-                              <p className="text-sm text-gray-500">Address</p>
-                              <p className="font-medium">
-                                {formatAddress(order.delivery?.address)}
-                              </p>
-
-                              {order.delivery?.address?.locationText ? (
-                                <p className="text-sm text-gray-600 mt-1">
-                                  {order.delivery.address.locationText}
-                                </p>
-                              ) : null}
-
-                              {order.delivery?.address?.mapsUrl ? (
-                                <a
-                                  href={order.delivery.address.mapsUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-block mt-1 text-sm text-green-700 hover:underline"
-                                >
-                                  Open in Google Maps
-                                </a>
-                              ) : null}
-                            </div>
-
-                            <div>
-                              <p className="text-sm text-gray-500 mb-1">Items</p>
-                              <div className="flex flex-wrap gap-2">
-                                {order.items?.map((item, index) => (
-                                  <span
-                                    key={`${order._id}-my-${index}`}
-                                    className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
-                                  >
-                                    {item.title || "Meal"} x{item.qty || 1}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                              <div className="rounded-xl bg-gray-50 p-3">
-                                <p className="text-gray-500">Accepted At</p>
-                                <p className="font-medium">
-                                  {formatDateTime(order.delivery?.acceptedAt)}
-                                </p>
-                              </div>
-
-                              <div className="rounded-xl bg-gray-50 p-3">
-                                <p className="text-gray-500">Picked Up At</p>
-                                <p className="font-medium">
-                                  {formatDateTime(order.delivery?.pickedUpAt)}
-                                </p>
-                              </div>
-
-                              <div className="rounded-xl bg-gray-50 p-3">
-                                <p className="text-gray-500">Out For Delivery At</p>
-                                <p className="font-medium">
-                                  {formatDateTime(order.delivery?.outForDeliveryAt)}
-                                </p>
-                              </div>
-
-                              <div className="rounded-xl bg-gray-50 p-3">
-                                <p className="text-gray-500">
-                                  Last Location Update
-                                </p>
-                                <p className="font-medium">
-                                  {formatDateTime(currentLocation?.updatedAt || null)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-  <div className="rounded-xl bg-blue-50 p-4">
-    <p className="text-blue-700 font-medium">ETA</p>
-    <p className="font-bold">
-      {order.delivery?.tracking?.eta?.text || "Time calculating..."}
-    </p>
-  </div>
-
-  <div className="rounded-xl bg-green-50 p-4">
-    <p className="text-green-700 font-medium">Distance Left</p>
-    <p className="font-bold">
-      {order.delivery?.tracking?.eta?.distanceText || "Distance calculating..."}
-    </p>
-  </div>
-
-  <div className="rounded-xl bg-gray-50 p-4">
-    <p className="text-gray-500 font-medium">Tracking</p>
-    <p className="font-bold">
-      {order.delivery?.tracking?.isLive ? "Active" : "Not active"}
-    </p>
-  </div>
-</div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                              
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col gap-2 lg:min-w-[240px]">
-                            {STATUS_OPTIONS.map((statusOption) => (
-                              <button
-                                key={statusOption.value}
-                                onClick={() =>
-                                  updateStatus(order._id, statusOption.value)
-                                }
-                                disabled={busyOrderId === order._id}
-                                className="rounded-xl border px-4 py-2 font-medium hover:bg-gray-50 disabled:opacity-60"
-                              >
-                                Mark {statusOption.label}
-                              </button>
-                            ))}
-
-                            {!isTracking(order._id) ? (
-                              <button
-                                onClick={() => startLiveTracking(order._id)}
-                                disabled={!canStartTracking}
-                                className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                Start Live Tracking
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => stopLiveTracking(order._id)}
-                                className="rounded-xl bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700"
-                              >
-                                Stop Live Tracking
-                              </button>
-                            )}
-
-                            <Link
-                              to={`/track/${order._id}`}
-                              className="rounded-xl bg-gray-900 px-4 py-2 text-center font-semibold text-white hover:bg-black"
-                            >
-                              Open Tracking Page
-                            </Link>
-                          </div>
-                        </div>
-
-                        {!canStartTracking && currentStatus !== "delivered" ? (
-                          <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-                            Set the order status to{" "}
-                            <span className="font-semibold">Out for Delivery</span>{" "}
-                            before starting live tracking.
-                          </div>
-                        ) : null}
-
-                        {trackingOrderId === order._id || isTracking(order._id) ? (
-                          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                            Live tracking is active for this order. Keep this page
-                            open and allow location access for continuous updates.
-                          </div>
-                        ) : null}
-
-                        {currentStatus === "delivered" ? (
-                          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-                            This order is marked as delivered. Live tracking should
-                            be stopped.
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
+                      order={order}
+                      currentStatus={currentStatus}
+                      currentLocation={currentLocation}
+                      busy={busyOrderId === order._id}
+                      isLiveTracking={isTracking(order._id)}
+                      trackingOrderId={trackingOrderId}
+                      canStartTracking={canStartTracking}
+                      onStatusChange={(status) =>
+                        updateStatus(order._id, status)
+                      }
+                      onStartTracking={() => startLiveTracking(order._id)}
+                      onStopTracking={() => stopLiveTracking(order._id)}
+                    />
                   );
                 })}
               </div>
             )}
           </section>
-        </>
+        </div>
       )}
+    </div>
+  );
+}
+
+/* ================= COMPONENTS ================= */
+
+function EmptyCard({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border bg-white p-6 text-gray-600 shadow-sm">
+      {text}
+    </div>
+  );
+}
+
+function AvailableOrderCard({
+  order,
+  busy,
+  onAccept,
+}: {
+  order: Order;
+  busy: boolean;
+  onAccept: () => void;
+}) {
+  const address = order.delivery?.address;
+  const mapsUrl = getMapsUrl(address);
+
+  return (
+    <div className="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
+      <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-500">Order ID</p>
+              <p className="break-all text-sm font-bold text-gray-900">
+                {order._id}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                className={getPaymentBadgeClass(order.payment?.status)}
+                text={(order.payment?.status || "created").toUpperCase()}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <InfoBlock
+              icon={<User size={15} />}
+              label="Customer"
+              value={order.user?.name || "N/A"}
+              subValue={order.user?.email || "N/A"}
+            />
+
+            <InfoBlock
+              icon={<CalendarClock size={15} />}
+              label="Slot"
+              value={`${order.delivery?.slot?.date || "N/A"} | ${
+                order.delivery?.slot?.time || "N/A"
+              }`}
+            />
+
+            <InfoBlock
+              icon={<IndianRupee size={15} />}
+              label="Amount"
+              value={formatCurrency(order.totals?.payable)}
+            />
+
+            <InfoBlock
+              icon={<PackageCheck size={15} />}
+              label="Items"
+              value={`${order.items?.length || 0} item(s)`}
+            />
+          </div>
+
+          <div className="rounded-xl bg-gray-50 p-3">
+            <div className="mb-1 flex items-center gap-2">
+              <MapPin size={15} className="text-green-700" />
+              <p className="text-sm font-bold text-gray-900">Address</p>
+            </div>
+
+            <p className="line-clamp-2 text-sm text-gray-700">
+              {formatAddress(address)}
+            </p>
+
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs font-semibold text-green-700 underline"
+              >
+                Open in Google Maps
+              </a>
+            )}
+          </div>
+
+          <ItemChips order={order} />
+        </div>
+
+        <div className="flex items-start lg:min-w-[190px]">
+          <button
+            onClick={onAccept}
+            disabled={busy}
+            className="w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-60"
+          >
+            {busy ? "Accepting..." : "Accept Delivery"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MyDeliveryOrderCard({
+  order,
+  currentStatus,
+  currentLocation,
+  busy,
+  isLiveTracking,
+  trackingOrderId,
+  canStartTracking,
+  onStatusChange,
+  onStartTracking,
+  onStopTracking,
+}: {
+  order: Order;
+  currentStatus: string;
+  currentLocation?: TrackingLocation;
+  busy: boolean;
+  isLiveTracking: boolean;
+  trackingOrderId: string | null;
+  canStartTracking: boolean;
+  onStatusChange: (status: string) => void;
+  onStartTracking: () => void;
+  onStopTracking: () => void;
+}) {
+  const address = order.delivery?.address;
+  const mapsUrl = getMapsUrl(address);
+  const eta = order.delivery?.tracking?.eta;
+
+  return (
+    <div className="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
+      <div className="grid gap-4 xl:grid-cols-[1fr_260px]">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-500">Order ID</p>
+              <p className="break-all text-sm font-bold text-gray-900">
+                {order._id}
+              </p>
+            </div>
+
+            <Badge
+              text={readableStatus(currentStatus)}
+              className={getStatusBadgeClass(currentStatus)}
+            />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <InfoBlock
+              icon={<User size={15} />}
+              label="Customer"
+              value={order.user?.name || "N/A"}
+              subValue={order.user?.email || "N/A"}
+            />
+
+            <InfoBlock
+              icon={<CalendarClock size={15} />}
+              label="Slot"
+              value={`${order.delivery?.slot?.date || "N/A"} | ${
+                order.delivery?.slot?.time || "N/A"
+              }`}
+            />
+
+            <InfoBlock
+              icon={<IndianRupee size={15} />}
+              label="Amount"
+              value={formatCurrency(order.totals?.payable)}
+            />
+
+            <InfoBlock
+              icon={<Route size={15} />}
+              label="Tracking"
+              value={order.delivery?.tracking?.isLive ? "Active" : "Not active"}
+            />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <MiniPanel
+              label="ETA"
+              value={eta?.text || "Calculating..."}
+              tone="blue"
+            />
+
+            <MiniPanel
+              label="Distance Left"
+              value={eta?.distanceText || "Calculating..."}
+              tone="green"
+            />
+
+            <MiniPanel
+              label="Last Location"
+              value={formatDateTime(currentLocation?.updatedAt || null)}
+              tone="gray"
+            />
+          </div>
+
+          <div className="rounded-xl bg-gray-50 p-3">
+            <div className="mb-1 flex items-center gap-2">
+              <MapPin size={15} className="text-green-700" />
+              <p className="text-sm font-bold text-gray-900">Address</p>
+            </div>
+
+            <p className="line-clamp-2 text-sm text-gray-700">
+              {formatAddress(address)}
+            </p>
+
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs font-semibold text-green-700 underline"
+              >
+                Open in Google Maps
+              </a>
+            )}
+          </div>
+
+          <ItemChips order={order} />
+
+          <div className="grid gap-2 text-xs md:grid-cols-4">
+            <TimeBlock
+              label="Accepted"
+              value={formatDateTime(order.delivery?.acceptedAt)}
+            />
+            <TimeBlock
+              label="Picked Up"
+              value={formatDateTime(order.delivery?.pickedUpAt)}
+            />
+            <TimeBlock
+              label="Out for Delivery"
+              value={formatDateTime(order.delivery?.outForDeliveryAt)}
+            />
+            <TimeBlock
+              label="Delivered"
+              value={formatDateTime(order.delivery?.deliveredAt)}
+            />
+          </div>
+
+          {!canStartTracking && currentStatus !== "delivered" && (
+            <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+              Set status to <b>Picked Up</b> or <b>Out for Delivery</b> before
+              starting live tracking.
+            </div>
+          )}
+
+          {(trackingOrderId === order._id || isLiveTracking) && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              Live tracking is active. Keep this page open and allow location
+              access for continuous updates.
+            </div>
+          )}
+
+          {currentStatus === "delivered" && (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+              This order is marked as delivered.
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          {STATUS_OPTIONS.map((statusOption) => (
+            <button
+              key={statusOption.value}
+              onClick={() => onStatusChange(statusOption.value)}
+              disabled={busy}
+              className="w-full rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-gray-50 disabled:opacity-60"
+            >
+              Mark {statusOption.label}
+            </button>
+          ))}
+
+          {!isLiveTracking ? (
+            <button
+              onClick={onStartTracking}
+              disabled={!canStartTracking}
+              className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Start Live Tracking
+            </button>
+          ) : (
+            <button
+              onClick={onStopTracking}
+              className="w-full rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            >
+              Stop Live Tracking
+            </button>
+          )}
+
+          <Link
+            to={`/track/${order._id}`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+          >
+            <Navigation size={15} />
+            Open Tracking
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Badge({ text, className }: { text: string; className: string }) {
+  return (
+    <span
+      className={`rounded-full border px-3 py-1 text-xs font-bold ${className}`}
+    >
+      {text}
+    </span>
+  );
+}
+
+function InfoBlock({
+  icon,
+  label,
+  value,
+  subValue,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  subValue?: string;
+}) {
+  return (
+    <div className="rounded-xl bg-gray-50 p-3">
+      <div className="mb-1 flex items-center gap-1 text-gray-500">
+        {icon}
+        <p className="text-xs font-medium">{label}</p>
+      </div>
+      <p className="truncate text-sm font-bold text-gray-900">{value}</p>
+      {subValue && <p className="truncate text-xs text-gray-500">{subValue}</p>}
+    </div>
+  );
+}
+
+function MiniPanel({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "blue" | "green" | "gray";
+}) {
+  const toneClass =
+    tone === "blue"
+      ? "bg-blue-50 text-blue-700"
+      : tone === "green"
+      ? "bg-green-50 text-green-700"
+      : "bg-gray-50 text-gray-700";
+
+  return (
+    <div className={`rounded-xl p-3 ${toneClass}`}>
+      <p className="text-xs font-medium opacity-80">{label}</p>
+      <p className="mt-1 text-sm font-bold">{value}</p>
+    </div>
+  );
+}
+
+function TimeBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-gray-50 p-3">
+      <p className="text-[11px] font-medium text-gray-500">{label}</p>
+      <p className="mt-1 text-xs font-semibold text-gray-800">{value}</p>
+    </div>
+  );
+}
+
+function ItemChips({ order }: { order: Order }) {
+  return (
+    <div>
+      <p className="mb-1 text-sm font-bold text-gray-900">Items</p>
+      <div className="flex flex-wrap gap-2">
+        {order.items?.map((item, index) => (
+          <span
+            key={`${order._id}-${index}`}
+            className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
+          >
+            {item.title || "Meal"} × {item.qty || 1}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
