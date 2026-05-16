@@ -291,9 +291,6 @@ export default function DeliveryDashboard() {
     return myOrders.filter((order) => matchesSearch(order, search));
   }, [myOrders, search]);
 
-  const activeOrders =
-    activeTab === "available" ? filteredAvailableOrders : filteredMyOrders;
-
   const acceptOrder = async (orderId: string) => {
     try {
       setBusyOrderId(orderId);
