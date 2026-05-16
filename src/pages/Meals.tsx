@@ -13,7 +13,8 @@ export default function Meals() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { addToCart } = useCart();
+
+  const { cart, addToCart, increaseQty, decreaseQty } = useCart();
 
   useEffect(() => {
     let mounted = true;
@@ -47,6 +48,10 @@ export default function Meals() {
     return meals.filter((meal) => meal.foodType === filter);
   }, [meals, filter]);
 
+  const getCartQty = (mealId: string) => {
+    return cart.find((item) => item._id === mealId)?.qty || 0;
+  };
+
   const handleAddToCart = (meal: Meal) => {
     addToCart({
       _id: meal._id,
@@ -60,6 +65,20 @@ export default function Meals() {
     });
 
     toast.success("Added to cart");
+  };
+
+  const handleIncrease = (meal: Meal) => {
+    const existing = cart.find((item) => item._id === meal._id);
+
+    if (existing) {
+      increaseQty(meal._id);
+    } else {
+      handleAddToCart(meal);
+    }
+  };
+
+  const handleDecrease = (meal: Meal) => {
+    decreaseQty(meal._id);
   };
 
   return (
@@ -122,7 +141,10 @@ export default function Meals() {
             <MealCard
               key={meal._id}
               meal={meal}
+              qty={getCartQty(meal._id)}
               onAddToCart={handleAddToCart}
+              onIncrease={handleIncrease}
+              onDecrease={handleDecrease}
             />
           ))}
         </div>

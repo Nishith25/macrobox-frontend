@@ -1,15 +1,27 @@
 // frontend/src/components/MealCard.tsx (FRONTEND)
 import { useState } from "react";
+import { Minus, Plus } from "lucide-react";
 import Button from "./Button";
 import type { Meal } from "../pages/Home";
 
 type MealCardProps = {
   meal: Meal;
   onAddToCart: (meal: Meal) => void;
+  qty?: number;
+  onIncrease?: (meal: Meal) => void;
+  onDecrease?: (meal: Meal) => void;
 };
 
-export default function MealCard({ meal, onAddToCart }: MealCardProps) {
+export default function MealCard({
+  meal,
+  onAddToCart,
+  qty = 0,
+  onIncrease,
+  onDecrease,
+}: MealCardProps) {
   const [showDescription, setShowDescription] = useState(false);
+
+  const hasQtyControls = qty > 0 && onIncrease && onDecrease;
 
   return (
     <div className="w-full overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:-translate-y-1 hover:shadow-lg">
@@ -65,7 +77,7 @@ export default function MealCard({ meal, onAddToCart }: MealCardProps) {
           <MacroBadge label="Fat" value={`${meal.fat ?? 0}g`} />
         </div>
 
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between gap-3">
           <div>
             <p className="text-xs text-gray-500">Price</p>
             <p className="text-xl font-extrabold text-gray-900">
@@ -73,9 +85,33 @@ export default function MealCard({ meal, onAddToCart }: MealCardProps) {
             </p>
           </div>
 
-          <Button className="px-5" onClick={() => onAddToCart(meal)}>
-            Add
-          </Button>
+          {hasQtyControls ? (
+            <div className="flex items-center gap-3 rounded-xl border bg-green-50 px-3 py-2">
+              <button
+                type="button"
+                onClick={() => onDecrease(meal)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-green-700 shadow-sm hover:bg-green-100"
+              >
+                <Minus size={16} />
+              </button>
+
+              <span className="min-w-5 text-center font-bold text-green-700">
+                {qty}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => onIncrease(meal)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-green-700 shadow-sm hover:bg-green-100"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+          ) : (
+            <Button className="px-5" onClick={() => onAddToCart(meal)}>
+              Add
+            </Button>
+          )}
         </div>
       </div>
     </div>
