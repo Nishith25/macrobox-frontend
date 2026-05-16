@@ -85,22 +85,22 @@ export default function Login() {
         {/* LEFT SECTION */}
         <div className="hidden lg:block">
           <p className="mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
-            Welcome back
+            Welcome back to MacroBox
           </p>
 
           <h1 className="max-w-xl text-5xl font-extrabold leading-tight text-gray-900">
-            Continue your MacroBox journey.
+            Continue where your health goals left off.
           </h1>
 
           <p className="mt-5 max-w-xl text-lg text-gray-600">
-            Login to order meals, track your macros, manage your saved
-            addresses, and view live delivery updates.
+            Login to manage your meals, track your macros, plan your day, and
+            follow your orders from checkout to delivery.
           </p>
 
           <div className="mt-8 grid max-w-xl gap-4">
-            <Feature text="Track calories, protein, carbs and fat" />
-            <Feature text="Access MacroTrack and Smart Day Planner" />
-            <Feature text="View orders and live delivery tracking" />
+            <Feature text="Resume MacroTrack and see today’s remaining calories, protein, carbs and fat." />
+            <Feature text="Open your Smart Day Planner and build meals around your exact goal." />
+            <Feature text="Track paid orders, delivery agent updates, ETA and live route in one place." />
           </div>
         </div>
 
@@ -204,7 +204,7 @@ export default function Login() {
 function Feature({ text }: { text: string }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
-      <CheckCircle2 size={20} className="text-green-600" />
+      <CheckCircle2 size={20} className="shrink-0 text-green-600" />
       <p className="font-medium text-gray-700">{text}</p>
     </div>
   );

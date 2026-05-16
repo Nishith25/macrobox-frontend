@@ -168,10 +168,33 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white px-4 py-10">
-      <div className="mx-auto flex min-h-[calc(100vh-120px)] max-w-6xl items-center justify-center">
+      <div className="mx-auto grid min-h-[calc(100vh-120px)] max-w-6xl items-center gap-10 lg:grid-cols-[1fr_520px]">
+        {/* LEFT SECTION */}
+        <div className="hidden lg:block">
+          <p className="mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
+            Join MacroBox
+          </p>
+
+          <h1 className="max-w-xl text-5xl font-extrabold leading-tight text-gray-900">
+            Build your meals around your real daily macros.
+          </h1>
+
+          <p className="mt-5 max-w-xl text-lg text-gray-600">
+            Create your account and start using MacroBox as a meal-ordering
+            platform connected with your nutrition goals.
+          </p>
+
+          <div className="mt-8 grid max-w-xl gap-4">
+            <Feature text="MacroTrack calculates how many calories, protein, carbs and fat you need each day." />
+            <Feature text="Smart Day Planner helps you choose meals for fat loss, muscle gain, weight gain or maintenance." />
+            <Feature text="Your orders carry full macro values, saved addresses and live delivery tracking." />
+          </div>
+        </div>
+
+        {/* SIGNUP CARD */}
         <form
           onSubmit={handleSubmit}
-          className="w-full max-w-xl rounded-3xl border bg-white p-6 shadow-xl sm:p-8"
+          className="w-full rounded-3xl border bg-white p-6 shadow-xl sm:p-8"
         >
           <div className="mb-6 text-center">
             <p className="mx-auto mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
@@ -375,6 +398,15 @@ function InputWithIcon({
         className="h-12 w-full rounded-xl border pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
         required
       />
+    </div>
+  );
+}
+
+function Feature({ text }: { text: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
+      <CheckCircle2 size={20} className="shrink-0 text-green-600" />
+      <p className="font-medium text-gray-700">{text}</p>
     </div>
   );
 }
