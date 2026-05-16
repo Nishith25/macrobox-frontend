@@ -10,6 +10,7 @@ type FoodType = "veg" | "nonveg";
 type Meal = {
   _id: string;
   title: string;
+  description?: string;
   protein: number;
   calories: number;
   carbs: number;
@@ -30,50 +31,70 @@ function MealRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const [showDescription, setShowDescription] = useState(false);
+
   return (
-    <div className="flex gap-4 rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
-      <img
-        src={meal.imageUrl || "/placeholder-meal.png"}
-        className="h-24 w-24 rounded-xl object-cover"
-        onError={(e) => (e.currentTarget.src = "/placeholder-meal.png")}
-      />
+    <div className="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
+      <div className="flex gap-4">
+        <img
+          src={meal.imageUrl || "/placeholder-meal.png"}
+          className="h-24 w-24 rounded-xl object-cover"
+          onError={(e) => (e.currentTarget.src = "/placeholder-meal.png")}
+        />
 
-      <div className="min-w-0 flex-1">
-        <div className="mb-1 flex items-start justify-between gap-3">
-          <h3 className="truncate font-bold text-gray-900">{meal.title}</h3>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-start justify-between gap-3">
+            <h3 className="truncate font-bold text-gray-900">{meal.title}</h3>
 
-          <span
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-              meal.foodType === "nonveg"
-                ? "bg-red-50 text-red-700"
-                : "bg-green-50 text-green-700"
-            }`}
-          >
-            {meal.foodType === "nonveg" ? "Non-Veg" : "Veg"}
-          </span>
-        </div>
+            <span
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                meal.foodType === "nonveg"
+                  ? "bg-red-50 text-red-700"
+                  : "bg-green-50 text-green-700"
+              }`}
+            >
+              {meal.foodType === "nonveg" ? "Non-Veg" : "Veg"}
+            </span>
+          </div>
 
-        <p className="mt-1 text-sm text-slate-500">
-          {meal.calories} kcal · {meal.protein}g protein · {meal.carbs}g carbs ·{" "}
-          {meal.fat}g fat · ₹{meal.price}
-        </p>
+          <p className="mt-1 text-sm text-slate-500">
+            {meal.calories} kcal · {meal.protein}g protein · {meal.carbs}g
+            carbs · {meal.fat}g fat · ₹{meal.price}
+          </p>
 
-        <div className="mt-3 flex gap-3">
-          <button
-            onClick={onEdit}
-            className="rounded-lg border px-3 py-1 text-sm font-medium hover:bg-gray-50"
-          >
-            Edit
-          </button>
+          {meal.description && (
+            <button
+              type="button"
+              onClick={() => setShowDescription((prev) => !prev)}
+              className="mt-2 text-sm font-semibold text-green-700 underline"
+            >
+              {showDescription ? "Hide Description" : "View Description"}
+            </button>
+          )}
 
-          <button
-            onClick={onDelete}
-            className="rounded-lg border border-red-300 px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-50"
-          >
-            Delete
-          </button>
+          <div className="mt-3 flex gap-3">
+            <button
+              onClick={onEdit}
+              className="rounded-lg border px-3 py-1 text-sm font-medium hover:bg-gray-50"
+            >
+              Edit
+            </button>
+
+            <button
+              onClick={onDelete}
+              className="rounded-lg border border-red-300 px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              Delete
+            </button>
+          </div>
         </div>
       </div>
+
+      {showDescription && meal.description && (
+        <div className="mt-4 rounded-xl bg-gray-50 p-3 text-sm leading-6 text-gray-700">
+          {meal.description}
+        </div>
+      )}
     </div>
   );
 }
@@ -87,6 +108,7 @@ export default function AdminMeals() {
 
   const [form, setForm] = useState({
     title: "",
+    description: "",
     protein: "",
     calories: "",
     carbs: "",
@@ -118,6 +140,7 @@ export default function AdminMeals() {
   const resetForm = () => {
     setForm({
       title: "",
+      description: "",
       protein: "",
       calories: "",
       carbs: "",
@@ -139,7 +162,7 @@ export default function AdminMeals() {
       !form.fat ||
       !form.price
     ) {
-      toast.error("Fill all fields");
+      toast.error("Fill all required fields");
       return;
     }
 
@@ -150,6 +173,7 @@ export default function AdminMeals() {
 
     const data = new FormData();
     data.append("title", form.title);
+    data.append("description", form.description);
     data.append("protein", form.protein);
     data.append("calories", form.calories);
     data.append("carbs", form.carbs);
@@ -203,6 +227,7 @@ export default function AdminMeals() {
 
     setForm({
       title: meal.title,
+      description: meal.description || "",
       protein: String(meal.protein ?? ""),
       calories: String(meal.calories ?? ""),
       carbs: String(meal.carbs ?? ""),
@@ -234,7 +259,8 @@ export default function AdminMeals() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Manage Meals</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Create MacroBox meals with full macros and Veg / Non-Veg category.
+          Create MacroBox meals with full macros, description, and Veg / Non-Veg
+          category.
         </p>
       </div>
 
@@ -251,7 +277,9 @@ export default function AdminMeals() {
 
         <div className="rounded-2xl border bg-red-50 p-4 shadow-sm">
           <p className="text-sm text-red-700">Non-Veg Meals</p>
-          <p className="mt-1 text-2xl font-bold text-red-700">{stats.nonveg}</p>
+          <p className="mt-1 text-2xl font-bold text-red-700">
+            {stats.nonveg}
+          </p>
         </div>
       </div>
 
@@ -275,6 +303,16 @@ export default function AdminMeals() {
             value={form.price}
             onChange={(e) => setForm({ ...form, price: e.target.value })}
             className="rounded-lg border px-3 py-2"
+          />
+
+          <textarea
+            placeholder="Meal description, ingredients, benefits, serving details..."
+            value={form.description}
+            onChange={(e) =>
+              setForm({ ...form, description: e.target.value })
+            }
+            rows={3}
+            className="rounded-lg border px-3 py-2 md:col-span-3"
           />
 
           <input
