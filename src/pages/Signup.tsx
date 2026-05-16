@@ -27,6 +27,7 @@ export default function Signup() {
   });
 
   const [otp, setOtp] = useState("");
+  const [devOtp, setDevOtp] = useState("");
   const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
 
   const [otpSent, setOtpSent] = useState(false);
@@ -43,6 +44,7 @@ export default function Signup() {
 
     if (e.target.name === "phone") {
       setOtp("");
+      setDevOtp("");
       setOtpSent(false);
       setPhoneVerified(false);
       setPhoneVerificationToken("");
@@ -58,14 +60,19 @@ export default function Signup() {
     try {
       setOtpLoading(true);
 
-      await api.post("/auth/send-phone-otp", {
+      const res = await api.post("/auth/send-phone-otp", {
         phone: form.phone.trim(),
       });
 
       setOtpSent(true);
-      toast.success("OTP sent to your phone.");
+
+      if (res.data?.devOtp) {
+        setDevOtp(res.data.devOtp);
+      }
+
+      toast.success("Dev OTP generated successfully.");
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to send OTP.");
+      toast.error(error?.response?.data?.message || "Failed to generate OTP.");
     } finally {
       setOtpLoading(false);
     }
@@ -161,41 +168,22 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white px-4 py-10">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1fr_480px]">
-        {/* LEFT BRAND SECTION */}
-        <div className="hidden lg:block">
-          <p className="mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
-            Welcome to MacroBox
-          </p>
-
-          <h1 className="max-w-xl text-5xl font-extrabold leading-tight text-gray-900">
-            Start tracking your meals, macros and goals.
-          </h1>
-
-          <p className="mt-5 max-w-xl text-lg text-gray-600">
-            Create your MacroBox account to order goal-based meals, use
-            MacroTrack, save delivery addresses, and build your Smart Day
-            Planner.
-          </p>
-
-          <div className="mt-8 grid max-w-xl gap-4">
-            <Feature text="Phone OTP verification for secure signup" />
-            <Feature text="Track calories, protein, carbs and fat" />
-            <Feature text="Get smart meal suggestions based on your goal" />
-          </div>
-        </div>
-
-        {/* SIGNUP CARD */}
+      <div className="mx-auto flex min-h-[calc(100vh-120px)] max-w-6xl items-center justify-center">
         <form
           onSubmit={handleSubmit}
-          className="rounded-3xl border bg-white p-6 shadow-xl sm:p-8"
+          className="w-full max-w-xl rounded-3xl border bg-white p-6 shadow-xl sm:p-8"
         >
           <div className="mb-6 text-center">
+            <p className="mx-auto mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
+              MacroBox Signup
+            </p>
+
             <h2 className="text-3xl font-bold text-gray-900">
               Create Account
             </h2>
+
             <p className="mt-2 text-sm text-gray-500">
-              Sign up with phone OTP verification.
+              Verify your phone number and create your MacroBox account.
             </p>
           </div>
 
@@ -226,6 +214,7 @@ export default function Signup() {
                     size={18}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                   />
+
                   <input
                     type="tel"
                     name="phone"
@@ -245,7 +234,11 @@ export default function Signup() {
                     disabled={otpLoading || !phoneReady}
                     className="h-12 rounded-xl border border-green-600 px-4 text-sm font-semibold text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {otpLoading && !otpSent ? "Sending..." : otpSent ? "Resend" : "Send OTP"}
+                    {otpLoading && !otpSent
+                      ? "Generating..."
+                      : otpSent
+                      ? "Regenerate"
+                      : "Get OTP"}
                   </button>
                 ) : (
                   <div className="flex h-12 items-center gap-1 rounded-xl bg-green-100 px-4 text-sm font-bold text-green-700">
@@ -276,9 +269,16 @@ export default function Signup() {
                 </div>
               )}
 
+              {devOtp && !phoneVerified && (
+                <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                  Dev OTP: <b>{devOtp}</b>
+                </div>
+              )}
+
               {otpSent && !phoneVerified && (
                 <p className="mt-2 text-xs text-gray-500">
-                  OTP sent to your phone. Please enter it to continue.
+                  This is development OTP mode. Use the OTP shown above to
+                  continue.
                 </p>
               )}
 
@@ -375,15 +375,6 @@ function InputWithIcon({
         className="h-12 w-full rounded-xl border pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
         required
       />
-    </div>
-  );
-}
-
-function Feature({ text }: { text: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
-      <CheckCircle2 size={20} className="text-green-600" />
-      <p className="font-medium text-gray-700">{text}</p>
     </div>
   );
 }
