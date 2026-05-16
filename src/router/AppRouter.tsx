@@ -28,6 +28,7 @@ import Checkout from "../pages/Checkout";
 import Orders from "../pages/Orders";
 import DeliveryDashboard from "../pages/DeliveryDashboard";
 import TrackOrderPage from "../pages/TrackOrderPage";
+import SettingsPage from "../pages/SettingsPage";
 
 // Admin Pages
 import AdminDashboard from "../pages/AdminDashboard";
@@ -111,6 +112,15 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+  path="/settings"
+  element={
+    <ProtectedRoute>
+      <SettingsPage />
+    </ProtectedRoute>
+  }
+/>
 
         {/* ================= DELIVERY ROUTES ================= */}
         <Route

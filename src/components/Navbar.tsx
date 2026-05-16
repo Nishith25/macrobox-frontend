@@ -11,6 +11,7 @@ import {
   TicketPercent,
   Truck,
   ReceiptText,
+  Settings,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -56,20 +57,25 @@ export default function Navbar() {
       isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
     }`;
 
+  const cartLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `relative px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1 ${
+      isActive ? "text-green-700 bg-green-50" : "text-gray-700 hover:bg-gray-50"
+    }`;
+
   return (
-    <nav className="border-b bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
+    <nav className="sticky top-0 z-50 border-b bg-white shadow-sm">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         {/* LOGO */}
         <Link
           to="/"
           onClick={closeMenu}
-          className="text-2xl font-extrabold text-green-600 tracking-tight"
+          className="text-2xl font-extrabold tracking-tight text-green-600"
         >
           MacroBox
         </Link>
 
         {/* ================= DESKTOP NAV ================= */}
-        <div className="hidden md:flex items-center gap-2">
+        <div className="hidden items-center gap-2 md:flex">
           <NavLink to="/" className={navLinkClass}>
             Home
           </NavLink>
@@ -78,9 +84,12 @@ export default function Navbar() {
             Meals
           </NavLink>
 
-          {/* USER FEATURES */}
           {isAuthenticated && (
             <>
+              <NavLink to="/macrotrack" className={navLinkClass}>
+                MacroTrack
+              </NavLink>
+
               <NavLink to="/smart-day-planner" className={navLinkClass}>
                 Smart Day Planner
               </NavLink>
@@ -89,8 +98,21 @@ export default function Navbar() {
                 Orders
               </NavLink>
 
-              <NavLink to="/macrotrack" className={navLinkClass}>
-                MacroTrack
+              <NavLink to="/cart" className={cartLinkClass}>
+                <ShoppingCart size={18} />
+                Cart
+                {cartCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-green-600 px-1 text-[10px] text-white">
+                    {cartCount}
+                  </span>
+                )}
+              </NavLink>
+
+              <NavLink to="/settings" className={navLinkClass}>
+                <span className="flex items-center gap-1">
+                  <Settings size={16} />
+                  Settings
+                </span>
               </NavLink>
 
               {user?.role === "delivery" && (
@@ -101,7 +123,7 @@ export default function Navbar() {
             </>
           )}
 
-          {/* ADMIN LINKS */}
+          {/* ADMIN LINKS - kept red as-is */}
           {isAdmin && (
             <div className="ml-2 flex items-center gap-1 rounded-lg border border-red-100 bg-red-50 px-2 py-1">
               <Shield size={16} className="text-red-600" />
@@ -134,33 +156,17 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* CART */}
-          {isAuthenticated && (
-            <button
-              onClick={() => navigate("/cart")}
-              className="relative ml-2 px-3 py-2 rounded-lg hover:bg-gray-50"
-              aria-label="Cart"
-            >
-              <ShoppingCart size={20} className="text-gray-700" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-green-600 text-white text-[10px] min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-          )}
-
           {/* AUTH */}
           <div className="ml-2 flex items-center gap-3">
             {isAuthenticated ? (
               <>
-                <span className="text-gray-600 text-sm">
+                <span className="text-sm text-gray-600">
                   Hi,{" "}
                   <span className="font-semibold">
                     {user?.name?.split(" ")[0]}
                   </span>
                   {isAdmin && (
-                    <span className="ml-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                    <span className="ml-2 rounded bg-red-100 px-2 py-1 text-xs text-red-600">
                       ADMIN
                     </span>
                   )}
@@ -168,7 +174,7 @@ export default function Navbar() {
 
                 <button
                   onClick={handleLogout}
-                  className="px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
                 >
                   Logout
                 </button>
@@ -181,7 +187,7 @@ export default function Navbar() {
 
                 <NavLink
                   to="/signup"
-                  className="px-3 py-2 rounded-lg text-sm font-semibold text-green-700 bg-green-50 hover:bg-green-100"
+                  className="rounded-lg bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 hover:bg-green-100"
                 >
                   Signup
                 </NavLink>
@@ -191,19 +197,19 @@ export default function Navbar() {
         </div>
 
         {/* ================= MOBILE RIGHT ================= */}
-        <div className="md:hidden flex items-center gap-2">
+        <div className="flex items-center gap-2 md:hidden">
           {isAuthenticated && (
             <button
               onClick={() => {
                 navigate("/cart");
                 setOpen(false);
               }}
-              className="relative px-3 py-2 rounded-lg hover:bg-gray-50"
+              className="relative rounded-lg px-3 py-2 hover:bg-gray-50"
               aria-label="Cart"
             >
               <ShoppingCart size={22} className="text-gray-800" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-green-600 text-white text-[10px] min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center">
+                <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-green-600 px-1 text-[10px] text-white">
                   {cartCount}
                 </span>
               )}
@@ -211,7 +217,7 @@ export default function Navbar() {
           )}
 
           <button
-            className="px-3 py-2 rounded-lg border text-gray-800"
+            className="rounded-lg border px-3 py-2 text-gray-800"
             onClick={() => setOpen((v) => !v)}
             aria-label="Open menu"
           >
@@ -223,19 +229,19 @@ export default function Navbar() {
       {/* ================= MOBILE MENU ================= */}
       {open && (
         <div
-          className="md:hidden fixed inset-0 z-50 bg-black/40"
+          className="fixed inset-0 z-50 bg-black/40 md:hidden"
           onClick={closeMenu}
         >
           <div
-            className="absolute top-0 right-0 h-full w-[85%] max-w-sm bg-white shadow-xl p-4 overflow-y-auto"
+            className="absolute right-0 top-0 h-full w-[85%] max-w-sm overflow-y-auto bg-white p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <div className="text-lg font-bold text-green-600">Menu</div>
 
               <button
                 onClick={closeMenu}
-                className="p-2 rounded-lg hover:bg-gray-50"
+                className="rounded-lg p-2 hover:bg-gray-50"
                 aria-label="Close menu"
               >
                 <X size={22} />
@@ -249,7 +255,7 @@ export default function Navbar() {
                 <div className="text-xs text-gray-500">{user?.email}</div>
 
                 {isAdmin && (
-                  <div className="mt-2 inline-flex text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                  <div className="mt-2 inline-flex rounded bg-red-100 px-2 py-1 text-xs text-red-600">
                     ADMIN
                   </div>
                 )}
@@ -272,6 +278,14 @@ export default function Navbar() {
               {isAuthenticated && (
                 <>
                   <NavLink
+                    to="/macrotrack"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
+                    MacroTrack
+                  </NavLink>
+
+                  <NavLink
                     to="/smart-day-planner"
                     className={mobileLinkClass}
                     onClick={closeMenu}
@@ -288,11 +302,19 @@ export default function Navbar() {
                   </NavLink>
 
                   <NavLink
-                    to="/macrotrack"
+                    to="/cart"
                     className={mobileLinkClass}
                     onClick={closeMenu}
                   >
-                    MacroTrack
+                    Cart {cartCount > 0 ? `(${cartCount})` : ""}
+                  </NavLink>
+
+                  <NavLink
+                    to="/settings"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
+                    Settings
                   </NavLink>
 
                   {user?.role === "delivery" && (
@@ -311,7 +333,7 @@ export default function Navbar() {
                 <>
                   <div className="my-2 border-t" />
 
-                  <div className="px-3 pt-2 text-xs font-semibold text-gray-400 flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-3 pt-2 text-xs font-semibold text-gray-400">
                     <Shield size={14} className="text-red-600" />
                     Admin
                   </div>
@@ -363,7 +385,7 @@ export default function Navbar() {
               {isAuthenticated ? (
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-3 py-2 rounded-lg text-base font-medium text-red-600 hover:bg-red-50"
+                  className="w-full rounded-lg px-3 py-2 text-left text-base font-medium text-red-600 hover:bg-red-50"
                 >
                   Logout
                 </button>
@@ -380,10 +402,10 @@ export default function Navbar() {
                   <NavLink
                     to="/signup"
                     className={({ isActive }) =>
-                      `block w-full px-3 py-2 rounded-lg text-base font-semibold transition ${
+                      `block w-full rounded-lg px-3 py-2 text-base font-semibold transition ${
                         isActive
-                          ? "text-green-700 bg-green-50"
-                          : "text-green-700 bg-green-50 hover:bg-green-100"
+                          ? "bg-green-50 text-green-700"
+                          : "bg-green-50 text-green-700 hover:bg-green-100"
                       }`
                     }
                     onClick={closeMenu}
