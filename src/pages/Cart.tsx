@@ -11,6 +11,7 @@ import {
   Navigation,
   Search,
   BookmarkPlus,
+  X,
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import api from "../api/api";
@@ -386,35 +387,45 @@ export default function Cart() {
 
     style.innerHTML = `
       .pac-container {
-        z-index: 99999 !important;
-        border-radius: 16px !important;
-        margin-top: 8px !important;
-        border: 1px solid #dcfce7 !important;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.16) !important;
-        font-family: inherit !important;
+        z-index: 999999 !important;
+        margin-top: 10px !important;
+        border-radius: 18px !important;
+        border: 1px solid #bbf7d0 !important;
+        box-shadow: 0 22px 50px rgba(0, 0, 0, 0.22) !important;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
         overflow: hidden !important;
-        padding: 8px 0 !important;
+        padding: 10px 0 !important;
       }
 
       .pac-item {
-        padding: 14px 18px !important;
+        padding: 16px 18px !important;
         font-size: 15px !important;
         line-height: 24px !important;
         cursor: pointer !important;
+        border-top: 1px solid #f3f4f6 !important;
+      }
+
+      .pac-item:first-child {
+        border-top: none !important;
       }
 
       .pac-item:hover {
         background: #f0fdf4 !important;
       }
 
+      .pac-icon {
+        margin-top: 6px !important;
+      }
+
       .pac-item-query {
         font-size: 16px !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
         color: #111827 !important;
       }
 
       .pac-matched {
-        font-weight: 800 !important;
+        font-weight: 900 !important;
+        color: #16a34a !important;
       }
     `;
 
@@ -1069,7 +1080,7 @@ export default function Cart() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.85fr_1.6fr_0.9fr]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.8fr_1.8fr_0.9fr]">
             <div className={softCardClass}>
               <p className="mb-2 flex items-center gap-2 text-sm font-bold">
                 <Tag size={15} /> Apply Coupon
@@ -1126,7 +1137,7 @@ export default function Cart() {
                 </p>
 
                 <p className="mt-1 text-xs text-gray-500">
-                  Search, pin exact location, and save address.
+                  Search like Google Maps, pin exact location, and save address.
                 </p>
               </div>
 
@@ -1167,13 +1178,25 @@ export default function Cart() {
                 </div>
               )}
 
-              <div className="mb-4 rounded-2xl border border-green-100 bg-green-50 p-4">
-                <p className="mb-3 flex items-center gap-2 text-base font-extrabold text-gray-900">
-                  <Search size={20} className="text-green-600" />
-                  Search Location
-                </p>
+              <div className="mb-5 rounded-3xl border border-green-100 bg-green-50 p-5">
+                <div className="mb-4">
+                  <p className="flex items-center gap-2 text-lg font-extrabold text-gray-900">
+                    <Search size={22} className="text-green-600" />
+                    Search Location
+                  </p>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
+                  <p className="mt-1 text-sm text-gray-500">
+                    Search like Google Maps and select the exact delivery
+                    address.
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <Search
+                    size={22}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+
                   <input
                     ref={addressInputRef}
                     value={addressSearch}
@@ -1186,39 +1209,52 @@ export default function Cart() {
                     }}
                     placeholder={
                       googleSearchReady
-                        ? "Search full address, apartment, area, landmark..."
-                        : "Loading Google search..."
+                        ? "Search for area, street, apartment, landmark..."
+                        : "Loading Google Maps search..."
                     }
-                    className="h-14 flex-1 rounded-xl border border-gray-300 bg-white px-4 text-base font-medium text-gray-800 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                    className="h-16 w-full rounded-2xl border border-green-300 bg-white pl-12 pr-28 text-base font-semibold text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-green-600 focus:ring-4 focus:ring-green-100"
                   />
+
+                  {addressSearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddressSearch("");
+                        setLocationMsg(null);
+                      }}
+                      className="absolute right-24 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
 
                   <button
                     type="button"
                     onClick={geocodeTypedAddress}
                     disabled={searchingAddress}
-                    className="h-14 rounded-xl bg-green-600 px-6 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-60"
+                    className="absolute right-2 top-1/2 h-12 -translate-y-1/2 rounded-xl bg-green-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-green-700 disabled:opacity-60"
                   >
-                    {searchingAddress ? "Searching..." : "Search"}
+                    {searchingAddress ? "..." : "Search"}
                   </button>
                 </div>
 
-                <p className="mt-2 text-sm text-gray-500">
-                  Select the exact address from Google suggestions for accurate
-                  delivery.
+                <p className="mt-3 text-sm font-medium text-gray-600">
+                  Start typing and choose one address from the dropdown
+                  suggestions.
                 </p>
 
                 <button
                   type="button"
                   onClick={useCurrentLocation}
-                  className="mt-3 h-12 w-full rounded-xl bg-green-600 text-sm font-bold text-white hover:bg-green-700"
+                  className="mt-4 h-12 w-full rounded-2xl bg-green-600 text-sm font-bold text-white shadow-sm hover:bg-green-700"
                 >
-                  <Navigation size={16} className="mr-1 inline" />
+                  <Navigation size={17} className="mr-1 inline" />
                   Use Current Location
                 </button>
 
                 {address.lat != null && address.lng != null && (
-                  <div className="mt-4 overflow-hidden rounded-2xl border bg-white">
-                    <div className="h-56 w-full">
+                  <div className="mt-5 overflow-hidden rounded-3xl border bg-white shadow-sm">
+                    <div className="h-64 w-full">
                       <MapContainer
                         center={[address.lat, address.lng]}
                         zoom={17}
@@ -1241,16 +1277,22 @@ export default function Cart() {
                       </MapContainer>
                     </div>
 
-                    <p className="bg-white px-4 py-2 text-xs text-gray-500">
-                      Tap map to adjust exact pin.
+                    <p className="bg-white px-4 py-2 text-xs font-medium text-gray-500">
+                      Tap on the map to adjust your exact delivery pin.
                     </p>
                   </div>
                 )}
 
                 {address.formattedAddress && (
-                  <p className="mt-3 rounded-xl bg-white p-3 text-sm leading-6 text-gray-700">
-                    <b>Selected:</b> {address.formattedAddress}
-                  </p>
+                  <div className="mt-4 rounded-2xl border border-green-100 bg-white p-4 shadow-sm">
+                    <p className="mb-1 text-xs font-bold uppercase tracking-wide text-green-700">
+                      Selected Address
+                    </p>
+
+                    <p className="text-sm font-semibold leading-6 text-gray-800">
+                      {address.formattedAddress}
+                    </p>
+                  </div>
                 )}
 
                 {address.mapsUrl && (
@@ -1265,7 +1307,7 @@ export default function Cart() {
                 )}
 
                 {locationMsg && (
-                  <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+                  <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">
                     {locationMsg}
                   </p>
                 )}
