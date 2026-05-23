@@ -232,13 +232,6 @@ export default function Navbar() {
                 >
                   Signup
                 </NavLink>
-
-                <NavLink
-                  to="/cheflogin"
-                  className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-100"
-                >
-                  Chef Login
-                </NavLink>
               </>
             )}
           </div>
@@ -500,34 +493,6 @@ export default function Navbar() {
                     onClick={closeMenu}
                   >
                     Signup
-                  </NavLink>
-
-                  <NavLink
-                    to="/cheflogin"
-                    className={({ isActive }) =>
-                      `block w-full rounded-lg px-3 py-2 text-base font-semibold transition ${
-                        isActive
-                          ? "bg-orange-50 text-orange-700"
-                          : "bg-orange-50 text-orange-700 hover:bg-orange-100"
-                      }`
-                    }
-                    onClick={closeMenu}
-                  >
-                    Chef Login
-                  </NavLink>
-
-                  <NavLink
-                    to="/chefsignup"
-                    className={({ isActive }) =>
-                      `block w-full rounded-lg px-3 py-2 text-base font-semibold transition ${
-                        isActive
-                          ? "bg-orange-50 text-orange-700"
-                          : "text-orange-700 hover:bg-orange-50"
-                      }`
-                    }
-                    onClick={closeMenu}
-                  >
-                    Chef Signup
                   </NavLink>
                 </>
               )}
