@@ -40,9 +40,14 @@ export default function Signup() {
   const phoneReady = form.phone.trim().length >= 10;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
 
-    if (e.target.name === "phone") {
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    if (name === "phone") {
       setOtp("");
       setDevOtp("");
       setOtpSent(false);
@@ -62,17 +67,29 @@ export default function Signup() {
 
       const res = await api.post("/auth/send-phone-otp", {
         phone: form.phone.trim(),
+        name: form.name.trim() || "MacroBox User",
       });
 
       setOtpSent(true);
+      setOtp("");
+      setPhoneVerified(false);
+      setPhoneVerificationToken("");
 
       if (res.data?.devOtp) {
         setDevOtp(res.data.devOtp);
+        toast.success("Dev OTP generated successfully.");
+      } else {
+        setDevOtp("");
+        toast.success(res.data?.message || "OTP sent successfully.");
       }
-
-      toast.success("Dev OTP generated successfully.");
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to generate OTP.");
+      setOtpSent(false);
+      setDevOtp("");
+
+      toast.error(
+        error?.response?.data?.message ||
+          "Failed to generate OTP. Please try again."
+      );
     } finally {
       setOtpLoading(false);
     }
@@ -155,12 +172,11 @@ export default function Signup() {
 
       navigate("/login", { replace: true });
     } catch (error: any) {
-      const message =
+      toast.error(
         error?.response?.data?.message ||
-        error?.message ||
-        "Signup failed. Please try again.";
-
-      toast.error(message);
+          error?.message ||
+          "Signup failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -278,6 +294,7 @@ export default function Signup() {
                     placeholder="Enter 6-digit OTP"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
+                    maxLength={6}
                     className="h-11 flex-1 rounded-xl border bg-white px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
                   />
 
@@ -293,15 +310,16 @@ export default function Signup() {
               )}
 
               {devOtp && !phoneVerified && (
-                <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                  Dev OTP: <b>{devOtp}</b>
+                <div className="mt-3 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                  Dev OTP: <span className="font-bold">{devOtp}</span>
                 </div>
               )}
 
               {otpSent && !phoneVerified && (
                 <p className="mt-2 text-xs text-gray-500">
-                  This is development OTP mode. Use the OTP shown above to
-                  continue.
+                  {devOtp
+                    ? "This is development OTP mode. Use the OTP shown above to continue."
+                    : "OTP sent successfully. Please enter it to continue."}
                 </p>
               )}
 
