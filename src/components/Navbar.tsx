@@ -1,4 +1,5 @@
-// frontend/src/components/Navbar.tsx
+// frontend/src/components/Navbar.tsx (FRONTEND)
+
 import { Link, useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -12,6 +13,8 @@ import {
   Truck,
   ReceiptText,
   Settings,
+  ChefHat,
+  ClipboardList,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -19,6 +22,8 @@ export default function Navbar() {
   const { cartCount } = useCart();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  const isChef = user?.role === "chef";
 
   const handleLogout = () => {
     logout();
@@ -57,6 +62,13 @@ export default function Navbar() {
       isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
     }`;
 
+  const chefIconLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `px-2 py-1 rounded-md text-sm font-semibold flex items-center gap-1 ${
+      isActive
+        ? "text-orange-700 underline"
+        : "text-orange-600 hover:underline"
+    }`;
+
   const cartLinkClass = ({ isActive }: { isActive: boolean }) =>
     `relative px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1 ${
       isActive ? "text-green-700 bg-green-50" : "text-gray-700 hover:bg-gray-50"
@@ -84,7 +96,7 @@ export default function Navbar() {
             Meals
           </NavLink>
 
-          {isAuthenticated && (
+          {isAuthenticated && !isChef && (
             <>
               <NavLink to="/macrotrack" className={navLinkClass}>
                 MacroTrack
@@ -123,7 +135,19 @@ export default function Navbar() {
             </>
           )}
 
-          {/* ADMIN LINKS - kept red as-is */}
+          {/* CHEF LINKS */}
+          {isAuthenticated && isChef && (
+            <div className="ml-2 flex items-center gap-1 rounded-lg border border-orange-100 bg-orange-50 px-2 py-1">
+              <ChefHat size={16} className="text-orange-600" />
+
+              <NavLink to="/orderslist" className={chefIconLinkClass}>
+                <ClipboardList size={14} />
+                Kitchen Orders
+              </NavLink>
+            </div>
+          )}
+
+          {/* ADMIN LINKS */}
           {isAdmin && (
             <div className="ml-2 flex items-center gap-1 rounded-lg border border-red-100 bg-red-50 px-2 py-1">
               <Shield size={16} className="text-red-600" />
@@ -153,6 +177,16 @@ export default function Navbar() {
                 <Truck size={14} />
                 Delivery Agents
               </NavLink>
+
+              <NavLink to="/admin/chefs" className={adminIconLinkClass}>
+                <ChefHat size={14} />
+                Chefs
+              </NavLink>
+
+              <NavLink to="/orderslist" className={adminIconLinkClass}>
+                <ClipboardList size={14} />
+                Kitchen Orders
+              </NavLink>
             </div>
           )}
 
@@ -165,9 +199,16 @@ export default function Navbar() {
                   <span className="font-semibold">
                     {user?.name?.split(" ")[0]}
                   </span>
+
                   {isAdmin && (
                     <span className="ml-2 rounded bg-red-100 px-2 py-1 text-xs text-red-600">
                       ADMIN
+                    </span>
+                  )}
+
+                  {isChef && (
+                    <span className="ml-2 rounded bg-orange-100 px-2 py-1 text-xs text-orange-700">
+                      CHEF
                     </span>
                   )}
                 </span>
@@ -191,6 +232,13 @@ export default function Navbar() {
                 >
                   Signup
                 </NavLink>
+
+                <NavLink
+                  to="/cheflogin"
+                  className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-100"
+                >
+                  Chef Login
+                </NavLink>
               </>
             )}
           </div>
@@ -198,7 +246,7 @@ export default function Navbar() {
 
         {/* ================= MOBILE RIGHT ================= */}
         <div className="flex items-center gap-2 md:hidden">
-          {isAuthenticated && (
+          {isAuthenticated && !isChef && (
             <button
               onClick={() => {
                 navigate("/cart");
@@ -259,6 +307,12 @@ export default function Navbar() {
                     ADMIN
                   </div>
                 )}
+
+                {isChef && (
+                  <div className="mt-2 inline-flex rounded bg-orange-100 px-2 py-1 text-xs text-orange-700">
+                    CHEF
+                  </div>
+                )}
               </div>
             )}
 
@@ -275,7 +329,7 @@ export default function Navbar() {
                 Meals
               </NavLink>
 
-              {isAuthenticated && (
+              {isAuthenticated && !isChef && (
                 <>
                   <NavLink
                     to="/macrotrack"
@@ -329,6 +383,25 @@ export default function Navbar() {
                 </>
               )}
 
+              {isChef && (
+                <>
+                  <div className="my-2 border-t" />
+
+                  <div className="flex items-center gap-2 px-3 pt-2 text-xs font-semibold text-gray-400">
+                    <ChefHat size={14} className="text-orange-600" />
+                    Chef
+                  </div>
+
+                  <NavLink
+                    to="/orderslist"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
+                    Kitchen Orders
+                  </NavLink>
+                </>
+              )}
+
               {isAdmin && (
                 <>
                   <div className="my-2 border-t" />
@@ -377,6 +450,22 @@ export default function Navbar() {
                   >
                     Delivery Agents
                   </NavLink>
+
+                  <NavLink
+                    to="/admin/chefs"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
+                    Chef Management
+                  </NavLink>
+
+                  <NavLink
+                    to="/orderslist"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
+                    Kitchen Orders
+                  </NavLink>
                 </>
               )}
 
@@ -411,6 +500,34 @@ export default function Navbar() {
                     onClick={closeMenu}
                   >
                     Signup
+                  </NavLink>
+
+                  <NavLink
+                    to="/cheflogin"
+                    className={({ isActive }) =>
+                      `block w-full rounded-lg px-3 py-2 text-base font-semibold transition ${
+                        isActive
+                          ? "bg-orange-50 text-orange-700"
+                          : "bg-orange-50 text-orange-700 hover:bg-orange-100"
+                      }`
+                    }
+                    onClick={closeMenu}
+                  >
+                    Chef Login
+                  </NavLink>
+
+                  <NavLink
+                    to="/chefsignup"
+                    className={({ isActive }) =>
+                      `block w-full rounded-lg px-3 py-2 text-base font-semibold transition ${
+                        isActive
+                          ? "bg-orange-50 text-orange-700"
+                          : "text-orange-700 hover:bg-orange-50"
+                      }`
+                    }
+                    onClick={closeMenu}
+                  >
+                    Chef Signup
                   </NavLink>
                 </>
               )}

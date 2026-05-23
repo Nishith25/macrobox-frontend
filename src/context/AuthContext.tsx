@@ -12,7 +12,7 @@ type User = {
   name: string;
   email: string;
   phone?: string;
-  role: "admin" | "user" | "delivery";
+  role: "user" | "admin" | "delivery" | "chef";
   deliveryProfile?: {
     phone?: string;
     isActive?: boolean;
