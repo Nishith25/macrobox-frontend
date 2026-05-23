@@ -1,28 +1,32 @@
 // frontend/src/pages/Cart.tsx (FRONTEND)
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Plus,
-  Minus,
-  Trash2,
-  MapPin,
-  Clock,
-  Tag,
-  Navigation,
-  Search,
   BookmarkPlus,
+  CheckCircle2,
+  Clock,
+  LocateFixed,
+  MapPin,
+  Minus,
+  Navigation,
+  Plus,
+  Search,
+  ShieldCheck,
+  ShoppingBag,
+  Tag,
+  Trash2,
   X,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import api from "../api/api";
-import { useNavigate } from "react-router-dom";
 
 import {
   MapContainer,
-  TileLayer,
   Marker,
-  useMapEvents,
+  TileLayer,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -35,45 +39,6 @@ declare global {
 
 const SLOT_START_HOUR = 7;
 const SLOT_END_HOUR = 19;
-
-const pad2 = (n: number) => String(n).padStart(2, "0");
-
-const format12h = (hour24: number) => {
-  const period = hour24 >= 12 ? "PM" : "AM";
-  const h = hour24 % 12 === 0 ? 12 : hour24 % 12;
-  return `${h}:00 ${period}`;
-};
-
-const buildSlots = () => {
-  const slots: string[] = [];
-
-  for (let h = SLOT_START_HOUR; h <= SLOT_END_HOUR; h++) {
-    slots.push(`${pad2(h)}:00`);
-  }
-
-  return slots;
-};
-
-const getHourFromSlot = (slotHHmm: string) => Number(slotHHmm.split(":")[0]);
-
-const isSlotAllowed = (selectedDateISO: string, slotHHmm: string) => {
-  if (!selectedDateISO || !slotHHmm) return false;
-
-  const [yy, mm, dd] = selectedDateISO.split("-").map(Number);
-  const hour = getHourFromSlot(slotHHmm);
-
-  if (!yy || !mm || !dd || Number.isNaN(hour)) return false;
-
-  const slotDateTime = new Date(yy, mm - 1, dd, hour, 0, 0, 0);
-
-  const minAllowed = new Date();
-  minAllowed.setHours(minAllowed.getHours() + 3);
-
-  return slotDateTime.getTime() >= minAllowed.getTime();
-};
-
-const optionLabel = (label: string, allowed: boolean) =>
-  allowed ? label : `${label} — Time slot not available`;
 
 type LocationMode = "manual" | "current";
 
@@ -114,12 +79,54 @@ type AvailableCoupon = {
   validTo?: string | null;
 };
 
-const formatCouponLabel = (c: AvailableCoupon) => {
-  if (c.type === "flat") return `₹${c.value} OFF`;
+const markerIcon = new L.Icon({
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
 
-  const cap = c.maxDiscount > 0 ? ` (Max ₹${c.maxDiscount})` : "";
-  return `${c.value}% OFF${cap}`;
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+const format12h = (hour24: number) => {
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const h = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${h}:00 ${period}`;
 };
+
+const buildSlots = () => {
+  const slots: string[] = [];
+
+  for (let h = SLOT_START_HOUR; h <= SLOT_END_HOUR; h++) {
+    slots.push(`${pad2(h)}:00`);
+  }
+
+  return slots;
+};
+
+const getHourFromSlot = (slotHHmm: string) => Number(slotHHmm.split(":")[0]);
+
+const isSlotAllowed = (selectedDateISO: string, slotHHmm: string) => {
+  if (!selectedDateISO || !slotHHmm) return false;
+
+  const [yy, mm, dd] = selectedDateISO.split("-").map(Number);
+  const hour = getHourFromSlot(slotHHmm);
+
+  if (!yy || !mm || !dd || Number.isNaN(hour)) return false;
+
+  const slotDateTime = new Date(yy, mm - 1, dd, hour, 0, 0, 0);
+  const minAllowed = new Date();
+
+  minAllowed.setHours(minAllowed.getHours() + 3);
+
+  return slotDateTime.getTime() >= minAllowed.getTime();
+};
+
+const optionLabel = (label: string, allowed: boolean) =>
+  allowed ? label : `${label} — Time slot not available`;
+
+const makeMapsUrl = (lat: number, lng: number) =>
+  `https://www.google.com/maps?q=${lat},${lng}`;
 
 const prettyDate = (iso?: string | null) => {
   if (!iso) return null;
@@ -131,15 +138,12 @@ const prettyDate = (iso?: string | null) => {
   return d.toLocaleDateString();
 };
 
-const makeMapsUrl = (lat: number, lng: number) =>
-  `https://www.google.com/maps?q=${lat},${lng}`;
+const formatCouponLabel = (c: AvailableCoupon) => {
+  if (c.type === "flat") return `₹${c.value} OFF`;
 
-const markerIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+  const cap = c.maxDiscount > 0 ? ` • Max ₹${c.maxDiscount}` : "";
+  return `${c.value}% OFF${cap}`;
+};
 
 const getAddressComponent = (
   components: google.maps.GeocoderAddressComponent[] | undefined,
@@ -173,30 +177,6 @@ const getGoogleArea = (
   );
 };
 
-function MapClickHandler({
-  onPick,
-}: {
-  onPick: (lat: number, lng: number) => void;
-}) {
-  useMapEvents({
-    click(e) {
-      onPick(e.latlng.lat, e.latlng.lng);
-    },
-  });
-
-  return null;
-}
-
-function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
-  const map = useMap();
-
-  useEffect(() => {
-    map.setView([lat, lng], 17);
-  }, [lat, lng, map]);
-
-  return null;
-}
-
 const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     if (window.google?.maps?.places) {
@@ -215,6 +195,7 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
     }
 
     const script = document.createElement("script");
+
     script.id = "google-maps-script";
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
@@ -228,15 +209,72 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
   });
 };
 
+function MapClickHandler({
+  onPick,
+}: {
+  onPick: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
+function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView([lat, lng], 18);
+  }, [lat, lng, map]);
+
+  return null;
+}
+
+function DraggableMarker({
+  lat,
+  lng,
+  onPick,
+}: {
+  lat: number;
+  lng: number;
+  onPick: (lat: number, lng: number) => void;
+}) {
+  const markerRef = useRef<L.Marker | null>(null);
+
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (!marker) return;
+
+        const position = marker.getLatLng();
+        onPick(position.lat, position.lng);
+      },
+    }),
+    [onPick]
+  );
+
+  return (
+    <Marker
+      draggable
+      eventHandlers={eventHandlers}
+      position={[lat, lng]}
+      icon={markerIcon}
+      ref={markerRef}
+    />
+  );
+}
+
 export default function Cart() {
   const navigate = useNavigate();
-
   const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } =
     useCart();
 
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
-
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponMsgType, setCouponMsgType] = useState<MsgType>(null);
 
@@ -318,10 +356,10 @@ export default function Cart() {
 
   const payable = Math.max(subtotal - discount, 0);
 
-  const cardClass = "rounded-xl border bg-white p-4 shadow-sm";
-  const softCardClass = "rounded-xl border bg-gray-50 p-3";
+  const cardClass =
+    "rounded-3xl border border-gray-200 bg-white p-5 shadow-sm";
   const inputClass =
-    "h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500";
+    "h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-800 outline-none transition focus:border-green-500 focus:ring-4 focus:ring-green-100";
 
   const fetchAvailableCoupons = async () => {
     try {
@@ -378,27 +416,28 @@ export default function Cart() {
   }, [availableCoupons]);
 
   useEffect(() => {
-    const styleId = "macrobox-google-places-large-style";
+    const styleId = "macrobox-google-places-premium-style";
 
     if (document.getElementById(styleId)) return;
 
     const style = document.createElement("style");
+
     style.id = styleId;
 
     style.innerHTML = `
       .pac-container {
         z-index: 999999 !important;
-        margin-top: 10px !important;
-        border-radius: 18px !important;
+        margin-top: 12px !important;
+        border-radius: 22px !important;
         border: 1px solid #bbf7d0 !important;
-        box-shadow: 0 22px 50px rgba(0, 0, 0, 0.22) !important;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22) !important;
         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
         overflow: hidden !important;
         padding: 10px 0 !important;
       }
 
       .pac-item {
-        padding: 16px 18px !important;
+        padding: 18px 20px !important;
         font-size: 15px !important;
         line-height: 24px !important;
         cursor: pointer !important;
@@ -414,12 +453,12 @@ export default function Cart() {
       }
 
       .pac-icon {
-        margin-top: 6px !important;
+        margin-top: 8px !important;
       }
 
       .pac-item-query {
         font-size: 16px !important;
-        font-weight: 800 !important;
+        font-weight: 900 !important;
         color: #111827 !important;
       }
 
@@ -605,7 +644,7 @@ export default function Cart() {
     setLocationMsg(null);
 
     if (!navigator.geolocation) {
-      setLocationMsg("Geolocation is not supported on this device/browser.");
+      setLocationMsg("Geolocation is not supported on this browser.");
       return;
     }
 
@@ -626,7 +665,7 @@ export default function Cart() {
       },
       () => {
         setLocationMsg(
-          "Location permission denied. Please allow location access."
+          "Location permission denied. Please allow location access or search manually."
         );
       },
       {
@@ -758,6 +797,7 @@ export default function Cart() {
       if (document.getElementById("razorpay-sdk")) return resolve(true);
 
       const script = document.createElement("script");
+
       script.id = "razorpay-sdk";
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
@@ -864,8 +904,6 @@ export default function Cart() {
         await saveCurrentAddress();
       }
 
-      console.log("CREATE ORDER PAYLOAD:", payload);
-
       const createRes = await api.post("/checkout/create-order", payload);
 
       const { razorpayOrderId, amount, keyId, orderId } = createRes.data;
@@ -910,8 +948,6 @@ export default function Cart() {
 
       rzp.open();
     } catch (err: any) {
-      console.log("ORDER CREATE ERROR:", err?.response?.data);
-
       setCouponMsg(err?.response?.data?.message || "Failed to create order");
       setCouponMsgType("error");
     } finally {
@@ -921,255 +957,191 @@ export default function Cart() {
 
   if (cart.length === 0) {
     return (
-      <p className="mt-16 text-center text-lg text-gray-500">
-        Your cart is empty 🛒
-      </p>
+      <div className="mx-auto max-w-5xl px-4 py-20">
+        <div className="rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+            <ShoppingBag size={30} className="text-green-600" />
+          </div>
+
+          <h1 className="mt-5 text-2xl font-extrabold text-gray-900">
+            Your cart is empty
+          </h1>
+
+          <p className="mt-2 text-sm text-gray-500">
+            Add your favourite MacroBox meals to continue.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => navigate("/meals")}
+            className="mt-6 rounded-2xl bg-green-600 px-6 py-3 text-sm font-extrabold text-white hover:bg-green-700"
+          >
+            Explore Meals
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="mb-5 text-2xl font-bold text-gray-900">Your Cart</h1>
-
-      <div className="space-y-4">
-        <div className="space-y-3">
-          {cart.map((item) => (
-            <div
-              key={item._id}
-              className="flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
-            >
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">
-                  {item.title}
-                </h3>
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Protein: {item.protein * item.qty}g • Calories:{" "}
-                  {item.calories * item.qty}
-                </p>
-
-                <p className="mt-1 text-sm font-semibold">
-                  ₹{item.price} × {item.qty}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => decreaseQty(item._id)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border hover:bg-gray-50"
-                >
-                  <Minus size={15} />
-                </button>
-
-                <span className="min-w-6 text-center text-sm font-semibold">
-                  {item.qty}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => increaseQty(item._id)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border hover:bg-gray-50"
-                >
-                  <Plus size={15} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => removeFromCart(item._id)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 size={17} />
-                </button>
-              </div>
-            </div>
-          ))}
-
-          <div className={cardClass}>
-            <p className="flex items-center gap-2 text-base font-bold">
-              <Tag size={17} /> Available Coupons
+    <div className="min-h-screen bg-gradient-to-b from-green-50/60 to-white">
+      <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <p className="inline-flex rounded-full bg-green-100 px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-green-700">
+              Secure Checkout
             </p>
 
-            {loadingCoupons ? (
-              <p className="mt-2 text-xs text-gray-500">Loading coupons...</p>
-            ) : availableCoupons.length === 0 ? (
-              <p className="mt-2 text-xs text-gray-500">
-                No coupons available for your cart.
-              </p>
-            ) : (
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                {availableCoupons.map((c) => {
-                  const from = prettyDate(c.validFrom);
-                  const to = prettyDate(c.validTo);
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-gray-950">
+              Your Cart
+            </h1>
 
-                  return (
-                    <div
-                      key={c.code}
-                      className="flex items-center justify-between gap-3 rounded-xl border p-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold">{c.code}</p>
-
-                        <p className="truncate text-xs text-gray-600">
-                          {formatCouponLabel(c)} • Min ₹{c.minCartTotal}
-                        </p>
-
-                        {(from || to) && (
-                          <p className="truncate text-[11px] text-gray-400">
-                            Valid: {from || "-"} → {to || "-"}
-                          </p>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => applyCoupon(c.code)}
-                        disabled={applying}
-                        className="h-9 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <p className="mt-2 text-[11px] text-gray-400">
-              Only eligible coupons are shown.
+            <p className="mt-1 text-sm text-gray-500">
+              Review meals, choose delivery location, and complete payment.
             </p>
+          </div>
+
+          <div className="rounded-3xl border border-green-100 bg-white px-5 py-3 shadow-sm">
+            <p className="text-xs font-bold uppercase text-gray-400">
+              Total Payable
+            </p>
+
+            <p className="text-2xl font-black text-green-700">₹{payable}</p>
           </div>
         </div>
 
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-xl font-bold">Order Summary</h2>
+        <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+          <div className="space-y-6">
+            <div className={cardClass}>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-xl font-black text-gray-950">
+                  <ShoppingBag size={22} className="text-green-600" />
+                  Meals in Cart
+                </h2>
 
-          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-6">
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Protein</p>
-              <p className="text-lg font-bold">{totalProtein} g</p>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Calories</p>
-              <p className="text-lg font-bold">{totalCalories}</p>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Carbs</p>
-              <p className="text-lg font-bold">{totalCarbs} g</p>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Fat</p>
-              <p className="text-lg font-bold">{totalFat} g</p>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Subtotal</p>
-              <p className="text-lg font-bold">₹{subtotal}</p>
-            </div>
-
-            <div className="rounded-xl bg-green-50 p-3">
-              <p className="text-xs text-green-700">Payable</p>
-              <p className="text-lg font-bold text-green-700">₹{payable}</p>
-
-              {discount > 0 && (
-                <p className="text-[11px] text-green-700">Saved ₹{discount}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.8fr_1.8fr_0.9fr]">
-            <div className={softCardClass}>
-              <p className="mb-2 flex items-center gap-2 text-sm font-bold">
-                <Tag size={15} /> Apply Coupon
-              </p>
-
-              <input
-                value={coupon}
-                onChange={(e) => {
-                  setCoupon(e.target.value.toUpperCase());
-                  setDiscount(0);
-                  setCouponMsg(null);
-                  setCouponMsgType(null);
-                }}
-                placeholder="Coupon code"
-                className={inputClass}
-              />
-
-              <button
-                type="button"
-                onClick={() => applyCoupon()}
-                disabled={applying}
-                className="mt-2 h-10 w-full rounded-lg bg-green-600 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {applying ? "Applying..." : "Apply Coupon"}
-              </button>
-
-              <div className="mt-3 space-y-2 text-sm">
-                <p className="flex justify-between">
-                  <span>Discount</span>
-                  <b className="text-green-600">-₹{discount}</b>
-                </p>
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-extrabold text-gray-600">
+                  {cart.length} item{cart.length > 1 ? "s" : ""}
+                </span>
               </div>
 
-              {couponMsg && (
-                <p
-                  className={`mt-2 text-xs ${
-                    couponMsgType === "error"
-                      ? "text-red-600"
-                      : couponMsgType === "success"
-                      ? "text-green-600"
-                      : "text-gray-600"
-                  }`}
-                >
-                  {couponMsg}
-                </p>
-              )}
+              <div className="space-y-3">
+                {cart.map((item) => (
+                  <div
+                    key={item._id}
+                    className="flex flex-col gap-4 rounded-3xl border border-gray-100 bg-gray-50 p-4 md:flex-row md:items-center md:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <h3 className="truncate text-lg font-black text-gray-950">
+                        {item.title}
+                      </h3>
+
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold text-gray-600">
+                        <span className="rounded-full bg-white px-3 py-1">
+                          Protein {item.protein * item.qty}g
+                        </span>
+
+                        <span className="rounded-full bg-white px-3 py-1">
+                          Calories {item.calories * item.qty}
+                        </span>
+
+                        <span className="rounded-full bg-white px-3 py-1">
+                          Carbs {(item.carbs || 0) * item.qty}g
+                        </span>
+
+                        <span className="rounded-full bg-white px-3 py-1">
+                          Fat {(item.fat || 0) * item.qty}g
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-sm font-black text-gray-900">
+                        ₹{item.price} × {item.qty}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => decreaseQty(item._id)}
+                        className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white hover:bg-gray-100"
+                      >
+                        <Minus size={16} />
+                      </button>
+
+                      <span className="min-w-7 text-center text-sm font-black">
+                        {item.qty}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => increaseQty(item._id)}
+                        className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white hover:bg-gray-100"
+                      >
+                        <Plus size={16} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(item._id)}
+                        className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-600 hover:bg-red-100"
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className={cardClass}>
-              <div className="mb-3">
-                <p className="flex items-center gap-2 text-base font-bold text-gray-900">
-                  <MapPin size={18} className="text-green-600" />
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-xl font-black text-gray-950">
+                  <MapPin size={22} className="text-green-600" />
                   Delivery Address
-                </p>
+                </h2>
 
-                <p className="mt-1 text-xs text-gray-500">
-                  Search like Google Maps, pin exact location, and save address.
-                </p>
+                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700">
+                  Exact pin required
+                </span>
               </div>
 
+              <p className="mb-5 text-sm text-gray-500">
+                Search your address like Google Maps, select the correct result,
+                then drag the marker or tap the map to adjust the exact delivery
+                pin.
+              </p>
+
               {savedAddresses.length > 0 && (
-                <div className="mb-3 rounded-xl border bg-gray-50 p-3">
-                  <p className="mb-2 text-sm font-bold text-gray-900">
-                    Saved Addresses
-                  </p>
+                <div className="mb-5 rounded-3xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-black text-gray-900">
+                      Saved Addresses
+                    </p>
+
+                    <p className="text-xs font-bold text-gray-400">
+                      Quick select
+                    </p>
+                  </div>
 
                   {loadingSavedAddresses ? (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm text-gray-500">
                       Loading saved addresses...
                     </p>
                   ) : (
-                    <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
-                      {savedAddresses.slice(0, 3).map((saved) => (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {savedAddresses.slice(0, 4).map((saved) => (
                         <button
                           key={saved._id}
                           type="button"
                           onClick={() => selectSavedAddress(saved)}
-                          className="w-full rounded-lg border bg-white p-2 text-left transition hover:border-green-500 hover:bg-green-50"
+                          className="rounded-2xl border border-gray-200 bg-white p-3 text-left transition hover:border-green-500 hover:bg-green-50"
                         >
-                          <p className="truncate text-sm font-bold text-gray-900">
-                            {saved.addressLabel} - {saved.fullName}
+                          <p className="truncate text-sm font-black text-gray-900">
+                            {saved.addressLabel} • {saved.fullName}
                           </p>
 
-                          <p className="truncate text-xs text-gray-600">
-                            {saved.flatNo}, {saved.buildingName}, {saved.area}
-                          </p>
-
-                          <p className="truncate text-xs text-gray-500">
-                            {saved.city}, {saved.state} - {saved.pincode}
+                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">
+                            {saved.flatNo}, {saved.buildingName}, {saved.area},{" "}
+                            {saved.city} - {saved.pincode}
                           </p>
                         </button>
                       ))}
@@ -1178,16 +1150,16 @@ export default function Cart() {
                 </div>
               )}
 
-              <div className="mb-5 rounded-3xl border border-green-100 bg-green-50 p-5">
+              <div className="mb-5 rounded-3xl border border-green-100 bg-gradient-to-br from-green-50 to-white p-5 shadow-sm">
                 <div className="mb-4">
-                  <p className="flex items-center gap-2 text-lg font-extrabold text-gray-900">
+                  <p className="flex items-center gap-2 text-lg font-black text-gray-900">
                     <Search size={22} className="text-green-600" />
                     Search Location
                   </p>
 
                   <p className="mt-1 text-sm text-gray-500">
-                    Search like Google Maps and select the exact delivery
-                    address.
+                    Type your apartment, street, area, or landmark and select
+                    from Google suggestions.
                   </p>
                 </div>
 
@@ -1209,10 +1181,10 @@ export default function Cart() {
                     }}
                     placeholder={
                       googleSearchReady
-                        ? "Search for area, street, apartment, landmark..."
+                        ? "Search exact delivery address..."
                         : "Loading Google Maps search..."
                     }
-                    className="h-16 w-full rounded-2xl border border-green-300 bg-white pl-12 pr-28 text-base font-semibold text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-green-600 focus:ring-4 focus:ring-green-100"
+                    className="h-16 w-full rounded-2xl border border-green-200 bg-white pl-12 pr-32 text-base font-bold text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-green-600 focus:ring-4 focus:ring-green-100"
                   />
 
                   {addressSearch && (
@@ -1232,32 +1204,40 @@ export default function Cart() {
                     type="button"
                     onClick={geocodeTypedAddress}
                     disabled={searchingAddress}
-                    className="absolute right-2 top-1/2 h-12 -translate-y-1/2 rounded-xl bg-green-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-green-700 disabled:opacity-60"
+                    className="absolute right-2 top-1/2 h-12 -translate-y-1/2 rounded-xl bg-green-600 px-5 text-sm font-black text-white shadow-sm hover:bg-green-700 disabled:opacity-60"
                   >
                     {searchingAddress ? "..." : "Search"}
                   </button>
                 </div>
 
-                <p className="mt-3 text-sm font-medium text-gray-600">
-                  Start typing and choose one address from the dropdown
-                  suggestions.
-                </p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={useCurrentLocation}
+                    className="h-12 flex-1 rounded-2xl bg-green-600 text-sm font-black text-white shadow-sm hover:bg-green-700"
+                  >
+                    <Navigation size={17} className="mr-1 inline" />
+                    Use Current Location
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={useCurrentLocation}
-                  className="mt-4 h-12 w-full rounded-2xl bg-green-600 text-sm font-bold text-white shadow-sm hover:bg-green-700"
-                >
-                  <Navigation size={17} className="mr-1 inline" />
-                  Use Current Location
-                </button>
+                  {address.mapsUrl && (
+                    <a
+                      href={address.mapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex h-12 flex-1 items-center justify-center rounded-2xl border border-green-200 bg-white text-sm font-black text-green-700 hover:bg-green-50"
+                    >
+                      Open in Google Maps
+                    </a>
+                  )}
+                </div>
 
                 {address.lat != null && address.lng != null && (
-                  <div className="mt-5 overflow-hidden rounded-3xl border bg-white shadow-sm">
-                    <div className="h-64 w-full">
+                  <div className="mt-5 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+                    <div className="relative h-80 w-full">
                       <MapContainer
                         center={[address.lat, address.lng]}
-                        zoom={17}
+                        zoom={18}
                         scrollWheelZoom={true}
                         className="h-full w-full"
                       >
@@ -1270,209 +1250,369 @@ export default function Cart() {
 
                         <MapClickHandler onPick={pinLocationOnMap} />
 
-                        <Marker
-                          position={[address.lat, address.lng]}
-                          icon={markerIcon}
+                        <DraggableMarker
+                          lat={address.lat}
+                          lng={address.lng}
+                          onPick={pinLocationOnMap}
                         />
                       </MapContainer>
-                    </div>
 
-                    <p className="bg-white px-4 py-2 text-xs font-medium text-gray-500">
-                      Tap on the map to adjust your exact delivery pin.
-                    </p>
+                      <div className="absolute left-4 top-4 z-[500] rounded-2xl bg-white/95 px-4 py-3 shadow-md">
+                        <p className="text-xs font-black uppercase tracking-wide text-green-700">
+                          Exact Location Pin
+                        </p>
+
+                        <p className="mt-1 text-xs font-medium text-gray-500">
+                          Drag marker or tap map to adjust.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
                 {address.formattedAddress && (
-                  <div className="mt-4 rounded-2xl border border-green-100 bg-white p-4 shadow-sm">
-                    <p className="mb-1 text-xs font-bold uppercase tracking-wide text-green-700">
-                      Selected Address
-                    </p>
+                  <div className="mt-4 rounded-3xl border border-green-100 bg-white p-4 shadow-sm">
+                    <div className="mb-2 flex items-center gap-2">
+                      <CheckCircle2 size={17} className="text-green-600" />
 
-                    <p className="text-sm font-semibold leading-6 text-gray-800">
+                      <p className="text-xs font-black uppercase tracking-wide text-green-700">
+                        Selected Address
+                      </p>
+                    </div>
+
+                    <p className="text-sm font-bold leading-6 text-gray-900">
                       {address.formattedAddress}
                     </p>
+
+                    {address.pincode && (
+                      <p className="mt-2 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                        Pincode: {address.pincode}
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {address.mapsUrl && (
-                  <a
-                    href={address.mapsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-3 inline-block text-sm font-bold text-green-700 underline"
-                  >
-                    Open in Google Maps
-                  </a>
-                )}
-
                 {locationMsg && (
-                  <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">
+                  <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm font-bold text-red-600">
                     {locationMsg}
                   </p>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <input
-                  placeholder="Full Name"
-                  className={inputClass}
-                  value={address.fullName}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      fullName: e.target.value,
-                    })
-                  }
-                />
+              <div className="rounded-3xl border border-gray-200 bg-gray-50 p-4">
+                <p className="mb-4 text-sm font-black text-gray-900">
+                  Delivery Details
+                </p>
 
-                <input
-                  placeholder="Phone Number"
-                  className={inputClass}
-                  value={address.phone}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      phone: e.target.value,
-                    })
-                  }
-                />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <input
+                    placeholder="Full Name"
+                    className={inputClass}
+                    value={address.fullName}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        fullName: e.target.value,
+                      })
+                    }
+                  />
 
-                <input
-                  placeholder="Flat / House No"
-                  className={inputClass}
-                  value={address.flatNo}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      flatNo: e.target.value,
-                    })
-                  }
-                />
+                  <input
+                    placeholder="Phone Number"
+                    className={inputClass}
+                    value={address.phone}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        phone: e.target.value,
+                      })
+                    }
+                  />
 
-                <input
-                  placeholder="Floor optional"
-                  className={inputClass}
-                  value={address.floor}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      floor: e.target.value,
-                    })
-                  }
-                />
+                  <input
+                    placeholder="Flat / House No"
+                    className={inputClass}
+                    value={address.flatNo}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        flatNo: e.target.value,
+                      })
+                    }
+                  />
 
-                <input
-                  placeholder="Building / Apartment"
-                  className={`${inputClass} sm:col-span-2`}
-                  value={address.buildingName}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      buildingName: e.target.value,
-                    })
-                  }
-                />
+                  <input
+                    placeholder="Floor optional"
+                    className={inputClass}
+                    value={address.floor}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        floor: e.target.value,
+                      })
+                    }
+                  />
 
-                <input
-                  placeholder="Area / Locality"
-                  className={inputClass}
-                  value={address.area}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      area: e.target.value,
-                    })
-                  }
-                />
+                  <input
+                    placeholder="Building / Apartment"
+                    className={`${inputClass} sm:col-span-2`}
+                    value={address.buildingName}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        buildingName: e.target.value,
+                      })
+                    }
+                  />
 
-                <input
-                  placeholder="Landmark optional"
-                  className={inputClass}
-                  value={address.landmark}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      landmark: e.target.value,
-                    })
-                  }
-                />
+                  <input
+                    placeholder="Area / Locality"
+                    className={inputClass}
+                    value={address.area}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        area: e.target.value,
+                      })
+                    }
+                  />
 
-                <input
-                  placeholder="City"
-                  className={inputClass}
-                  value={address.city}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      city: e.target.value,
-                    })
-                  }
-                />
+                  <input
+                    placeholder="Landmark optional"
+                    className={inputClass}
+                    value={address.landmark}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        landmark: e.target.value,
+                      })
+                    }
+                  />
 
-                <input
-                  placeholder="State"
-                  className={inputClass}
-                  value={address.state}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      state: e.target.value,
-                    })
-                  }
-                />
+                  <input
+                    placeholder="City"
+                    className={inputClass}
+                    value={address.city}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        city: e.target.value,
+                      })
+                    }
+                  />
 
-                <input
-                  placeholder="Pincode"
-                  className={inputClass}
-                  value={address.pincode}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      pincode: e.target.value.replace(/\D/g, "").slice(0, 6),
-                    })
-                  }
-                />
+                  <input
+                    placeholder="State"
+                    className={inputClass}
+                    value={address.state}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        state: e.target.value,
+                      })
+                    }
+                  />
 
-                <select
-                  className={inputClass}
-                  value={address.addressLabel}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      addressLabel: e.target.value as
-                        | "Home"
-                        | "Work"
-                        | "Other",
-                    })
-                  }
-                >
-                  <option value="Home">Home</option>
-                  <option value="Work">Work</option>
-                  <option value="Other">Other</option>
-                </select>
+                  <input
+                    placeholder="Pincode"
+                    className={inputClass}
+                    value={address.pincode}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        pincode: e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 6),
+                      })
+                    }
+                  />
+
+                  <select
+                    className={inputClass}
+                    value={address.addressLabel}
+                    onChange={(e) =>
+                      setAddress({
+                        ...address,
+                        addressLabel: e.target.value as
+                          | "Home"
+                          | "Work"
+                          | "Other",
+                      })
+                    }
+                  >
+                    <option value="Home">Home</option>
+                    <option value="Work">Work</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <label className="mt-4 flex items-center gap-2 rounded-2xl bg-white p-3 text-sm font-bold text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={saveAddressForFuture}
+                    onChange={(e) =>
+                      setSaveAddressForFuture(e.target.checked)
+                    }
+                  />
+                  <BookmarkPlus size={16} className="text-green-600" />
+                  Save this address for future orders
+                </label>
+
+                {addressMsg && (
+                  <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm font-bold text-red-600">
+                    {addressMsg}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6 xl:sticky xl:top-28 xl:self-start">
+            <div className={cardClass}>
+              <h2 className="flex items-center gap-2 text-xl font-black text-gray-950">
+                <ShieldCheck size={22} className="text-green-600" />
+                Order Summary
+              </h2>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-xs font-bold text-gray-400">Protein</p>
+                  <p className="mt-1 text-lg font-black text-gray-950">
+                    {totalProtein}g
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-xs font-bold text-gray-400">Calories</p>
+                  <p className="mt-1 text-lg font-black text-gray-950">
+                    {totalCalories}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-xs font-bold text-gray-400">Carbs</p>
+                  <p className="mt-1 text-lg font-black text-gray-950">
+                    {totalCarbs}g
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-xs font-bold text-gray-400">Fat</p>
+                  <p className="mt-1 text-lg font-black text-gray-950">
+                    {totalFat}g
+                  </p>
+                </div>
               </div>
 
-              <label className="mt-3 flex items-center gap-2 rounded-lg bg-gray-50 p-2 text-xs font-semibold text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={saveAddressForFuture}
-                  onChange={(e) => setSaveAddressForFuture(e.target.checked)}
-                />
-                <BookmarkPlus size={14} className="text-green-600" />
-                Save this address
-              </label>
+              <hr className="my-5" />
 
-              {addressMsg && (
-                <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-600">
-                  {addressMsg}
+              <div className="space-y-3 text-sm">
+                <p className="flex justify-between">
+                  <span className="text-gray-500">Subtotal</span>
+                  <b>₹{subtotal}</b>
                 </p>
-              )}
+
+                <p className="flex justify-between">
+                  <span className="text-gray-500">Discount</span>
+                  <b className="text-green-600">-₹{discount}</b>
+                </p>
+
+                <p className="flex justify-between text-lg font-black">
+                  <span>Total Payable</span>
+                  <span className="text-green-700">₹{payable}</span>
+                </p>
+              </div>
             </div>
 
-            <div className={softCardClass}>
-              <p className="mb-2 flex items-center gap-2 text-sm font-bold">
-                <Clock size={15} /> Delivery Time
+            <div className={cardClass}>
+              <p className="mb-3 flex items-center gap-2 text-base font-black text-gray-950">
+                <Tag size={18} className="text-green-600" />
+                Apply Coupon
+              </p>
+
+              <input
+                value={coupon}
+                onChange={(e) => {
+                  setCoupon(e.target.value.toUpperCase());
+                  setDiscount(0);
+                  setCouponMsg(null);
+                  setCouponMsgType(null);
+                }}
+                placeholder="Coupon code"
+                className={inputClass}
+              />
+
+              <button
+                type="button"
+                onClick={() => applyCoupon()}
+                disabled={applying}
+                className="mt-3 h-12 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700 disabled:opacity-60"
+              >
+                {applying ? "Applying..." : "Apply Coupon"}
+              </button>
+
+              {couponMsg && (
+                <p
+                  className={`mt-3 rounded-2xl p-3 text-sm font-bold ${
+                    couponMsgType === "error"
+                      ? "bg-red-50 text-red-600"
+                      : "bg-green-50 text-green-700"
+                  }`}
+                >
+                  {couponMsg}
+                </p>
+              )}
+
+              <div className="mt-5">
+                <p className="mb-3 text-sm font-black text-gray-900">
+                  Available Coupons
+                </p>
+
+                {loadingCoupons ? (
+                  <p className="text-sm text-gray-500">Loading coupons...</p>
+                ) : availableCoupons.length === 0 ? (
+                  <p className="rounded-2xl bg-gray-50 p-3 text-sm font-medium text-gray-500">
+                    No coupons available for your cart.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {availableCoupons.map((c) => {
+                      const from = prettyDate(c.validFrom);
+                      const to = prettyDate(c.validTo);
+
+                      return (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => applyCoupon(c.code)}
+                          disabled={applying}
+                          className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-3 text-left transition hover:border-green-500 hover:bg-green-50"
+                        >
+                          <p className="text-sm font-black text-gray-950">
+                            {c.code}
+                          </p>
+
+                          <p className="mt-1 text-xs font-bold text-gray-500">
+                            {formatCouponLabel(c)} • Min ₹{c.minCartTotal}
+                          </p>
+
+                          {(from || to) && (
+                            <p className="mt-1 text-[11px] font-medium text-gray-400">
+                              Valid: {from || "-"} → {to || "-"}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className={cardClass}>
+              <p className="mb-3 flex items-center gap-2 text-base font-black text-gray-950">
+                <Clock size={18} className="text-green-600" />
+                Delivery Time
               </p>
 
               <input
@@ -1497,7 +1637,7 @@ export default function Cart() {
               />
 
               <select
-                className="mt-2 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                className={`${inputClass} mt-3`}
                 value={slotTime}
                 onChange={(e) => {
                   setSlotTime(e.target.value);
@@ -1516,40 +1656,24 @@ export default function Cart() {
                 })}
               </select>
 
-              <p className="mt-2 text-[11px] text-gray-500">
+              <p className="mt-3 rounded-2xl bg-gray-50 p-3 text-xs font-medium leading-5 text-gray-500">
                 Orders must be placed at least <b>3 hours</b> before your
-                desired time slot.
+                selected delivery slot.
               </p>
 
               {slotMsg && (
-                <p className="mt-2 text-xs text-red-600">{slotMsg}</p>
+                <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm font-bold text-red-600">
+                  {slotMsg}
+                </p>
               )}
-
-              <hr className="my-4" />
-
-              <div className="space-y-2 text-sm">
-                <p className="flex justify-between">
-                  <span>Subtotal</span>
-                  <b>₹{subtotal}</b>
-                </p>
-
-                <p className="flex justify-between text-green-600">
-                  <span>Discount</span>
-                  <b>-₹{discount}</b>
-                </p>
-
-                <p className="flex justify-between text-base font-bold">
-                  <span>Total Payable</span>
-                  <span>₹{payable}</span>
-                </p>
-              </div>
 
               <button
                 type="button"
                 onClick={checkout}
                 disabled={checkingOut}
-                className="mt-4 h-11 w-full rounded-xl bg-green-600 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-green-600 text-sm font-black text-white shadow-sm hover:bg-green-700 disabled:opacity-60"
               >
+                <LocateFixed size={18} />
                 {checkingOut ? "Processing..." : "Checkout & Pay"}
               </button>
             </div>
