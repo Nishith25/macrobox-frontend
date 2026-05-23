@@ -1,10 +1,11 @@
-// frontend/src/router/AppRouter.tsx
+// frontend/src/router/AppRouter.tsx (FRONTEND)
+
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
-// Pages (Public)
+// Pages - Public
 import Home from "../pages/Home";
 import Meals from "../pages/Meals";
 import MealDetails from "../pages/MealDetails";
@@ -14,13 +15,14 @@ import Login from "../pages/Login";
 import Signup from "../pages/Signup";
 import DeliveryLogin from "../pages/DeliveryLogin";
 import DeliverySignup from "../pages/DeliverySignup";
+import ChefSignup from "../pages/ChefSignup";
+import ChefLogin from "../pages/ChefLogin";
 import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import VerifyEmail from "../pages/VerifyEmail";
 import ResendVerification from "../pages/ResendVerification";
-import DeliveryRoute from "./DeliveryRoute";
 
-// User Pages (Protected)
+// User Pages
 import MacroTrack from "../pages/MacroTrack";
 import SmartDayPlanner from "../pages/SmartDayPlanner";
 import Cart from "../pages/Cart";
@@ -37,10 +39,15 @@ import AdminMeals from "../pages/AdminMeals";
 import AdminCoupons from "../pages/AdminCoupons";
 import AdminDeliveryAgents from "../pages/AdminDeliveryAgents";
 import AdminOrders from "../pages/AdminOrders";
+import AdminChefs from "../pages/AdminChefs";
+
+// Chef / Kitchen Pages
+import OrdersList from "../pages/OrdersList";
 
 // Route Guards
 import ProtectedRoute from "./ProtectedRoute";
 import AdminRoute from "./AdminRoute";
+import DeliveryRoute from "./DeliveryRoute";
 
 export default function AppRouter() {
   return (
@@ -61,30 +68,34 @@ export default function AppRouter() {
         <Route path="/deliverylogin" element={<DeliveryLogin />} />
         <Route path="/deliverysignup" element={<DeliverySignup />} />
 
+        {/* ================= CHEF AUTH ROUTES ================= */}
+        <Route path="/chefsignup" element={<ChefSignup />} />
+        <Route path="/cheflogin" element={<ChefLogin />} />
+
         {/* ================= OTHER AUTH ROUTES ================= */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/verify-email/:token" element={<VerifyEmail />} />
         <Route path="/resend-verification" element={<ResendVerification />} />
 
-        {/* ================= USER ROUTES ================= */}
+        {/* ================= USER PROTECTED ROUTES ================= */}
         <Route
-  path="/macrotrack"
-  element={
-    <ProtectedRoute>
-      <MacroTrack />
-    </ProtectedRoute>
-  }
-/>
+          path="/macrotrack"
+          element={
+            <ProtectedRoute>
+              <MacroTrack />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
-  path="/smart-day-planner"
-  element={
-    <ProtectedRoute>
-      <SmartDayPlanner />
-    </ProtectedRoute>
-  }
-/>
+          path="/smart-day-planner"
+          element={
+            <ProtectedRoute>
+              <SmartDayPlanner />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/cart"
@@ -114,23 +125,13 @@ export default function AppRouter() {
         />
 
         <Route
-  path="/settings"
-  element={
-    <ProtectedRoute>
-      <SettingsPage />
-    </ProtectedRoute>
-  }
-/>
-
-        {/* ================= DELIVERY ROUTES ================= */}
-        <Route
-  path="/delivery"
-  element={
-    <DeliveryRoute>
-      <DeliveryDashboard />
-    </DeliveryRoute>
-  }
-/>
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/track/:orderId"
@@ -138,6 +139,16 @@ export default function AppRouter() {
             <ProtectedRoute>
               <TrackOrderPage />
             </ProtectedRoute>
+          }
+        />
+
+        {/* ================= DELIVERY ROUTES ================= */}
+        <Route
+          path="/delivery"
+          element={
+            <DeliveryRoute>
+              <DeliveryDashboard />
+            </DeliveryRoute>
           }
         />
 
@@ -179,22 +190,41 @@ export default function AppRouter() {
         />
 
         <Route
-  path="/admin/delivery-agents"
-  element={
-    <AdminRoute>
-      <AdminDeliveryAgents />
-    </AdminRoute>
-  }
-/>
+          path="/admin/delivery-agents"
+          element={
+            <AdminRoute>
+              <AdminDeliveryAgents />
+            </AdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/orders"
-  element={
-    <AdminRoute>
-      <AdminOrders />
-    </AdminRoute>
-  }
-/>
+        <Route
+          path="/admin/orders"
+          element={
+            <AdminRoute>
+              <AdminOrders />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/chefs"
+          element={
+            <AdminRoute>
+              <AdminChefs />
+            </AdminRoute>
+          }
+        />
+
+        {/* ================= CHEF + ADMIN KITCHEN ROUTE ================= */}
+        <Route
+          path="/orderslist"
+          element={
+            <ProtectedRoute>
+              <OrdersList />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ================= FALLBACK ================= */}
         <Route path="*" element={<Navigate to="/" replace />} />
