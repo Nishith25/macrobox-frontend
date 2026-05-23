@@ -1,4 +1,5 @@
 // frontend/src/pages/Cart.tsx (FRONTEND)
+
 import { useMemo, useState, useEffect, useRef } from "react";
 import {
   Plus,
@@ -44,9 +45,11 @@ const format12h = (hour24: number) => {
 
 const buildSlots = () => {
   const slots: string[] = [];
+
   for (let h = SLOT_START_HOUR; h <= SLOT_END_HOUR; h++) {
     slots.push(`${pad2(h)}:00`);
   }
+
   return slots;
 };
 
@@ -61,6 +64,7 @@ const isSlotAllowed = (selectedDateISO: string, slotHHmm: string) => {
   if (!yy || !mm || !dd || Number.isNaN(hour)) return false;
 
   const slotDateTime = new Date(yy, mm - 1, dd, hour, 0, 0, 0);
+
   const minAllowed = new Date();
   minAllowed.setHours(minAllowed.getHours() + 3);
 
@@ -111,14 +115,18 @@ type AvailableCoupon = {
 
 const formatCouponLabel = (c: AvailableCoupon) => {
   if (c.type === "flat") return `₹${c.value} OFF`;
+
   const cap = c.maxDiscount > 0 ? ` (Max ₹${c.maxDiscount})` : "";
   return `${c.value}% OFF${cap}`;
 };
 
 const prettyDate = (iso?: string | null) => {
   if (!iso) return null;
+
   const d = new Date(iso);
+
   if (Number.isNaN(d.getTime())) return null;
+
   return d.toLocaleDateString();
 };
 
@@ -221,6 +229,7 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
 
 export default function Cart() {
   const navigate = useNavigate();
+
   const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } =
     useCart();
 
@@ -287,26 +296,26 @@ export default function Cart() {
   );
 
   const totalProtein = useMemo(
-  () => cart.reduce((s, i) => s + i.protein * i.qty, 0),
-  [cart]
-);
+    () => cart.reduce((s, i) => s + i.protein * i.qty, 0),
+    [cart]
+  );
 
-const totalCalories = useMemo(
-  () => cart.reduce((s, i) => s + i.calories * i.qty, 0),
-  [cart]
-);
+  const totalCalories = useMemo(
+    () => cart.reduce((s, i) => s + i.calories * i.qty, 0),
+    [cart]
+  );
 
-const totalCarbs = useMemo(
-  () => cart.reduce((s, i) => s + (i.carbs || 0) * i.qty, 0),
-  [cart]
-);
+  const totalCarbs = useMemo(
+    () => cart.reduce((s, i) => s + (i.carbs || 0) * i.qty, 0),
+    [cart]
+  );
 
-const totalFat = useMemo(
-  () => cart.reduce((s, i) => s + (i.fat || 0) * i.qty, 0),
-  [cart]
-);
+  const totalFat = useMemo(
+    () => cart.reduce((s, i) => s + (i.fat || 0) * i.qty, 0),
+    [cart]
+  );
 
-const payable = Math.max(subtotal - discount, 0);
+  const payable = Math.max(subtotal - discount, 0);
 
   const cardClass = "rounded-xl border bg-white p-4 shadow-sm";
   const softCardClass = "rounded-xl border bg-gray-50 p-3";
@@ -316,7 +325,9 @@ const payable = Math.max(subtotal - discount, 0);
   const fetchAvailableCoupons = async () => {
     try {
       setLoadingCoupons(true);
+
       const res = await api.get(`/coupons/available?cartTotal=${subtotal}`);
+
       setAvailableCoupons(res.data || []);
     } catch {
       setAvailableCoupons([]);
@@ -328,7 +339,9 @@ const payable = Math.max(subtotal - discount, 0);
   const fetchSavedAddresses = async () => {
     try {
       setLoadingSavedAddresses(true);
+
       const res = await api.get("/user/addresses");
+
       setSavedAddresses(res.data || []);
     } catch {
       setSavedAddresses([]);
@@ -343,6 +356,7 @@ const payable = Math.max(subtotal - discount, 0);
 
   useEffect(() => {
     if (cart.length > 0) fetchAvailableCoupons();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, cart.length]);
 
@@ -358,8 +372,54 @@ const payable = Math.max(subtotal - discount, 0);
       setCouponMsg("Coupon removed because it is not eligible anymore.");
       setCouponMsgType("error");
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableCoupons]);
+
+  useEffect(() => {
+    const styleId = "macrobox-google-places-large-style";
+
+    if (document.getElementById(styleId)) return;
+
+    const style = document.createElement("style");
+    style.id = styleId;
+
+    style.innerHTML = `
+      .pac-container {
+        z-index: 99999 !important;
+        border-radius: 16px !important;
+        margin-top: 8px !important;
+        border: 1px solid #dcfce7 !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.16) !important;
+        font-family: inherit !important;
+        overflow: hidden !important;
+        padding: 8px 0 !important;
+      }
+
+      .pac-item {
+        padding: 14px 18px !important;
+        font-size: 15px !important;
+        line-height: 24px !important;
+        cursor: pointer !important;
+      }
+
+      .pac-item:hover {
+        background: #f0fdf4 !important;
+      }
+
+      .pac-item-query {
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        color: #111827 !important;
+      }
+
+      .pac-matched {
+        font-weight: 800 !important;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }, []);
 
   const applyLocationToAddress = ({
     lat,
@@ -411,12 +471,12 @@ const payable = Math.max(subtotal - discount, 0);
 
       geocoder.geocode(
         {
-          location: { lat, lng },
+          location: {
+            lat,
+            lng,
+          },
         },
-        (
-          results: google.maps.GeocoderResult[] | null,
-          status: string
-        ) => {
+        (results: google.maps.GeocoderResult[] | null, status: string) => {
           if (status !== "OK" || !results || results.length === 0) {
             resolve(null);
             return;
@@ -448,7 +508,9 @@ const payable = Math.max(subtotal - discount, 0);
         const autocomplete = new google.maps.places.Autocomplete(
           addressInputRef.current,
           {
-            componentRestrictions: { country: "in" },
+            componentRestrictions: {
+              country: "in",
+            },
             fields: [
               "place_id",
               "name",
@@ -487,6 +549,7 @@ const payable = Math.max(subtotal - discount, 0);
         console.error("GOOGLE MAPS LOAD ERROR:", error);
         setLocationMsg("Google address search failed to load.");
       });
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -555,7 +618,10 @@ const payable = Math.max(subtotal - discount, 0);
           "Location permission denied. Please allow location access."
         );
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+      }
     );
   };
 
@@ -581,12 +647,11 @@ const payable = Math.max(subtotal - discount, 0);
       geocoder.geocode(
         {
           address: query,
-          componentRestrictions: { country: "IN" },
+          componentRestrictions: {
+            country: "IN",
+          },
         },
-        (
-          results: google.maps.GeocoderResult[] | null,
-          status: string
-        ) => {
+        (results: google.maps.GeocoderResult[] | null, status: string) => {
           setSearchingAddress(false);
 
           if (status !== "OK" || !results || results.length === 0) {
@@ -686,6 +751,7 @@ const payable = Math.max(subtotal - discount, 0);
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
+
       document.body.appendChild(script);
     });
 
@@ -755,16 +821,18 @@ const payable = Math.max(subtotal - discount, 0);
 
       const payload = {
         items: cart.map((i) => ({
-  mealId: i._id,
-  title: i.title,
-  price: i.price,
-  qty: i.qty,
-  protein: i.protein,
-  calories: i.calories,
-  carbs: i.carbs || 0,
-  fat: i.fat || 0,
-})),
+          mealId: i._id,
+          title: i.title,
+          price: i.price,
+          qty: i.qty,
+          protein: i.protein,
+          calories: i.calories,
+          carbs: i.carbs || 0,
+          fat: i.fat || 0,
+        })),
+
         couponCode: finalCouponCode,
+
         address: {
           ...address,
           locationMode: address.locationMode || "manual",
@@ -774,6 +842,7 @@ const payable = Math.max(subtotal - discount, 0);
           locationText: address.locationText || `${lat}, ${lng}`,
           formattedAddress: address.formattedAddress || `${lat}, ${lng}`,
         },
+
         deliverySlot: {
           date: slotDate,
           time: slotTime,
@@ -831,6 +900,7 @@ const payable = Math.max(subtotal - discount, 0);
       rzp.open();
     } catch (err: any) {
       console.log("ORDER CREATE ERROR:", err?.response?.data);
+
       setCouponMsg(err?.response?.data?.message || "Failed to create order");
       setCouponMsgType("error");
     } finally {
@@ -847,7 +917,7 @@ const payable = Math.max(subtotal - discount, 0);
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
+    <div className="mx-auto max-w-6xl px-4 py-6">
       <h1 className="mb-5 text-2xl font-bold text-gray-900">Your Cart</h1>
 
       <div className="space-y-4">
@@ -874,6 +944,7 @@ const payable = Math.max(subtotal - discount, 0);
 
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={() => decreaseQty(item._id)}
                   className="flex h-9 w-9 items-center justify-center rounded-lg border hover:bg-gray-50"
                 >
@@ -885,6 +956,7 @@ const payable = Math.max(subtotal - discount, 0);
                 </span>
 
                 <button
+                  type="button"
                   onClick={() => increaseQty(item._id)}
                   className="flex h-9 w-9 items-center justify-center rounded-lg border hover:bg-gray-50"
                 >
@@ -892,6 +964,7 @@ const payable = Math.max(subtotal - discount, 0);
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => removeFromCart(item._id)}
                   className="flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
                 >
@@ -938,6 +1011,7 @@ const payable = Math.max(subtotal - discount, 0);
                       </div>
 
                       <button
+                        type="button"
                         onClick={() => applyCoupon(c.code)}
                         disabled={applying}
                         className="h-9 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
@@ -971,14 +1045,14 @@ const payable = Math.max(subtotal - discount, 0);
             </div>
 
             <div className="rounded-xl bg-gray-50 p-3">
-  <p className="text-xs text-gray-500">Carbs</p>
-  <p className="text-lg font-bold">{totalCarbs} g</p>
-</div>
+              <p className="text-xs text-gray-500">Carbs</p>
+              <p className="text-lg font-bold">{totalCarbs} g</p>
+            </div>
 
-<div className="rounded-xl bg-gray-50 p-3">
-  <p className="text-xs text-gray-500">Fat</p>
-  <p className="text-lg font-bold">{totalFat} g</p>
-</div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">Fat</p>
+              <p className="text-lg font-bold">{totalFat} g</p>
+            </div>
 
             <div className="rounded-xl bg-gray-50 p-3">
               <p className="text-xs text-gray-500">Subtotal</p>
@@ -995,7 +1069,7 @@ const payable = Math.max(subtotal - discount, 0);
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.9fr_1.15fr_0.95fr]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.85fr_1.6fr_0.9fr]">
             <div className={softCardClass}>
               <p className="mb-2 flex items-center gap-2 text-sm font-bold">
                 <Tag size={15} /> Apply Coupon
@@ -1014,6 +1088,7 @@ const payable = Math.max(subtotal - discount, 0);
               />
 
               <button
+                type="button"
                 onClick={() => applyCoupon()}
                 disabled={applying}
                 className="mt-2 h-10 w-full rounded-lg bg-green-600 text-sm font-semibold text-white disabled:opacity-60"
@@ -1092,13 +1167,13 @@ const payable = Math.max(subtotal - discount, 0);
                 </div>
               )}
 
-              <div className="mb-3 rounded-xl border border-green-100 bg-green-50 p-3">
-                <p className="mb-2 flex items-center gap-2 text-sm font-bold text-gray-900">
-                  <Search size={16} className="text-green-600" />
+              <div className="mb-4 rounded-2xl border border-green-100 bg-green-50 p-4">
+                <p className="mb-3 flex items-center gap-2 text-base font-extrabold text-gray-900">
+                  <Search size={20} className="text-green-600" />
                   Search Location
                 </p>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <input
                     ref={addressInputRef}
                     value={addressSearch}
@@ -1111,38 +1186,39 @@ const payable = Math.max(subtotal - discount, 0);
                     }}
                     placeholder={
                       googleSearchReady
-                        ? "Apartment, area, landmark..."
+                        ? "Search full address, apartment, area, landmark..."
                         : "Loading Google search..."
                     }
-                    className={inputClass}
+                    className="h-14 flex-1 rounded-xl border border-gray-300 bg-white px-4 text-base font-medium text-gray-800 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
                   />
 
                   <button
                     type="button"
                     onClick={geocodeTypedAddress}
                     disabled={searchingAddress}
-                    className="h-10 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                    className="h-14 rounded-xl bg-green-600 px-6 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-60"
                   >
-                    {searchingAddress ? "..." : "Search"}
+                    {searchingAddress ? "Searching..." : "Search"}
                   </button>
                 </div>
 
-                <p className="mt-1 text-[11px] text-gray-500">
-                  Select from Google suggestions.
+                <p className="mt-2 text-sm text-gray-500">
+                  Select the exact address from Google suggestions for accurate
+                  delivery.
                 </p>
 
                 <button
                   type="button"
                   onClick={useCurrentLocation}
-                  className="mt-2 h-10 w-full rounded-lg bg-green-600 text-sm font-semibold text-white hover:bg-green-700"
+                  className="mt-3 h-12 w-full rounded-xl bg-green-600 text-sm font-bold text-white hover:bg-green-700"
                 >
-                  <Navigation size={15} className="mr-1 inline" />
+                  <Navigation size={16} className="mr-1 inline" />
                   Use Current Location
                 </button>
 
                 {address.lat != null && address.lng != null && (
-                  <div className="mt-3 overflow-hidden rounded-xl border">
-                    <div className="h-40 w-full">
+                  <div className="mt-4 overflow-hidden rounded-2xl border bg-white">
+                    <div className="h-56 w-full">
                       <MapContainer
                         center={[address.lat, address.lng]}
                         zoom={17}
@@ -1165,14 +1241,14 @@ const payable = Math.max(subtotal - discount, 0);
                       </MapContainer>
                     </div>
 
-                    <p className="bg-white px-3 py-1 text-[11px] text-gray-500">
+                    <p className="bg-white px-4 py-2 text-xs text-gray-500">
                       Tap map to adjust exact pin.
                     </p>
                   </div>
                 )}
 
                 {address.formattedAddress && (
-                  <p className="mt-2 line-clamp-2 rounded-lg bg-white p-2 text-xs text-gray-600">
+                  <p className="mt-3 rounded-xl bg-white p-3 text-sm leading-6 text-gray-700">
                     <b>Selected:</b> {address.formattedAddress}
                   </p>
                 )}
@@ -1182,14 +1258,14 @@ const payable = Math.max(subtotal - discount, 0);
                     href={address.mapsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-block text-xs font-semibold text-green-700 underline"
+                    className="mt-3 inline-block text-sm font-bold text-green-700 underline"
                   >
                     Open in Google Maps
                   </a>
                 )}
 
                 {locationMsg && (
-                  <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-600">
+                  <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-600">
                     {locationMsg}
                   </p>
                 )}
@@ -1201,7 +1277,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={inputClass}
                   value={address.fullName}
                   onChange={(e) =>
-                    setAddress({ ...address, fullName: e.target.value })
+                    setAddress({
+                      ...address,
+                      fullName: e.target.value,
+                    })
                   }
                 />
 
@@ -1210,7 +1289,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={inputClass}
                   value={address.phone}
                   onChange={(e) =>
-                    setAddress({ ...address, phone: e.target.value })
+                    setAddress({
+                      ...address,
+                      phone: e.target.value,
+                    })
                   }
                 />
 
@@ -1219,7 +1301,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={inputClass}
                   value={address.flatNo}
                   onChange={(e) =>
-                    setAddress({ ...address, flatNo: e.target.value })
+                    setAddress({
+                      ...address,
+                      flatNo: e.target.value,
+                    })
                   }
                 />
 
@@ -1228,7 +1313,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={inputClass}
                   value={address.floor}
                   onChange={(e) =>
-                    setAddress({ ...address, floor: e.target.value })
+                    setAddress({
+                      ...address,
+                      floor: e.target.value,
+                    })
                   }
                 />
 
@@ -1237,7 +1325,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={`${inputClass} sm:col-span-2`}
                   value={address.buildingName}
                   onChange={(e) =>
-                    setAddress({ ...address, buildingName: e.target.value })
+                    setAddress({
+                      ...address,
+                      buildingName: e.target.value,
+                    })
                   }
                 />
 
@@ -1246,7 +1337,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={inputClass}
                   value={address.area}
                   onChange={(e) =>
-                    setAddress({ ...address, area: e.target.value })
+                    setAddress({
+                      ...address,
+                      area: e.target.value,
+                    })
                   }
                 />
 
@@ -1255,7 +1349,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={inputClass}
                   value={address.landmark}
                   onChange={(e) =>
-                    setAddress({ ...address, landmark: e.target.value })
+                    setAddress({
+                      ...address,
+                      landmark: e.target.value,
+                    })
                   }
                 />
 
@@ -1264,7 +1361,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={inputClass}
                   value={address.city}
                   onChange={(e) =>
-                    setAddress({ ...address, city: e.target.value })
+                    setAddress({
+                      ...address,
+                      city: e.target.value,
+                    })
                   }
                 />
 
@@ -1273,7 +1373,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={inputClass}
                   value={address.state}
                   onChange={(e) =>
-                    setAddress({ ...address, state: e.target.value })
+                    setAddress({
+                      ...address,
+                      state: e.target.value,
+                    })
                   }
                 />
 
@@ -1282,7 +1385,10 @@ const payable = Math.max(subtotal - discount, 0);
                   className={inputClass}
                   value={address.pincode}
                   onChange={(e) =>
-                    setAddress({ ...address, pincode: e.target.value })
+                    setAddress({
+                      ...address,
+                      pincode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                    })
                   }
                 />
 
@@ -1333,6 +1439,7 @@ const payable = Math.max(subtotal - discount, 0);
                 value={slotDate}
                 onChange={(e) => {
                   const newDate = e.target.value;
+
                   setSlotDate(newDate);
                   setSlotMsg(null);
 
@@ -1396,6 +1503,7 @@ const payable = Math.max(subtotal - discount, 0);
               </div>
 
               <button
+                type="button"
                 onClick={checkout}
                 disabled={checkingOut}
                 className="mt-4 h-11 w-full rounded-xl bg-green-600 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
