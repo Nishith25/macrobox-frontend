@@ -15,6 +15,7 @@ import {
   Settings,
   ChefHat,
   ClipboardList,
+  MapPin,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -186,6 +187,14 @@ export default function Navbar() {
               <NavLink to="/orderslist" className={adminIconLinkClass}>
                 <ClipboardList size={14} />
                 Kitchen Orders
+              </NavLink>
+
+              <NavLink
+                to="/admin/delivery-pincodes"
+                className={adminIconLinkClass}
+              >
+                <MapPin size={14} />
+                Pincodes
               </NavLink>
             </div>
           )}
@@ -458,6 +467,14 @@ export default function Navbar() {
                     onClick={closeMenu}
                   >
                     Kitchen Orders
+                  </NavLink>
+
+                  <NavLink
+                    to="/admin/delivery-pincodes"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
+                    Delivery Pincodes
                   </NavLink>
                 </>
               )}

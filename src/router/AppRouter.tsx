@@ -40,6 +40,7 @@ import AdminCoupons from "../pages/AdminCoupons";
 import AdminDeliveryAgents from "../pages/AdminDeliveryAgents";
 import AdminOrders from "../pages/AdminOrders";
 import AdminChefs from "../pages/AdminChefs";
+import AdminDeliveryPincodes from "../pages/AdminDeliveryPincodes";
 
 // Chef / Kitchen Pages
 import OrdersList from "../pages/OrdersList";
@@ -215,6 +216,15 @@ export default function AppRouter() {
             </AdminRoute>
           }
         />
+
+        <Route
+  path="/admin/delivery-pincodes"
+  element={
+    <AdminRoute>
+      <AdminDeliveryPincodes />
+    </AdminRoute>
+  }
+/>
 
         {/* ================= CHEF + ADMIN KITCHEN ROUTE ================= */}
         <Route
