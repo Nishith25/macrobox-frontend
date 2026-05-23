@@ -21,16 +21,6 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import api from "../api/api";
 
-import {
-  MapContainer,
-  Marker,
-  TileLayer,
-  useMap,
-  useMapEvents,
-} from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
 declare global {
   interface Window {
     Razorpay: any;
@@ -78,13 +68,6 @@ type AvailableCoupon = {
   validFrom?: string | null;
   validTo?: string | null;
 };
-
-const markerIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -197,7 +180,7 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
     const script = document.createElement("script");
 
     script.id = "google-maps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry`;
     script.async = true;
     script.defer = true;
 
@@ -208,65 +191,6 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
     document.head.appendChild(script);
   });
 };
-
-function MapClickHandler({
-  onPick,
-}: {
-  onPick: (lat: number, lng: number) => void;
-}) {
-  useMapEvents({
-    click(e) {
-      onPick(e.latlng.lat, e.latlng.lng);
-    },
-  });
-
-  return null;
-}
-
-function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
-  const map = useMap();
-
-  useEffect(() => {
-    map.setView([lat, lng], 18);
-  }, [lat, lng, map]);
-
-  return null;
-}
-
-function DraggableMarker({
-  lat,
-  lng,
-  onPick,
-}: {
-  lat: number;
-  lng: number;
-  onPick: (lat: number, lng: number) => void;
-}) {
-  const markerRef = useRef<L.Marker | null>(null);
-
-  const eventHandlers = useMemo(
-    () => ({
-      dragend() {
-        const marker = markerRef.current;
-        if (!marker) return;
-
-        const position = marker.getLatLng();
-        onPick(position.lat, position.lng);
-      },
-    }),
-    [onPick]
-  );
-
-  return (
-    <Marker
-      draggable
-      eventHandlers={eventHandlers}
-      position={[lat, lng]}
-      icon={markerIcon}
-      ref={markerRef}
-    />
-  );
-}
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -306,9 +230,14 @@ export default function Cart() {
   });
 
   const [addressSearch, setAddressSearch] = useState("");
+
   const addressInputRef = useRef<HTMLInputElement | null>(null);
   const googleAutocompleteRef =
     useRef<google.maps.places.Autocomplete | null>(null);
+
+  const googleMapRef = useRef<HTMLDivElement | null>(null);
+  const googleMapInstanceRef = useRef<google.maps.Map | null>(null);
+  const googleMarkerRef = useRef<google.maps.Marker | null>(null);
 
   const [googleSearchReady, setGoogleSearchReady] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
@@ -541,6 +470,80 @@ export default function Cart() {
     });
   };
 
+  const pinLocationOnMap = async (lat: number, lng: number) => {
+    const cleanLat = Number(lat);
+    const cleanLng = Number(lng);
+
+    const reverse = await reverseGeocodeLatLng(cleanLat, cleanLng);
+
+    applyLocationToAddress({
+      lat: cleanLat,
+      lng: cleanLng,
+      formattedAddress: reverse?.formattedAddress || `${cleanLat}, ${cleanLng}`,
+      components: reverse?.components,
+      mode: "manual",
+    });
+  };
+
+  const renderGoogleDeliveryMap = (lat: number, lng: number) => {
+    if (!window.google?.maps || !googleMapRef.current) return;
+
+    const position = {
+      lat,
+      lng,
+    };
+
+    if (!googleMapInstanceRef.current) {
+      googleMapInstanceRef.current = new google.maps.Map(googleMapRef.current, {
+        center: position,
+        zoom: 18,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+        clickableIcons: true,
+        gestureHandling: "greedy",
+        mapTypeId: google.maps.MapTypeId.ROADMAP,
+      });
+
+      googleMapInstanceRef.current.addListener(
+        "click",
+        async (e: google.maps.MapMouseEvent) => {
+          const clickedLat = e.latLng?.lat();
+          const clickedLng = e.latLng?.lng();
+
+          if (clickedLat == null || clickedLng == null) return;
+
+          await pinLocationOnMap(clickedLat, clickedLng);
+        }
+      );
+    }
+
+    googleMapInstanceRef.current.setCenter(position);
+    googleMapInstanceRef.current.setZoom(18);
+
+    if (!googleMarkerRef.current) {
+      googleMarkerRef.current = new google.maps.Marker({
+        position,
+        map: googleMapInstanceRef.current,
+        draggable: true,
+        title: "MacroBox Delivery Location",
+        animation: google.maps.Animation.DROP,
+      });
+
+      googleMarkerRef.current.addListener("dragend", async () => {
+        const markerPosition = googleMarkerRef.current?.getPosition();
+
+        if (!markerPosition) return;
+
+        await pinLocationOnMap(markerPosition.lat(), markerPosition.lng());
+      });
+    } else {
+      googleMarkerRef.current.setPosition(position);
+      googleMarkerRef.current.setMap(googleMapInstanceRef.current);
+    }
+  };
+
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
@@ -568,6 +571,7 @@ export default function Cart() {
               "geometry",
               "address_components",
             ],
+            types: ["geocode", "establishment"],
           }
         );
 
@@ -602,6 +606,14 @@ export default function Cart() {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (address.lat != null && address.lng != null && googleSearchReady) {
+      renderGoogleDeliveryMap(address.lat, address.lng);
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address.lat, address.lng, googleSearchReady]);
 
   const applyCoupon = async (codeOverride?: string) => {
     const codeToApply = (codeOverride ?? coupon).trim().toUpperCase();
@@ -727,21 +739,6 @@ export default function Cart() {
       console.error("GEOCODE ERROR:", error);
       setLocationMsg("Unable to search address. Please try again.");
     }
-  };
-
-  const pinLocationOnMap = async (lat: number, lng: number) => {
-    const cleanLat = Number(lat);
-    const cleanLng = Number(lng);
-
-    const reverse = await reverseGeocodeLatLng(cleanLat, cleanLng);
-
-    applyLocationToAddress({
-      lat: cleanLat,
-      lng: cleanLng,
-      formattedAddress: reverse?.formattedAddress || `${cleanLat}, ${cleanLng}`,
-      components: reverse?.components,
-      mode: "manual",
-    });
   };
 
   const selectSavedAddress = (saved: SavedAddress) => {
@@ -1105,9 +1102,9 @@ export default function Cart() {
               </div>
 
               <p className="mb-5 text-sm text-gray-500">
-                Search your address like Google Maps, select the correct result,
-                then drag the marker or tap the map to adjust the exact delivery
-                pin.
+                Search your address like Swiggy/Zomato, select the correct
+                Google result, then drag the marker or tap the map to adjust the
+                exact delivery pin.
               </p>
 
               {savedAddresses.length > 0 && (
@@ -1234,61 +1231,39 @@ export default function Cart() {
 
                 {address.lat != null && address.lng != null && (
                   <div className="mt-5 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-                    <div className="relative h-80 w-full">
-                      <MapContainer
-                        center={[address.lat, address.lng]}
-                        zoom={18}
-                        scrollWheelZoom={true}
-                        className="h-full w-full"
-                      >
-                        <TileLayer
-                          attribution='&copy; OpenStreetMap contributors'
-                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
+                    <div className="relative h-[430px] w-full">
+                      <div ref={googleMapRef} className="h-full w-full" />
 
-                        <RecenterMap lat={address.lat} lng={address.lng} />
-
-                        <MapClickHandler onPick={pinLocationOnMap} />
-
-                        <DraggableMarker
-                          lat={address.lat}
-                          lng={address.lng}
-                          onPick={pinLocationOnMap}
-                        />
-                      </MapContainer>
-
-                      <div className="absolute left-4 top-4 z-[500] rounded-2xl bg-white/95 px-4 py-3 shadow-md">
+                      <div className="absolute left-4 top-4 z-10 rounded-2xl bg-white/95 px-4 py-3 shadow-lg">
                         <p className="text-xs font-black uppercase tracking-wide text-green-700">
-                          Exact Location Pin
+                          Exact Delivery Pin
                         </p>
 
                         <p className="mt-1 text-xs font-medium text-gray-500">
-                          Drag marker or tap map to adjust.
+                          Drag pin or tap map to adjust.
                         </p>
                       </div>
+
+                      <div className="absolute bottom-4 left-1/2 z-10 w-[92%] max-w-xl -translate-x-1/2 rounded-2xl bg-white px-4 py-3 shadow-xl">
+                        <div className="mb-2 flex items-center gap-2">
+                          <CheckCircle2 size={16} className="text-green-600" />
+
+                          <p className="text-xs font-black uppercase tracking-wide text-green-700">
+                            Delivering To
+                          </p>
+                        </div>
+
+                        <p className="line-clamp-2 text-sm font-bold leading-5 text-gray-900">
+                          {address.formattedAddress || address.locationText}
+                        </p>
+
+                        {address.pincode && (
+                          <p className="mt-2 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                            Pincode: {address.pincode}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {address.formattedAddress && (
-                  <div className="mt-4 rounded-3xl border border-green-100 bg-white p-4 shadow-sm">
-                    <div className="mb-2 flex items-center gap-2">
-                      <CheckCircle2 size={17} className="text-green-600" />
-
-                      <p className="text-xs font-black uppercase tracking-wide text-green-700">
-                        Selected Address
-                      </p>
-                    </div>
-
-                    <p className="text-sm font-bold leading-6 text-gray-900">
-                      {address.formattedAddress}
-                    </p>
-
-                    {address.pincode && (
-                      <p className="mt-2 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                        Pincode: {address.pincode}
-                      </p>
-                    )}
                   </div>
                 )}
 
