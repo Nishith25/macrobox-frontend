@@ -1,4 +1,5 @@
 // frontend/src/pages/AdminMeals.tsx (FRONTEND)
+
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 import toast from "react-hot-toast";
@@ -6,6 +7,8 @@ import toast from "react-hot-toast";
 /* ================= TYPES ================= */
 
 type FoodType = "veg" | "nonveg";
+
+type GoalType = "fat_loss" | "muscle_gain" | "weight_gain" | "clean_eating";
 
 type Meal = {
   _id: string;
@@ -18,6 +21,21 @@ type Meal = {
   price: number;
   imageUrl: string;
   foodType: FoodType;
+  goalTypes?: GoalType[];
+};
+
+const goalOptions: { key: GoalType; label: string }[] = [
+  { key: "fat_loss", label: "Fat Loss" },
+  { key: "muscle_gain", label: "Muscle Gain" },
+  { key: "weight_gain", label: "Weight Gain" },
+  { key: "clean_eating", label: "Clean Eating" },
+];
+
+const goalLabelMap: Record<GoalType, string> = {
+  fat_loss: "Fat Loss",
+  muscle_gain: "Muscle Gain",
+  weight_gain: "Weight Gain",
+  clean_eating: "Clean Eating",
 };
 
 /* ================= MEAL CARD ================= */
@@ -40,6 +58,7 @@ function MealRow({
           src={meal.imageUrl || "/placeholder-meal.png"}
           className="h-24 w-24 rounded-xl object-cover"
           onError={(e) => (e.currentTarget.src = "/placeholder-meal.png")}
+          alt={meal.title}
         />
 
         <div className="min-w-0 flex-1">
@@ -62,6 +81,23 @@ function MealRow({
             carbs · {meal.fat}g fat · ₹{meal.price}
           </p>
 
+          <div className="mt-3 flex flex-wrap gap-2">
+            {meal.goalTypes && meal.goalTypes.length > 0 ? (
+              meal.goalTypes.map((goal) => (
+                <span
+                  key={goal}
+                  className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700"
+                >
+                  {goalLabelMap[goal]}
+                </span>
+              ))
+            ) : (
+              <span className="rounded-full bg-yellow-50 px-3 py-1 text-xs font-bold text-yellow-700">
+                No goal tags
+              </span>
+            )}
+          </div>
+
           {meal.description && (
             <button
               type="button"
@@ -74,6 +110,7 @@ function MealRow({
 
           <div className="mt-3 flex gap-3">
             <button
+              type="button"
               onClick={onEdit}
               className="rounded-lg border px-3 py-1 text-sm font-medium hover:bg-gray-50"
             >
@@ -81,6 +118,7 @@ function MealRow({
             </button>
 
             <button
+              type="button"
               onClick={onDelete}
               className="rounded-lg border border-red-300 px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-50"
             >
@@ -115,6 +153,7 @@ export default function AdminMeals() {
     fat: "",
     price: "",
     foodType: "veg" as FoodType,
+    goalTypes: [] as GoalType[],
   });
 
   const [image, setImage] = useState<File | null>(null);
@@ -147,10 +186,24 @@ export default function AdminMeals() {
       fat: "",
       price: "",
       foodType: "veg",
+      goalTypes: [],
     });
 
     setImage(null);
     setEditingId(null);
+  };
+
+  const toggleGoal = (goal: GoalType) => {
+    setForm((prev) => {
+      const exists = prev.goalTypes.includes(goal);
+
+      return {
+        ...prev,
+        goalTypes: exists
+          ? prev.goalTypes.filter((g) => g !== goal)
+          : [...prev.goalTypes, goal],
+      };
+    });
   };
 
   const saveMeal = async () => {
@@ -163,6 +216,11 @@ export default function AdminMeals() {
       !form.price
     ) {
       toast.error("Fill all required fields");
+      return;
+    }
+
+    if (form.goalTypes.length === 0) {
+      toast.error("Please select at least one meal goal");
       return;
     }
 
@@ -180,6 +238,7 @@ export default function AdminMeals() {
     data.append("fat", form.fat);
     data.append("price", form.price);
     data.append("foodType", form.foodType);
+    data.append("goalTypes", JSON.stringify(form.goalTypes));
 
     if (image) data.append("image", image);
 
@@ -234,6 +293,7 @@ export default function AdminMeals() {
       fat: String(meal.fat ?? ""),
       price: String(meal.price ?? ""),
       foodType: meal.foodType || "veg",
+      goalTypes: meal.goalTypes || [],
     });
 
     setImage(null);
@@ -243,11 +303,15 @@ export default function AdminMeals() {
   const stats = useMemo(() => {
     const veg = meals.filter((m) => m.foodType === "veg").length;
     const nonveg = meals.filter((m) => m.foodType === "nonveg").length;
+    const withoutGoals = meals.filter(
+      (m) => !m.goalTypes || m.goalTypes.length === 0
+    ).length;
 
     return {
       total: meals.length,
       veg,
       nonveg,
+      withoutGoals,
     };
   }, [meals]);
 
@@ -259,12 +323,12 @@ export default function AdminMeals() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Manage Meals</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Create MacroBox meals with full macros, description, and Veg / Non-Veg
-          category.
+          Create MacroBox meals with full macros, description, Veg / Non-Veg
+          category, and goal tags.
         </p>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
+      <div className="mb-6 grid gap-4 md:grid-cols-4">
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <p className="text-sm text-gray-500">Total Meals</p>
           <p className="mt-1 text-2xl font-bold">{stats.total}</p>
@@ -279,6 +343,13 @@ export default function AdminMeals() {
           <p className="text-sm text-red-700">Non-Veg Meals</p>
           <p className="mt-1 text-2xl font-bold text-red-700">
             {stats.nonveg}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border bg-yellow-50 p-4 shadow-sm">
+          <p className="text-sm text-yellow-700">Without Goal Tags</p>
+          <p className="mt-1 text-2xl font-bold text-yellow-700">
+            {stats.withoutGoals}
           </p>
         </div>
       </div>
@@ -357,6 +428,36 @@ export default function AdminMeals() {
             <option value="veg">Veg</option>
             <option value="nonveg">Non-Veg</option>
           </select>
+
+          <div className="md:col-span-3">
+            <p className="mb-2 text-sm font-bold text-gray-700">Meal Goals</p>
+
+            <div className="flex flex-wrap gap-2">
+              {goalOptions.map((goal) => {
+                const active = form.goalTypes.includes(goal.key);
+
+                return (
+                  <button
+                    key={goal.key}
+                    type="button"
+                    onClick={() => toggleGoal(goal.key)}
+                    className={`rounded-full px-4 py-2 text-sm font-bold ${
+                      active
+                        ? "bg-green-600 text-white"
+                        : "bg-green-50 text-green-700 hover:bg-green-100"
+                    }`}
+                  >
+                    {goal.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="mt-2 text-xs text-gray-500">
+              Select where this meal should appear. Example: Banana oats can be
+              Muscle Gain, Weight Gain, and Clean Eating.
+            </p>
+          </div>
         </div>
 
         <div className="mt-4">
@@ -364,11 +465,18 @@ export default function AdminMeals() {
             type="file"
             onChange={(e) => setImage(e.target.files?.[0] || null)}
           />
+
+          {editingId && (
+            <p className="mt-2 text-xs text-gray-500">
+              Leave image empty if you do not want to change it.
+            </p>
+          )}
         </div>
 
         <div className="mt-6 flex gap-3">
           {editingId && (
             <button
+              type="button"
               onClick={resetForm}
               className="rounded-lg border px-4 py-2 hover:bg-gray-50"
             >
@@ -377,6 +485,7 @@ export default function AdminMeals() {
           )}
 
           <button
+            type="button"
             onClick={saveMeal}
             disabled={saving}
             className="rounded-lg bg-emerald-600 px-5 py-2 font-semibold text-white disabled:opacity-60"

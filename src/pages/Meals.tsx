@@ -1,14 +1,21 @@
 // frontend/src/pages/Meals.tsx (FRONTEND)
+
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import MealCard from "../components/MealCard";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
-import { useAuth, GoalType } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import type { Meal } from "./Home";
 
+type GoalType = "fat_loss" | "muscle_gain" | "weight_gain" | "clean_eating";
+
 type FilterType = "all" | "veg" | "nonveg";
+
+type MealWithGoals = Meal & {
+  goalTypes?: GoalType[];
+};
 
 const goalLabels: Record<GoalType, string> = {
   fat_loss: "Fat Loss",
@@ -24,14 +31,29 @@ const goalOptions: { key: GoalType; label: string }[] = [
   { key: "clean_eating", label: "Clean Eating" },
 ];
 
+const isValidGoal = (value: string | null): value is GoalType => {
+  return (
+    value === "fat_loss" ||
+    value === "muscle_gain" ||
+    value === "weight_gain" ||
+    value === "clean_eating"
+  );
+};
+
 export default function Meals() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
 
-  const initialGoal =
-    (searchParams.get("goal") as GoalType) || user?.onboarding?.goal || "";
+  const urlGoal = searchParams.get("goal");
+  const userGoal = user?.onboarding?.goal;
 
-  const [meals, setMeals] = useState<Meal[]>([]);
+  const initialGoal: GoalType | "" = isValidGoal(urlGoal)
+    ? urlGoal
+    : isValidGoal(userGoal || null)
+    ? (userGoal as GoalType)
+    : "";
+
+  const [meals, setMeals] = useState<MealWithGoals[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
   const [goal, setGoal] = useState<GoalType | "">(initialGoal);
   const [loading, setLoading] = useState(true);
@@ -44,46 +66,63 @@ export default function Meals() {
   useEffect(() => {
     let mounted = true;
 
-    (async () => {
+    const fetchMeals = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const params: Record<string, string> = {};
-
-        if (goal) {
-          params.goal = goal;
-        }
-
-        const res = await api.get<Meal[]>("/meals", { params });
+        /*
+          Important:
+          Fetch all meals, then filter goal on frontend.
+          This also supports old meals with no goalTypes.
+        */
+        const res = await api.get<MealWithGoals[]>("/meals", {
+          params: {
+            all: "true",
+          },
+        });
 
         if (!mounted) return;
+
         setMeals(res.data || []);
       } catch {
         if (!mounted) return;
+
         setMeals([]);
         setError("Failed to load meals. Please try again.");
       } finally {
         if (!mounted) return;
+
         setLoading(false);
       }
-    })();
+    };
+
+    fetchMeals();
 
     return () => {
       mounted = false;
     };
-  }, [goal]);
+  }, []);
+
+  const goalFilteredMeals = useMemo(() => {
+    if (!goal) return meals;
+
+    return meals.filter((meal) => {
+      if (!meal.goalTypes || meal.goalTypes.length === 0) return false;
+      return meal.goalTypes.includes(goal);
+    });
+  }, [meals, goal]);
 
   const filteredMeals = useMemo(() => {
-    if (filter === "all") return meals;
-    return meals.filter((meal) => meal.foodType === filter);
-  }, [meals, filter]);
+    if (filter === "all") return goalFilteredMeals;
+    return goalFilteredMeals.filter((meal) => meal.foodType === filter);
+  }, [goalFilteredMeals, filter]);
 
   const getCartQty = (mealId: string) => {
     return cart.find((item) => item._id === mealId)?.qty || 0;
   };
 
-  const handleAddToCart = (meal: Meal) => {
+  const handleAddToCart = (meal: MealWithGoals) => {
     addToCart({
       _id: meal._id,
       title: meal.title,
@@ -98,7 +137,7 @@ export default function Meals() {
     toast.success("Added to cart");
   };
 
-  const handleIncrease = (meal: Meal) => {
+  const handleIncrease = (meal: MealWithGoals) => {
     const existing = cart.find((item) => item._id === meal._id);
 
     if (existing) {
@@ -108,7 +147,7 @@ export default function Meals() {
     }
   };
 
-  const handleDecrease = (meal: Meal) => {
+  const handleDecrease = (meal: MealWithGoals) => {
     decreaseQty(meal._id);
   };
 
@@ -118,6 +157,7 @@ export default function Meals() {
     const params: Record<string, string> = {};
 
     if (nextGoal) params.goal = nextGoal;
+    if (welcome) params.welcome = "true";
 
     setSearchParams(params);
   };
@@ -149,6 +189,7 @@ export default function Meals() {
         <div className="flex flex-wrap gap-2">
           <div className="flex w-fit gap-2 rounded-xl bg-gray-100 p-1">
             <button
+              type="button"
               onClick={() => setFilter("all")}
               className={`rounded-lg px-4 py-2 text-sm font-semibold ${
                 filter === "all"
@@ -160,6 +201,7 @@ export default function Meals() {
             </button>
 
             <button
+              type="button"
               onClick={() => setFilter("veg")}
               className={`rounded-lg px-4 py-2 text-sm font-semibold ${
                 filter === "veg"
@@ -171,6 +213,7 @@ export default function Meals() {
             </button>
 
             <button
+              type="button"
               onClick={() => setFilter("nonveg")}
               className={`rounded-lg px-4 py-2 text-sm font-semibold ${
                 filter === "nonveg"
@@ -186,6 +229,7 @@ export default function Meals() {
 
       <div className="mb-8 flex flex-wrap gap-2 rounded-2xl border bg-white p-3 shadow-sm">
         <button
+          type="button"
           onClick={() => changeGoal("")}
           className={`rounded-xl px-4 py-2 text-sm font-bold ${
             goal === ""
@@ -199,6 +243,7 @@ export default function Meals() {
         {goalOptions.map((item) => (
           <button
             key={item.key}
+            type="button"
             onClick={() => changeGoal(item.key)}
             className={`rounded-xl px-4 py-2 text-sm font-bold ${
               goal === item.key
@@ -220,9 +265,21 @@ export default function Meals() {
           <p className="font-bold text-gray-800">
             No meals available for this filter.
           </p>
+
           <p className="mt-2 text-sm text-gray-500">
-            Add goal tags in Admin Meals or select another goal.
+            Go to Admin Meals, edit your meals, and select goal tags like Fat
+            Loss, Muscle Gain, Weight Gain or Clean Eating.
           </p>
+
+          {goal && (
+            <button
+              type="button"
+              onClick={() => changeGoal("")}
+              className="mt-5 rounded-xl bg-green-600 px-5 py-2 text-sm font-bold text-white hover:bg-green-700"
+            >
+              Show All Meals
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid gap-8 md:grid-cols-3">
