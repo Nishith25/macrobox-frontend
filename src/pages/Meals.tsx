@@ -8,10 +8,11 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import type { Meal } from "./Home";
-import { Filter, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Filter, RotateCcw, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 
 type GoalType = "fat_loss" | "muscle_gain" | "weight_gain" | "clean_eating";
 type FilterType = "all" | "veg" | "nonveg";
+type SortType = "default" | "calories_low" | "protein_high" | "price_low";
 
 type MealWithGoals = Meal & {
   goalTypes?: GoalType[];
@@ -58,6 +59,7 @@ export default function Meals() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [goal, setGoal] = useState<GoalType | "">(initialGoal);
   const [maxCalories, setMaxCalories] = useState(1000);
+  const [sortBy, setSortBy] = useState<SortType>("default");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,9 +76,7 @@ export default function Meals() {
         setError(null);
 
         const res = await api.get<MealWithGoals[]>("/meals", {
-          params: {
-            all: "true",
-          },
+          params: { all: "true" },
         });
 
         if (!mounted) return;
@@ -102,7 +102,6 @@ export default function Meals() {
     if (meals.length === 0) return 1000;
 
     const highest = Math.max(...meals.map((meal) => Number(meal.calories || 0)));
-
     return Math.max(300, Math.ceil(highest / 100) * 100);
   }, [meals]);
 
@@ -113,7 +112,7 @@ export default function Meals() {
   }, [maxMealCalories, meals.length]);
 
   const filteredMeals = useMemo(() => {
-    return meals.filter((meal) => {
+    const result = meals.filter((meal) => {
       if (meal.isAvailable === false) return false;
 
       if (goal) {
@@ -121,17 +120,29 @@ export default function Meals() {
         if (!meal.goalTypes.includes(goal)) return false;
       }
 
-      if (filter !== "all" && meal.foodType !== filter) {
-        return false;
-      }
+      if (filter !== "all" && meal.foodType !== filter) return false;
 
-      if (Number(meal.calories || 0) > maxCalories) {
-        return false;
-      }
+      if (Number(meal.calories || 0) > maxCalories) return false;
 
       return true;
     });
-  }, [meals, goal, filter, maxCalories]);
+
+    return [...result].sort((a, b) => {
+      if (sortBy === "calories_low") {
+        return Number(a.calories || 0) - Number(b.calories || 0);
+      }
+
+      if (sortBy === "protein_high") {
+        return Number(b.protein || 0) - Number(a.protein || 0);
+      }
+
+      if (sortBy === "price_low") {
+        return Number(a.price || 0) - Number(b.price || 0);
+      }
+
+      return 0;
+    });
+  }, [meals, goal, filter, maxCalories, sortBy]);
 
   const getCartQty = (mealId: string) => {
     return cart.find((item) => item._id === mealId)?.qty || 0;
@@ -155,11 +166,8 @@ export default function Meals() {
   const handleIncrease = (meal: MealWithGoals) => {
     const existing = cart.find((item) => item._id === meal._id);
 
-    if (existing) {
-      increaseQty(meal._id);
-    } else {
-      handleAddToCart(meal);
-    }
+    if (existing) increaseQty(meal._id);
+    else handleAddToCart(meal);
   };
 
   const handleDecrease = (meal: MealWithGoals) => {
@@ -170,7 +178,6 @@ export default function Meals() {
     setGoal(nextGoal);
 
     const params: Record<string, string> = {};
-
     if (nextGoal) params.goal = nextGoal;
     if (welcome) params.welcome = "true";
 
@@ -180,9 +187,22 @@ export default function Meals() {
   const resetFilters = () => {
     setGoal("");
     setFilter("all");
+    setSortBy("default");
     setMaxCalories(maxMealCalories);
     setSearchParams(welcome ? { welcome: "true" } : {});
   };
+
+  const typeLabel =
+    filter === "all" ? "All (Veg + Non-Veg)" : filter === "veg" ? "Veg Only" : "Non-Veg Only";
+
+  const sortLabel =
+    sortBy === "default"
+      ? "Default"
+      : sortBy === "calories_low"
+      ? "Calories low to high"
+      : sortBy === "protein_high"
+      ? "Protein high to low"
+      : "Price low to high";
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -197,7 +217,6 @@ export default function Meals() {
         </div>
       )}
 
-      {/* HEADER */}
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
@@ -209,7 +228,6 @@ export default function Meals() {
           </p>
         </div>
 
-        {/* VEG / NON-VEG FILTER */}
         <div className="flex w-fit gap-1 rounded-xl bg-gray-100 p-1">
           {(["all", "veg", "nonveg"] as FilterType[]).map((type) => (
             <button
@@ -228,10 +246,8 @@ export default function Meals() {
         </div>
       </div>
 
-      {/* COMPACT FILTER BAR */}
       <div className="mb-8 rounded-2xl border bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          {/* GOALS */}
+        <div className="grid gap-4 lg:grid-cols-[1fr_260px_250px] lg:items-center">
           <div className="flex flex-wrap items-center gap-2">
             <div className="mr-1 flex items-center gap-2 text-sm font-bold text-gray-700">
               <Filter size={16} className="text-green-600" />
@@ -266,25 +282,12 @@ export default function Meals() {
             ))}
           </div>
 
-          {/* CALORIES */}
-          <div className="flex flex-col gap-2 lg:w-[360px]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                <SlidersHorizontal size={16} className="text-green-600" />
-                Calories
-                <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-extrabold text-green-700">
-                  ≤ {maxCalories} kcal
-                </span>
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-gray-700">
+                <SlidersHorizontal size={14} className="text-green-600" />
+                Calories ≤ {maxCalories}
               </div>
-
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50"
-              >
-                <RotateCcw size={13} />
-                Reset
-              </button>
             </div>
 
             <input
@@ -297,34 +300,60 @@ export default function Meals() {
               className="h-2 w-full cursor-pointer accent-green-600"
             />
 
-            <div className="flex justify-between text-[11px] font-semibold text-gray-400">
+            <div className="flex justify-between text-[10px] font-semibold text-gray-400">
               <span>100</span>
               <span>{maxMealCalories} kcal</span>
             </div>
           </div>
+
+          <div className="flex items-center gap-2">
+            <ArrowUpDown size={15} className="text-green-600" />
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortType)}
+              className="h-10 w-full rounded-xl border bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+            >
+              <option value="default">Sort by: Default</option>
+              <option value="calories_low">Calories: Low to High</option>
+              <option value="protein_high">Protein: High to Low</option>
+              <option value="price_low">Price: Low to High</option>
+            </select>
+          </div>
         </div>
 
-        {/* ACTIVE FILTER SUMMARY */}
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3 text-xs">
           <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-600">
             {goal ? goalLabels[goal] : "All Goals"}
           </span>
 
           <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-600">
-            {filter === "all" ? "All Types" : filter === "veg" ? "Veg" : "Non-Veg"}
+            {typeLabel}
           </span>
 
           <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-600">
             Under {maxCalories} kcal
           </span>
 
+          <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-600">
+            Sort: {sortLabel}
+          </span>
+
           <span className="rounded-full bg-green-50 px-3 py-1 font-extrabold text-green-700">
             {filteredMeals.length} Results
           </span>
+
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="ml-auto flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50"
+          >
+            <RotateCcw size={13} />
+            Reset
+          </button>
         </div>
       </div>
 
-      {/* CONTENT */}
       {loading ? (
         <p className="py-10 text-center text-gray-500">Loading meals...</p>
       ) : error ? (
