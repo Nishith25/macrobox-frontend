@@ -37,14 +37,14 @@ export default function Signup() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const phoneReady = form.phone.trim().length >= 10;
+  const phoneReady = form.phone.replace(/\D/g, "").length >= 10;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
     setForm((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: name === "phone" ? value.replace(/\D/g, "").slice(0, 10) : value,
     }));
 
     if (name === "phone") {
@@ -158,19 +158,15 @@ export default function Signup() {
 
     try {
       await signup({
-        name: form.name.trim(),
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-        phone: form.phone.trim(),
-        role: "user",
-        phoneVerificationToken,
-      });
+  name: form.name.trim(),
+  email: form.email.trim().toLowerCase(),
+  password: form.password,
+  phone: form.phone.trim(),
+  role: "user",
+  phoneVerificationToken,
+});
 
-      toast.success(
-        "Signup successful! Please check your email to verify your account."
-      );
-
-      navigate("/login", { replace: true });
+navigate("/onboarding", { replace: true });
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message ||
@@ -185,7 +181,6 @@ export default function Signup() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white px-4 py-10">
       <div className="mx-auto grid min-h-[calc(100vh-120px)] max-w-6xl items-center gap-10 lg:grid-cols-[1fr_520px]">
-        {/* LEFT SECTION */}
         <div className="hidden lg:block">
           <p className="mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
             Join MacroBox
@@ -201,13 +196,12 @@ export default function Signup() {
           </p>
 
           <div className="mt-8 grid max-w-xl gap-4">
+            <Feature text="Choose your goal and see meals built for fat loss, muscle gain, weight gain or clean eating." />
             <Feature text="MacroTrack calculates how many calories, protein, carbs and fat you need each day." />
-            <Feature text="Smart Day Planner helps you choose meals for fat loss, muscle gain, weight gain or maintenance." />
-            <Feature text="Your orders carry full macro values, saved addresses and live delivery tracking." />
+            <Feature text="Your first screen after signup shows personalized meals, not an empty homepage." />
           </div>
         </div>
 
-        {/* SIGNUP CARD */}
         <form
           onSubmit={handleSubmit}
           className="w-full rounded-3xl border bg-white p-6 shadow-xl sm:p-8"
@@ -222,7 +216,7 @@ export default function Signup() {
             </h2>
 
             <p className="mt-2 text-sm text-gray-500">
-              Verify your phone number and create your MacroBox account.
+              Verify your phone number and start your MacroBox setup.
             </p>
           </div>
 
@@ -245,7 +239,6 @@ export default function Signup() {
               onChange={handleChange}
             />
 
-            {/* PHONE + OTP */}
             <div className="rounded-2xl border bg-gray-50 p-3">
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -293,7 +286,9 @@ export default function Signup() {
                     type="text"
                     placeholder="Enter 6-digit OTP"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
                     maxLength={6}
                     className="h-11 flex-1 rounded-xl border bg-white px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
                   />
@@ -301,7 +296,7 @@ export default function Signup() {
                   <button
                     type="button"
                     onClick={verifyOtp}
-                    disabled={otpLoading || !otp.trim()}
+                    disabled={otpLoading || otp.trim().length !== 6}
                     className="h-11 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {otpLoading ? "Verifying..." : "Verify"}
@@ -330,7 +325,6 @@ export default function Signup() {
               )}
             </div>
 
-            {/* PASSWORD */}
             <div className="relative">
               <ShieldCheck
                 size={18}

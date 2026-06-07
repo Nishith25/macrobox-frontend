@@ -7,19 +7,61 @@ import api from "../api/api";
 
 /* ================= TYPES ================= */
 
-type User = {
+export type GoalType =
+  | "fat_loss"
+  | "muscle_gain"
+  | "weight_gain"
+  | "clean_eating";
+
+export type Onboarding = {
+  completed?: boolean;
+  completedAt?: string | null;
+  currentStep?: number;
+  goal?: GoalType | null;
+  welcomeCouponShown?: boolean;
+  waitlisted?: boolean;
+  waitlistPincode?: string;
+  waitlistedAt?: string | null;
+};
+
+export type BodyMetrics = {
+  height?: number | null;
+  weight?: number | null;
+  age?: number | null;
+  gender?: "male" | "female";
+  activity?: "sedentary" | "light" | "moderate" | "active" | "very_active";
+  goalWeight?: number | null;
+  targetCalories?: number | null;
+  targetProtein?: number | null;
+  targetCarbs?: number | null;
+  targetFat?: number | null;
+  locked?: boolean;
+};
+
+export type User = {
   _id: string;
   name: string;
   email: string;
   phone?: string;
   role: "user" | "admin" | "delivery" | "chef";
+
+  onboarding?: Onboarding;
+  bodyMetrics?: BodyMetrics;
+
   deliveryProfile?: {
     phone?: string;
     isActive?: boolean;
     approvalStatus?: "pending" | "approved" | "rejected";
-  rejectionReason?: string;
+    rejectionReason?: string;
     vehicleType?: string;
     vehicleNumber?: string;
+  };
+
+  chefProfile?: {
+    phone?: string;
+    isActive?: boolean;
+    approvalStatus?: "pending" | "approved" | "rejected";
+    rejectionReason?: string;
   };
 };
 
@@ -47,9 +89,12 @@ type AuthContextType = {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isDelivery: boolean;
+  isChef: boolean;
   login: (data: LoginPayload) => Promise<User>;
   signup: (data: SignupPayload) => Promise<void>;
   logout: () => void;
+  updateUser: (updatedUser: Partial<User>) => void;
+  refreshStoredUser: (freshUser?: User) => void;
 };
 
 /* ================= CONTEXT ================= */
@@ -66,6 +111,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = Boolean(token);
   const isAdmin = user?.role === "admin";
   const isDelivery = user?.role === "delivery";
+  const isChef = user?.role === "chef";
+
+  const saveSession = (accessToken: string, userData: User) => {
+    setUser(userData);
+    setToken(accessToken);
+
+    localStorage.setItem("token", accessToken);
+    localStorage.setItem("user", JSON.stringify(userData));
+
+    api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+  };
+
+  const updateUser = (updatedUser: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+
+      const merged = {
+        ...prev,
+        ...updatedUser,
+        onboarding: {
+          ...prev.onboarding,
+          ...updatedUser.onboarding,
+        },
+        bodyMetrics: {
+          ...prev.bodyMetrics,
+          ...updatedUser.bodyMetrics,
+        },
+      };
+
+      localStorage.setItem("user", JSON.stringify(merged));
+      return merged;
+    });
+  };
+
+  const refreshStoredUser = (freshUser?: User) => {
+    if (!freshUser) return;
+
+    setUser(freshUser);
+    localStorage.setItem("user", JSON.stringify(freshUser));
+  };
 
   /* ================= LOGOUT ================= */
 
@@ -116,13 +201,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const { token: accessToken, user: userData } = res.data;
 
-      setUser(userData);
-      setToken(accessToken);
-
-      localStorage.setItem("token", accessToken);
-      localStorage.setItem("user", JSON.stringify(userData));
-
-      api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+      saveSession(accessToken, userData);
 
       return userData;
     } catch (err: any) {
@@ -134,19 +213,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   /* ================= SIGNUP ================= */
 
   const signup = async (data: SignupPayload) => {
-    try {
-      await api.post("/auth/signup", data);
+  try {
+    const res = await api.post("/auth/signup", data);
 
-      toast.success(
-        "Signup successful! Please check your email to verify your account."
-      );
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Signup failed");
-      throw err;
+    const { token: accessToken, user: userData } = res.data;
+
+    if (accessToken && userData) {
+      setUser(userData);
+      setToken(accessToken);
+
+      localStorage.setItem("token", accessToken);
+      localStorage.setItem("user", JSON.stringify(userData));
+
+      api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
     }
-  };
 
-  /* ================= CONTEXT VALUE ================= */
+    toast.success(
+      res.data?.message || "Signup successful! Complete your MacroBox setup."
+    );
+  } catch (err: any) {
+    toast.error(err.response?.data?.message || "Signup failed");
+    throw err;
+  }
+};
 
   return (
     <AuthContext.Provider
@@ -156,9 +245,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isAuthenticated,
         isAdmin,
         isDelivery,
+        isChef,
         login,
         signup,
         logout,
+        updateUser,
+        refreshStoredUser,
       }}
     >
       {loading ? <FullScreenLoader /> : children}

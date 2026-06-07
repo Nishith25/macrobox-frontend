@@ -1,6 +1,6 @@
 // frontend/src/router/AppRouter.tsx (FRONTEND)
 
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -21,6 +21,9 @@ import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import VerifyEmail from "../pages/VerifyEmail";
 import ResendVerification from "../pages/ResendVerification";
+
+// Onboarding Page
+import Onboarding from "../pages/Onboarding";
 
 // User Pages
 import MacroTrack from "../pages/MacroTrack";
@@ -51,9 +54,18 @@ import AdminRoute from "./AdminRoute";
 import DeliveryRoute from "./DeliveryRoute";
 
 export default function AppRouter() {
+  const location = useLocation();
+
+  const hideLayout =
+    location.pathname.startsWith("/onboarding") ||
+    location.pathname === "/cheflogin" ||
+    location.pathname === "/chefsignup" ||
+    location.pathname === "/deliverylogin" ||
+    location.pathname === "/deliverysignup";
+
   return (
     <>
-      <Navbar />
+      {!hideLayout && <Navbar />}
 
       <Routes>
         {/* ================= PUBLIC ROUTES ================= */}
@@ -70,14 +82,24 @@ export default function AppRouter() {
         <Route path="/deliverysignup" element={<DeliverySignup />} />
 
         {/* ================= CHEF AUTH ROUTES ================= */}
-        <Route path="/chefsignup" element={<ChefSignup />} />
         <Route path="/cheflogin" element={<ChefLogin />} />
+        <Route path="/chefsignup" element={<ChefSignup />} />
 
         {/* ================= OTHER AUTH ROUTES ================= */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/verify-email/:token" element={<VerifyEmail />} />
         <Route path="/resend-verification" element={<ResendVerification />} />
+
+        {/* ================= ONBOARDING ROUTE ================= */}
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ================= USER PROTECTED ROUTES ================= */}
         <Route
@@ -218,13 +240,13 @@ export default function AppRouter() {
         />
 
         <Route
-  path="/admin/delivery-pincodes"
-  element={
-    <AdminRoute>
-      <AdminDeliveryPincodes />
-    </AdminRoute>
-  }
-/>
+          path="/admin/delivery-pincodes"
+          element={
+            <AdminRoute>
+              <AdminDeliveryPincodes />
+            </AdminRoute>
+          }
+        />
 
         {/* ================= CHEF + ADMIN KITCHEN ROUTE ================= */}
         <Route
@@ -240,7 +262,7 @@ export default function AppRouter() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      <Footer />
+      {!hideLayout && <Footer />}
     </>
   );
 }
