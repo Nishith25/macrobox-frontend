@@ -105,7 +105,11 @@ const goalLabelMap: Record<GoalType, string> = {
 export default function Onboarding() {
   const navigate = useNavigate();
 
-  const { user, updateUser, refreshStoredUser } = useAuth() as any;
+  const auth = useAuth() as any;
+  const user = auth.user;
+  const updateUser = auth.updateUser || (() => {});
+  const refreshStoredUser = auth.refreshStoredUser || (() => {});
+
   const { cart, addToCart, increaseQty, decreaseQty } = useCart();
 
   const addressInputRef = useRef<HTMLInputElement | null>(null);
@@ -266,21 +270,23 @@ export default function Onboarding() {
   };
 
   const saveGoal = async (goal: GoalType) => {
+    // ✅ IMPORTANT: move immediately when clicked
+    setSelectedGoal(goal);
+    setStep(3);
+
     try {
       setSaving(true);
 
-      const res = await api.patch("/onboarding/goal", { goal });
+      const res = await api.patch("/onboarding/goal", {
+        goal,
+        currentStep: 3,
+      });
 
-      setSelectedGoal(goal);
-
-      if (updateUser) {
-        updateUser({
-          onboarding: res.data?.onboarding,
-        });
-      }
-
-      setStep(3);
+      updateUser({
+        onboarding: res.data?.onboarding,
+      });
     } catch (err: any) {
+      console.log("Goal save failed:", err);
       toast.error(err?.response?.data?.message || "Failed to save goal");
     } finally {
       setSaving(false);
@@ -294,7 +300,6 @@ export default function Onboarding() {
       if (!skip) {
         if (!body.height || !body.weight || !body.age || !body.activity) {
           toast.error("Please fill all body details or skip for now.");
-          setSaving(false);
           return;
         }
       }
@@ -315,12 +320,10 @@ export default function Onboarding() {
 
       const res = await api.patch("/onboarding/body-details", payload);
 
-      if (updateUser) {
-        updateUser({
-          bodyMetrics: res.data?.bodyMetrics,
-          onboarding: res.data?.onboarding,
-        });
-      }
+      updateUser({
+        bodyMetrics: res.data?.bodyMetrics,
+        onboarding: res.data?.onboarding,
+      });
 
       setStep(4);
     } catch (err: any) {
@@ -330,19 +333,16 @@ export default function Onboarding() {
     }
   };
 
-  const extractComponent = (components: any[] = [], type: string) => {
-    const found = components.find((c) => c.types?.includes(type));
+  const extractComponent = (components: any[], type: string) => {
+    const found = components?.find((c) => c.types?.includes(type));
     return found?.long_name || "";
   };
 
   const applyGooglePlace = (place: any) => {
     if (!place) return;
 
-    const latValue = place.geometry?.location?.lat;
-    const lngValue = place.geometry?.location?.lng;
-
-    const lat = typeof latValue === "function" ? latValue() : latValue;
-    const lng = typeof lngValue === "function" ? lngValue() : lngValue;
+    const lat = place.geometry?.location?.lat?.();
+    const lng = place.geometry?.location?.lng?.();
 
     const components = place.address_components || [];
 
@@ -351,7 +351,6 @@ export default function Onboarding() {
       extractComponent(components, "locality") ||
       extractComponent(components, "administrative_area_level_3") ||
       extractComponent(components, "sublocality");
-
     const state = extractComponent(components, "administrative_area_level_1");
 
     const formatted = place.formatted_address || place.name || addressSearch;
@@ -369,10 +368,10 @@ export default function Onboarding() {
       pincode: pincode || prev.pincode,
       formattedAddress: formatted,
       locationText: formatted,
-      lat: Number.isFinite(Number(lat)) ? Number(lat) : prev.lat,
-      lng: Number.isFinite(Number(lng)) ? Number(lng) : prev.lng,
+      lat: Number.isFinite(lat) ? lat : prev.lat,
+      lng: Number.isFinite(lng) ? lng : prev.lng,
       mapsUrl:
-        Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
+        Number.isFinite(lat) && Number.isFinite(lng)
           ? `https://www.google.com/maps?q=${lat},${lng}`
           : prev.mapsUrl,
       locationMode: "manual",
@@ -409,7 +408,7 @@ export default function Onboarding() {
         (results: any[] | null, status: string) => {
           setSaving(false);
 
-          if (status !== "OK" || !results || !results[0]) {
+          if (status !== "OK" || !results?.[0]) {
             toast.error("Could not find this address.");
             return;
           }
@@ -456,13 +455,11 @@ export default function Onboarding() {
         const geocoder = new googleObj.maps.Geocoder();
 
         geocoder.geocode(
-          {
-            location: { lat, lng },
-          },
+          { location: { lat, lng } },
           (results: any[] | null, status: string) => {
             setSaving(false);
 
-            if (status === "OK" && results && results[0]) {
+            if (status === "OK" && results?.[0]) {
               applyGooglePlace(results[0]);
             } else {
               setAddress((prev) => ({
@@ -553,11 +550,9 @@ export default function Onboarding() {
         address,
       });
 
-      if (updateUser) {
-        updateUser({
-          onboarding: res.data?.onboarding,
-        });
-      }
+      updateUser({
+        onboarding: res.data?.onboarding,
+      });
 
       if (!res.data?.serviceable) {
         setServiceable(false);
@@ -606,9 +601,9 @@ export default function Onboarding() {
 
       const res = await api.patch("/onboarding/complete");
 
-      if (res.data?.user && refreshStoredUser) {
+      if (res.data?.user) {
         refreshStoredUser(res.data.user);
-      } else if (updateUser) {
+      } else {
         updateUser({
           onboarding: res.data?.onboarding,
         });
@@ -643,25 +638,29 @@ export default function Onboarding() {
     toast.success("Added to cart");
   };
 
+  const inputClass =
+    "h-12 w-full rounded-xl border px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500";
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 via-white to-white px-4 py-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 rounded-3xl border bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-4">
             <button
+              type="button"
               onClick={goBack}
-              className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
             >
-              <ArrowLeft size={17} />
+              <ArrowLeft size={18} />
               Back
             </button>
 
             <div className="text-center">
-              <p className="text-sm font-bold text-green-700">MacroBox Setup</p>
-              <p className="text-xs text-gray-500">Step {step} of 5</p>
+              <p className="font-extrabold text-green-700">MacroBox Setup</p>
+              <p className="text-sm text-gray-500">Step {step} of 5</p>
             </div>
 
-            <div className="w-[85px]" />
+            <div className="w-[92px]" />
           </div>
 
           <div className="h-2 overflow-hidden rounded-full bg-gray-100">
@@ -672,73 +671,81 @@ export default function Onboarding() {
           </div>
         </div>
 
-        {step === 2 && (
-          <section className="rounded-3xl border bg-white p-6 shadow-xl md:p-10">
-            <div className="mx-auto max-w-3xl text-center">
-              <p className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
-                <Target size={16} />
-                Pick your goal
-              </p>
+        <div className="rounded-3xl border bg-white p-6 shadow-xl md:p-10">
+          {step === 2 && (
+            <div>
+              <div className="text-center">
+                <p className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
+                  <Target size={16} />
+                  Pick your goal
+                </p>
 
-              <h1 className="text-3xl font-extrabold text-gray-900 md:text-5xl">
-                What are you eating for?
-              </h1>
+                <h1 className="text-4xl font-black text-gray-950 md:text-5xl">
+                  What are you eating for?
+                </h1>
 
-              <p className="mt-3 text-gray-500">
-                This one choice filters your meals, macro targets, and meal
-                suggestions.
-              </p>
+                <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
+                  This one choice filters your meals, macro targets, and meal
+                  suggestions.
+                </p>
+              </div>
+
+              <div className="mt-10 grid gap-5 md:grid-cols-4">
+                {goalOptions.map((goal) => (
+                  <button
+                    key={goal.key}
+                    type="button"
+                    disabled={saving}
+                    onClick={() => saveGoal(goal.key)}
+                    className={`group rounded-3xl border p-6 text-left transition hover:-translate-y-1 hover:border-green-400 hover:bg-green-50 hover:shadow-xl disabled:opacity-70 ${
+                      selectedGoal === goal.key
+                        ? "border-green-400 bg-green-50 shadow-xl"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-100 text-green-700">
+                      {goal.icon}
+                    </div>
+
+                    <h3 className="text-2xl font-extrabold text-gray-900">
+                      {goal.title}
+                    </h3>
+
+                    <p className="mt-3 min-h-[52px] text-base leading-7 text-gray-500">
+                      {goal.subtitle}
+                    </p>
+
+                    <div className="mt-6 flex items-center justify-between font-bold text-green-700">
+                      <span>{saving && selectedGoal === goal.key ? "Saving..." : "Choose"}</span>
+                      <ChevronRight size={20} />
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
 
-            <div className="mt-10 grid gap-4 md:grid-cols-4">
-              {goalOptions.map((goal) => (
-                <button
-                  key={goal.key}
-                  onClick={() => saveGoal(goal.key)}
-                  disabled={saving}
-                  className={`rounded-3xl border p-6 text-left transition hover:-translate-y-1 hover:border-green-300 hover:shadow-lg disabled:opacity-60 ${
-                    selectedGoal === goal.key
-                      ? "border-green-500 bg-green-50"
-                      : "bg-white"
-                  }`}
-                >
-                  <div className="mb-5 inline-flex rounded-2xl bg-green-100 p-4 text-green-700">
-                    {goal.icon}
-                  </div>
+          {step === 3 && (
+            <div className="mx-auto max-w-3xl">
+              <div className="text-center">
+                <p className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
+                  <Sparkles size={16} />
+                  Body details
+                </p>
 
-                  <h3 className="text-xl font-extrabold text-gray-900">
-                    {goal.title}
-                  </h3>
+                <h1 className="text-4xl font-black text-gray-950">
+                  Let’s calculate your daily target
+                </h1>
 
-                  <p className="mt-2 text-sm text-gray-500">{goal.subtitle}</p>
+                <p className="mt-4 text-gray-500">
+                  Your selected goal:{" "}
+                  <span className="font-bold text-green-700">
+                    {selectedGoal ? goalLabelMap[selectedGoal] : "Not selected"}
+                  </span>
+                </p>
+              </div>
 
-                  <div className="mt-5 flex items-center justify-between text-sm font-bold text-green-700">
-                    Choose
-                    <ChevronRight size={18} />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {step === 3 && (
-          <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
-            <div className="rounded-3xl border bg-white p-6 shadow-xl md:p-8">
-              <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
-                <Sparkles size={16} />
-                Body details
-              </p>
-
-              <h1 className="text-3xl font-extrabold text-gray-900">
-                Let’s calculate your daily target
-              </h1>
-
-              <p className="mt-2 text-gray-500">
-                Fill these details to personalize your calories and protein.
-              </p>
-
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="mt-8 grid gap-4 md:grid-cols-2">
                 <input
                   type="number"
                   placeholder="Height in cm"
@@ -746,7 +753,7 @@ export default function Onboarding() {
                   onChange={(e) =>
                     setBody((prev) => ({ ...prev, height: e.target.value }))
                   }
-                  className="h-14 rounded-2xl border px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                  className={inputClass}
                 />
 
                 <input
@@ -756,7 +763,7 @@ export default function Onboarding() {
                   onChange={(e) =>
                     setBody((prev) => ({ ...prev, weight: e.target.value }))
                   }
-                  className="h-14 rounded-2xl border px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                  className={inputClass}
                 />
 
                 <input
@@ -766,7 +773,7 @@ export default function Onboarding() {
                   onChange={(e) =>
                     setBody((prev) => ({ ...prev, age: e.target.value }))
                   }
-                  className="h-14 rounded-2xl border px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                  className={inputClass}
                 />
 
                 <select
@@ -777,88 +784,80 @@ export default function Onboarding() {
                       activity: e.target.value as Activity,
                     }))
                   }
-                  className="h-14 rounded-2xl border px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                  className={inputClass}
                 >
-                  {activityOptions.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
+                  {activityOptions.map((a) => (
+                    <option key={a.value} value={a.value}>
+                      {a.label}
                     </option>
                   ))}
                 </select>
               </div>
 
+              <div className="mt-6 rounded-3xl border border-green-100 bg-green-50 p-5">
+                <p className="text-sm font-bold text-green-700">
+                  Live preview
+                </p>
+
+                {liveTargets.calories ? (
+                  <p className="mt-2 text-2xl font-black text-gray-950">
+                    ~{liveTargets.calories} kcal · {liveTargets.protein}g
+                    protein · {liveTargets.carbs}g carbs · {liveTargets.fat}g fat
+                  </p>
+                ) : (
+                  <p className="mt-2 text-gray-500">
+                    Fill height, weight, age, and activity to see your daily
+                    macro target.
+                  </p>
+                )}
+              </div>
+
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <button
+                  type="button"
                   onClick={() => saveBodyDetails(false)}
                   disabled={saving}
-                  className="rounded-2xl bg-green-600 px-6 py-3 font-bold text-white hover:bg-green-700 disabled:opacity-60"
+                  className="h-12 flex-1 rounded-xl bg-green-600 font-bold text-white hover:bg-green-700 disabled:opacity-60"
                 >
                   {saving ? "Saving..." : "Continue"}
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => saveBodyDetails(true)}
                   disabled={saving}
-                  className="rounded-2xl px-6 py-3 font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                  className="h-12 rounded-xl border px-6 font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                 >
                   Skip for now
                 </button>
               </div>
             </div>
+          )}
 
-            <div className="rounded-3xl border bg-gray-950 p-6 text-white shadow-xl">
-              <p className="text-sm font-semibold text-green-300">
-                Live Preview
-              </p>
-
-              <h2 className="mt-3 text-2xl font-extrabold">
-                Your daily target
-              </h2>
-
-              {liveTargets.calories ? (
-                <div className="mt-6 grid gap-3">
-                  <TargetBox
-                    label="Calories"
-                    value={`~${liveTargets.calories} kcal`}
-                  />
-                  <TargetBox label="Protein" value={`${liveTargets.protein}g`} />
-                  <TargetBox label="Carbs" value={`${liveTargets.carbs}g`} />
-                  <TargetBox label="Fat" value={`${liveTargets.fat}g`} />
-                </div>
-              ) : (
-                <p className="mt-6 text-sm leading-6 text-gray-300">
-                  Start filling your body details and your calorie and protein
-                  targets will appear here instantly.
+          {step === 4 && (
+            <div className="mx-auto max-w-4xl">
+              <div className="text-center">
+                <p className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
+                  <MapPin size={16} />
+                  Delivery address
                 </p>
-              )}
-            </div>
-          </section>
-        )}
 
-        {step === 4 && (
-          <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
-            <div className="rounded-3xl border bg-white p-6 shadow-xl md:p-8">
-              <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
-                <MapPin size={16} />
-                Delivery address
-              </p>
+                <h1 className="text-4xl font-black text-gray-950">
+                  Where should we deliver?
+                </h1>
 
-              <h1 className="text-3xl font-extrabold text-gray-900">
-                Where should we deliver?
-              </h1>
+                <p className="mt-4 text-gray-500">
+                  Use current location or search your exact address.
+                </p>
+              </div>
 
-              <p className="mt-2 text-gray-500">
-                Search like Google Maps, select your address, and we’ll check
-                serviceability.
-              </p>
-
-              <div className="mt-8 rounded-3xl border border-green-100 bg-green-50 p-4">
-                <p className="mb-3 flex items-center gap-2 text-lg font-extrabold text-gray-900">
-                  <Search size={20} className="text-green-600" />
+              <div className="mt-8 rounded-3xl border border-green-100 bg-green-50 p-5">
+                <p className="mb-3 flex items-center gap-2 font-extrabold text-gray-900">
+                  <Search size={18} className="text-green-600" />
                   Search Location
                 </p>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex flex-col gap-3 md:flex-row">
                   <input
                     ref={addressInputRef}
                     value={addressSearch}
@@ -869,201 +868,168 @@ export default function Onboarding() {
                         geocodeTypedAddress();
                       }
                     }}
-                    placeholder="Search apartment, street, area, landmark..."
-                    className="h-14 flex-1 rounded-2xl border border-green-200 bg-white px-4 text-base font-semibold outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                    placeholder="Search full address, apartment, area, landmark..."
+                    className="h-14 flex-1 rounded-2xl border border-green-200 bg-white px-5 text-base font-semibold outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
                   />
 
                   <button
                     type="button"
                     onClick={geocodeTypedAddress}
                     disabled={saving}
-                    className="h-14 rounded-2xl bg-green-600 px-7 font-bold text-white hover:bg-green-700 disabled:opacity-60"
+                    className="h-14 rounded-2xl bg-green-600 px-8 font-bold text-white hover:bg-green-700 disabled:opacity-60"
                   >
-                    {saving ? <Loader2 className="animate-spin" /> : "Search"}
+                    {saving ? "..." : "Search"}
                   </button>
                 </div>
 
-                <p className="mt-2 text-sm text-gray-500">
-                  Choose one address from the Google suggestions for accurate
-                  delivery.
-                </p>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={useCurrentLocation}
-                    className="rounded-2xl bg-green-600 px-4 py-3 font-bold text-white hover:bg-green-700"
-                  >
-                    <Navigation size={16} className="mr-1 inline" />
-                    Use Current Location
-                  </button>
-
-                  {address.mapsUrl ? (
-                    <a
-                      href={address.mapsUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center rounded-2xl border border-green-200 bg-white px-4 py-3 font-bold text-green-700 hover:bg-green-50"
-                    >
-                      Open in Google Maps
-                    </a>
-                  ) : (
-                    <div className="hidden sm:block" />
-                  )}
-                </div>
-
-                {address.lat != null && address.lng != null && (
-                  <div className="mt-5 overflow-hidden rounded-3xl border bg-white shadow-sm">
-                    <iframe
-                      title="MacroBox delivery pin"
-                      src={`https://www.google.com/maps?q=${address.lat},${address.lng}&z=17&output=embed`}
-                      className="h-[300px] w-full border-0"
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                    />
-
-                    <div className="border-t bg-white px-4 py-3">
-                      <p className="text-xs font-bold uppercase tracking-wide text-green-700">
-                        Exact location pin
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        For pin adjustment, open Google Maps, copy the exact
-                        location, and search again.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={useCurrentLocation}
+                  disabled={saving}
+                  className="mt-4 h-12 w-full rounded-2xl bg-green-600 font-bold text-white hover:bg-green-700 disabled:opacity-60"
+                >
+                  <Navigation size={16} className="mr-2 inline" />
+                  Use Current Location
+                </button>
 
                 {address.formattedAddress && (
-                  <div className="mt-4 rounded-2xl border border-green-100 bg-white p-4">
-                    <p className="text-xs font-bold uppercase tracking-wide text-green-700">
-                      Selected Address
+                  <div className="mt-4 rounded-2xl border border-green-200 bg-white p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-green-700">
+                      Selected address
                     </p>
-                    <p className="mt-2 text-sm font-semibold leading-6 text-gray-800">
+
+                    <p className="mt-2 font-semibold text-gray-800">
                       {address.formattedAddress}
                     </p>
 
-                    {address.pincode && (
-                      <span className="mt-3 inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
-                        Pincode: {address.pincode}
-                      </span>
+                    {address.mapsUrl && (
+                      <a
+                        href={address.mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-block text-sm font-bold text-green-700 underline"
+                      >
+                        Open in Google Maps
+                      </a>
                     )}
                   </div>
                 )}
 
                 {locationMsg && (
-                  <div
-                    className={`mt-4 rounded-2xl p-4 text-sm font-semibold ${
+                  <p
+                    className={`mt-4 rounded-2xl p-3 text-sm font-semibold ${
                       serviceable
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-50 text-red-700"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-50 text-red-600"
                     }`}
                   >
                     {locationMsg}
-                  </div>
+                  </p>
                 )}
               </div>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <Input
+              <div className="mt-6 grid gap-3 md:grid-cols-2">
+                <input
                   placeholder="Full Name"
+                  className={inputClass}
                   value={address.fullName}
-                  onChange={(value) =>
-                    setAddress((prev) => ({ ...prev, fullName: value }))
+                  onChange={(e) =>
+                    setAddress({ ...address, fullName: e.target.value })
                   }
                 />
 
-                <Input
+                <input
                   placeholder="Phone Number"
+                  className={inputClass}
                   value={address.phone}
-                  onChange={(value) =>
-                    setAddress((prev) => ({ ...prev, phone: value }))
+                  onChange={(e) =>
+                    setAddress({ ...address, phone: e.target.value })
                   }
                 />
 
-                <Input
+                <input
                   placeholder="Flat / House No"
+                  className={inputClass}
                   value={address.flatNo}
-                  onChange={(value) =>
-                    setAddress((prev) => ({ ...prev, flatNo: value }))
+                  onChange={(e) =>
+                    setAddress({ ...address, flatNo: e.target.value })
                   }
                 />
 
-                <Input
+                <input
                   placeholder="Floor optional"
+                  className={inputClass}
                   value={address.floor}
-                  onChange={(value) =>
-                    setAddress((prev) => ({ ...prev, floor: value }))
+                  onChange={(e) =>
+                    setAddress({ ...address, floor: e.target.value })
                   }
                 />
 
-                <Input
+                <input
                   placeholder="Building / Apartment"
+                  className={`${inputClass} md:col-span-2`}
                   value={address.buildingName}
-                  onChange={(value) =>
-                    setAddress((prev) => ({ ...prev, buildingName: value }))
+                  onChange={(e) =>
+                    setAddress({ ...address, buildingName: e.target.value })
                   }
-                  className="sm:col-span-2"
                 />
 
-                <Input
+                <input
                   placeholder="Area / Locality"
+                  className={inputClass}
                   value={address.area}
-                  onChange={(value) =>
-                    setAddress((prev) => ({ ...prev, area: value }))
+                  onChange={(e) =>
+                    setAddress({ ...address, area: e.target.value })
                   }
                 />
 
-                <Input
+                <input
                   placeholder="Landmark optional"
+                  className={inputClass}
                   value={address.landmark}
-                  onChange={(value) =>
-                    setAddress((prev) => ({ ...prev, landmark: value }))
+                  onChange={(e) =>
+                    setAddress({ ...address, landmark: e.target.value })
                   }
                 />
 
-                <Input
+                <input
                   placeholder="City"
+                  className={inputClass}
                   value={address.city}
-                  onChange={(value) =>
-                    setAddress((prev) => ({ ...prev, city: value }))
+                  onChange={(e) =>
+                    setAddress({ ...address, city: e.target.value })
                   }
                 />
 
-                <Input
+                <input
                   placeholder="State"
+                  className={inputClass}
                   value={address.state}
-                  onChange={(value) =>
-                    setAddress((prev) => ({ ...prev, state: value }))
+                  onChange={(e) =>
+                    setAddress({ ...address, state: e.target.value })
                   }
                 />
 
-                <Input
+                <input
                   placeholder="Pincode"
+                  className={inputClass}
                   value={address.pincode}
-                  onChange={(value) => {
-                    const clean = value.replace(/\D/g, "").slice(0, 6);
-
-                    setAddress((prev) => ({ ...prev, pincode: clean }));
-
-                    if (clean.length === 6) {
-                      checkPincode(clean);
-                    } else {
-                      setServiceable(null);
-                      setLocationMsg("");
-                    }
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setAddress({ ...address, pincode: value });
+                    checkPincode(value);
                   }}
                 />
 
                 <select
+                  className={inputClass}
                   value={address.addressLabel}
                   onChange={(e) =>
-                    setAddress((prev) => ({
-                      ...prev,
+                    setAddress({
+                      ...address,
                       addressLabel: e.target.value as "Home" | "Work" | "Other",
-                    }))
+                    })
                   }
-                  className="rounded-2xl border px-4 py-3 text-sm font-semibold outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
                 >
                   <option value="Home">Home</option>
                   <option value="Work">Work</option>
@@ -1072,146 +1038,85 @@ export default function Onboarding() {
               </div>
 
               <button
+                type="button"
                 onClick={saveAddress}
                 disabled={saving}
-                className="mt-6 h-14 w-full rounded-2xl bg-green-600 font-extrabold text-white hover:bg-green-700 disabled:opacity-60"
+                className="mt-8 h-12 w-full rounded-xl bg-green-600 font-bold text-white hover:bg-green-700 disabled:opacity-60"
               >
-                {saving ? "Checking..." : "Save Address & Continue"}
+                {saving ? "Saving..." : "Continue"}
               </button>
             </div>
+          )}
 
-            <div className="rounded-3xl border bg-gray-950 p-6 text-white shadow-xl">
-              <p className="text-sm font-semibold text-green-300">
-                Serviceability
-              </p>
-
-              <h2 className="mt-3 text-2xl font-extrabold">
-                We’ll check your delivery area
-              </h2>
-
-              <p className="mt-4 text-sm leading-6 text-gray-300">
-                MacroBox currently delivers only to pincodes enabled by admin.
-                If your area is unavailable, you can join the waitlist and we’ll
-                expand soon.
-              </p>
-
-              <div className="mt-6 rounded-2xl bg-white/10 p-4">
-                <p className="text-xs text-gray-300">Current Pincode</p>
-                <p className="mt-1 text-2xl font-extrabold">
-                  {address.pincode || "------"}
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {step === 5 && (
-          <section className="rounded-3xl border bg-white p-6 shadow-xl md:p-8">
-            <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
+          {step === 5 && (
+            <div>
+              <div className="text-center">
+                <p className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
                   <Utensils size={16} />
                   First meal, right now
                 </p>
 
-                <h1 className="text-3xl font-extrabold text-gray-900 md:text-4xl">
+                <h1 className="text-4xl font-black text-gray-950">
                   Here are your best meals for{" "}
                   {selectedGoal ? goalLabelMap[selectedGoal] : "your goal"}
                 </h1>
 
-                <p className="mt-2 text-gray-500">
-                  Your meals are already filtered based on your selected goal.
+                <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
+                  Welcome offer — 20% off your first order. Expires in 48 hours.
                 </p>
               </div>
+
+              <div className="mt-8 rounded-3xl border border-green-200 bg-green-50 p-5 text-center">
+                <p className="font-black text-green-700">
+                  Welcome offer applied for new users 🎉
+                </p>
+              </div>
+
+              {loadingMeals ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="animate-spin text-green-600" size={34} />
+                </div>
+              ) : meals.length === 0 ? (
+                <div className="py-16 text-center">
+                  <p className="text-gray-500">
+                    No recommended meals found. You can explore all meals.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={completeOnboarding}
+                    className="mt-6 rounded-xl bg-green-600 px-6 py-3 font-bold text-white hover:bg-green-700"
+                  >
+                    Explore Meals
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-10 grid gap-8 md:grid-cols-3">
+                  {meals.map((meal) => (
+                    <MealCard
+                      key={meal._id}
+                      meal={meal}
+                      qty={getCartQty(meal._id)}
+                      onAddToCart={handleAddToCart}
+                      onIncrease={(m) => increaseQty(m._id)}
+                      onDecrease={(m) => decreaseQty(m._id)}
+                    />
+                  ))}
+                </div>
+              )}
 
               <button
+                type="button"
                 onClick={completeOnboarding}
                 disabled={saving}
-                className="rounded-2xl bg-green-600 px-6 py-3 font-extrabold text-white hover:bg-green-700 disabled:opacity-60"
+                className="mt-10 h-12 w-full rounded-xl bg-green-600 font-bold text-white hover:bg-green-700 disabled:opacity-60"
               >
-                Finish Setup
+                {saving ? "Finishing..." : "Finish Setup"}
               </button>
             </div>
-
-            <div className="mb-8 rounded-3xl border border-green-200 bg-green-50 p-5">
-              <p className="text-lg font-extrabold text-green-800">
-                Welcome offer — 20% off your first order
-              </p>
-              <p className="mt-1 text-sm text-green-700">
-                Expires in 48 hours. Use this offer on your first MacroBox order.
-              </p>
-            </div>
-
-            {loadingMeals ? (
-              <div className="flex justify-center py-16">
-                <Loader2 className="animate-spin text-green-600" size={34} />
-              </div>
-            ) : meals.length === 0 ? (
-              <div className="rounded-3xl border bg-gray-50 p-10 text-center">
-                <p className="font-bold text-gray-800">
-                  No goal-based meals found yet.
-                </p>
-                <p className="mt-2 text-sm text-gray-500">
-                  Add goal tags in Admin Meals to show personalized meals here.
-                </p>
-                <button
-                  onClick={completeOnboarding}
-                  className="mt-5 rounded-2xl bg-green-600 px-5 py-3 font-bold text-white"
-                >
-                  Continue to Meals
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-7 md:grid-cols-3">
-                {meals.map((meal) => (
-                  <MealCard
-                    key={meal._id}
-                    meal={meal}
-                    qty={getCartQty(meal._id)}
-                    onAddToCart={handleAddToCart}
-                    onIncrease={(m) => {
-                      const existing = cart.find((item) => item._id === m._id);
-                      if (existing) increaseQty(m._id);
-                      else handleAddToCart(m);
-                    }}
-                    onDecrease={(m) => decreaseQty(m._id)}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+          )}
+        </div>
       </div>
     </div>
-  );
-}
-
-function TargetBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl bg-white/10 p-4">
-      <p className="text-xs uppercase tracking-wide text-gray-300">{label}</p>
-      <p className="mt-1 text-2xl font-extrabold">{value}</p>
-    </div>
-  );
-}
-
-function Input({
-  placeholder,
-  value,
-  onChange,
-  className = "",
-}: {
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  className?: string;
-}) {
-  return (
-    <input
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={`rounded-2xl border px-4 py-3 text-sm font-semibold outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 ${className}`}
-    />
   );
 }
