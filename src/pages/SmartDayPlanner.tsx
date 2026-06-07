@@ -1,4 +1,5 @@
 // frontend/src/pages/SmartDayPlanner.tsx (FRONTEND)
+
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
@@ -32,6 +33,8 @@ interface Meal {
   fat?: number;
   price?: number;
   imageUrl?: string;
+  goalTypes?: string[];
+  isAvailable?: boolean;
 }
 
 interface SavedPlan {
@@ -108,7 +111,6 @@ export default function SmartDayPlanner() {
   const [goal, setGoal] = useState<GoalType>("fat_loss");
   const [bodyMetrics, setBodyMetrics] = useState<BodyMetrics | null>(null);
 
-  /* ---------------- FETCH MEALS + HISTORY + USER ---------------- */
   useEffect(() => {
     const load = async () => {
       try {
@@ -118,14 +120,18 @@ export default function SmartDayPlanner() {
         if (savedGoal) setGoal(savedGoal as GoalType);
 
         const [mealsRes, historyRes, userRes] = await Promise.allSettled([
-          api.get("/meals"),
+          api.get("/meals", { params: { all: "true" } }),
           api.get("/user/day-plan"),
           api.get("/user/me"),
         ]);
 
         if (mealsRes.status === "fulfilled") {
           const data = mealsRes.value.data;
-          setMeals(Array.isArray(data) ? data : data?.meals || []);
+          const allMeals: Meal[] = Array.isArray(data)
+            ? data
+            : data?.meals || [];
+
+          setMeals(allMeals.filter((meal) => meal.isAvailable !== false));
         }
 
         if (historyRes.status === "fulfilled") {
@@ -155,7 +161,6 @@ export default function SmartDayPlanner() {
     setHistory(res.data || []);
   };
 
-  /* ---------------- MACRO TARGETS ---------------- */
   const macroGoals = useMemo(() => {
     const h = n(bodyMetrics?.height);
     const w = n(bodyMetrics?.weight);
@@ -179,7 +184,9 @@ export default function SmartDayPlanner() {
         ? 10 * w + 6.25 * h - 5 * a + 5
         : 10 * w + 6.25 * h - 5 * a - 161;
 
-    const maintenance = Math.round(bmr * (activityMultipliers[activity] || 1.55));
+    const maintenance = Math.round(
+      bmr * (activityMultipliers[activity] || 1.55)
+    );
 
     let adjustment = 0;
 
@@ -199,21 +206,9 @@ export default function SmartDayPlanner() {
     let proteinMultiplier = 1.6;
     let fatRatio = 0.25;
 
-    if (goal === "fat_loss") {
-      proteinMultiplier = 2.2;
-      fatRatio = 0.25;
-    }
-
-    if (goal === "weight_loss") {
-      proteinMultiplier = 2.0;
-      fatRatio = 0.25;
-    }
-
-    if (goal === "muscle_gain") {
-      proteinMultiplier = 2.1;
-      fatRatio = 0.25;
-    }
-
+    if (goal === "fat_loss") proteinMultiplier = 2.2;
+    if (goal === "weight_loss") proteinMultiplier = 2.0;
+    if (goal === "muscle_gain") proteinMultiplier = 2.1;
     if (goal === "weight_gain") {
       proteinMultiplier = 1.8;
       fatRatio = 0.28;
@@ -232,7 +227,6 @@ export default function SmartDayPlanner() {
     };
   }, [bodyMetrics, goal]);
 
-  /* ---------------- SELECTED MEALS ---------------- */
   const selectedEntries = useMemo(() => {
     return Object.entries(selected)
       .filter(([, times]) => times.length > 0)
@@ -264,7 +258,6 @@ export default function SmartDayPlanner() {
     fat: Math.max(macroGoals.fat - plannedTotals.fat, 0),
   };
 
-  /* ---------------- TOGGLE SLOT ---------------- */
   const toggleSelect = (mealId: string, time: MealTime) => {
     setSelected((prev) => {
       const current = prev[mealId] || [];
@@ -279,8 +272,11 @@ export default function SmartDayPlanner() {
     });
   };
 
-  /* ---------------- AUTO PLAN ---------------- */
-  const scoreMeal = (meal: Meal, remainingCalories: number, remainingProtein: number) => {
+  const scoreMeal = (
+    meal: Meal,
+    remainingCalories: number,
+    remainingProtein: number
+  ) => {
     const calories = n(meal.calories);
     const protein = n(meal.protein);
     const carbs = n(meal.carbs);
@@ -294,6 +290,17 @@ export default function SmartDayPlanner() {
         ? 30 - Math.abs(remainingCalories / 4 - calories) / 20
         : 0;
 
+    const hasGoalTag =
+      goal === "fat_loss"
+        ? meal.goalTypes?.includes("fat_loss")
+        : goal === "muscle_gain"
+        ? meal.goalTypes?.includes("muscle_gain")
+        : goal === "weight_gain"
+        ? meal.goalTypes?.includes("weight_gain")
+        : true;
+
+    const tagBonus = hasGoalTag ? 20 : 0;
+
     const goalBonus =
       goal === "fat_loss" && protein >= 25 && calories <= 600
         ? 20
@@ -306,7 +313,7 @@ export default function SmartDayPlanner() {
     const macroPenalty = fat > 35 ? 10 : 0;
     const carbBonus = carbs > 0 ? 5 : 0;
 
-    return proteinScore + calorieFit + goalBonus + carbBonus - macroPenalty;
+    return proteinScore + calorieFit + goalBonus + tagBonus + carbBonus - macroPenalty;
   };
 
   const autoSmartDayPlanner = () => {
@@ -352,7 +359,6 @@ export default function SmartDayPlanner() {
     setSelected({});
   };
 
-  /* ---------------- SAVE PLAN ---------------- */
   const handleSavePlan = async () => {
     setSaving(true);
 
@@ -378,7 +384,6 @@ export default function SmartDayPlanner() {
     }
   };
 
-  /* ---------------- ADD PLAN TO CART ---------------- */
   const addSelectedPlanToCart = () => {
     if (selectedEntries.length === 0) {
       toast.error("Select at least one meal");
@@ -403,7 +408,6 @@ export default function SmartDayPlanner() {
     toast.success("Selected plan added to cart");
   };
 
-  /* ---------------- DELETE PLAN ---------------- */
   const deletePlan = async (id: string) => {
     if (!confirm("Delete this plan?")) return;
 
@@ -424,7 +428,6 @@ export default function SmartDayPlanner() {
     );
   }
 
-  /* ======================= UI ======================= */
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
       <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -438,17 +441,16 @@ export default function SmartDayPlanner() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-  <div className="rounded-full bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
-    {goalLabels[goal]}
-  </div>
+          <div className="rounded-full bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
+            {goalLabels[goal]}
+          </div>
 
-  <div className="rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
-    {todayText()}
-  </div>
-</div>
+          <div className="rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
+            {todayText()}
+          </div>
+        </div>
       </div>
 
-      {/* GOAL + ACTIONS */}
       <div className="mb-6 rounded-2xl border bg-white p-5 shadow-sm">
         <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
           <div>
@@ -474,7 +476,7 @@ export default function SmartDayPlanner() {
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700"
             >
               <Sparkles size={16} />
-              Auto Smart Day Plam
+              Auto Smart Day Plan
             </button>
 
             <button
@@ -487,7 +489,6 @@ export default function SmartDayPlanner() {
         </div>
       </div>
 
-      {/* TARGETS */}
       <div className="mb-6 grid gap-4 md:grid-cols-4">
         <GoalCard
           icon={<Flame size={20} />}
@@ -505,7 +506,6 @@ export default function SmartDayPlanner() {
           target={macroGoals.protein}
           remaining={remaining.protein}
           unit="g"
-          
         />
 
         <GoalCard
@@ -529,18 +529,19 @@ export default function SmartDayPlanner() {
 
       {!macroGoals.calories && (
         <div className="mb-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-          Complete your body details in MacroTrack first to get accurate macro targets.
+          Complete your body details in MacroTrack first to get accurate macro
+          targets.
         </div>
       )}
 
-      {/* MEALS */}
       <div className="mb-8">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">
             Choose Meals for Each Time
           </h2>
           <p className="text-sm text-gray-500">
-            {selectedEntries.length} meal{selectedEntries.length === 1 ? "" : "s"} selected
+            {selectedEntries.length} meal
+            {selectedEntries.length === 1 ? "" : "s"} selected
           </p>
         </div>
 
@@ -612,7 +613,6 @@ export default function SmartDayPlanner() {
         )}
       </div>
 
-      {/* SELECTED PLAN SUMMARY */}
       <div className="mb-8 rounded-2xl border bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-xl font-bold text-gray-900">
           Selected Day Plan
@@ -640,7 +640,7 @@ export default function SmartDayPlanner() {
                   ) : (
                     <div className="space-y-2">
                       {items.map(({ meal }) => (
-                        <p key={meal._id} className="text-sm text-gray-700">
+                        <p key={`${time}-${meal._id}`} className="text-sm text-gray-700">
                           {meal.title} — {n(meal.calories)} kcal,{" "}
                           {n(meal.protein)}g protein
                         </p>
@@ -671,11 +671,12 @@ export default function SmartDayPlanner() {
         </div>
       </div>
 
-      {/* HISTORY */}
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2">
           <CalendarDays size={20} className="text-green-600" />
-          <h2 className="text-xl font-bold text-gray-900">Last 15 Days Plans</h2>
+          <h2 className="text-xl font-bold text-gray-900">
+            Last 15 Days Plans
+          </h2>
         </div>
 
         {history.length === 0 ? (
@@ -773,6 +774,7 @@ function GoalCard({
       </div>
 
       <p className="text-sm text-gray-500">{title}</p>
+
       <p className="mt-1 text-xl font-bold text-gray-900">
         {planned} / {target || "—"} {unit}
       </p>
