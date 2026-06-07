@@ -36,7 +36,6 @@ import TrackOrderPage from "../pages/TrackOrderPage";
 import SettingsPage from "../pages/SettingsPage";
 
 // Admin Pages
-import AdminDashboard from "../pages/AdminDashboard";
 import AdminUsers from "../pages/AdminUsers";
 import AdminMeals from "../pages/AdminMeals";
 import AdminCoupons from "../pages/AdminCoupons";
@@ -177,13 +176,13 @@ export default function AppRouter() {
 
         {/* ================= ADMIN ROUTES ================= */}
         <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <AdminDashboard />
-            </AdminRoute>
-          }
-        />
+  path="/admin"
+  element={
+    <AdminRoute>
+      <Navigate to="/admin/meals" replace />
+    </AdminRoute>
+  }
+/>
 
         <Route
           path="/admin/meals"

@@ -10,7 +10,6 @@ import toast from "react-hot-toast";
 import type { Meal } from "./Home";
 
 type GoalType = "fat_loss" | "muscle_gain" | "weight_gain" | "clean_eating";
-
 type FilterType = "all" | "veg" | "nonveg";
 
 type MealWithGoals = Meal & {
@@ -32,7 +31,7 @@ const goalOptions: { key: GoalType; label: string }[] = [
   { key: "clean_eating", label: "Clean Eating" },
 ];
 
-const isValidGoal = (value: string | null): value is GoalType => {
+const isValidGoal = (value: string | null | undefined): value is GoalType => {
   return (
     value === "fat_loss" ||
     value === "muscle_gain" ||
@@ -50,8 +49,8 @@ export default function Meals() {
 
   const initialGoal: GoalType | "" = isValidGoal(urlGoal)
     ? urlGoal
-    : isValidGoal(userGoal || null)
-    ? (userGoal as GoalType)
+    : isValidGoal(userGoal)
+    ? userGoal
     : "";
 
   const [meals, setMeals] = useState<MealWithGoals[]>([]);
@@ -104,7 +103,9 @@ export default function Meals() {
   const maxMealCalories = useMemo(() => {
     if (meals.length === 0) return 1000;
 
-    const highest = Math.max(...meals.map((meal) => Number(meal.calories || 0)));
+    const highest = Math.max(
+      ...meals.map((meal) => Number(meal.calories || 0))
+    );
 
     return Math.max(300, Math.ceil(highest / 100) * 100);
   }, [meals]);

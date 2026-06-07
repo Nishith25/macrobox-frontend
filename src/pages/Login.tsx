@@ -1,4 +1,5 @@
 // frontend/src/pages/Login.tsx (FRONTEND)
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -11,6 +12,13 @@ import {
   Mail,
   ShieldCheck,
 } from "lucide-react";
+
+type LoggedInUser = {
+  role: "user" | "admin" | "delivery" | "chef";
+  onboarding?: {
+    completed?: boolean;
+  };
+};
 
 export default function Login() {
   const { login } = useAuth();
@@ -25,12 +33,15 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
-  const redirectAfterLogin = (userData: any) => {
+  const redirectAfterLogin = (userData: LoggedInUser) => {
     if (userData.role === "admin") {
-      navigate("/admin", { replace: true });
+      navigate("/admin/meals", { replace: true });
       return;
     }
 
@@ -74,7 +85,7 @@ export default function Login() {
       });
 
       toast.success("Login successful!");
-      redirectAfterLogin(userData);
+      redirectAfterLogin(userData as LoggedInUser);
     } catch (error: any) {
       const status = error?.response?.status;
       const message =
