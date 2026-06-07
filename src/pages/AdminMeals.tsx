@@ -111,8 +111,8 @@ function MealRow({
           </div>
 
           <p className="mt-1 text-sm text-slate-500">
-            {meal.calories} kcal · {meal.protein}g protein · {meal.carbs}g
-            carbs · {meal.fat}g fat · ₹{meal.price}
+            {meal.calories} kcal · {meal.protein}g protein · {meal.carbs}g carbs ·{" "}
+            {meal.fat}g fat · ₹{meal.price}
           </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
@@ -237,12 +237,12 @@ export default function AdminMeals() {
 
   const toggleGoal = (goal: GoalType) => {
     setForm((prev) => {
-      const exists = prev.goalTypes.includes(goal);
+      const alreadySelected = prev.goalTypes.includes(goal);
 
       return {
         ...prev,
-        goalTypes: exists
-          ? prev.goalTypes.filter((g) => g !== goal)
+        goalTypes: alreadySelected
+          ? prev.goalTypes.filter((item) => item !== goal)
           : [...prev.goalTypes, goal],
       };
     });
@@ -296,7 +296,7 @@ export default function AdminMeals() {
         const res = await api.put(`/admin/meals/${editingId}`, data);
 
         setMeals((prev) =>
-          prev.map((m) => (m._id === editingId ? res.data : m))
+          prev.map((meal) => (meal._id === editingId ? res.data : meal))
         );
 
         toast.success("Meal updated");
@@ -321,7 +321,7 @@ export default function AdminMeals() {
 
     try {
       await api.delete(`/admin/meals/${meal._id}`);
-      setMeals((prev) => prev.filter((m) => m._id !== meal._id));
+      setMeals((prev) => prev.filter((item) => item._id !== meal._id));
       toast.success("Meal deleted");
     } catch {
       toast.error("Delete failed");
@@ -350,12 +350,12 @@ export default function AdminMeals() {
   };
 
   const stats = useMemo(() => {
-    const veg = meals.filter((m) => m.foodType === "veg").length;
-    const nonveg = meals.filter((m) => m.foodType === "nonveg").length;
+    const veg = meals.filter((meal) => meal.foodType === "veg").length;
+    const nonveg = meals.filter((meal) => meal.foodType === "nonveg").length;
     const withoutGoals = meals.filter(
-      (m) => !m.goalTypes || m.goalTypes.length === 0
+      (meal) => !meal.goalTypes || meal.goalTypes.length === 0
     ).length;
-    const available = meals.filter((m) => m.isAvailable !== false).length;
+    const available = meals.filter((meal) => meal.isAvailable !== false).length;
 
     return {
       total: meals.length,
@@ -366,16 +366,16 @@ export default function AdminMeals() {
     };
   }, [meals]);
 
-  const vegMeals = meals.filter((m) => m.foodType === "veg");
-  const nonVegMeals = meals.filter((m) => m.foodType === "nonveg");
+  const vegMeals = meals.filter((meal) => meal.foodType === "veg");
+  const nonVegMeals = meals.filter((meal) => meal.foodType === "nonveg");
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Manage Meals</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Create MacroBox meals with full macros, description, Veg / Non-Veg
-          category, availability, meal category, and goal tags.
+          Create MacroBox meals with macros, food type, meal category,
+          availability, and multiple goal tags.
         </p>
       </div>
 
@@ -529,9 +529,9 @@ export default function AdminMeals() {
                     key={goal.key}
                     type="button"
                     onClick={() => toggleGoal(goal.key)}
-                    className={`rounded-full px-4 py-2 text-sm font-bold ${
+                    className={`rounded-full px-4 py-2 text-sm font-bold transition ${
                       active
-                        ? "bg-green-600 text-white"
+                        ? "bg-green-600 text-white shadow"
                         : "bg-green-50 text-green-700 hover:bg-green-100"
                     }`}
                   >
@@ -542,8 +542,8 @@ export default function AdminMeals() {
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
-              Select where this meal should appear. Example: Banana oats can be
-              Muscle Gain, Weight Gain, and Clean Eating.
+              You can select multiple goals for one dish. Example: Banana Oats
+              can be Muscle Gain, Weight Gain, and Clean Eating.
             </p>
           </div>
         </div>
