@@ -10,6 +10,8 @@ type FoodType = "veg" | "nonveg";
 
 type GoalType = "fat_loss" | "muscle_gain" | "weight_gain" | "clean_eating";
 
+type MealCategory = "breakfast" | "lunch" | "snack" | "dinner" | "all_day";
+
 type Meal = {
   _id: string;
   title: string;
@@ -22,6 +24,8 @@ type Meal = {
   imageUrl: string;
   foodType: FoodType;
   goalTypes?: GoalType[];
+  mealCategory?: MealCategory;
+  isAvailable?: boolean;
 };
 
 const goalOptions: { key: GoalType; label: string }[] = [
@@ -36,6 +40,22 @@ const goalLabelMap: Record<GoalType, string> = {
   muscle_gain: "Muscle Gain",
   weight_gain: "Weight Gain",
   clean_eating: "Clean Eating",
+};
+
+const mealCategoryOptions: { key: MealCategory; label: string }[] = [
+  { key: "all_day", label: "All Day" },
+  { key: "breakfast", label: "Breakfast" },
+  { key: "lunch", label: "Lunch" },
+  { key: "snack", label: "Snack" },
+  { key: "dinner", label: "Dinner" },
+];
+
+const mealCategoryLabelMap: Record<MealCategory, string> = {
+  all_day: "All Day",
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  snack: "Snack",
+  dinner: "Dinner",
 };
 
 /* ================= MEAL CARD ================= */
@@ -57,7 +77,9 @@ function MealRow({
         <img
           src={meal.imageUrl || "/placeholder-meal.png"}
           className="h-24 w-24 rounded-xl object-cover"
-          onError={(e) => (e.currentTarget.src = "/placeholder-meal.png")}
+          onError={(e) => {
+            e.currentTarget.src = "/placeholder-meal.png";
+          }}
           alt={meal.title}
         />
 
@@ -65,15 +87,27 @@ function MealRow({
           <div className="mb-1 flex items-start justify-between gap-3">
             <h3 className="truncate font-bold text-gray-900">{meal.title}</h3>
 
-            <span
-              className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-                meal.foodType === "nonveg"
-                  ? "bg-red-50 text-red-700"
-                  : "bg-green-50 text-green-700"
-              }`}
-            >
-              {meal.foodType === "nonveg" ? "Non-Veg" : "Veg"}
-            </span>
+            <div className="flex shrink-0 flex-wrap justify-end gap-2">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  meal.foodType === "nonveg"
+                    ? "bg-red-50 text-red-700"
+                    : "bg-green-50 text-green-700"
+                }`}
+              >
+                {meal.foodType === "nonveg" ? "Non-Veg" : "Veg"}
+              </span>
+
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  meal.isAvailable === false
+                    ? "bg-gray-100 text-gray-600"
+                    : "bg-emerald-50 text-emerald-700"
+                }`}
+              >
+                {meal.isAvailable === false ? "Unavailable" : "Available"}
+              </span>
+            </div>
           </div>
 
           <p className="mt-1 text-sm text-slate-500">
@@ -82,6 +116,10 @@ function MealRow({
           </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+              {mealCategoryLabelMap[meal.mealCategory || "all_day"]}
+            </span>
+
             {meal.goalTypes && meal.goalTypes.length > 0 ? (
               meal.goalTypes.map((goal) => (
                 <span
@@ -154,6 +192,8 @@ export default function AdminMeals() {
     price: "",
     foodType: "veg" as FoodType,
     goalTypes: [] as GoalType[],
+    mealCategory: "all_day" as MealCategory,
+    isAvailable: true,
   });
 
   const [image, setImage] = useState<File | null>(null);
@@ -187,6 +227,8 @@ export default function AdminMeals() {
       price: "",
       foodType: "veg",
       goalTypes: [],
+      mealCategory: "all_day",
+      isAvailable: true,
     });
 
     setImage(null);
@@ -208,7 +250,7 @@ export default function AdminMeals() {
 
   const saveMeal = async () => {
     if (
-      !form.title ||
+      !form.title.trim() ||
       !form.protein ||
       !form.calories ||
       !form.carbs ||
@@ -230,8 +272,9 @@ export default function AdminMeals() {
     }
 
     const data = new FormData();
-    data.append("title", form.title);
-    data.append("description", form.description);
+
+    data.append("title", form.title.trim());
+    data.append("description", form.description.trim());
     data.append("protein", form.protein);
     data.append("calories", form.calories);
     data.append("carbs", form.carbs);
@@ -239,8 +282,12 @@ export default function AdminMeals() {
     data.append("price", form.price);
     data.append("foodType", form.foodType);
     data.append("goalTypes", JSON.stringify(form.goalTypes));
+    data.append("mealCategory", form.mealCategory);
+    data.append("isAvailable", String(form.isAvailable));
 
-    if (image) data.append("image", image);
+    if (image) {
+      data.append("image", image);
+    }
 
     try {
       setSaving(true);
@@ -294,6 +341,8 @@ export default function AdminMeals() {
       price: String(meal.price ?? ""),
       foodType: meal.foodType || "veg",
       goalTypes: meal.goalTypes || [],
+      mealCategory: meal.mealCategory || "all_day",
+      isAvailable: meal.isAvailable !== false,
     });
 
     setImage(null);
@@ -306,12 +355,14 @@ export default function AdminMeals() {
     const withoutGoals = meals.filter(
       (m) => !m.goalTypes || m.goalTypes.length === 0
     ).length;
+    const available = meals.filter((m) => m.isAvailable !== false).length;
 
     return {
       total: meals.length,
       veg,
       nonveg,
       withoutGoals,
+      available,
     };
   }, [meals]);
 
@@ -324,11 +375,11 @@ export default function AdminMeals() {
         <h1 className="text-3xl font-bold text-gray-900">Manage Meals</h1>
         <p className="mt-1 text-sm text-gray-500">
           Create MacroBox meals with full macros, description, Veg / Non-Veg
-          category, and goal tags.
+          category, availability, meal category, and goal tags.
         </p>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-4">
+      <div className="mb-6 grid gap-4 md:grid-cols-5">
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <p className="text-sm text-gray-500">Total Meals</p>
           <p className="mt-1 text-2xl font-bold">{stats.total}</p>
@@ -346,6 +397,13 @@ export default function AdminMeals() {
           </p>
         </div>
 
+        <div className="rounded-2xl border bg-emerald-50 p-4 shadow-sm">
+          <p className="text-sm text-emerald-700">Available</p>
+          <p className="mt-1 text-2xl font-bold text-emerald-700">
+            {stats.available}
+          </p>
+        </div>
+
         <div className="rounded-2xl border bg-yellow-50 p-4 shadow-sm">
           <p className="text-sm text-yellow-700">Without Goal Tags</p>
           <p className="mt-1 text-2xl font-bold text-yellow-700">
@@ -354,7 +412,6 @@ export default function AdminMeals() {
         </div>
       </div>
 
-      {/* FORM */}
       <div className="mb-10 rounded-2xl border bg-white p-6 shadow-sm">
         <h2 className="mb-4 font-semibold">
           {editingId ? "Update meal" : "Create a new meal"}
@@ -427,6 +484,37 @@ export default function AdminMeals() {
           >
             <option value="veg">Veg</option>
             <option value="nonveg">Non-Veg</option>
+          </select>
+
+          <select
+            value={form.mealCategory}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                mealCategory: e.target.value as MealCategory,
+              })
+            }
+            className="rounded-lg border px-3 py-2"
+          >
+            {mealCategoryOptions.map((item) => (
+              <option key={item.key} value={item.key}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={form.isAvailable ? "true" : "false"}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                isAvailable: e.target.value === "true",
+              })
+            }
+            className="rounded-lg border px-3 py-2"
+          >
+            <option value="true">Available</option>
+            <option value="false">Not Available</option>
           </select>
 
           <div className="md:col-span-3">
