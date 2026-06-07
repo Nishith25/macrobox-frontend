@@ -28,6 +28,30 @@ export default function Login() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const redirectAfterLogin = (userData: any) => {
+    if (userData.role === "admin") {
+      navigate("/admin", { replace: true });
+      return;
+    }
+
+    if (userData.role === "delivery") {
+      navigate("/delivery", { replace: true });
+      return;
+    }
+
+    if (userData.role === "chef") {
+      navigate("/orderslist", { replace: true });
+      return;
+    }
+
+    if (userData.role === "user" && !userData.onboarding?.completed) {
+      navigate("/onboarding", { replace: true });
+      return;
+    }
+
+    navigate("/meals", { replace: true });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -44,13 +68,13 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login({
+      const userData = await login({
         email: form.email.trim().toLowerCase(),
         password: form.password,
       });
 
       toast.success("Login successful!");
-      navigate("/", { replace: true });
+      redirectAfterLogin(userData);
     } catch (error: any) {
       const status = error?.response?.status;
       const message =
@@ -58,18 +82,23 @@ export default function Login() {
 
       if (status === 403) {
         toast.error(message || "Please verify your email before logging in.");
-        navigate("/resend-verification");
+
+        navigate("/resend-verification", {
+          replace: true,
+          state: { email: form.email.trim().toLowerCase() },
+        });
+
         return;
       }
 
       if (status === 404) {
         toast.error("User not registered. Please sign up first.");
-        navigate("/signup");
+        navigate("/signup", { replace: true });
         return;
       }
 
       if (status === 400) {
-        toast.error("Incorrect email or password.");
+        toast.error(message || "Incorrect email or password.");
         return;
       }
 

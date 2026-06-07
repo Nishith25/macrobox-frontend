@@ -45,6 +45,9 @@ export type User = {
   phone?: string;
   role: "user" | "admin" | "delivery" | "chef";
 
+  emailVerified?: boolean;
+  isPhoneVerified?: boolean;
+
   onboarding?: Onboarding;
   bodyMetrics?: BodyMetrics;
 
@@ -75,7 +78,7 @@ type SignupPayload = {
   email: string;
   phone: string;
   password: string;
-  role?: "user" | "delivery";
+  role?: "user" | "delivery" | "chef";
   phoneVerificationToken: string;
 };
 
@@ -91,7 +94,7 @@ type AuthContextType = {
   isDelivery: boolean;
   isChef: boolean;
   login: (data: LoginPayload) => Promise<User>;
-  signup: (data: SignupPayload) => Promise<void>;
+  signup: (data: SignupPayload) => Promise<User | null>;
   logout: () => void;
   updateUser: (updatedUser: Partial<User>) => void;
   refreshStoredUser: (freshUser?: User) => void;
@@ -113,6 +116,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const isDelivery = user?.role === "delivery";
   const isChef = user?.role === "chef";
 
+  /* ================= SAVE SESSION ================= */
+
   const saveSession = (accessToken: string, userData: User) => {
     setUser(userData);
     setToken(accessToken);
@@ -123,20 +128,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
   };
 
+  /* ================= UPDATE STORED USER ================= */
+
   const updateUser = (updatedUser: Partial<User>) => {
     setUser((prev) => {
       if (!prev) return prev;
 
-      const merged = {
+      const merged: User = {
         ...prev,
         ...updatedUser,
         onboarding: {
-          ...prev.onboarding,
-          ...updatedUser.onboarding,
+          ...(prev.onboarding || {}),
+          ...(updatedUser.onboarding || {}),
         },
         bodyMetrics: {
-          ...prev.bodyMetrics,
-          ...updatedUser.bodyMetrics,
+          ...(prev.bodyMetrics || {}),
+          ...(updatedUser.bodyMetrics || {}),
+        },
+        deliveryProfile: {
+          ...(prev.deliveryProfile || {}),
+          ...(updatedUser.deliveryProfile || {}),
+        },
+        chefProfile: {
+          ...(prev.chefProfile || {}),
+          ...(updatedUser.chefProfile || {}),
         },
       };
 
@@ -197,9 +212,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (data: LoginPayload) => {
     try {
-      const res = await api.post("/auth/login", data);
+      const res = await api.post("/auth/login", {
+        email: data.email.trim().toLowerCase(),
+        password: data.password,
+      });
 
       const { token: accessToken, user: userData } = res.data;
+
+      if (!accessToken || !userData) {
+        throw new Error("Invalid login response");
+      }
 
       saveSession(accessToken, userData);
 
@@ -213,29 +235,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   /* ================= SIGNUP ================= */
 
   const signup = async (data: SignupPayload) => {
-  try {
-    const res = await api.post("/auth/signup", data);
+    try {
+      const res = await api.post("/auth/signup", {
+        ...data,
+        email: data.email.trim().toLowerCase(),
+        phone: data.phone.trim(),
+      });
 
-    const { token: accessToken, user: userData } = res.data;
+      const { token: accessToken, user: userData } = res.data;
 
-    if (accessToken && userData) {
-      setUser(userData);
-      setToken(accessToken);
+      if (accessToken && userData) {
+        saveSession(accessToken, userData);
 
-      localStorage.setItem("token", accessToken);
-      localStorage.setItem("user", JSON.stringify(userData));
+        toast.success(
+          res.data?.message || "Signup successful! Complete your MacroBox setup."
+        );
 
-      api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+        return userData;
+      }
+
+      toast.success(
+        res.data?.message ||
+          "Signup successful! Please check your email to verify your account."
+      );
+
+      return null;
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Signup failed");
+      throw err;
     }
-
-    toast.success(
-      res.data?.message || "Signup successful! Complete your MacroBox setup."
-    );
-  } catch (err: any) {
-    toast.error(err.response?.data?.message || "Signup failed");
-    throw err;
-  }
-};
+  };
 
   return (
     <AuthContext.Provider
