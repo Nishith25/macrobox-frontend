@@ -161,6 +161,10 @@ export default function Onboarding() {
   const addressInputRef = useRef<HTMLInputElement | null>(null);
   const autocompleteRef = useRef<any>(null);
 
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const googleMapRef = useRef<any>(null);
+  const googleMarkerRef = useRef<any>(null);
+
   const [initialized, setInitialized] = useState(false);
   const [step, setStep] = useState<Step>(2);
   const [saving, setSaving] = useState(false);
@@ -203,6 +207,11 @@ export default function Onboarding() {
   });
 
   const [meals, setMeals] = useState<Meal[]>([]);
+
+  const progressPercent = ((step - 1) / 5) * 100;
+
+  const inputClass =
+    "h-12 w-full rounded-xl border px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500";
 
   useEffect(() => {
     if (!user || initialized) return;
@@ -262,7 +271,7 @@ export default function Onboarding() {
         });
       } catch (err) {
         console.error("Google Maps load error:", err);
-        toast.error("Google Maps failed to load. Please check API key.");
+        toast.error("Google Maps failed to load. Check API key.");
       } finally {
         setLoadingMaps(false);
       }
@@ -276,7 +285,20 @@ export default function Onboarding() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  const progressPercent = ((step - 1) / 5) * 100;
+  useEffect(() => {
+    if (step !== 4) return;
+    if (address.lat == null || address.lng == null) return;
+
+    syncGooglePinMap(address.lat, address.lng);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, address.lat, address.lng]);
+
+  useEffect(() => {
+    if (step === 5) {
+      loadRecommendedMeals();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   const liveTargets = useMemo(() => {
     const height = Number(body.height);
@@ -329,13 +351,13 @@ export default function Onboarding() {
     };
   }, [body, selectedGoal]);
 
+  const normalizePincode = (value: string) =>
+    String(value || "").replace(/\D/g, "").slice(0, 6);
+
   const extractComponent = (components: any[], type: string) => {
     const found = components?.find((c) => c.types?.includes(type));
     return found?.long_name || "";
   };
-
-  const normalizePincode = (value: string) =>
-    String(value || "").replace(/\D/g, "").slice(0, 6);
 
   const checkPincode = async (pin?: string) => {
     const pincode = normalizePincode(pin || address.pincode);
@@ -356,7 +378,7 @@ export default function Onboarding() {
         res.data?.message ||
           (ok
             ? "Great! MacroBox delivers to this area."
-            : "Sorry, MacroBox does not deliver to this area yet.")
+            : "Sorry, we don’t deliver to this address yet.")
       );
 
       return ok;
@@ -364,10 +386,157 @@ export default function Onboarding() {
       setServiceable(false);
       setLocationMsg(
         err?.response?.data?.message ||
-          "Sorry, MacroBox does not deliver to this area yet."
+          "Sorry, we don’t deliver to this address yet. We will expand soon."
       );
 
       return false;
+    }
+  };
+
+  const reverseGeocodeAndUpdateAddress = async (lat: number, lng: number) => {
+    try {
+      await loadGoogleMapsScript();
+
+      const googleObj = (window as any).google;
+
+      if (!googleObj?.maps?.Geocoder) {
+        toast.error("Google Maps is still loading.");
+        return;
+      }
+
+      const geocoder = new googleObj.maps.Geocoder();
+
+      geocoder.geocode(
+        {
+          location: { lat, lng },
+        },
+        async (results: any[] | null, status: string) => {
+          if (status !== "OK" || !results?.[0]) {
+            setAddress((prev) => ({
+              ...prev,
+              lat,
+              lng,
+              locationMode: "manual",
+              locationText: `${lat}, ${lng}`,
+              formattedAddress: `${lat}, ${lng}`,
+              mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
+            }));
+
+            toast.error("Could not fetch address for this pin.");
+            return;
+          }
+
+          const place = results[0];
+          const components = place.address_components || [];
+
+          const pincode = extractComponent(components, "postal_code");
+          const city =
+            extractComponent(components, "locality") ||
+            extractComponent(components, "administrative_area_level_3") ||
+            extractComponent(components, "sublocality");
+          const state = extractComponent(
+            components,
+            "administrative_area_level_1"
+          );
+
+          const area =
+            extractComponent(components, "sublocality_level_1") ||
+            extractComponent(components, "sublocality") ||
+            extractComponent(components, "neighborhood");
+
+          const formatted = place.formatted_address || `${lat}, ${lng}`;
+
+          setAddressSearch(formatted);
+
+          setAddress((prev) => ({
+            ...prev,
+            area: area || prev.area,
+            city: city || prev.city,
+            state: state || prev.state,
+            pincode: pincode || prev.pincode,
+            lat,
+            lng,
+            locationMode: "manual",
+            locationText: formatted,
+            formattedAddress: formatted,
+            mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
+          }));
+
+          if (pincode) {
+            await checkPincode(pincode);
+          } else {
+            setServiceable(null);
+            setLocationMsg("Could not detect pincode. Please enter it manually.");
+          }
+        }
+      );
+    } catch (err) {
+      console.error("Reverse geocode error:", err);
+      toast.error("Failed to update address from pin.");
+    }
+  };
+
+  const syncGooglePinMap = async (lat: number, lng: number) => {
+    try {
+      await loadGoogleMapsScript();
+
+      const googleObj = (window as any).google;
+
+      if (!googleObj?.maps || !mapRef.current) {
+        return;
+      }
+
+      const center = { lat, lng };
+
+      if (!googleMapRef.current) {
+        googleMapRef.current = new googleObj.maps.Map(mapRef.current, {
+          center,
+          zoom: 17,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          zoomControl: true,
+          clickableIcons: false,
+          gestureHandling: "greedy",
+        });
+
+        googleMarkerRef.current = new googleObj.maps.Marker({
+          position: center,
+          map: googleMapRef.current,
+          draggable: true,
+          title: "Move pin to exact delivery location",
+        });
+
+        googleMapRef.current.addListener("click", async (event: any) => {
+          const clickedLat = event.latLng.lat();
+          const clickedLng = event.latLng.lng();
+
+          googleMarkerRef.current.setPosition({
+            lat: clickedLat,
+            lng: clickedLng,
+          });
+
+          await reverseGeocodeAndUpdateAddress(clickedLat, clickedLng);
+        });
+
+        googleMarkerRef.current.addListener("dragend", async (event: any) => {
+          const draggedLat = event.latLng.lat();
+          const draggedLng = event.latLng.lng();
+
+          await reverseGeocodeAndUpdateAddress(draggedLat, draggedLng);
+        });
+
+        return;
+      }
+
+      googleMapRef.current.setCenter(center);
+
+      if (googleMarkerRef.current) {
+        googleMarkerRef.current.setPosition(center);
+      }
+    } catch (err) {
+      console.error("Google map init error:", err);
+      toast.error("Failed to load Google map.");
     }
   };
 
@@ -386,16 +555,18 @@ export default function Onboarding() {
       extractComponent(components, "sublocality");
     const state = extractComponent(components, "administrative_area_level_1");
 
+    const area =
+      extractComponent(components, "sublocality_level_1") ||
+      extractComponent(components, "sublocality") ||
+      extractComponent(components, "neighborhood");
+
     const formatted = place.formatted_address || place.name || addressSearch;
 
     setAddressSearch(formatted);
 
     setAddress((prev) => ({
       ...prev,
-      area:
-        extractComponent(components, "sublocality_level_1") ||
-        extractComponent(components, "sublocality") ||
-        prev.area,
+      area: area || prev.area,
       city: city || prev.city,
       state: state || prev.state,
       pincode: pincode || prev.pincode,
@@ -412,6 +583,12 @@ export default function Onboarding() {
 
     if (pincode) {
       await checkPincode(pincode);
+    }
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setTimeout(() => {
+        syncGooglePinMap(lat, lng);
+      }, 200);
     }
   };
 
@@ -457,7 +634,7 @@ export default function Onboarding() {
       setSaving(false);
       setLoadingMaps(false);
       console.error("Geocode error:", err);
-      toast.error("Google Maps failed to load. Please check API key.");
+      toast.error("Failed to search location.");
     }
   };
 
@@ -474,57 +651,19 @@ export default function Onboarding() {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
 
-        try {
-          setLoadingMaps(true);
-          await loadGoogleMapsScript();
+        setAddress((prev) => ({
+          ...prev,
+          lat,
+          lng,
+          locationMode: "current",
+          locationText: `${lat}, ${lng}`,
+          formattedAddress: `${lat}, ${lng}`,
+          mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
+        }));
 
-          const googleObj = (window as any).google;
+        await reverseGeocodeAndUpdateAddress(lat, lng);
 
-          if (!googleObj?.maps?.Geocoder) {
-            throw new Error("Google geocoder unavailable");
-          }
-
-          const geocoder = new googleObj.maps.Geocoder();
-
-          geocoder.geocode(
-            { location: { lat, lng } },
-            (results: any[] | null, status: string) => {
-              setSaving(false);
-              setLoadingMaps(false);
-
-              if (status === "OK" && results?.[0]) {
-                applyGooglePlace(results[0]);
-              } else {
-                setAddress((prev) => ({
-                  ...prev,
-                  lat,
-                  lng,
-                  locationMode: "current",
-                  locationText: `${lat}, ${lng}`,
-                  formattedAddress: `${lat}, ${lng}`,
-                  mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
-                }));
-
-                toast.error("Could not fetch full address from location.");
-              }
-            }
-          );
-        } catch (err) {
-          setSaving(false);
-          setLoadingMaps(false);
-
-          setAddress((prev) => ({
-            ...prev,
-            lat,
-            lng,
-            locationMode: "current",
-            locationText: `${lat}, ${lng}`,
-            formattedAddress: `${lat}, ${lng}`,
-            mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
-          }));
-
-          toast.error("Google Maps failed to load. Showing coordinates only.");
-        }
+        setSaving(false);
       },
       () => {
         setSaving(false);
@@ -567,7 +706,7 @@ export default function Onboarding() {
         },
       });
     } catch (err: any) {
-      console.log("Goal save failed:", err);
+      console.error("Goal save failed:", err);
 
       updateUser({
         onboarding: {
@@ -578,7 +717,9 @@ export default function Onboarding() {
         },
       });
 
-      toast.error(err?.response?.data?.message || "Failed to save goal.");
+      toast.error(
+        err?.response?.data?.message || "Goal saved locally. Continue setup."
+      );
     } finally {
       setSaving(false);
     }
@@ -692,6 +833,19 @@ export default function Onboarding() {
         },
       });
 
+      if (res.data?.serviceable === false) {
+        setServiceable(false);
+        setLocationMsg(
+          res.data?.message ||
+            "Sorry, we don’t deliver to this address yet. We will expand soon."
+        );
+        toast.error(
+          res.data?.message ||
+            "Sorry, we don’t deliver to this address yet. We will expand soon."
+        );
+        return;
+      }
+
       setServiceable(true);
       toast.success("Address saved successfully.");
 
@@ -720,13 +874,6 @@ export default function Onboarding() {
     }
   };
 
-  useEffect(() => {
-    if (step === 5) {
-      loadRecommendedMeals();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
   const completeOnboarding = async () => {
     try {
       setSaving(true);
@@ -751,7 +898,7 @@ export default function Onboarding() {
         replace: true,
       });
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to finish onboarding.");
+      toast.error(err?.response?.data?.message || "Failed to finish setup.");
     } finally {
       setSaving(false);
     }
@@ -775,14 +922,6 @@ export default function Onboarding() {
 
     toast.success("Added to cart");
   };
-
-  const inputClass =
-    "h-12 w-full rounded-xl border px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500";
-
-  const googleMapEmbedUrl =
-    address.lat != null && address.lng != null
-      ? `https://www.google.com/maps?q=${address.lat},${address.lng}&z=17&output=embed`
-      : "";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 via-white to-white px-4 py-6">
@@ -949,7 +1088,8 @@ export default function Onboarding() {
                 {liveTargets.calories ? (
                   <p className="mt-2 text-2xl font-black text-gray-950">
                     ~{liveTargets.calories} kcal · {liveTargets.protein}g
-                    protein · {liveTargets.carbs}g carbs · {liveTargets.fat}g fat
+                    protein · {liveTargets.carbs}g carbs · {liveTargets.fat}g
+                    fat
                   </p>
                 ) : (
                   <p className="mt-2 text-gray-500">
@@ -994,8 +1134,8 @@ export default function Onboarding() {
                 </h1>
 
                 <p className="mt-4 text-gray-500">
-                  Search your exact address. MacroBox delivers only to admin
-                  enabled pincodes.
+                  Search your area, then drag the pin to your exact gate or
+                  apartment location.
                 </p>
               </div>
 
@@ -1044,25 +1184,24 @@ export default function Onboarding() {
                   Use Current Location
                 </button>
 
-                {googleMapEmbedUrl && (
+                {address.lat != null && address.lng != null && (
                   <div className="mt-5 overflow-hidden rounded-3xl border bg-white shadow-sm">
-                    <div className="relative h-[320px] w-full">
-                      <iframe
-                        title="Selected delivery location"
-                        src={googleMapEmbedUrl}
-                        className="h-full w-full border-0"
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                      />
+                    <div className="relative h-[380px] w-full">
+                      <div ref={mapRef} className="h-full w-full" />
 
                       <div className="pointer-events-none absolute left-4 top-4 rounded-2xl bg-white/95 px-4 py-3 shadow">
                         <p className="text-xs font-black uppercase tracking-wide text-green-700">
                           Exact delivery pin
                         </p>
                         <p className="text-sm text-gray-600">
-                          Confirm your address details below.
+                          Drag the pin or tap anywhere on map.
                         </p>
                       </div>
+                    </div>
+
+                    <div className="border-t bg-white px-4 py-3 text-sm text-gray-600">
+                      Move the marker to your exact location. Address fields
+                      will update automatically.
                     </div>
                   </div>
                 )}
@@ -1239,7 +1378,7 @@ export default function Onboarding() {
                 disabled={saving}
                 className="mt-8 h-12 w-full rounded-xl bg-green-600 font-bold text-white hover:bg-green-700 disabled:opacity-60"
               >
-                {saving ? "Checking delivery area..." : "Continue"}
+                {saving ? "Checking delivery area..." : "Save Address & Continue"}
               </button>
             </div>
           )}
@@ -1294,7 +1433,14 @@ export default function Onboarding() {
                       meal={meal}
                       qty={getCartQty(meal._id)}
                       onAddToCart={handleAddToCart}
-                      onIncrease={(m) => increaseQty(m._id)}
+                      onIncrease={(m) => {
+                        const existing = cart.find(
+                          (item) => item._id === m._id
+                        );
+
+                        if (existing) increaseQty(m._id);
+                        else handleAddToCart(m);
+                      }}
                       onDecrease={(m) => decreaseQty(m._id)}
                     />
                   ))}
