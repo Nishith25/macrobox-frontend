@@ -115,6 +115,7 @@ export default function Onboarding() {
   const addressInputRef = useRef<HTMLInputElement | null>(null);
   const autocompleteRef = useRef<any>(null);
 
+  const [initialized, setInitialized] = useState(false);
   const [step, setStep] = useState<Step>(2);
   const [saving, setSaving] = useState(false);
   const [loadingMeals, setLoadingMeals] = useState(false);
@@ -157,6 +158,8 @@ export default function Onboarding() {
   const [meals, setMeals] = useState<Meal[]>([]);
 
   useEffect(() => {
+    if (!user || initialized) return;
+
     if (user?.onboarding?.completed) {
       navigate("/meals", { replace: true });
       return;
@@ -171,7 +174,9 @@ export default function Onboarding() {
     if (currentStep >= 2 && currentStep <= 5) {
       setStep(currentStep as Step);
     }
-  }, [user, navigate]);
+
+    setInitialized(true);
+  }, [user, initialized, navigate]);
 
   useEffect(() => {
     if (step !== 4) return;
@@ -270,7 +275,6 @@ export default function Onboarding() {
   };
 
   const saveGoal = async (goal: GoalType) => {
-    // ✅ IMPORTANT: move immediately when clicked
     setSelectedGoal(goal);
     setStep(3);
 
@@ -282,12 +286,31 @@ export default function Onboarding() {
         currentStep: 3,
       });
 
+      const updatedOnboarding = res.data?.onboarding || {
+        ...(user?.onboarding || {}),
+        goal,
+        currentStep: 3,
+        completed: false,
+      };
+
       updateUser({
-        onboarding: res.data?.onboarding,
+        onboarding: updatedOnboarding,
       });
     } catch (err: any) {
       console.log("Goal save failed:", err);
-      toast.error(err?.response?.data?.message || "Failed to save goal");
+
+      updateUser({
+        onboarding: {
+          ...(user?.onboarding || {}),
+          goal,
+          currentStep: 3,
+          completed: false,
+        },
+      });
+
+      toast.error(
+        err?.response?.data?.message || "Goal saved locally. Continue setup."
+      );
     } finally {
       setSaving(false);
     }
@@ -322,7 +345,12 @@ export default function Onboarding() {
 
       updateUser({
         bodyMetrics: res.data?.bodyMetrics,
-        onboarding: res.data?.onboarding,
+        onboarding: res.data?.onboarding || {
+          ...(user?.onboarding || {}),
+          goal: selectedGoal,
+          currentStep: 4,
+          completed: false,
+        },
       });
 
       setStep(4);
@@ -551,7 +579,12 @@ export default function Onboarding() {
       });
 
       updateUser({
-        onboarding: res.data?.onboarding,
+        onboarding: res.data?.onboarding || {
+          ...(user?.onboarding || {}),
+          goal: selectedGoal,
+          currentStep: 5,
+          completed: false,
+        },
       });
 
       if (!res.data?.serviceable) {
@@ -605,7 +638,13 @@ export default function Onboarding() {
         refreshStoredUser(res.data.user);
       } else {
         updateUser({
-          onboarding: res.data?.onboarding,
+          onboarding: res.data?.onboarding || {
+            ...(user?.onboarding || {}),
+            goal: selectedGoal,
+            currentStep: 5,
+            completed: true,
+            completedAt: new Date().toISOString(),
+          },
         });
       }
 
@@ -716,7 +755,11 @@ export default function Onboarding() {
                     </p>
 
                     <div className="mt-6 flex items-center justify-between font-bold text-green-700">
-                      <span>{saving && selectedGoal === goal.key ? "Saving..." : "Choose"}</span>
+                      <span>
+                        {saving && selectedGoal === goal.key
+                          ? "Saving..."
+                          : "Choose"}
+                      </span>
                       <ChevronRight size={20} />
                     </div>
                   </button>
