@@ -222,7 +222,7 @@ export default function Navbar() {
         </div>
 
         {(isAdmin || isChef) && (
-          <div className="admin-subnav hidden border-t lg:block">
+          <div className="admin-subnav hidden lg:block">
             <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2 px-4 py-2 sm:px-6">
               {isAdmin && (
                 <>

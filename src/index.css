@@ -93,17 +93,16 @@ html.dark nav {
 
 html[data-theme="light"] nav a,
 html[data-theme="light"] nav button {
-  color: #0f172a !important;
+  color: #0f172a;
 }
 
 html[data-theme="dark"] nav a,
 html[data-theme="dark"] nav button,
 html.dark nav a,
 html.dark nav button {
-  color: #f8fafc !important;
+  color: #f8fafc;
 }
 
-/* Active green nav buttons */
 html[data-theme="light"] nav .bg-green-600,
 html[data-theme="dark"] nav .bg-green-600,
 html.dark nav .bg-green-600 {
@@ -117,28 +116,41 @@ html.dark nav .bg-green-600 * {
   color: #ffffff !important;
 }
 
-/* ================= ADMIN SUB NAV ================= */
+/* ================= ADMIN SUB NAV - FIXED READABILITY ================= */
 
 .admin-subnav {
   background: #020617 !important;
-  border-color: #1e293b !important;
+  border-top: 1px solid #1e293b !important;
+  border-bottom: 1px solid #1e293b !important;
 }
 
-.admin-subnav,
-.admin-subnav * {
+.admin-subnav-label {
   color: #e2e8f0 !important;
 }
 
-.admin-subnav a:hover,
-.admin-subnav button:hover,
-.admin-subnav a[aria-current="page"] {
+.admin-subnav-label svg {
+  color: #e2e8f0 !important;
+}
+
+.admin-subnav-link {
+  color: #e2e8f0 !important;
+  background: transparent !important;
+}
+
+.admin-subnav-link svg {
+  color: #e2e8f0 !important;
+}
+
+.admin-subnav-link:hover,
+.admin-subnav-link-active,
+.admin-subnav-link[aria-current="page"] {
   background: #ffffff !important;
   color: #020617 !important;
 }
 
-.admin-subnav a:hover *,
-.admin-subnav button:hover *,
-.admin-subnav a[aria-current="page"] * {
+.admin-subnav-link:hover *,
+.admin-subnav-link-active *,
+.admin-subnav-link[aria-current="page"] * {
   color: #020617 !important;
 }
 
@@ -161,8 +173,6 @@ html.dark footer {
 
 html[data-theme="dark"] main,
 html.dark main,
-html[data-theme="dark"] section,
-html.dark section,
 html[data-theme="dark"] .min-h-screen,
 html.dark .min-h-screen {
   background-color: #020617 !important;
@@ -250,7 +260,7 @@ html.dark .border-gray-200 {
   border-color: #1e293b !important;
 }
 
-/* Dark inputs */
+/* Inputs */
 html[data-theme="dark"] input,
 html[data-theme="dark"] select,
 html[data-theme="dark"] textarea,
@@ -269,56 +279,6 @@ html.dark textarea::placeholder {
   color: #64748b !important;
 }
 
-/* ================= LIGHT MODE FORCE FIX ================= */
-/* This fixes Cart.tsx, Meals.tsx, MacroTrack, Planner if they use hard-coded dark classes */
-
-html[data-theme="light"] main,
-html[data-theme="light"] section,
-html[data-theme="light"] .min-h-screen {
-  background-color: #f6f7f8 !important;
-  color: #0f172a !important;
-}
-
-/* Force hard-coded dark backgrounds back to light */
-html[data-theme="light"] main [class*="bg-slate-9"],
-html[data-theme="light"] main [class*="bg-slate-8"],
-html[data-theme="light"] main [class*="bg-gray-9"],
-html[data-theme="light"] main [class*="bg-gray-8"],
-html[data-theme="light"] main [class*="bg-[#020617]"],
-html[data-theme="light"] main [class*="bg-[#0f172a]"],
-html[data-theme="light"] main [class*="bg-[#111827]"],
-html[data-theme="light"] main [class*="bg-[#1e293b]"] {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-}
-
-/* Force hard-coded dark border colors back to light */
-html[data-theme="light"] main [class*="border-slate-9"],
-html[data-theme="light"] main [class*="border-slate-8"],
-html[data-theme="light"] main [class*="border-slate-7"],
-html[data-theme="light"] main [class*="border-gray-9"],
-html[data-theme="light"] main [class*="border-gray-8"],
-html[data-theme="light"] main [class*="border-gray-7"] {
-  border-color: #e2e8f0 !important;
-}
-
-/* Force white text back to dark in light mode */
-html[data-theme="light"] main .text-white,
-html[data-theme="light"] main [class*="text-white"],
-html[data-theme="light"] main .text-slate-100,
-html[data-theme="light"] main .text-slate-200,
-html[data-theme="light"] main .text-slate-300 {
-  color: #0f172a !important;
-}
-
-html[data-theme="light"] main .text-slate-400,
-html[data-theme="light"] main .text-slate-500,
-html[data-theme="light"] main .text-gray-400,
-html[data-theme="light"] main .text-gray-500 {
-  color: #64748b !important;
-}
-
-/* Inputs in light mode */
 html[data-theme="light"] input,
 html[data-theme="light"] select,
 html[data-theme="light"] textarea {
@@ -332,7 +292,7 @@ html[data-theme="light"] textarea::placeholder {
   color: #94a3b8 !important;
 }
 
-/* Keep primary green buttons readable */
+/* Green actions */
 html[data-theme="light"] .bg-green-600,
 html[data-theme="dark"] .bg-green-600,
 html.dark .bg-green-600 {
@@ -346,7 +306,6 @@ html.dark .bg-green-600 * {
   color: #ffffff !important;
 }
 
-/* Green light cards */
 html[data-theme="light"] .bg-green-50 {
   background-color: #f0fdf4 !important;
 }
@@ -374,7 +333,7 @@ html.dark .text-red-700 {
   color: #f87171 !important;
 }
 
-/* Yellow warning */
+/* Yellow */
 html[data-theme="dark"] .bg-yellow-50,
 html.dark .bg-yellow-50 {
   background-color: rgba(234, 179, 8, 0.12) !important;
@@ -387,7 +346,7 @@ html.dark .text-yellow-800 {
   color: #fde68a !important;
 }
 
-/* Macro color cards */
+/* Macro colored boxes in dark mode */
 html[data-theme="dark"] .bg-orange-50,
 html[data-theme="dark"] .bg-amber-50,
 html[data-theme="dark"] .bg-blue-50,
@@ -501,59 +460,35 @@ html.dark .input-ui {
   color: #f8fafc !important;
 }
 
-/* ================= FINAL OVERRIDE ORDER FIX ================= */
-/* These must stay at bottom */
+/* ================= ORDERS / DELIVERY CARD FIX ================= */
 
-html[data-theme="light"] main .bg-green-600,
-html[data-theme="light"] main button.bg-green-600,
-html[data-theme="light"] main a.bg-green-600 {
-  background-color: #16a34a !important;
-  color: #ffffff !important;
+.order-live-card {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
-html[data-theme="light"] main .bg-green-600 *,
-html[data-theme="light"] main button.bg-green-600 *,
-html[data-theme="light"] main a.bg-green-600 * {
-  color: #ffffff !important;
+.order-live-muted {
+  color: #64748b !important;
 }
 
-html[data-theme="light"] main .bg-red-600,
-html[data-theme="light"] main button.bg-red-600 {
-  background-color: #dc2626 !important;
-  color: #ffffff !important;
-}
-
-html[data-theme="light"] main .bg-red-600 *,
-html[data-theme="light"] main button.bg-red-600 * {
-  color: #ffffff !important;
-}
-
-/* ================= ADMIN SUBNAV READABILITY FIX ================= */
-
-.admin-subnav {
+html[data-theme="dark"] .order-live-card,
+html.dark .order-live-card {
   background: #020617 !important;
+  color: #f8fafc !important;
   border-color: #1e293b !important;
 }
 
-.admin-subnav,
-.admin-subnav * {
-  color: #e2e8f0 !important;
+html[data-theme="dark"] .order-live-muted,
+html.dark .order-live-muted {
+  color: #94a3b8 !important;
 }
 
-.admin-subnav a,
-.admin-subnav button {
-  color: #e2e8f0 !important;
-}
+/* ================= BUTTON SAFETY ================= */
 
-.admin-subnav a:hover,
-.admin-subnav button:hover,
-.admin-subnav a[aria-current="page"] {
-  background: #ffffff !important;
-  color: #020617 !important;
-}
-
-.admin-subnav a:hover *,
-.admin-subnav button:hover *,
-.admin-subnav a[aria-current="page"] * {
-  color: #020617 !important;
+html[data-theme="light"] button:disabled,
+html[data-theme="dark"] button:disabled,
+html.dark button:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.5 !important;
 }
