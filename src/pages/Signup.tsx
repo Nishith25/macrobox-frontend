@@ -1,4 +1,5 @@
 // frontend/src/pages/Signup.tsx (FRONTEND)
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -8,10 +9,12 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Lock,
   Mail,
   Phone,
   ShieldCheck,
   User,
+  X,
 } from "lucide-react";
 
 export default function Signup() {
@@ -158,15 +161,16 @@ export default function Signup() {
 
     try {
       await signup({
-  name: form.name.trim(),
-  email: form.email.trim().toLowerCase(),
-  password: form.password,
-  phone: form.phone.trim(),
-  role: "user",
-  phoneVerificationToken,
-});
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+        phone: form.phone.trim(),
+        role: "user",
+        phoneVerificationToken,
+      });
 
-navigate("/onboarding", { replace: true });
+      toast.success("Account created successfully!");
+      navigate("/onboarding", { replace: true });
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message ||
@@ -179,109 +183,134 @@ navigate("/onboarding", { replace: true });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white px-4 py-10">
-      <div className="mx-auto grid min-h-[calc(100vh-120px)] max-w-6xl items-center gap-10 lg:grid-cols-[1fr_520px]">
-        <div className="hidden lg:block">
-          <p className="mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
-            Join MacroBox
-          </p>
+    <main className="min-h-[calc(100vh-73px)] bg-gradient-to-br from-green-50 via-white to-green-50">
+      <div className="mx-auto grid min-h-[calc(100vh-73px)] max-w-[1500px] lg:grid-cols-[1fr_560px]">
+        {/* LEFT SIDE */}
+        <section className="hidden px-10 py-12 lg:flex lg:flex-col lg:justify-center">
+          <div className="max-w-3xl">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
+              <span className="text-lg">♨</span>
+              Join MacroBox
+            </div>
 
-          <h1 className="max-w-xl text-5xl font-extrabold leading-tight text-gray-900">
-            Build your meals around your real daily macros.
-          </h1>
+            <h1 className="text-[60px] font-black leading-[1.02] tracking-[-0.07em] text-slate-950">
+              Build your meals around
+              <br />
+              <span className="text-green-600">your daily macros.</span>
+            </h1>
 
-          <p className="mt-5 max-w-xl text-lg text-gray-600">
-            Create your account and start using MacroBox as a meal-ordering
-            platform connected with your nutrition goals.
-          </p>
-
-          <div className="mt-8 grid max-w-xl gap-4">
-            <Feature text="Choose your goal and see meals built for fat loss, muscle gain, weight gain or clean eating." />
-            <Feature text="MacroTrack calculates how many calories, protein, carbs and fat you need each day." />
-            <Feature text="Your first screen after signup shows personalized meals, not an empty homepage." />
-          </div>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="w-full rounded-3xl border bg-white p-6 shadow-xl sm:p-8"
-        >
-          <div className="mb-6 text-center">
-            <p className="mx-auto mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
-              MacroBox Signup
+            <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-slate-600">
+              Create your account, verify your phone number, complete your setup
+              and start ordering goal-based meals.
             </p>
 
-            <h2 className="text-3xl font-bold text-gray-900">
-              Create Account
-            </h2>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Verify your phone number and start your MacroBox setup.
-            </p>
+            <div className="mt-8 grid max-w-2xl gap-4">
+              <Feature text="Choose your goal and see meals built for fat loss, muscle gain, weight gain or clean eating." />
+              <Feature text="MacroTrack calculates calories, protein, carbs and fat based on your body details." />
+              <Feature text="After signup, your first screen opens personalized onboarding, not an empty homepage." />
+            </div>
           </div>
+        </section>
 
-          <div className="space-y-4">
-            <InputWithIcon
-              icon={<User size={18} />}
-              type="text"
-              name="name"
-              placeholder="Full Name"
-              value={form.name}
-              onChange={handleChange}
-            />
+        {/* RIGHT SIDE SIGNUP PANEL */}
+        <section className="flex min-h-[calc(100vh-73px)] items-start justify-center bg-white px-5 py-8 shadow-[-24px_0_70px_rgba(15,23,42,0.08)] sm:px-8 lg:px-12">
+          <div className="w-full max-w-[450px]">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="mb-8 flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
+              aria-label="Close signup"
+            >
+              <X size={24} />
+            </button>
 
-            <InputWithIcon
-              icon={<Mail size={18} />}
-              type="email"
-              name="email"
-              placeholder="Email Address"
-              value={form.email}
-              onChange={handleChange}
-            />
+            <div className="mb-7 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-[34px] font-black tracking-[-0.04em] text-slate-950">
+                  Create Account
+                </h1>
 
-            <div className="rounded-2xl border bg-gray-50 p-3">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Phone
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-
-                  <input
-                    type="tel"
-                    name="phone"
-                    placeholder="Phone Number"
-                    value={form.phone}
-                    onChange={handleChange}
-                    disabled={phoneVerified}
-                    className="h-12 w-full rounded-xl border bg-white pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 disabled:bg-gray-100"
-                    required
-                  />
-                </div>
-
-                {!phoneVerified ? (
-                  <button
-                    type="button"
-                    onClick={sendOtp}
-                    disabled={otpLoading || !phoneReady}
-                    className="h-12 rounded-xl border border-green-600 px-4 text-sm font-semibold text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+                <p className="mt-2 text-base font-medium text-slate-700">
+                  or{" "}
+                  <Link
+                    to="/login"
+                    className="font-black text-green-600 hover:underline"
                   >
-                    {otpLoading && !otpSent
-                      ? "Generating..."
-                      : otpSent
-                      ? "Regenerate"
-                      : "Get OTP"}
-                  </button>
-                ) : (
-                  <div className="flex h-12 items-center gap-1 rounded-xl bg-green-100 px-4 text-sm font-bold text-green-700">
-                    <CheckCircle2 size={17} />
-                    Verified
+                    login to your account
+                  </Link>
+                </p>
+
+                <div className="mt-5 h-[3px] w-12 rounded-full bg-slate-950" />
+              </div>
+
+              <div className="hidden h-24 w-24 items-center justify-center rounded-full bg-green-50 text-5xl sm:flex">
+                🥗
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              <InputWithIcon
+                icon={<User size={18} />}
+                type="text"
+                name="name"
+                placeholder="Full name"
+                value={form.name}
+                onChange={handleChange}
+              />
+
+              <InputWithIcon
+                icon={<Mail size={18} />}
+                type="email"
+                name="email"
+                placeholder="Email address"
+                value={form.email}
+                onChange={handleChange}
+              />
+
+              <div className="border border-slate-300 bg-white">
+                <div className="flex">
+                  <div className="relative flex-1">
+                    <Phone
+                      size={18}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      type="tel"
+                      name="phone"
+                      placeholder="Phone number"
+                      value={form.phone}
+                      onChange={handleChange}
+                      disabled={phoneVerified}
+                      className="h-16 w-full border-0 bg-white pl-12 pr-4 text-base font-semibold text-slate-900 outline-none placeholder:text-slate-500 disabled:bg-slate-50"
+                      required
+                    />
                   </div>
-                )}
+
+                  {!phoneVerified ? (
+                    <button
+                      type="button"
+                      onClick={sendOtp}
+                      disabled={otpLoading || !phoneReady}
+                      className="min-w-[116px] border-l border-slate-300 px-4 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {otpLoading && !otpSent
+                        ? "Sending..."
+                        : otpSent
+                        ? "Resend"
+                        : "Get OTP"}
+                    </button>
+                  ) : (
+                    <div className="flex min-w-[120px] items-center justify-center gap-1 border-l border-slate-300 bg-green-50 px-4 text-sm font-black text-green-700">
+                      <CheckCircle2 size={17} />
+                      Verified
+                    </div>
+                  )}
+                </div>
               </div>
 
               {otpSent && !phoneVerified && (
-                <div className="mt-3 flex gap-2">
+                <div className="flex gap-2">
                   <input
                     type="text"
                     placeholder="Enter 6-digit OTP"
@@ -290,14 +319,14 @@ navigate("/onboarding", { replace: true });
                       setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
                     }
                     maxLength={6}
-                    className="h-11 flex-1 rounded-xl border bg-white px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                    className="h-14 flex-1 border border-slate-300 bg-white px-4 text-base font-semibold text-slate-900 outline-none placeholder:text-slate-500 focus:border-green-600"
                   />
 
                   <button
                     type="button"
                     onClick={verifyOtp}
                     disabled={otpLoading || otp.trim().length !== 6}
-                    className="h-11 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-14 bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {otpLoading ? "Verifying..." : "Verify"}
                   </button>
@@ -305,13 +334,13 @@ navigate("/onboarding", { replace: true });
               )}
 
               {devOtp && !phoneVerified && (
-                <div className="mt-3 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-                  Dev OTP: <span className="font-bold">{devOtp}</span>
+                <div className="border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm font-bold text-yellow-800">
+                  Dev OTP: <span className="font-black">{devOtp}</span>
                 </div>
               )}
 
               {otpSent && !phoneVerified && (
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="text-xs font-medium text-slate-500">
                   {devOtp
                     ? "This is development OTP mode. Use the OTP shown above to continue."
                     : "OTP sent successfully. Please enter it to continue."}
@@ -319,64 +348,53 @@ navigate("/onboarding", { replace: true });
               )}
 
               {phoneVerified && (
-                <p className="mt-2 text-xs font-medium text-green-700">
+                <p className="text-xs font-black text-green-700">
                   Phone number verified successfully.
                 </p>
               )}
-            </div>
 
-            <div className="relative">
-              <ShieldCheck
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-
-              <input
-                type={showPassword ? "text" : "password"}
+              <PasswordInput
+                icon={<Lock size={18} />}
                 name="password"
                 placeholder="Password"
                 value={form.password}
                 onChange={handleChange}
-                className="h-12 w-full rounded-xl border pl-10 pr-12 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                required
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+              />
+
+              <InputWithIcon
+                icon={<ShieldCheck size={18} />}
+                type={showPassword ? "text" : "password"}
+                name="confirmPassword"
+                placeholder="Confirm password"
+                value={form.confirmPassword}
+                onChange={handleChange}
               />
 
               <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                type="submit"
+                disabled={loading || !phoneVerified}
+                className="h-14 w-full bg-green-600 text-sm font-black uppercase tracking-wide text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {loading ? "Creating Account..." : "Create Account"}
               </button>
-            </div>
 
-            <InputWithIcon
-              icon={<ShieldCheck size={18} />}
-              type={showPassword ? "text" : "password"}
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              value={form.confirmPassword}
-              onChange={handleChange}
-            />
-
-            <button
-              type="submit"
-              disabled={loading || !phoneVerified}
-              className="h-12 w-full rounded-xl bg-green-600 text-sm font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "Creating Account..." : "Create Account"}
-            </button>
+              <p className="pt-1 text-xs font-medium leading-5 text-slate-600">
+                By clicking on Create Account, I accept the{" "}
+                <span className="font-black text-slate-950">
+                  Terms & Conditions
+                </span>{" "}
+                &{" "}
+                <span className="font-black text-slate-950">
+                  Privacy Policy
+                </span>
+              </p>
+            </form>
           </div>
-
-          <p className="mt-5 text-center text-sm text-gray-600">
-            Already have an account?{" "}
-            <Link to="/login" className="font-semibold text-green-700">
-              Login
-            </Link>
-          </p>
-        </form>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -397,7 +415,7 @@ function InputWithIcon({
 }) {
   return (
     <div className="relative">
-      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
         {icon}
       </div>
 
@@ -407,18 +425,63 @@ function InputWithIcon({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="h-12 w-full rounded-xl border pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+        className="h-16 w-full border border-slate-300 bg-white pl-12 pr-4 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-green-600"
         required
       />
     </div>
   );
 }
 
+function PasswordInput({
+  icon,
+  name,
+  placeholder,
+  value,
+  onChange,
+  showPassword,
+  setShowPassword,
+}: {
+  icon: React.ReactNode;
+  name: string;
+  placeholder: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  showPassword: boolean;
+  setShowPassword: (value: boolean) => void;
+}) {
+  return (
+    <div className="relative">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+        {icon}
+      </div>
+
+      <input
+        type={showPassword ? "text" : "password"}
+        name={name}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        className="h-16 w-full border border-slate-300 bg-white pl-12 pr-12 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-green-600"
+        required
+      />
+
+      <button
+        type="button"
+        onClick={() => setShowPassword(!showPassword)}
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+        aria-label={showPassword ? "Hide password" : "Show password"}
+      >
+        {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+      </button>
+    </div>
+  );
+}
+
 function Feature({ text }: { text: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-3 rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
       <CheckCircle2 size={20} className="shrink-0 text-green-600" />
-      <p className="font-medium text-gray-700">{text}</p>
+      <p className="font-bold leading-6 text-slate-700">{text}</p>
     </div>
   );
 }
