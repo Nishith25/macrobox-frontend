@@ -3,7 +3,6 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useEffect, useState } from "react";
 import {
-  Bell,
   ChefHat,
   ClipboardList,
   MapPin,
@@ -85,9 +84,6 @@ export default function Navbar() {
           onClick={closeMenu}
           className="flex shrink-0 items-center gap-2 text-2xl font-black tracking-[-0.04em] text-green-600"
         >
-          <span className="inline-flex h-9 w-9 rotate-[-25deg] items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-lime-500 shadow-sm">
-            <span className="h-4 w-7 rounded-md bg-green-700/30" />
-          </span>
           MacroBox
         </Link>
 
@@ -150,15 +146,6 @@ export default function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 lg:flex">
-          {isAuthenticated && !isChef && (
-            <button
-              type="button"
-              className="relative rounded-[14px] p-2.5 text-slate-600 transition hover:bg-slate-50"
-            >
-              <Bell size={20} />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
-            </button>
-          )}
 
           {isAuthenticated ? (
             <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
