@@ -1,4 +1,4 @@
-// frontend/src/utils/theme.ts (FRONTEND)
+// frontend/src/utils/theme.ts
 
 export type ThemeMode = "light" | "dark";
 
@@ -9,33 +9,21 @@ export function getSavedTheme(): ThemeMode {
   return saved === "dark" ? "dark" : "light";
 }
 
-export function applyMacroBoxTheme(theme: ThemeMode) {
+export function applyTheme(theme: ThemeMode) {
   localStorage.setItem(THEME_KEY, theme);
 
-  const root = document.documentElement;
+  document.documentElement.classList.toggle("dark", theme === "dark");
+  document.documentElement.setAttribute("data-theme", theme);
 
-  if (theme === "dark") {
-    root.classList.add("dark");
-    root.setAttribute("data-theme", "dark");
-    document.body.style.background = "#020617";
-    document.body.style.color = "#f8fafc";
-  } else {
-    root.classList.remove("dark");
-    root.setAttribute("data-theme", "light");
-    document.body.style.background = "#f6f7f8";
-    document.body.style.color = "#0f172a";
-  }
+  document.body.style.background = theme === "dark" ? "#020617" : "#f6f7f8";
+  document.body.style.color = theme === "dark" ? "#f8fafc" : "#0f172a";
 
-  window.dispatchEvent(
-    new CustomEvent("macrobox-theme-change", {
-      detail: theme,
-    })
-  );
+  window.dispatchEvent(new CustomEvent("macrobox-theme-change", { detail: theme }));
 }
 
-export function toggleMacroBoxTheme(): ThemeMode {
+export function toggleTheme() {
   const current = getSavedTheme();
-  const next = current === "dark" ? "light" : "dark";
-  applyMacroBoxTheme(next);
+  const next: ThemeMode = current === "dark" ? "light" : "dark";
+  applyTheme(next);
   return next;
 }

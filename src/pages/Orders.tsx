@@ -91,11 +91,9 @@ type Order = {
 
 const mapsLinkFromAddress = (addr?: Order["delivery"]["address"]) => {
   if (!addr) return null;
-
   if (addr.mapsUrl) return addr.mapsUrl;
 
   const text = String(addr.locationText || addr.formattedAddress || "").trim();
-
   if (!text) return null;
 
   if (text.startsWith("http://") || text.startsWith("https://")) {
@@ -119,7 +117,6 @@ const formatDateTime = (value?: string | null) => {
   if (!value) return "N/A";
 
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return "N/A";
 
   return date.toLocaleString("en-IN", {
@@ -130,7 +127,6 @@ const formatDateTime = (value?: string | null) => {
 
 const formatAddress = (addr?: Order["delivery"]["address"]) => {
   if (!addr) return "Address not available";
-
   if (addr.formattedAddress) return addr.formattedAddress;
 
   const parts = [
@@ -150,28 +146,28 @@ const formatAddress = (addr?: Order["delivery"]["address"]) => {
 const paymentBadgeClass = (status?: string) => {
   switch (status) {
     case "paid":
-      return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-300";
+      return "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300";
     case "failed":
-      return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300";
+      return "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300";
     default:
-      return "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-900/60 dark:bg-yellow-950/30 dark:text-yellow-300";
+      return "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300";
   }
 };
 
 const deliveryBadgeClass = (status?: string) => {
   switch (status) {
     case "accepted":
-      return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300";
+      return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300";
     case "picked_up":
-      return "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-300";
+      return "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-300";
     case "out_for_delivery":
-      return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-300";
+      return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-300";
     case "delivered":
-      return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-300";
+      return "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300";
     case "cancelled":
-      return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300";
+      return "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300";
     default:
-      return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
+      return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300";
   }
 };
 
@@ -212,10 +208,11 @@ export default function Orders() {
     return (
       <main className="min-h-screen bg-[#f6f7f8] px-4 py-10 text-slate-950 dark:bg-slate-950 dark:text-white">
         <div className="mx-auto max-w-6xl">
-          <div className="rounded-[24px] border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-lg font-black text-slate-900 dark:text-white">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+            <p className="text-lg font-black text-slate-950 dark:text-white">
               No orders yet.
             </p>
+
             <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
               Your paid orders and live tracking details will appear here.
             </p>
@@ -232,6 +229,7 @@ export default function Orders() {
           <h1 className="text-3xl font-black tracking-[-0.04em] text-slate-950 dark:text-white">
             My Orders
           </h1>
+
           <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
             View order status, payment, delivery slot and live tracking.
           </p>
@@ -255,11 +253,11 @@ export default function Orders() {
                 key={order._id}
                 className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm transition hover:border-green-200 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none"
               >
-                {/* TOP */}
                 <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-start md:justify-between dark:border-slate-700">
                   <div>
                     <div className="flex items-center gap-2">
                       <ReceiptText size={18} className="text-green-600" />
+
                       <p className="font-black text-slate-950 dark:text-white">
                         {formatDateTime(order.createdAt)}
                       </p>
@@ -289,11 +287,8 @@ export default function Orders() {
                   </div>
                 </div>
 
-                {/* BODY */}
                 <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-                  {/* LEFT */}
                   <div className="space-y-5">
-                    {/* MACROS */}
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
                       <MiniStat label="Calories" value={`${totalCalories}`} />
                       <MiniStat label="Protein" value={`${totalProtein}g`} />
@@ -310,7 +305,6 @@ export default function Orders() {
                       />
                     </div>
 
-                    {/* SLOT + ADDRESS */}
                     <div className="grid gap-3 md:grid-cols-2">
                       <InfoCard>
                         <div className="mb-1 flex items-center gap-2">
@@ -318,6 +312,7 @@ export default function Orders() {
                             size={16}
                             className="text-green-600"
                           />
+
                           <p className="text-sm font-black text-slate-950 dark:text-white">
                             Delivery Slot
                           </p>
@@ -332,6 +327,7 @@ export default function Orders() {
                       <InfoCard>
                         <div className="mb-1 flex items-center gap-2">
                           <MapPin size={16} className="text-green-600" />
+
                           <p className="text-sm font-black text-slate-950 dark:text-white">
                             Delivery Address
                           </p>
@@ -358,7 +354,6 @@ export default function Orders() {
                       </InfoCard>
                     </div>
 
-                    {/* ITEMS */}
                     {order.items && order.items.length > 0 && (
                       <InfoCard>
                         <div className="mb-2 flex items-center gap-2">
@@ -366,6 +361,7 @@ export default function Orders() {
                             size={16}
                             className="text-green-600"
                           />
+
                           <p className="text-sm font-black text-slate-950 dark:text-white">
                             Items
                           </p>
@@ -385,61 +381,14 @@ export default function Orders() {
                     )}
                   </div>
 
-                  {/* RIGHT LIVE TRACKING */}
-                  <div className="live-delivery-card rounded-[22px] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Truck size={18} className="text-green-600" />
-                        <p className="font-black text-slate-950 dark:text-white">
-                          Live Delivery
-                        </p>
-                      </div>
-
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                        {readableStatus(deliveryStatus)}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                      <p>
-                        <span className="font-black text-slate-950 dark:text-white">
-                          Agent:
-                        </span>{" "}
-                        {agent?.name || "Not assigned yet"}
-                      </p>
-
-                      <p className="flex items-center gap-1">
-                        <Phone size={14} className="text-green-600" />
-                        <span className="font-black text-slate-950 dark:text-white">
-                          Phone:
-                        </span>{" "}
-                        {agent?.deliveryProfile?.phone || agent?.phone || "N/A"}
-                      </p>
-
-                      <p>
-                        <span className="font-black text-slate-950 dark:text-white">
-                          ETA:
-                        </span>{" "}
-                        {eta?.text || "Not available yet"}
-                        {eta?.distanceText ? ` (${eta.distanceText})` : ""}
-                      </p>
-
-                      <p>
-                        <span className="font-black text-slate-950 dark:text-white">
-                          Last update:
-                        </span>{" "}
-                        {formatDateTime(currentLocation?.updatedAt || null)}
-                      </p>
-                    </div>
-
-                    <Link
-                      to={`/track/${order._id}`}
-                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[16px] bg-green-600 px-4 py-3 text-sm font-black text-white transition hover:bg-green-700"
-                    >
-                      <Navigation size={16} />
-                      Track Live
-                    </Link>
-                  </div>
+                  <LiveDeliveryCard
+                    orderId={order._id}
+                    deliveryStatus={deliveryStatus}
+                    agent={agent}
+                    etaText={eta?.text}
+                    distanceText={eta?.distanceText}
+                    updatedAt={currentLocation?.updatedAt || null}
+                  />
                 </div>
               </article>
             );
@@ -461,14 +410,14 @@ function MiniStat({
 }) {
   return (
     <div
-      className={`macro-stat-box rounded-[16px] border p-3 ${
+      className={`rounded-[16px] border p-3 ${
         highlight
-          ? "border-green-200 bg-green-50 dark:border-green-900/60 dark:bg-green-950/30"
+          ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30"
           : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950"
       }`}
     >
       <p
-        className={`macro-stat-label text-[11px] font-black uppercase tracking-wide ${
+        className={`text-[11px] font-black uppercase tracking-wide ${
           highlight
             ? "text-green-700 dark:text-green-300"
             : "text-slate-500 dark:text-slate-400"
@@ -478,7 +427,7 @@ function MiniStat({
       </p>
 
       <p
-        className={`macro-stat-value mt-1 text-sm font-black ${
+        className={`mt-1 text-sm font-black ${
           highlight
             ? "text-green-700 dark:text-green-300"
             : "text-slate-950 dark:text-white"
@@ -494,6 +443,81 @@ function InfoCard({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-[16px] border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
       {children}
+    </div>
+  );
+}
+
+function LiveDeliveryCard({
+  orderId,
+  deliveryStatus,
+  agent,
+  etaText,
+  distanceText,
+  updatedAt,
+}: {
+  orderId: string;
+  deliveryStatus: string;
+  agent?: DeliveryAgent | null;
+  etaText?: string;
+  distanceText?: string;
+  updatedAt?: string | null;
+}) {
+  return (
+    <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-950">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Truck size={18} className="text-green-600" />
+
+          <p className="font-black text-slate-950 dark:text-white">
+            Live Delivery
+          </p>
+        </div>
+
+        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+          {readableStatus(deliveryStatus)}
+        </span>
+      </div>
+
+      <div className="space-y-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+        <p>
+          <span className="font-black text-slate-950 dark:text-white">
+            Agent:
+          </span>{" "}
+          {agent?.name || "Not assigned yet"}
+        </p>
+
+        <p className="flex items-center gap-1">
+          <Phone size={14} className="text-green-600" />
+
+          <span className="font-black text-slate-950 dark:text-white">
+            Phone:
+          </span>{" "}
+          {agent?.deliveryProfile?.phone || agent?.phone || "N/A"}
+        </p>
+
+        <p>
+          <span className="font-black text-slate-950 dark:text-white">
+            ETA:
+          </span>{" "}
+          {etaText || "Not available yet"}
+          {distanceText ? ` (${distanceText})` : ""}
+        </p>
+
+        <p>
+          <span className="font-black text-slate-950 dark:text-white">
+            Last update:
+          </span>{" "}
+          {formatDateTime(updatedAt || null)}
+        </p>
+      </div>
+
+      <Link
+        to={`/track/${orderId}`}
+        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[16px] bg-green-600 px-4 py-3 text-sm font-black text-white transition hover:bg-green-700"
+      >
+        <Navigation size={16} />
+        Track Live
+      </Link>
     </div>
   );
 }
