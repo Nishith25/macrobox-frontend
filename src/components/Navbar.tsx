@@ -54,55 +54,29 @@ export default function Navbar() {
   }, [open]);
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `rounded-[14px] px-4 py-2.5 text-sm font-black transition ${
-      isActive
-        ? "bg-green-50 text-green-700 dark:bg-green-600 dark:text-white"
-        : "text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
-    }`;
+    `mbx-nav-link ${isActive ? "mbx-nav-active" : ""}`;
 
   const cartLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `relative flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-sm font-black transition ${
-      isActive
-        ? "bg-green-50 text-green-700 dark:bg-green-600 dark:text-white"
-        : "text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
-    }`;
+    `mbx-nav-link mbx-cart-link ${isActive ? "mbx-nav-active" : ""}`;
 
   const adminLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-1.5 rounded-[10px] px-3 py-2 text-xs font-black transition ${
-      isActive
-        ? "bg-red-100 text-red-700"
-        : "text-red-600 hover:bg-red-50 hover:text-red-700"
-    }`;
+    `mbx-admin-link ${isActive ? "mbx-admin-active" : ""}`;
 
   const chefLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-1.5 rounded-[10px] px-3 py-2 text-xs font-black transition ${
-      isActive
-        ? "bg-orange-100 text-orange-700"
-        : "text-orange-600 hover:bg-orange-50 hover:text-orange-700"
-    }`;
+    `mbx-chef-link ${isActive ? "mbx-chef-active" : ""}`;
 
   const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex w-full items-center justify-between rounded-[18px] px-5 py-4 text-lg font-black transition ${
-      isActive
-        ? "bg-green-50 text-green-700 dark:bg-green-600 dark:text-white"
-        : "bg-slate-50 text-slate-950 hover:bg-slate-100 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
-    }`;
+    `mbx-mobile-link ${isActive ? "mbx-mobile-link-active" : ""}`;
 
   return (
     <>
-      <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          {/* LOGO */}
-          <Link
-            to="/"
-            onClick={closeMenu}
-            className="flex shrink-0 items-center text-2xl font-black tracking-[-0.04em] text-slate-950 dark:text-white"
-          >
+      <nav className="mbx-navbar">
+        <div className="mbx-navbar-inner">
+          <Link to="/" onClick={closeMenu} className="mbx-logo">
             MacroBox
           </Link>
 
-          {/* DESKTOP CENTER LINKS - ONLY AFTER LOGIN */}
-          <div className="hidden flex-1 items-center justify-center gap-1 lg:flex">
+          <div className="mbx-desktop-links">
             {isAuthenticated && !isChef && (
               <>
                 <NavLink to="/meals" className={navLinkClass}>
@@ -125,9 +99,7 @@ export default function Navbar() {
                   <ShoppingCart size={18} />
                   Cart
                   {cartCount > 0 && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-green-600 px-1 text-[11px] font-black text-white">
-                      {cartCount}
-                    </span>
+                    <span className="mbx-cart-count">{cartCount}</span>
                   )}
                 </NavLink>
 
@@ -156,25 +128,21 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* DESKTOP RIGHT */}
-          <div className="hidden items-center gap-3 lg:flex">
+          <div className="mbx-desktop-auth">
             {isAuthenticated ? (
-              <div className="flex items-center gap-3 border-l border-slate-200 pl-3 dark:border-slate-800">
+              <div className="mbx-user-area">
                 <button
                   type="button"
                   onClick={() => navigate("/settings")}
-                  className="flex items-center gap-2 rounded-full bg-green-50 px-3 py-2 text-sm font-black text-green-700 dark:bg-green-600 dark:text-white"
+                  className="mbx-user-pill"
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-600 text-xs text-white dark:bg-white dark:text-green-700">
+                  <span className="mbx-user-avatar">
                     {user?.name?.charAt(0)?.toUpperCase() || "U"}
                   </span>
                   {user?.name?.split(" ")[0] || "User"}
                 </button>
 
-                <button
-                  onClick={handleLogout}
-                  className="rounded-[14px] px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/40"
-                >
+                <button onClick={handleLogout} className="mbx-logout-btn">
                   Logout
                 </button>
               </div>
@@ -182,30 +150,27 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navigate("/login")}
-                className="rounded-[14px] px-5 py-2.5 text-sm font-black text-slate-950 transition hover:bg-slate-50 dark:text-white dark:hover:bg-slate-800"
+                className="mbx-login-btn"
               >
                 Login
               </button>
             )}
           </div>
 
-          {/* MOBILE RIGHT */}
-          <div className="flex items-center gap-2 lg:hidden">
+          <div className="mbx-mobile-right">
             {isAuthenticated && !isChef && (
               <button
                 onClick={() => {
                   navigate("/cart");
                   setOpen(false);
                 }}
-                className="relative rounded-[14px] px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800"
+                className="mbx-mobile-cart-btn"
                 aria-label="Cart"
               >
-                <ShoppingCart size={22} className="text-slate-900 dark:text-white" />
+                <ShoppingCart size={22} />
 
                 {cartCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-green-600 px-1 text-[10px] font-black text-white">
-                    {cartCount}
-                  </span>
+                  <span className="mbx-mobile-cart-count">{cartCount}</span>
                 )}
               </button>
             )}
@@ -214,7 +179,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navigate("/login")}
-                className="rounded-[14px] px-3 py-2 text-sm font-black text-slate-950 dark:text-white"
+                className="mbx-mobile-login-btn"
               >
                 Login
               </button>
@@ -222,22 +187,21 @@ export default function Navbar() {
 
             <button
               type="button"
-              className="rounded-[14px] border border-slate-200 px-3 py-2 text-slate-900 dark:border-slate-700 dark:text-white"
+              className="mbx-menu-btn"
               onClick={() => setOpen(true)}
               aria-label="Open menu"
             >
-              <Menu size={23} />
+              <Menu size={24} />
             </button>
           </div>
         </div>
 
-        {/* ADMIN / CHEF DESKTOP BAR */}
         {(isAdmin || isChef) && (
-          <div className="hidden border-t border-slate-100 bg-white lg:block dark:border-slate-800 dark:bg-slate-950">
-            <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2 px-4 py-2 sm:px-6">
+          <div className="mbx-admin-bar">
+            <div className="mbx-admin-bar-inner">
               {isAdmin && (
                 <>
-                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  <div className="mbx-admin-label">
                     <Shield size={14} />
                     Admin
                   </div>
@@ -288,7 +252,7 @@ export default function Navbar() {
 
               {isChef && !isAdmin && (
                 <>
-                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  <div className="mbx-admin-label">
                     <ChefHat size={14} />
                     Chef
                   </div>
@@ -304,49 +268,37 @@ export default function Navbar() {
         )}
       </nav>
 
-      {/* MOBILE FULL SCREEN MENU */}
       {open && (
-        <div className="fixed inset-0 z-[99999] lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
-            onClick={closeMenu}
-          />
+        <div className="mbx-mobile-menu-wrap">
+          <div className="mbx-mobile-backdrop" onClick={closeMenu} />
 
-          <aside className="absolute inset-y-0 right-0 flex h-[100dvh] w-full flex-col bg-white shadow-2xl dark:bg-slate-950">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-              <Link
-                to="/"
-                onClick={closeMenu}
-                className="text-2xl font-black tracking-[-0.04em] text-slate-950 dark:text-white"
-              >
+          <aside className="mbx-mobile-drawer">
+            <div className="mbx-mobile-drawer-header">
+              <Link to="/" onClick={closeMenu} className="mbx-mobile-logo">
                 MacroBox
               </Link>
 
               <button
                 type="button"
                 onClick={closeMenu}
-                className="rounded-[16px] border border-slate-200 p-3 text-slate-950 dark:border-slate-700 dark:text-white"
+                className="mbx-mobile-close"
                 aria-label="Close menu"
               >
-                <X size={24} />
+                <X size={26} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-5">
+            <div className="mbx-mobile-drawer-body">
               {isAuthenticated && (
-                <div className="mb-5 rounded-[24px] border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-600 text-lg font-black text-white">
+                <div className="mbx-mobile-profile">
+                  <div className="mbx-mobile-profile-row">
+                    <div className="mbx-mobile-avatar">
                       {user?.name?.charAt(0)?.toUpperCase() || "U"}
                     </div>
 
                     <div className="min-w-0">
-                      <p className="truncate text-lg font-black text-slate-950 dark:text-white">
-                        {user?.name || "User"}
-                      </p>
-                      <p className="truncate text-sm font-semibold text-slate-500 dark:text-slate-400">
-                        {user?.email}
-                      </p>
+                      <p className="mbx-mobile-name">{user?.name || "User"}</p>
+                      <p className="mbx-mobile-email">{user?.email}</p>
                     </div>
                   </div>
 
@@ -356,7 +308,7 @@ export default function Navbar() {
                       navigate("/settings");
                       closeMenu();
                     }}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-[16px] bg-green-600 px-4 py-3 text-sm font-black text-white"
+                    className="mbx-mobile-profile-btn"
                   >
                     <UserCircle size={18} />
                     View Profile
@@ -364,7 +316,7 @@ export default function Navbar() {
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="mbx-mobile-link-list">
                 {!isAuthenticated && (
                   <>
                     <button
@@ -373,7 +325,7 @@ export default function Navbar() {
                         navigate("/login");
                         closeMenu();
                       }}
-                      className="flex w-full items-center justify-between rounded-[18px] bg-green-600 px-5 py-4 text-lg font-black text-white"
+                      className="mbx-mobile-primary-link"
                     >
                       Login
                       <LogIn size={20} />
@@ -385,7 +337,7 @@ export default function Navbar() {
                         navigate("/signup");
                         closeMenu();
                       }}
-                      className="flex w-full items-center justify-between rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-lg font-black text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                      className="mbx-mobile-outline-link"
                     >
                       Create Account
                       <UserCircle size={20} />
@@ -396,8 +348,7 @@ export default function Navbar() {
                 {isAuthenticated && !isChef && (
                   <>
                     <NavLink to="/meals" className={mobileLinkClass} onClick={closeMenu}>
-                      Meals
-                      <span>→</span>
+                      Meals <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -405,8 +356,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      MacroTrack
-                      <span>→</span>
+                      MacroTrack <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -414,18 +364,15 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Smart Day Planner
-                      <span>→</span>
+                      Smart Day Planner <span>→</span>
                     </NavLink>
 
                     <NavLink to="/orders" className={mobileLinkClass} onClick={closeMenu}>
-                      Orders
-                      <span>→</span>
+                      Orders <span>→</span>
                     </NavLink>
 
                     <NavLink to="/cart" className={mobileLinkClass} onClick={closeMenu}>
-                      Cart {cartCount > 0 ? `(${cartCount})` : ""}
-                      <span>→</span>
+                      Cart {cartCount > 0 ? `(${cartCount})` : ""} <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -433,8 +380,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Settings
-                      <span>→</span>
+                      Settings <span>→</span>
                     </NavLink>
 
                     {user?.role === "delivery" && (
@@ -443,8 +389,7 @@ export default function Navbar() {
                         className={mobileLinkClass}
                         onClick={closeMenu}
                       >
-                        Delivery
-                        <span>→</span>
+                        Delivery <span>→</span>
                       </NavLink>
                     )}
                   </>
@@ -452,34 +397,28 @@ export default function Navbar() {
 
                 {isChef && (
                   <>
-                    <p className="px-2 pt-2 text-xs font-black uppercase tracking-[0.18em] text-orange-600">
-                      Chef
-                    </p>
+                    <p className="mbx-mobile-section-label chef">Chef</p>
 
                     <NavLink
                       to="/orderslist"
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Kitchen Orders
-                      <span>→</span>
+                      Kitchen Orders <span>→</span>
                     </NavLink>
                   </>
                 )}
 
                 {isAdmin && (
                   <>
-                    <p className="px-2 pt-5 text-xs font-black uppercase tracking-[0.18em] text-red-600">
-                      Admin
-                    </p>
+                    <p className="mbx-mobile-section-label admin">Admin</p>
 
                     <NavLink
                       to="/admin/meals"
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Admin Meals
-                      <span>→</span>
+                      Admin Meals <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -487,8 +426,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Users
-                      <span>→</span>
+                      Users <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -496,8 +434,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Orders
-                      <span>→</span>
+                      Orders <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -505,8 +442,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Coupons
-                      <span>→</span>
+                      Coupons <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -514,8 +450,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Delivery Agents
-                      <span>→</span>
+                      Delivery Agents <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -523,8 +458,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Chef Management
-                      <span>→</span>
+                      Chef Management <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -532,8 +466,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Kitchen Orders
-                      <span>→</span>
+                      Kitchen Orders <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -541,8 +474,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Delivery Pincodes
-                      <span>→</span>
+                      Delivery Pincodes <span>→</span>
                     </NavLink>
                   </>
                 )}
@@ -550,11 +482,11 @@ export default function Navbar() {
             </div>
 
             {isAuthenticated && (
-              <div className="border-t border-slate-200 p-5 dark:border-slate-800">
+              <div className="mbx-mobile-drawer-footer">
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex w-full items-center justify-center gap-2 rounded-[18px] bg-red-50 px-5 py-4 text-lg font-black text-red-600 dark:bg-red-950/30"
+                  className="mbx-mobile-logout"
                 >
                   <LogOut size={20} />
                   Logout
