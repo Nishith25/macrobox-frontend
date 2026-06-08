@@ -88,3 +88,21 @@ body,
 body {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+.input-ui {
+  height: 46px;
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+}
+
+.input-ui:focus {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
+}

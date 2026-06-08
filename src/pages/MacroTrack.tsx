@@ -4,16 +4,20 @@ import { useAuth } from "../context/AuthContext";
 import api from "../api/api";
 import {
   Apple,
-  Beef,
+  CalendarDays,
+  Check,
+  Dumbbell,
   Flame,
+  Gauge,
+  Pencil,
   Plus,
   Scale,
   Target,
   Trash2,
   Utensils,
+  X,
+  Zap,
 } from "lucide-react";
-
-/* ================= TYPES ================= */
 
 type GoalType =
   | "weight_loss"
@@ -46,8 +50,6 @@ type Meal = {
   image?: string;
 };
 
-/* ================= CONSTANTS ================= */
-
 const activityMultipliers: Record<string, number> = {
   sedentary: 1.2,
   light: 1.375,
@@ -64,10 +66,15 @@ const goalLabels: Record<GoalType, string> = {
   fat_loss: "Fat Loss",
 };
 
-const todayKey = () => {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+const activityLabels: Record<string, string> = {
+  sedentary: "Sedentary",
+  light: "Light Active",
+  moderate: "Mod. Active",
+  active: "Very Active",
+  very_active: "Athlete",
 };
+
+const todayKey = () => new Date().toISOString().slice(0, 10);
 
 const foodLogStorageKey = (userId?: string) =>
   `macrotrack-food-log-${userId || "guest"}-${todayKey()}`;
@@ -85,12 +92,9 @@ const clamp = (value: number, min: number, max: number) =>
 
 const round = (value: number) => Math.round(value);
 
-/* ================= MACROTRACK================ */
-
 export default function MacroTrack() {
   const { user } = useAuth();
 
-  /* ================= BODY STATE ================= */
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [age, setAge] = useState("");
@@ -101,7 +105,6 @@ export default function MacroTrack() {
   const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  /* ================= MACROTRACK STATE ================= */
   const [foodName, setFoodName] = useState("");
   const [mealType, setMealType] = useState<MealType>("Lunch");
   const [foodCalories, setFoodCalories] = useState("");
@@ -112,7 +115,6 @@ export default function MacroTrack() {
   const [foodLog, setFoodLog] = useState<FoodLogItem[]>([]);
   const [meals, setMeals] = useState<Meal[]>([]);
 
-  /* ================= LOAD SAVED DATA ================= */
   useEffect(() => {
     const load = async () => {
       try {
@@ -162,16 +164,12 @@ export default function MacroTrack() {
     localStorage.setItem(goalStorageKey(user?._id), goal);
   }, [goal, user?._id]);
 
-
-
-  /* ================= PARSED VALUES ================= */
   const h = Number(height);
   const w = Number(weight);
   const a = Number(age);
   const gw = Number(goalWeight);
   const isValid = h > 0 && w > 0 && a > 0;
 
-  /* ================= BMI ================= */
   const bmiValue = isValid ? w / Math.pow(h / 100, 2) : null;
   const bmi = bmiValue ? bmiValue.toFixed(1) : null;
 
@@ -186,7 +184,6 @@ export default function MacroTrack() {
       ? "Overweight"
       : "Obese";
 
-  /* ================= CALORIE CALCULATION ================= */
   const bmr =
     isValid &&
     (gender === "male"
@@ -205,7 +202,6 @@ export default function MacroTrack() {
     if (goal === "fat_loss") adjustment = -550;
     if (goal === "weight_gain") adjustment = 400;
     if (goal === "muscle_gain") adjustment = 250;
-    if (goal === "maintenance") adjustment = 0;
 
     if (gw && w) {
       const raw = Math.round(((gw - w) * 7700) / 60);
@@ -215,54 +211,27 @@ export default function MacroTrack() {
     return Math.max(1200, maintenanceCalories + adjustment);
   }, [maintenanceCalories, goal, gw, w]);
 
-  /* ================= MACRO GOALS ================= */
   const macroGoals = useMemo(() => {
     if (!targetCalories || !w) {
-      return {
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
-      };
+      return { calories: 0, protein: 0, carbs: 0, fat: 0 };
     }
 
     let proteinMultiplier = 1.6;
     let fatRatio = 0.25;
 
-    if (goal === "fat_loss") {
-      proteinMultiplier = 2.2;
-      fatRatio = 0.25;
-    }
-
-    if (goal === "weight_loss") {
-      proteinMultiplier = 2.0;
-      fatRatio = 0.25;
-    }
-
-    if (goal === "muscle_gain") {
-      proteinMultiplier = 2.1;
-      fatRatio = 0.25;
-    }
-
+    if (goal === "fat_loss") proteinMultiplier = 2.2;
+    if (goal === "weight_loss") proteinMultiplier = 2.0;
+    if (goal === "muscle_gain") proteinMultiplier = 2.1;
     if (goal === "weight_gain") {
       proteinMultiplier = 1.8;
       fatRatio = 0.28;
     }
 
-    if (goal === "maintenance") {
-      proteinMultiplier = 1.6;
-      fatRatio = 0.25;
-    }
-
     const protein = round(w * proteinMultiplier);
     const fat = round((targetCalories * fatRatio) / 9);
-    const proteinCalories = protein * 4;
-    const fatCalories = fat * 9;
-    const remainingCalories = Math.max(
-      targetCalories - proteinCalories - fatCalories,
-      0
+    const carbs = round(
+      Math.max(targetCalories - protein * 4 - fat * 9, 0) / 4
     );
-    const carbs = round(remainingCalories / 4);
 
     return {
       calories: round(targetCalories),
@@ -272,7 +241,6 @@ export default function MacroTrack() {
     };
   }, [targetCalories, w, goal]);
 
-  /* ================= CONSUMED TOTALS ================= */
   const consumed = useMemo(() => {
     return foodLog.reduce(
       (acc, item) => {
@@ -282,12 +250,7 @@ export default function MacroTrack() {
         acc.fat += numberOrZero(item.fat);
         return acc;
       },
-      {
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
-      }
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
     );
   }, [foodLog]);
 
@@ -298,7 +261,6 @@ export default function MacroTrack() {
     fat: Math.max(macroGoals.fat - consumed.fat, 0),
   };
 
-  /* ================= SUGGESTIONS ================= */
   const suggestedMeals = useMemo(() => {
     if (!meals.length || !macroGoals.calories) return [];
 
@@ -306,41 +268,23 @@ export default function MacroTrack() {
       .map((meal) => {
         const calories = numberOrZero(meal.calories);
         const protein = numberOrZero(meal.protein);
-        const carbs = numberOrZero(meal.carbs);
-        const fat = numberOrZero(meal.fat);
-
         const calorieFit =
           calories <= remaining.calories || remaining.calories === 0 ? 1 : 0.4;
-
         const proteinScore =
           remaining.protein > 0 ? Math.min(protein / remaining.protein, 1.5) : 0;
 
-        const caloriePenalty =
-          remaining.calories > 0
-            ? Math.abs(remaining.calories - calories) / remaining.calories
-            : 0;
-
         const score =
           proteinScore * 60 +
-          calorieFit * 25 -
-          caloriePenalty * 15 +
+          calorieFit * 25 +
           (goal === "muscle_gain" && protein >= 30 ? 15 : 0) +
           (goal === "fat_loss" && protein >= 25 && calories <= 600 ? 15 : 0);
 
-        return {
-          ...meal,
-          calories,
-          protein,
-          carbs,
-          fat,
-          score,
-        };
+        return { ...meal, score };
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+      .slice(0, 4);
   }, [meals, remaining, macroGoals.calories, goal]);
 
-  /* ================= SAVE BODY DETAILS ================= */
   const handleSave = async () => {
     if (!isValid) {
       alert("Please enter valid body details");
@@ -374,7 +318,6 @@ export default function MacroTrack() {
     setLocked(false);
   };
 
-  /* ================= FOOD LOG ================= */
   const addFood = () => {
     if (!foodName.trim()) {
       alert("Enter food name");
@@ -393,7 +336,6 @@ export default function MacroTrack() {
     };
 
     setFoodLog((prev) => [item, ...prev]);
-
     setFoodName("");
     setFoodCalories("");
     setFoodProtein("");
@@ -420,455 +362,416 @@ export default function MacroTrack() {
     setFoodLog((prev) => prev.filter((item) => item.id !== id));
   };
 
-  /* ================= UI ================= */
   if (loading) {
+    return (
+      <main className="min-h-screen bg-[#f6f7f8] px-4 py-10">
+        <div className="mx-auto max-w-[1240px] rounded-[24px] border bg-white p-10 text-slate-500 shadow-sm">
+          Loading MacroTrack...
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <p className="text-gray-500">Loading MacroTrack...</p>
-    </div>
-  );
-}
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-7">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Welcome, {user?.name} 👋
-        </h1>
-        <p className="mt-1 text-gray-600">
-          MacroTrack your calories, protein, carbs and fats for today.
-        </p>
-      </div>
-
-      {/* BODY DETAILS */}
-      <div className="mb-6 rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              Body Details & Goal
-            </h2>
-            <p className="text-sm text-gray-500">
-              Used to calculate your daily macro targets.
-            </p>
-          </div>
-
-          {!locked ? (
-            <button
-              onClick={handleSave}
-              className="rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-700"
-            >
-              Save Details
-            </button>
-          ) : (
-            <button
-              onClick={handleChange}
-              className="rounded-xl border border-green-600 px-5 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-50"
-            >
-              Change Values
-            </button>
-          )}
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <Input
-            label="Height (cm)"
-            value={height}
-            setValue={setHeight}
-            disabled={locked}
-          />
-          <Input
-            label="Weight (kg)"
-            value={weight}
-            setValue={setWeight}
-            disabled={locked}
-          />
-          <Input
-            label="Age (years)"
-            value={age}
-            setValue={setAge}
-            disabled={locked}
-          />
-
-          <select
-            disabled={locked}
-            value={gender}
-            onChange={(e) => setGender(e.target.value)}
-            className="h-11 rounded-xl border px-3 text-sm disabled:bg-gray-100"
-          >
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
-
-          <select
-            disabled={locked}
-            value={activity}
-            onChange={(e) => setActivity(e.target.value)}
-            className="h-11 rounded-xl border px-3 text-sm disabled:bg-gray-100"
-          >
-            <option value="sedentary">Sedentary</option>
-            <option value="light">Lightly Active</option>
-            <option value="moderate">Moderately Active</option>
-            <option value="active">Very Active</option>
-            <option value="very_active">Athlete</option>
-          </select>
-
-          <Input
-            label="Target weight (kg)"
-            value={goalWeight}
-            setValue={setGoalWeight}
-            disabled={locked}
-          />
-
-          <select
-            value={goal}
-            onChange={(e) => setGoal(e.target.value as GoalType)}
-            className="h-11 rounded-xl border px-3 text-sm md:col-span-3"
-          >
-            <option value="fat_loss">Fat Loss</option>
-            <option value="weight_loss">Weight Loss</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="weight_gain">Weight Gain</option>
-            <option value="muscle_gain">Muscle Gain</option>
-          </select>
-        </div>
-      </div>
-
-      {/* BMI + TARGETS */}
-      <div className="mb-6 grid gap-4 md:grid-cols-4">
-        <Stat
-          icon={<Scale size={20} />}
-          title="BMI"
-          value={bmi ?? "—"}
-          label={bmiLabel}
-        />
-        <Stat
-          icon={<Flame size={20} />}
-          title="Target Calories"
-          value={macroGoals.calories ? `${macroGoals.calories} kcal` : "—"}
-          label={goalLabels[goal]}
-        />
-        <Stat
-          icon={<Beef size={20} />}
-          title="Protein Goal"
-          value={macroGoals.protein ? `${macroGoals.protein} g` : "—"}
-          label="Daily protein"
-          
-        />
-        <Stat
-          icon={<Target size={20} />}
-          title="Maintenance"
-          value={maintenanceCalories ? `${maintenanceCalories} kcal` : "—"}
-          label="To maintain weight"
-        />
-      </div>
-
-      {/* MACROTRACK PROGRESS */}
-      <div className="mb-6 rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              MacroTrack Today
-            </h2>
-            <p className="text-sm text-gray-500">
-              Track how much you ate and how much is still remaining today.
-            </p>
-          </div>
-
-          <div className="rounded-full bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
-            {todayKey()}
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-4">
-          <MacroProgress
-            title="Calories"
-            consumed={consumed.calories}
-            goal={macroGoals.calories}
-            remaining={remaining.calories}
-            unit="kcal"
-          />
-          <MacroProgress
-            title="Protein"
-            consumed={consumed.protein}
-            goal={macroGoals.protein}
-            remaining={remaining.protein}
-            unit="g"
-          />
-          <MacroProgress
-            title="Carbs"
-            consumed={consumed.carbs}
-            goal={macroGoals.carbs}
-            remaining={remaining.carbs}
-            unit="g"
-          />
-          <MacroProgress
-            title="Fat"
-            consumed={consumed.fat}
-            goal={macroGoals.fat}
-            remaining={remaining.fat}
-            unit="g"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-        {/* ADD FOOD */}
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Plus size={20} className="text-green-600" />
-            <h2 className="text-xl font-bold text-gray-900">Add Food</h2>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <input
-              value={foodName}
-              onChange={(e) => setFoodName(e.target.value)}
-              placeholder="Food name"
-              className="h-11 rounded-xl border px-3 text-sm md:col-span-2"
-            />
-
-            <select
-              value={mealType}
-              onChange={(e) => setMealType(e.target.value as MealType)}
-              className="h-11 rounded-xl border px-3 text-sm md:col-span-2"
-            >
-              <option>Breakfast</option>
-              <option>Lunch</option>
-              <option>Snack</option>
-              <option>Dinner</option>
-            </select>
-
-            <input
-              value={foodCalories}
-              onChange={(e) => setFoodCalories(e.target.value)}
-              placeholder="Calories"
-              type="number"
-              className="h-11 rounded-xl border px-3 text-sm"
-            />
-
-            <input
-              value={foodProtein}
-              onChange={(e) => setFoodProtein(e.target.value)}
-              placeholder="Protein (g)"
-              type="number"
-              className="h-11 rounded-xl border px-3 text-sm"
-            />
-
-            <input
-              value={foodCarbs}
-              onChange={(e) => setFoodCarbs(e.target.value)}
-              placeholder="Carbs (g)"
-              type="number"
-              className="h-11 rounded-xl border px-3 text-sm"
-            />
-
-            <input
-              value={foodFat}
-              onChange={(e) => setFoodFat(e.target.value)}
-              placeholder="Fat (g)"
-              type="number"
-              className="h-11 rounded-xl border px-3 text-sm"
-            />
-          </div>
-
-          <button
-            onClick={addFood}
-            className="mt-4 w-full rounded-xl bg-green-600 py-3 text-sm font-semibold text-white hover:bg-green-700"
-          >
-            Add to Today’s Log
-          </button>
-        </div>
-
-        {/* SUGGESTIONS */}
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Utensils size={20} className="text-green-600" />
-            <h2 className="text-xl font-bold text-gray-900">
-              What Should I Eat Next?
-            </h2>
-          </div>
-
-          <p className="mb-4 text-sm text-gray-500">
-            Based on your remaining macros, here are smart MacroBox suggestions.
+    <main className="min-h-screen bg-[#f6f7f8] px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-[1240px]">
+        <div className="mb-7">
+          <h1 className="text-[28px] font-black tracking-[-0.04em] text-slate-950">
+            Welcome, {user?.name?.split(" ")[0] || "User"} 👋
+          </h1>
+          <p className="mt-1 text-base font-medium text-slate-500">
+            MacroTrack your calories, protein, carbs and fats for today.
           </p>
+        </div>
 
-          {suggestedMeals.length === 0 ? (
-            <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
-              Add body details and make sure meals have calories, protein, carbs
-              and fat values.
+        <section className="mb-7 rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+          <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="text-xl font-black text-slate-950">
+                Body Details & Goal
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Used to calculate your daily macro targets.
+              </p>
+            </div>
+
+            {locked ? (
+              <button
+                onClick={handleChange}
+                className="inline-flex items-center justify-center gap-2 rounded-[14px] border-2 border-green-600 px-5 py-2.5 text-sm font-black text-green-700 hover:bg-green-50"
+              >
+                <Pencil size={16} />
+                Change Values
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleChange}
+                  className="inline-flex items-center justify-center gap-2 rounded-[14px] border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  <X size={16} />
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="inline-flex items-center justify-center gap-2 rounded-[14px] bg-green-600 px-5 py-2.5 text-sm font-black text-white hover:bg-green-700"
+                >
+                  <Check size={16} />
+                  Save Changes
+                </button>
+              </div>
+            )}
+          </div>
+
+          {locked ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-6">
+              <Detail icon={<Scale size={15} />} label="HEIGHT" value={`${height || "—"} cm`} />
+              <Detail icon={<Gauge size={15} />} label="WEIGHT" value={`${weight || "—"} kg`} />
+              <Detail icon={<CalendarDays size={15} />} label="AGE" value={`${age || "—"} yrs`} />
+              <Detail icon={<Target size={15} />} label="GENDER" value={gender === "male" ? "Male" : "Female"} />
+              <Detail icon={<Zap size={15} />} label="ACTIVITY" value={activityLabels[activity]} />
+              <Detail icon={<Target size={15} />} label="GOAL" value={goalLabels[goal]} />
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              <Input label="HEIGHT (CM)" value={height} setValue={setHeight} icon={<Scale size={16} />} />
+              <Input label="WEIGHT (KG)" value={weight} setValue={setWeight} icon={<Gauge size={16} />} />
+              <Input label="AGE (YRS)" value={age} setValue={setAge} icon={<CalendarDays size={16} />} />
+
+              <Field label="GENDER">
+                <select value={gender} onChange={(e) => setGender(e.target.value)} className="input-ui">
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </Field>
+
+              <Field label="ACTIVITY LEVEL">
+                <select value={activity} onChange={(e) => setActivity(e.target.value)} className="input-ui">
+                  <option value="sedentary">Sedentary</option>
+                  <option value="light">Light Active</option>
+                  <option value="moderate">Moderately Active (3–5 days/week)</option>
+                  <option value="active">Very Active</option>
+                  <option value="very_active">Athlete</option>
+                </select>
+              </Field>
+
+              <Field label="FITNESS GOAL">
+                <select value={goal} onChange={(e) => setGoal(e.target.value as GoalType)} className="input-ui">
+                  <option value="fat_loss">Fat Loss</option>
+                  <option value="weight_loss">Weight Loss</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="weight_gain">Weight Gain</option>
+                  <option value="muscle_gain">Muscle Gain</option>
+                </select>
+              </Field>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-7 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <Stat icon={<Scale size={20} />} title="BMI" value={bmi ?? "—"} label={bmiLabel} color="orange" />
+          <Stat icon={<Flame size={20} />} title="TARGET CALORIES" value={macroGoals.calories ? `${macroGoals.calories.toLocaleString()} kcal` : "—"} label={goalLabels[goal]} color="green" />
+          <Stat icon={<Dumbbell size={20} />} title="PROTEIN GOAL" value={macroGoals.protein ? `${macroGoals.protein} g` : "—"} label="Daily protein" color="green" />
+          <Stat icon={<Target size={20} />} title="MAINTENANCE" value={maintenanceCalories ? `${maintenanceCalories.toLocaleString()} kcal` : "—"} label="To maintain weight" color="blue" />
+        </section>
+
+        <section className="mb-7 rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+          <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-black text-slate-950">
+                MacroTrack Today
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Track how much you ate and how much is still remaining today.
+              </p>
+            </div>
+
+            <div className="rounded-full bg-green-50 px-4 py-2 text-sm font-black text-green-700">
+              {todayKey()}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MacroProgress title="Calories" consumed={consumed.calories} goal={macroGoals.calories} remaining={remaining.calories} unit="kcal" color="orange" icon={<Flame size={18} />} />
+            <MacroProgress title="Protein" consumed={consumed.protein} goal={macroGoals.protein} remaining={remaining.protein} unit="g" color="green" icon={<Dumbbell size={18} />} />
+            <MacroProgress title="Carbs" consumed={consumed.carbs} goal={macroGoals.carbs} remaining={remaining.carbs} unit="g" color="yellow" icon={<Apple size={18} />} />
+            <MacroProgress title="Fat" consumed={consumed.fat} goal={macroGoals.fat} remaining={remaining.fat} unit="g" color="blue" icon={<Target size={18} />} />
+          </div>
+        </section>
+
+        <section className="grid gap-7 lg:grid-cols-[1fr_1fr]">
+          <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+            <div className="mb-6 flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white">
+                <Plus size={20} />
+              </span>
+              <h2 className="text-xl font-black text-slate-950">Add Food</h2>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="FOOD NAME *" className="md:col-span-2">
+                <input value={foodName} onChange={(e) => setFoodName(e.target.value)} placeholder="e.g. Grilled Chicken Breast" className="input-ui" />
+              </Field>
+
+              <Field label="MEAL TYPE" className="md:col-span-2">
+                <select value={mealType} onChange={(e) => setMealType(e.target.value as MealType)} className="input-ui">
+                  <option>Breakfast</option>
+                  <option>Lunch</option>
+                  <option>Snack</option>
+                  <option>Dinner</option>
+                </select>
+              </Field>
+
+              <Field label="CALORIES (KCAL) *">
+                <input value={foodCalories} onChange={(e) => setFoodCalories(e.target.value)} type="number" placeholder="0" className="input-ui" />
+              </Field>
+
+              <Field label="PROTEIN (G) *">
+                <input value={foodProtein} onChange={(e) => setFoodProtein(e.target.value)} type="number" placeholder="0" className="input-ui" />
+              </Field>
+
+              <Field label="CARBS (G) *">
+                <input value={foodCarbs} onChange={(e) => setFoodCarbs(e.target.value)} type="number" placeholder="0" className="input-ui" />
+              </Field>
+
+              <Field label="FAT (G) *">
+                <input value={foodFat} onChange={(e) => setFoodFat(e.target.value)} type="number" placeholder="0" className="input-ui" />
+              </Field>
+            </div>
+
+            <button onClick={addFood} className="mt-5 flex h-13 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white hover:bg-green-700">
+              <Plus size={18} />
+              Add to Today's Log
+            </button>
+          </div>
+
+          <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
+                <Utensils size={18} />
+              </span>
+              <h2 className="text-xl font-black text-slate-950">
+                What Should I Eat Next?
+              </h2>
+            </div>
+
+            <p className="mb-5 text-sm font-medium text-slate-500">
+              Based on your remaining macros, here are smart MacroBox suggestions.
+            </p>
+
+            <div className="space-y-3">
+              {suggestedMeals.length === 0 ? (
+                <p className="rounded-[18px] bg-slate-50 p-4 text-sm font-medium text-slate-500">
+                  Add body details and make sure meals have calories, protein, carbs and fat values.
+                </p>
+              ) : (
+                suggestedMeals.map((meal) => (
+                  <div key={meal._id} className="flex items-center justify-between gap-4 rounded-[18px] border border-slate-200 p-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black text-slate-950">{meal.title}</p>
+                        <span className="rounded-full bg-green-50 px-2 py-1 text-[11px] font-black text-green-700">
+                          High Protein
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-slate-500">
+                        🔥 {numberOrZero(meal.calories)} kcal · 🥩 {numberOrZero(meal.protein)}g protein · 🌾 {numberOrZero(meal.carbs)}g carbs · 💧 {numberOrZero(meal.fat)}g fat
+                      </p>
+                      <p className="mt-1 text-sm font-bold text-green-700">
+                        Good match for {goalLabels[goal]}
+                      </p>
+                    </div>
+
+                    <button onClick={() => addMealToLog(meal)} className="shrink-0 rounded-full bg-green-600 px-5 py-2.5 text-sm font-black text-white hover:bg-green-700">
+                      Add
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-7 rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
+                <Apple size={18} />
+              </span>
+              <div>
+                <h2 className="text-xl font-black text-slate-950">
+                  Today's Food Log
+                </h2>
+                <p className="text-sm font-medium text-slate-500">
+                  {foodLog.length} items logged today
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm font-bold text-slate-500">
+              🔥 {consumed.calories} kcal &nbsp; 🥩 {consumed.protein}g P &nbsp; 🌾 {consumed.carbs}g C &nbsp; 💧 {consumed.fat}g F
+            </p>
+          </div>
+
+          {foodLog.length === 0 ? (
+            <p className="rounded-[18px] bg-slate-50 p-4 text-sm font-medium text-slate-500">
+              No food added yet today.
             </p>
           ) : (
             <div className="space-y-3">
-              {suggestedMeals.map((meal) => (
-                <div
-                  key={meal._id}
-                  className="flex items-center justify-between gap-4 rounded-xl border p-3"
-                >
+              {foodLog.map((item) => (
+                <div key={item.id} className="flex flex-col gap-3 rounded-[18px] border border-slate-200 p-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="font-bold text-gray-900">{meal.title}</p>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {numberOrZero(meal.calories)} kcal •{" "}
-                      {numberOrZero(meal.protein)}g protein •{" "}
-                      {numberOrZero(meal.carbs)}g carbs •{" "}
-                      {numberOrZero(meal.fat)}g fat
-                    </p>
-                    <p className="mt-1 text-xs text-green-700">
-                      Good match for {goalLabels[goal]}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
+                        {item.mealType}
+                      </span>
+                      <p className="font-black text-slate-950">{item.name}</p>
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-slate-500">
+                      🔥 {item.calories} kcal · 🥩 {item.protein} g · 🌾 {item.carbs} g · 💧 {item.fat} g
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => addMealToLog(meal)}
-                    className="shrink-0 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
-                  >
-                    Add
+                  <button onClick={() => removeFood(item.id)} className="flex h-10 w-10 items-center justify-center rounded-xl text-red-600 hover:bg-red-50">
+                    <Trash2 size={18} />
                   </button>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
       </div>
+    </main>
+  );
+}
 
-      {/* TODAY FOOD LOG */}
-      <div className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <Apple size={20} className="text-green-600" />
-          <h2 className="text-xl font-bold text-gray-900">Today’s Food Log</h2>
-        </div>
-
-        {foodLog.length === 0 ? (
-          <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
-            No food added yet today.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {foodLog.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-col gap-3 rounded-xl border p-3 md:flex-row md:items-center md:justify-between"
-              >
-                <div>
-                  <p className="font-bold text-gray-900">
-                    {item.name}{" "}
-                    <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500">
-                      {item.mealType}
-                    </span>
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {item.calories} kcal • {item.protein}g protein •{" "}
-                    {item.carbs}g carbs • {item.fat}g fat
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => removeFood(item.id)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+function Detail({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div>
+      <p className="mb-2 flex items-center gap-2 text-xs font-black text-slate-500">
+        <span className="text-green-600">{icon}</span>
+        {label}
+      </p>
+      <p className="text-base font-black text-slate-950">{value}</p>
     </div>
   );
 }
 
-/* ================= COMPONENTS ================= */
-
-function Input({
-  label,
-  value,
-  setValue,
-  disabled,
-}: {
-  label: string;
-  value: string;
-  setValue: (value: string) => void;
-  disabled: boolean;
-}) {
+function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <input
-      type="number"
-      placeholder={label}
-      value={value}
-      disabled={disabled}
-      onChange={(e) => setValue(e.target.value)}
-      className={`h-11 rounded-xl border px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 ${
-        disabled ? "cursor-not-allowed bg-gray-100" : ""
-      }`}
-    />
+    <label className={`block ${className}`}>
+      <span className="mb-2 block text-xs font-black text-slate-500">
+        {label}
+      </span>
+      {children}
+    </label>
   );
 }
 
-function Stat({
-  title,
-  value,
-  label,
-  highlight,
-  icon,
-}: {
-  title: string;
-  value: string;
-  label: string;
-  highlight?: boolean;
-  icon: React.ReactNode;
-}) {
+function Input({ label, value, setValue, icon }: { label: string; value: string; setValue: (value: string) => void; icon: React.ReactNode }) {
   return (
-    <div
-      className={`rounded-2xl border p-4 shadow-sm ${
-        highlight ? "border-green-300 bg-green-50" : "bg-white"
-      }`}
-    >
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-green-700">
+    <Field label={label}>
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+          {icon}
+        </span>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="input-ui pl-11"
+        />
+      </div>
+    </Field>
+  );
+}
+
+function Stat({ title, value, label, icon, color }: { title: string; value: string; label: string; icon: React.ReactNode; color: "green" | "orange" | "blue" }) {
+  const colorClass =
+    color === "green"
+      ? "bg-green-50 text-green-700"
+      : color === "orange"
+      ? "bg-orange-50 text-orange-600"
+      : "bg-blue-50 text-blue-600";
+
+  return (
+    <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+      <div className={`mb-8 flex h-11 w-11 items-center justify-center rounded-full ${colorClass}`}>
         {icon}
       </div>
-      <p className="text-sm text-gray-500">{title}</p>
-      <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
-      <p className="mt-1 text-sm font-medium text-green-700">{label}</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[32px] font-black tracking-[-0.06em] text-slate-950">
+            {value}
+          </p>
+          <p className={`mt-1 text-base font-black ${color === "orange" ? "text-orange-600" : color === "blue" ? "text-blue-600" : "text-green-700"}`}>
+            {label}
+          </p>
+          <p className="mt-1 text-sm font-medium text-slate-500">{title === "BMI" ? "Body Mass Index" : title === "MAINTENANCE" ? "Total daily energy expenditure" : title === "PROTEIN GOAL" ? "Grams of protein per day" : "Daily caloric target"}</p>
+        </div>
+        <p className="text-xs font-black text-slate-500">{title}</p>
+      </div>
     </div>
   );
 }
 
-function MacroProgress({
-  title,
-  consumed,
-  goal,
-  remaining,
-  unit,
-}: {
-  title: string;
-  consumed: number;
-  goal: number;
-  remaining: number;
-  unit: string;
-}) {
+function MacroProgress({ title, consumed, goal, remaining, unit, color, icon }: { title: string; consumed: number; goal: number; remaining: number; unit: string; color: "orange" | "green" | "yellow" | "blue"; icon: React.ReactNode }) {
   const percent = goal > 0 ? clamp((consumed / goal) * 100, 0, 100) : 0;
 
+  const fill =
+    color === "orange"
+      ? "bg-orange-500"
+      : color === "green"
+      ? "bg-green-600"
+      : color === "yellow"
+      ? "bg-yellow-500"
+      : "bg-blue-500";
+
+  const light =
+    color === "orange"
+      ? "bg-orange-50 text-orange-600"
+      : color === "green"
+      ? "bg-green-50 text-green-700"
+      : color === "yellow"
+      ? "bg-yellow-50 text-yellow-600"
+      : "bg-blue-50 text-blue-600";
+
   return (
-    <div className="rounded-xl border bg-gray-50 p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="font-bold text-gray-900">{title}</p>
-        <p className="text-xs text-gray-500">
-          {round(percent)}
-          %
+    <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className={`flex h-10 w-10 items-center justify-center rounded-full ${light}`}>
+            {icon}
+          </span>
+          <div>
+            <p className="font-black text-slate-950">{title}</p>
+            <p className="text-xs font-medium text-slate-500">{unit}</p>
+          </div>
+        </div>
+
+        <p className={`font-black ${light.split(" ").slice(-1)[0]}`}>
+          {round(percent)}%
         </p>
       </div>
 
-      <div className="mb-3 h-2 overflow-hidden rounded-full bg-gray-200">
-        <div
-          className="h-full rounded-full bg-green-600"
-          style={{ width: `${percent}%` }}
-        />
+      <div className="mb-5 h-2.5 overflow-hidden rounded-full bg-slate-200">
+        <div className={`h-full rounded-full ${fill}`} style={{ width: `${percent}%` }} />
       </div>
 
-      <p className="text-sm font-semibold text-gray-900">
-        {consumed} / {goal || "—"} {unit}
-      </p>
-      <p className="mt-1 text-xs text-green-700">
-        Remaining: {remaining} {unit}
-      </p>
+      <div className="flex items-end justify-between">
+        <p className="text-2xl font-black text-slate-950">
+          {consumed}
+          <span className="text-base font-bold text-slate-400"> / {goal || "—"} {unit}</span>
+        </p>
+
+        <p className="text-right text-sm font-medium text-slate-500">
+          Remaining<br />
+          <span className={`font-black ${light.split(" ").slice(-1)[0]}`}>
+            {remaining} {unit}
+          </span>
+        </p>
+      </div>
     </div>
   );
 }
