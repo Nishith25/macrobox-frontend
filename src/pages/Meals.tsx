@@ -2,13 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import MealCard from "../components/MealCard";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import type { Meal } from "./Home";
-import { Filter, RotateCcw, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import {
+  ArrowUpDown,
+  Filter,
+  Flame,
+  Leaf,
+  Plus,
+  RotateCcw,
+  SlidersHorizontal,
+  TrendingUp,
+} from "lucide-react";
 
 type GoalType = "fat_loss" | "muscle_gain" | "weight_gain" | "clean_eating";
 type FilterType = "all" | "veg" | "nonveg";
@@ -26,25 +34,23 @@ const goalLabels: Record<GoalType, string> = {
   clean_eating: "Clean Eating",
 };
 
-const goalOptions: { key: GoalType; label: string }[] = [
-  { key: "fat_loss", label: "Fat Loss" },
-  { key: "muscle_gain", label: "Muscle Gain" },
-  { key: "weight_gain", label: "Weight Gain" },
-  { key: "clean_eating", label: "Clean Eating" },
+const goalOptions: { key: GoalType; label: string; icon: React.ReactNode }[] = [
+  { key: "fat_loss", label: "Fat Loss", icon: <Flame size={14} /> },
+  { key: "muscle_gain", label: "Muscle Gain", icon: <SlidersHorizontal size={14} /> },
+  { key: "weight_gain", label: "Weight Gain", icon: <TrendingUp size={14} /> },
+  { key: "clean_eating", label: "Clean Eating", icon: <Leaf size={14} /> },
 ];
 
-const isValidGoal = (value: string | null | undefined): value is GoalType => {
-  return (
-    value === "fat_loss" ||
-    value === "muscle_gain" ||
-    value === "weight_gain" ||
-    value === "clean_eating"
-  );
-};
+const isValidGoal = (value: string | null | undefined): value is GoalType =>
+  value === "fat_loss" ||
+  value === "muscle_gain" ||
+  value === "weight_gain" ||
+  value === "clean_eating";
 
 export default function Meals() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const { cart, addToCart, increaseQty, decreaseQty } = useCart();
 
   const urlGoal = searchParams.get("goal");
   const userGoal = user?.onboarding?.goal;
@@ -62,8 +68,6 @@ export default function Meals() {
   const [sortBy, setSortBy] = useState<SortType>("default");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const { cart, addToCart, increaseQty, decreaseQty } = useCart();
 
   const welcome = searchParams.get("welcome") === "true";
 
@@ -100,15 +104,12 @@ export default function Meals() {
 
   const maxMealCalories = useMemo(() => {
     if (meals.length === 0) return 1000;
-
     const highest = Math.max(...meals.map((meal) => Number(meal.calories || 0)));
     return Math.max(300, Math.ceil(highest / 100) * 100);
   }, [meals]);
 
   useEffect(() => {
-    if (meals.length > 0) {
-      setMaxCalories(maxMealCalories);
-    }
+    if (meals.length > 0) setMaxCalories(maxMealCalories);
   }, [maxMealCalories, meals.length]);
 
   const filteredMeals = useMemo(() => {
@@ -121,34 +122,23 @@ export default function Meals() {
       }
 
       if (filter !== "all" && meal.foodType !== filter) return false;
-
       if (Number(meal.calories || 0) > maxCalories) return false;
 
       return true;
     });
 
     return [...result].sort((a, b) => {
-      if (sortBy === "calories_low") {
-        return Number(a.calories || 0) - Number(b.calories || 0);
-      }
-
-      if (sortBy === "protein_high") {
-        return Number(b.protein || 0) - Number(a.protein || 0);
-      }
-
-      if (sortBy === "price_low") {
-        return Number(a.price || 0) - Number(b.price || 0);
-      }
-
+      if (sortBy === "calories_low") return Number(a.calories || 0) - Number(b.calories || 0);
+      if (sortBy === "protein_high") return Number(b.protein || 0) - Number(a.protein || 0);
+      if (sortBy === "price_low") return Number(a.price || 0) - Number(b.price || 0);
       return 0;
     });
   }, [meals, goal, filter, maxCalories, sortBy]);
 
-  const getCartQty = (mealId: string) => {
-    return cart.find((item) => item._id === mealId)?.qty || 0;
-  };
+  const getCartQty = (mealId: string) =>
+    cart.find((item) => item._id === mealId)?.qty || 0;
 
-  const handleAddToCart = (meal: MealWithGoals) => {
+  const handleAdd = (meal: MealWithGoals) => {
     addToCart({
       _id: meal._id,
       title: meal.title,
@@ -165,13 +155,8 @@ export default function Meals() {
 
   const handleIncrease = (meal: MealWithGoals) => {
     const existing = cart.find((item) => item._id === meal._id);
-
     if (existing) increaseQty(meal._id);
-    else handleAddToCart(meal);
-  };
-
-  const handleDecrease = (meal: MealWithGoals) => {
-    decreaseQty(meal._id);
+    else handleAdd(meal);
   };
 
   const changeGoal = (nextGoal: GoalType | "") => {
@@ -180,7 +165,6 @@ export default function Meals() {
     const params: Record<string, string> = {};
     if (nextGoal) params.goal = nextGoal;
     if (welcome) params.welcome = "true";
-
     setSearchParams(params);
   };
 
@@ -193,19 +177,14 @@ export default function Meals() {
   };
 
   const typeLabel =
-    filter === "all" ? "All (Veg + Non-Veg)" : filter === "veg" ? "Veg Only" : "Non-Veg Only";
-
-  const sortLabel =
-    sortBy === "default"
-      ? "Default"
-      : sortBy === "calories_low"
-      ? "Calories low to high"
-      : sortBy === "protein_high"
-      ? "Protein high to low"
-      : "Price low to high";
+    filter === "all"
+      ? "All (Veg + Non-Veg)"
+      : filter === "veg"
+      ? "Veg Only"
+      : "Non-Veg Only";
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       {welcome && (
         <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4">
           <p className="text-base font-extrabold text-green-800">
@@ -217,27 +196,26 @@ export default function Meals() {
         </div>
       )}
 
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+          <h1 className="text-4xl font-extrabold text-gray-900">
             {goal ? `${goalLabels[goal]} Meals` : "Meals"}
           </h1>
-
-          <p className="mt-2 text-sm text-gray-500 sm:text-base">
+          <p className="mt-2 text-base text-gray-500">
             Choose meals with complete calories, protein, carbs and fat tracking.
           </p>
         </div>
 
-        <div className="flex w-fit gap-1 rounded-xl bg-gray-100 p-1">
+        <div className="flex rounded-2xl border bg-white p-1 shadow-sm">
           {(["all", "veg", "nonveg"] as FilterType[]).map((type) => (
             <button
               key={type}
               type="button"
               onClick={() => setFilter(type)}
-              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+              className={`rounded-xl px-5 py-2 text-sm font-bold transition ${
                 filter === type
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-900"
+                  ? "bg-gray-900 text-white shadow-sm"
+                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
               {type === "all" ? "All" : type === "veg" ? "Veg" : "Non-Veg"}
@@ -246,24 +224,24 @@ export default function Meals() {
         </div>
       </div>
 
-      <div className="mb-8 rounded-2xl border bg-white p-4 shadow-sm">
-        <div className="grid gap-4 lg:grid-cols-[1fr_260px_250px] lg:items-center">
+      <div className="mb-8 overflow-hidden rounded-3xl border bg-white shadow-sm">
+        <div className="grid gap-5 p-5 lg:grid-cols-[1fr_260px_260px] lg:items-center">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="mr-1 flex items-center gap-2 text-sm font-bold text-gray-700">
-              <Filter size={16} className="text-green-600" />
+            <div className="mr-2 flex items-center gap-2 text-sm font-bold text-gray-500">
+              <Filter size={15} />
               Goals
             </div>
 
             <button
               type="button"
               onClick={() => changeGoal("")}
-              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+              className={`inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition ${
                 goal === ""
                   ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
             >
-              All
+              All Goals
             </button>
 
             {goalOptions.map((item) => (
@@ -271,23 +249,25 @@ export default function Meals() {
                 key={item.key}
                 type="button"
                 onClick={() => changeGoal(item.key)}
-                className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                className={`inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition ${
                   goal === item.key
                     ? "bg-green-600 text-white"
-                    : "bg-green-50 text-green-700 hover:bg-green-100"
+                    : "bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-700"
                 }`}
               >
+                {item.icon}
                 {item.label}
               </button>
             ))}
           </div>
 
           <div>
-            <div className="mb-1 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-gray-700">
-                <SlidersHorizontal size={14} className="text-green-600" />
-                Calories ≤ {maxCalories}
-              </div>
+            <div className="mb-2 flex items-center justify-between text-xs font-bold">
+              <span className="flex items-center gap-1 text-gray-600">
+                <SlidersHorizontal size={13} />
+                Calories ≤
+              </span>
+              <span className="text-green-700">{maxCalories} kcal</span>
             </div>
 
             <input
@@ -300,19 +280,19 @@ export default function Meals() {
               className="h-2 w-full cursor-pointer accent-green-600"
             />
 
-            <div className="flex justify-between text-[10px] font-semibold text-gray-400">
+            <div className="mt-1 flex justify-between text-xs text-gray-400">
               <span>100</span>
               <span>{maxMealCalories} kcal</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <ArrowUpDown size={15} className="text-green-600" />
+            <ArrowUpDown size={15} className="text-gray-500" />
 
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortType)}
-              className="h-10 w-full rounded-xl border bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+              className="h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold text-gray-700 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
             >
               <option value="default">Sort by: Default</option>
               <option value="calories_low">Calories: Low to High</option>
@@ -322,21 +302,13 @@ export default function Meals() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3 text-xs">
-          <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-600">
+        <div className="flex flex-wrap items-center gap-2 border-t bg-white px-5 py-3 text-xs">
+          <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-500">
             {goal ? goalLabels[goal] : "All Goals"}
           </span>
 
-          <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-600">
+          <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-500">
             {typeLabel}
-          </span>
-
-          <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-600">
-            Under {maxCalories} kcal
-          </span>
-
-          <span className="rounded-full bg-gray-100 px-3 py-1 font-bold text-gray-600">
-            Sort: {sortLabel}
           </span>
 
           <span className="rounded-full bg-green-50 px-3 py-1 font-extrabold text-green-700">
@@ -346,7 +318,7 @@ export default function Meals() {
           <button
             type="button"
             onClick={resetFilters}
-            className="ml-auto flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50"
+            className="ml-auto flex items-center gap-1 rounded-full border px-3 py-1 font-bold text-gray-500 hover:bg-gray-50"
           >
             <RotateCcw size={13} />
             Reset
@@ -363,33 +335,132 @@ export default function Meals() {
           <p className="font-bold text-gray-800">
             No meals available for this filter.
           </p>
-
           <p className="mt-2 text-sm text-gray-500">
             Try changing the goal, Veg / Non-Veg filter, or increasing the calorie range.
           </p>
-
-          <button
-            type="button"
-            onClick={resetFilters}
-            className="mt-5 rounded-xl bg-green-600 px-5 py-2 text-sm font-bold text-white hover:bg-green-700"
-          >
-            Reset Filters
-          </button>
         </div>
       ) : (
-        <div className="grid gap-8 md:grid-cols-3">
-          {filteredMeals.map((meal) => (
-            <MealCard
-              key={meal._id}
-              meal={meal}
-              qty={getCartQty(meal._id)}
-              onAddToCart={handleAddToCart}
-              onIncrease={handleIncrease}
-              onDecrease={handleDecrease}
-            />
-          ))}
+        <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-3">
+          {filteredMeals.map((meal, index) => {
+            const qty = getCartQty(meal._id);
+
+            return (
+              <div
+                key={meal._id}
+                className="group overflow-hidden rounded-3xl border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+              >
+                <div className="relative h-64 overflow-hidden bg-gray-100">
+                  <img
+                    src={meal.imageUrl || "/placeholder-meal.png"}
+                    alt={meal.title}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder-meal.png";
+                    }}
+                  />
+
+                  {index === 0 && (
+                    <span className="absolute left-4 top-4 rounded-full bg-orange-500 px-3 py-1 text-xs font-extrabold text-white shadow">
+                      ★ Popular
+                    </span>
+                  )}
+
+                  <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
+                    {meal.goalTypes?.slice(0, 2).map((g) => (
+                      <span
+                        key={g}
+                        className="rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-blue-700 shadow-sm backdrop-blur"
+                      >
+                        {goalLabels[g]}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-5">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <h2 className="line-clamp-1 text-xl font-extrabold text-gray-900">
+                      {meal.title}
+                    </h2>
+
+                    <span
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-extrabold ${
+                        meal.foodType === "veg"
+                          ? "bg-green-50 text-green-700"
+                          : "bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {meal.foodType === "veg" ? "Veg" : "Non-Veg"}
+                    </span>
+                  </div>
+
+                  <p className="min-h-[44px] text-sm leading-6 text-gray-500">
+                    {meal.description || "No description added"}
+                  </p>
+
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <MacroBox label="Calories" value={`${meal.calories} kcal`} />
+                    <MacroBox label="Protein" value={`${meal.protein}g`} />
+                    <MacroBox label="Carbs" value={`${meal.carbs || 0}g`} />
+                    <MacroBox label="Fat" value={`${meal.fat || 0}g`} />
+                  </div>
+
+                  <div className="mt-5 flex items-end justify-between border-t pt-4">
+                    <div>
+                      <p className="text-sm text-gray-400">Price</p>
+                      <p className="text-2xl font-extrabold text-gray-900">
+                        ₹{meal.price}
+                      </p>
+                    </div>
+
+                    {qty > 0 ? (
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => decreaseQty(meal._id)}
+                          className="h-10 w-10 rounded-2xl border text-lg font-bold hover:bg-gray-50"
+                        >
+                          −
+                        </button>
+
+                        <span className="min-w-[20px] text-center font-extrabold">
+                          {qty}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => handleIncrease(meal)}
+                          className="h-10 w-10 rounded-2xl bg-green-600 text-lg font-bold text-white hover:bg-green-700"
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAdd(meal)}
+                        className="inline-flex h-12 items-center gap-2 rounded-2xl bg-green-600 px-6 text-sm font-extrabold text-white shadow-sm hover:bg-green-700"
+                      >
+                        <Plus size={18} />
+                        Add
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
+    </div>
+  );
+}
+
+function MacroBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-gray-50 px-4 py-3">
+      <p className="text-xs font-semibold text-gray-400">{label}</p>
+      <p className="mt-1 text-base font-extrabold text-gray-900">{value}</p>
     </div>
   );
 }
