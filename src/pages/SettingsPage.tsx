@@ -55,11 +55,19 @@ const getSavedTheme = (): ThemeMode => {
 const applyTheme = (nextTheme: ThemeMode) => {
   localStorage.setItem("macrobox_theme", nextTheme);
 
-  document.documentElement.classList.toggle("dark", nextTheme === "dark");
-  document.documentElement.setAttribute("data-theme", nextTheme);
+  document.documentElement.classList.remove("dark");
+  document.documentElement.removeAttribute("data-theme");
 
-  document.body.style.background = nextTheme === "dark" ? "#020617" : "#f6f7f8";
-  document.body.style.color = nextTheme === "dark" ? "#f8fafc" : "#0f172a";
+  if (nextTheme === "dark") {
+    document.documentElement.classList.add("dark");
+    document.documentElement.setAttribute("data-theme", "dark");
+    document.body.style.background = "#020617";
+    document.body.style.color = "#f8fafc";
+  } else {
+    document.documentElement.setAttribute("data-theme", "light");
+    document.body.style.background = "#f6f7f8";
+    document.body.style.color = "#0f172a";
+  }
 
   window.dispatchEvent(new Event("macrobox-theme-change"));
 };

@@ -60,7 +60,7 @@ a {
   font-family: inherit;
 }
 
-/* ================= THEME BASE ================= */
+/* ================= THEME ROOT ================= */
 
 html[data-theme="light"],
 html[data-theme="light"] body {
@@ -93,20 +93,27 @@ html.dark nav {
 
 html[data-theme="light"] nav a,
 html[data-theme="light"] nav button {
-  color: #0f172a;
+  color: #0f172a !important;
 }
 
 html[data-theme="dark"] nav a,
 html[data-theme="dark"] nav button,
 html.dark nav a,
 html.dark nav button {
-  color: #f8fafc;
+  color: #f8fafc !important;
 }
 
+/* Active green nav buttons */
 html[data-theme="light"] nav .bg-green-600,
 html[data-theme="dark"] nav .bg-green-600,
 html.dark nav .bg-green-600 {
   background-color: #16a34a !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] nav .bg-green-600 *,
+html[data-theme="dark"] nav .bg-green-600 *,
+html.dark nav .bg-green-600 * {
   color: #ffffff !important;
 }
 
@@ -117,23 +124,21 @@ html.dark nav .bg-green-600 {
   border-color: #1e293b !important;
 }
 
-.admin-subnav div {
-  color: #cbd5e1 !important;
-}
-
-.admin-subnav a,
-.admin-subnav button {
+.admin-subnav,
+.admin-subnav * {
   color: #e2e8f0 !important;
 }
 
 .admin-subnav a:hover,
-.admin-subnav button:hover {
+.admin-subnav button:hover,
+.admin-subnav a[aria-current="page"] {
   background: #ffffff !important;
   color: #020617 !important;
 }
 
-.admin-subnav a[aria-current="page"] {
-  background: #ffffff !important;
+.admin-subnav a:hover *,
+.admin-subnav button:hover *,
+.admin-subnav a[aria-current="page"] * {
   color: #020617 !important;
 }
 
@@ -156,9 +161,11 @@ html.dark footer {
 
 html[data-theme="dark"] main,
 html.dark main,
+html[data-theme="dark"] section,
+html.dark section,
 html[data-theme="dark"] .min-h-screen,
 html.dark .min-h-screen {
-  background: #020617 !important;
+  background-color: #020617 !important;
   color: #f8fafc !important;
 }
 
@@ -263,7 +270,7 @@ html.dark textarea::placeholder {
 }
 
 /* ================= LIGHT MODE FORCE FIX ================= */
-/* This fixes Cart / Meals / Planner pages that still have hard-coded dark classes */
+/* This fixes Cart.tsx, Meals.tsx, MacroTrack, Planner if they use hard-coded dark classes */
 
 html[data-theme="light"] main,
 html[data-theme="light"] section,
@@ -272,45 +279,46 @@ html[data-theme="light"] .min-h-screen {
   color: #0f172a !important;
 }
 
-html[data-theme="light"] .bg-slate-950,
-html[data-theme="light"] .bg-slate-900,
-html[data-theme="light"] .bg-slate-800,
-html[data-theme="light"] .bg-gray-950,
-html[data-theme="light"] .bg-gray-900,
-html[data-theme="light"] .bg-gray-800 {
+/* Force hard-coded dark backgrounds back to light */
+html[data-theme="light"] main [class*="bg-slate-9"],
+html[data-theme="light"] main [class*="bg-slate-8"],
+html[data-theme="light"] main [class*="bg-gray-9"],
+html[data-theme="light"] main [class*="bg-gray-8"],
+html[data-theme="light"] main [class*="bg-[#020617]"],
+html[data-theme="light"] main [class*="bg-[#0f172a]"],
+html[data-theme="light"] main [class*="bg-[#111827]"],
+html[data-theme="light"] main [class*="bg-[#1e293b]"] {
   background-color: #ffffff !important;
   color: #0f172a !important;
 }
 
-html[data-theme="light"] .bg-\[\#020617\],
-html[data-theme="light"] .bg-\[\#0f172a\],
-html[data-theme="light"] .bg-\[\#111827\],
-html[data-theme="light"] .bg-\[\#1e293b\] {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-}
-
-html[data-theme="light"] .text-white,
-html[data-theme="light"] .text-slate-100,
-html[data-theme="light"] .text-slate-200,
-html[data-theme="light"] .text-slate-300 {
-  color: #0f172a !important;
-}
-
-html[data-theme="light"] .text-slate-400,
-html[data-theme="light"] .text-slate-500,
-html[data-theme="light"] .text-gray-400,
-html[data-theme="light"] .text-gray-500 {
-  color: #64748b !important;
-}
-
-html[data-theme="light"] .border-slate-800,
-html[data-theme="light"] .border-slate-700,
-html[data-theme="light"] .border-gray-800,
-html[data-theme="light"] .border-gray-700 {
+/* Force hard-coded dark border colors back to light */
+html[data-theme="light"] main [class*="border-slate-9"],
+html[data-theme="light"] main [class*="border-slate-8"],
+html[data-theme="light"] main [class*="border-slate-7"],
+html[data-theme="light"] main [class*="border-gray-9"],
+html[data-theme="light"] main [class*="border-gray-8"],
+html[data-theme="light"] main [class*="border-gray-7"] {
   border-color: #e2e8f0 !important;
 }
 
+/* Force white text back to dark in light mode */
+html[data-theme="light"] main .text-white,
+html[data-theme="light"] main [class*="text-white"],
+html[data-theme="light"] main .text-slate-100,
+html[data-theme="light"] main .text-slate-200,
+html[data-theme="light"] main .text-slate-300 {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] main .text-slate-400,
+html[data-theme="light"] main .text-slate-500,
+html[data-theme="light"] main .text-gray-400,
+html[data-theme="light"] main .text-gray-500 {
+  color: #64748b !important;
+}
+
+/* Inputs in light mode */
 html[data-theme="light"] input,
 html[data-theme="light"] select,
 html[data-theme="light"] textarea {
@@ -324,7 +332,7 @@ html[data-theme="light"] textarea::placeholder {
   color: #94a3b8 !important;
 }
 
-/* Keep green buttons correct in both themes */
+/* Keep primary green buttons readable */
 html[data-theme="light"] .bg-green-600,
 html[data-theme="dark"] .bg-green-600,
 html.dark .bg-green-600 {
@@ -332,16 +340,28 @@ html.dark .bg-green-600 {
   color: #ffffff !important;
 }
 
-html[data-theme="light"] button.bg-green-600 *,
-html[data-theme="light"] a.bg-green-600 *,
-html[data-theme="dark"] button.bg-green-600 *,
-html[data-theme="dark"] a.bg-green-600 *,
-html.dark button.bg-green-600 *,
-html.dark a.bg-green-600 * {
+html[data-theme="light"] .bg-green-600 *,
+html[data-theme="dark"] .bg-green-600 *,
+html.dark .bg-green-600 * {
   color: #ffffff !important;
 }
 
-/* Keep red buttons correct */
+/* Green light cards */
+html[data-theme="light"] .bg-green-50 {
+  background-color: #f0fdf4 !important;
+}
+
+html[data-theme="dark"] .bg-green-50,
+html.dark .bg-green-50 {
+  background-color: rgba(22, 163, 74, 0.16) !important;
+}
+
+html[data-theme="dark"] .text-green-700,
+html.dark .text-green-700 {
+  color: #4ade80 !important;
+}
+
+/* Red */
 html[data-theme="light"] .text-red-600,
 html[data-theme="light"] .text-red-700 {
   color: #dc2626 !important;
@@ -354,7 +374,7 @@ html.dark .text-red-700 {
   color: #f87171 !important;
 }
 
-/* Warning boxes */
+/* Yellow warning */
 html[data-theme="dark"] .bg-yellow-50,
 html.dark .bg-yellow-50 {
   background-color: rgba(234, 179, 8, 0.12) !important;
@@ -367,7 +387,7 @@ html.dark .text-yellow-800 {
   color: #fde68a !important;
 }
 
-/* Macro cards */
+/* Macro color cards */
 html[data-theme="dark"] .bg-orange-50,
 html[data-theme="dark"] .bg-amber-50,
 html[data-theme="dark"] .bg-blue-50,
@@ -389,9 +409,13 @@ html.dark .bg-yellow-50 {
 
 /* Disable dark shadows */
 html[data-theme="dark"] .shadow-sm,
+html[data-theme="dark"] .shadow-md,
+html[data-theme="dark"] .shadow-lg,
 html[data-theme="dark"] .shadow-xl,
 html[data-theme="dark"] .shadow-2xl,
 html.dark .shadow-sm,
+html.dark .shadow-md,
+html.dark .shadow-lg,
 html.dark .shadow-xl,
 html.dark .shadow-2xl {
   box-shadow: none !important;
@@ -475,4 +499,31 @@ html.dark .input-ui {
   background: #020617 !important;
   border-color: #334155 !important;
   color: #f8fafc !important;
+}
+
+/* ================= FINAL OVERRIDE ORDER FIX ================= */
+/* These must stay at bottom */
+
+html[data-theme="light"] main .bg-green-600,
+html[data-theme="light"] main button.bg-green-600,
+html[data-theme="light"] main a.bg-green-600 {
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] main .bg-green-600 *,
+html[data-theme="light"] main button.bg-green-600 *,
+html[data-theme="light"] main a.bg-green-600 * {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] main .bg-red-600,
+html[data-theme="light"] main button.bg-red-600 {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] main .bg-red-600 *,
+html[data-theme="light"] main button.bg-red-600 * {
+  color: #ffffff !important;
 }
