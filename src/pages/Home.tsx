@@ -34,7 +34,7 @@ export default function Home() {
     <main className="min-h-[calc(100vh-76px)] overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-50">
       <section className="mx-auto flex min-h-[calc(100vh-156px)] max-w-[1240px] flex-col justify-center px-4 py-8 sm:px-6">
         {/* HERO */}
-        <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid items-center gap-10">
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
               <Leaf size={15} />
@@ -80,28 +80,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* CLEAN HERO VISUAL */}
-          <div className="hidden lg:block">
-            <div className="rounded-[34px] border border-green-100 bg-white p-5 shadow-[0_30px_80px_rgba(15,23,42,0.10)]">
-              <div className="overflow-hidden rounded-[28px]">
-                <img
-                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1200&q=80"
-                  alt="Healthy MacroBox meal"
-                  className="h-[360px] w-full object-cover"
-                />
-              </div>
-
-              <div className="mt-5 rounded-[24px] border border-green-100 bg-green-50 p-5">
-                <p className="text-lg font-black text-green-800">
-                  Fresh, balanced and macro-tracked meals.
-                </p>
-                <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
-                  Choose meals based on your fitness goal and track every calorie,
-                  protein, carb and fat with ease.
-                </p>
-              </div>
-            </div>
-          </div>
+         
         </div>
 
         {/* HOW IT WORKS */}
