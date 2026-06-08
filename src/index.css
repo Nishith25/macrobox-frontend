@@ -130,3 +130,179 @@ html[data-theme="dark"] footer {
   border-color: #1e293b !important;
   color: #cbd5e1 !important;
 }
+
+/* ================= GLOBAL DARK MODE FIX ================= */
+
+html.dark,
+html.dark body,
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: #020617 !important;
+  color: #f8fafc !important;
+}
+
+/* Main page backgrounds */
+html.dark main,
+html.dark .min-h-screen,
+html[data-theme="dark"] main,
+html[data-theme="dark"] .min-h-screen {
+  background: #020617 !important;
+  color: #f8fafc !important;
+}
+
+/* Navbar */
+html.dark nav,
+html[data-theme="dark"] nav {
+  background: #020617 !important;
+  border-color: #1e293b !important;
+}
+
+html.dark nav a,
+html.dark nav button,
+html[data-theme="dark"] nav a,
+html[data-theme="dark"] nav button {
+  color: #f8fafc;
+}
+
+/* Active nav item */
+html.dark nav .bg-green-50,
+html[data-theme="dark"] nav .bg-green-50 {
+  background: #16a34a !important;
+  color: #ffffff !important;
+}
+
+/* General white cards */
+html.dark .bg-white,
+html[data-theme="dark"] .bg-white {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Gray backgrounds */
+html.dark .bg-gray-50,
+html.dark .bg-slate-50,
+html[data-theme="dark"] .bg-gray-50,
+html[data-theme="dark"] .bg-slate-50 {
+  background-color: #111827 !important;
+  color: #f8fafc !important;
+}
+
+html.dark .bg-gray-100,
+html.dark .bg-slate-100,
+html[data-theme="dark"] .bg-gray-100,
+html[data-theme="dark"] .bg-slate-100 {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+/* Text colors */
+html.dark .text-gray-900,
+html.dark .text-slate-950,
+html.dark .text-slate-900,
+html.dark .text-gray-800,
+html.dark .text-slate-800,
+html[data-theme="dark"] .text-gray-900,
+html[data-theme="dark"] .text-slate-950,
+html[data-theme="dark"] .text-slate-900,
+html[data-theme="dark"] .text-gray-800,
+html[data-theme="dark"] .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-gray-700,
+html.dark .text-slate-700,
+html.dark .text-gray-600,
+html.dark .text-slate-600,
+html[data-theme="dark"] .text-gray-700,
+html[data-theme="dark"] .text-slate-700,
+html[data-theme="dark"] .text-gray-600,
+html[data-theme="dark"] .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-gray-500,
+html.dark .text-slate-500,
+html.dark .text-gray-400,
+html.dark .text-slate-400,
+html[data-theme="dark"] .text-gray-500,
+html[data-theme="dark"] .text-slate-500,
+html[data-theme="dark"] .text-gray-400,
+html[data-theme="dark"] .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+/* Borders */
+html.dark .border,
+html.dark .border-slate-200,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html[data-theme="dark"] .border,
+html[data-theme="dark"] .border-slate-200,
+html[data-theme="dark"] .border-gray-100,
+html[data-theme="dark"] .border-gray-200 {
+  border-color: #1e293b !important;
+}
+
+/* Inputs/selects */
+html.dark input,
+html.dark select,
+html.dark textarea,
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background-color: #020617 !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder,
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Meal filter panel */
+html.dark .shadow-sm,
+html.dark .shadow-xl,
+html.dark .shadow-2xl,
+html[data-theme="dark"] .shadow-sm,
+html[data-theme="dark"] .shadow-xl,
+html[data-theme="dark"] .shadow-2xl {
+  box-shadow: none !important;
+}
+
+/* Green pills should remain visible */
+html.dark .bg-green-50,
+html[data-theme="dark"] .bg-green-50 {
+  background-color: rgba(22, 163, 74, 0.14) !important;
+}
+
+html.dark .text-green-700,
+html[data-theme="dark"] .text-green-700 {
+  color: #4ade80 !important;
+}
+
+/* Selected buttons */
+html.dark .bg-green-600,
+html[data-theme="dark"] .bg-green-600 {
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+}
+
+/* Cart floating bar should stay dark */
+html.dark .bg-gray-950,
+html.dark .bg-slate-950,
+html[data-theme="dark"] .bg-gray-950,
+html[data-theme="dark"] .bg-slate-950 {
+  background-color: #020617 !important;
+  color: #ffffff !important;
+}
+
+/* Footer */
+html.dark footer,
+html[data-theme="dark"] footer {
+  background: #020617 !important;
+  border-color: #1e293b !important;
+  color: #94a3b8 !important;
+}
