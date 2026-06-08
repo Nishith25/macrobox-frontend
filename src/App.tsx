@@ -7,12 +7,29 @@ import AppRouter from "./router/AppRouter";
 
 export default function App() {
   useEffect(() => {
-    const savedTheme = localStorage.getItem("macrobox_theme");
-    const theme = savedTheme === "dark" ? "dark" : "light";
+    const applyTheme = () => {
+      const savedTheme = localStorage.getItem("macrobox_theme");
 
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.setAttribute("data-theme", theme);
-    document.body.style.background = theme === "dark" ? "#020617" : "#f6f7f8";
+      if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark");
+        document.documentElement.setAttribute("data-theme", "dark");
+        document.body.style.background = "#020617";
+      } else {
+        document.documentElement.classList.remove("dark");
+        document.documentElement.setAttribute("data-theme", "light");
+        document.body.style.background = "#f6f7f8";
+      }
+    };
+
+    applyTheme();
+
+    window.addEventListener("storage", applyTheme);
+    window.addEventListener("macrobox-theme-change", applyTheme);
+
+    return () => {
+      window.removeEventListener("storage", applyTheme);
+      window.removeEventListener("macrobox-theme-change", applyTheme);
+    };
   }, []);
 
   return (

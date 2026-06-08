@@ -79,16 +79,17 @@ export default function SettingsPage() {
   const [deactivating, setDeactivating] = useState(false);
 
   const isDark = theme === "dark";
-  const phoneReady = phone.replace(/\D/g, "").length === 10;
+  const cleanPhone = phone.replace(/\D/g, "").slice(0, 10);
+  const phoneReady = cleanPhone.length === 10;
   const currentSavedPhone = user?.phone || "";
-  const phoneChanged = phone.trim() !== currentSavedPhone.trim();
+  const phoneChanged = cleanPhone !== currentSavedPhone.replace(/\D/g, "").slice(0, 10);
 
   const pageClass = isDark
     ? "min-h-screen bg-slate-950 text-white"
     : "min-h-screen bg-[#f6f7f8] text-slate-950";
 
   const cardClass = isDark
-    ? "rounded-[24px] border border-slate-800 bg-slate-900 p-5 shadow-[0_18px_45px_rgba(0,0,0,0.25)]"
+    ? "rounded-[24px] border border-slate-800 bg-slate-900 p-5 shadow-none"
     : "rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.06)]";
 
   const titleClass = isDark ? "text-white" : "text-slate-950";
@@ -104,9 +105,18 @@ export default function SettingsPage() {
 
   const applyTheme = (nextTheme: ThemeMode) => {
     localStorage.setItem("macrobox_theme", nextTheme);
-    document.documentElement.classList.toggle("dark", nextTheme === "dark");
-    document.documentElement.setAttribute("data-theme", nextTheme);
-    document.body.style.background = nextTheme === "dark" ? "#020617" : "#f6f7f8";
+
+    if (nextTheme === "dark") {
+      document.documentElement.classList.add("dark");
+      document.documentElement.setAttribute("data-theme", "dark");
+      document.body.style.background = "#020617";
+    } else {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.setAttribute("data-theme", "light");
+      document.body.style.background = "#f6f7f8";
+    }
+
+    window.dispatchEvent(new Event("macrobox-theme-change"));
   };
 
   useEffect(() => {
@@ -154,6 +164,7 @@ export default function SettingsPage() {
 
     try {
       const oldUser = JSON.parse(oldRaw);
+
       localStorage.setItem(
         "user",
         JSON.stringify({
@@ -166,6 +177,14 @@ export default function SettingsPage() {
     } catch {
       // ignore
     }
+  };
+
+  const resetPhoneOtpState = () => {
+    setOtp("");
+    setDevOtp("");
+    setOtpSent(false);
+    setPhoneVerifiedForUpdate(false);
+    setPhoneVerificationToken("");
   };
 
   const updateProfile = async () => {
@@ -191,17 +210,14 @@ export default function SettingsPage() {
     }
   };
 
-  const resetPhoneOtpState = () => {
-    setOtp("");
-    setDevOtp("");
-    setOtpSent(false);
-    setPhoneVerifiedForUpdate(false);
-    setPhoneVerificationToken("");
-  };
-
   const sendPhoneOtp = async () => {
     if (!phoneReady) {
       toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+
+    if (!phoneChanged) {
+      toast.error("Enter a new phone number first.");
       return;
     }
 
@@ -209,7 +225,7 @@ export default function SettingsPage() {
       setOtpLoading(true);
 
       const res = await api.post("/auth/send-phone-otp", {
-        phone: phone.trim(),
+        phone: cleanPhone,
         name: name.trim() || user?.name || "MacroBox User",
       });
 
@@ -233,7 +249,7 @@ export default function SettingsPage() {
   };
 
   const verifyPhoneOtp = async () => {
-    if (!otp.trim() || otp.trim().length !== 6) {
+    if (otp.trim().length !== 6) {
       toast.error("Enter valid 6-digit OTP.");
       return;
     }
@@ -242,7 +258,7 @@ export default function SettingsPage() {
       setOtpLoading(true);
 
       const res = await api.post("/auth/verify-phone-otp", {
-        phone: phone.trim(),
+        phone: cleanPhone,
         otp: otp.trim(),
       });
 
@@ -276,7 +292,7 @@ export default function SettingsPage() {
       setSavingPhone(true);
 
       const res = await api.put("/user/phone", {
-        phone: phone.trim(),
+        phone: cleanPhone,
         phoneVerificationToken,
       });
 
@@ -385,7 +401,7 @@ export default function SettingsPage() {
 
   return (
     <main className={pageClass}>
-      <div className="mx-auto max-w-[1240px] px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-[1240px] px-4 py-8 sm:px-6 lg:py-10">
         <section className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white">
@@ -405,7 +421,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-            className={`inline-flex h-12 items-center gap-2 rounded-[16px] px-5 text-sm font-black transition ${
+            className={`inline-flex h-12 w-fit items-center gap-2 rounded-[16px] px-5 text-sm font-black transition ${
               isDark
                 ? "bg-yellow-400 text-slate-950 hover:bg-yellow-300"
                 : "bg-slate-950 text-white hover:bg-slate-800"
@@ -496,7 +512,7 @@ export default function SettingsPage() {
 
             <div className="mt-5 space-y-4">
               <Field label="Phone number" isDark={isDark}>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     value={phone}
                     onChange={(e) => {
@@ -511,15 +527,19 @@ export default function SettingsPage() {
                     type="button"
                     onClick={sendPhoneOtp}
                     disabled={otpLoading || !phoneReady || !phoneChanged}
-                    className="shrink-0 rounded-[16px] border border-green-600 px-4 text-sm font-black text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={`h-12 shrink-0 rounded-[16px] border px-4 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                      isDark
+                        ? "border-green-500 text-green-400 hover:bg-green-950/30"
+                        : "border-green-600 text-green-700 hover:bg-green-50"
+                    }`}
                   >
-                    {otpLoading && !otpSent ? "Sending..." : otpSent ? "Resend" : "Get OTP"}
+                    {otpLoading && !otpSent ? "Sending..." : otpSent ? "Resend OTP" : "Get OTP"}
                   </button>
                 </div>
               </Field>
 
               {otpSent && !phoneVerifiedForUpdate && (
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -531,7 +551,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={verifyPhoneOtp}
                     disabled={otpLoading || otp.length !== 6}
-                    className="shrink-0 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700 disabled:opacity-50"
+                    className="h-12 shrink-0 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700 disabled:opacity-50"
                   >
                     {otpLoading ? "Verifying..." : "Verify"}
                   </button>
@@ -551,12 +571,20 @@ export default function SettingsPage() {
                 </p>
               )}
 
-              <PrimaryButton onClick={updatePhone} loading={savingPhone}>
+              <PrimaryButton
+                onClick={updatePhone}
+                loading={savingPhone}
+                disabled={!phoneChanged || !phoneVerifiedForUpdate}
+              >
                 <Save size={16} />
                 {savingPhone ? "Updating..." : "Update Phone"}
               </PrimaryButton>
 
-              <p className="rounded-[14px] bg-yellow-50 px-4 py-3 text-xs font-bold text-yellow-700">
+              <p
+                className={`rounded-[14px] px-4 py-3 text-xs font-bold ${
+                  isDark ? "bg-yellow-950/30 text-yellow-300" : "bg-yellow-50 text-yellow-700"
+                }`}
+              >
                 Note: Phone number update requires WhatsApp OTP verification.
               </p>
             </div>
@@ -619,6 +647,7 @@ export default function SettingsPage() {
             <div className="mt-5">
               {!showDeactivateConfirm ? (
                 <button
+                  type="button"
                   onClick={() => setShowDeactivateConfirm(true)}
                   className="rounded-[16px] border border-red-300 px-5 py-3 text-sm font-black text-red-600 transition hover:bg-red-50"
                 >
@@ -636,6 +665,7 @@ export default function SettingsPage() {
 
                   <div className="mt-4 flex flex-wrap gap-3">
                     <button
+                      type="button"
                       onClick={deactivateAccount}
                       disabled={deactivating}
                       className="rounded-[14px] bg-red-600 px-4 py-2.5 text-sm font-black text-white hover:bg-red-700 disabled:opacity-60"
@@ -644,6 +674,7 @@ export default function SettingsPage() {
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => setShowDeactivateConfirm(false)}
                       disabled={deactivating}
                       className="rounded-[14px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
@@ -716,6 +747,7 @@ export default function SettingsPage() {
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => deleteAddress(address._id)}
                       className="shrink-0 rounded-full p-2 text-red-500 hover:bg-red-50"
                       aria-label="Delete address"
@@ -736,6 +768,7 @@ export default function SettingsPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {!address.isDefault && (
                       <button
+                        type="button"
                         onClick={() => setDefaultAddress(address._id)}
                         className={`rounded-[12px] border px-3 py-2 text-xs font-black transition ${
                           isDark
@@ -824,6 +857,7 @@ function Field({
       >
         {label}
       </span>
+
       {children}
     </label>
   );
@@ -833,17 +867,19 @@ function PrimaryButton({
   children,
   onClick,
   loading,
+  disabled,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   loading?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={loading}
-      className="inline-flex h-12 items-center gap-2 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+      disabled={loading || disabled}
+      className="inline-flex h-12 items-center gap-2 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {children}
     </button>
