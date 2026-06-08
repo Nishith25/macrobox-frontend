@@ -5,7 +5,6 @@ import {
   ArrowRight,
   CalendarCheck,
   Flame,
-  Leaf,
   ShieldCheck,
   Target,
   Zap,
@@ -36,10 +35,7 @@ export default function Home() {
         {/* HERO */}
         <div className="grid items-center gap-10">
           <div>
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
-              <Leaf size={15} />
-              Science-backed nutrition for real results
-            </div>
+            
 
             <h1 className="max-w-3xl text-[48px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px]">
               Fuel Your Day
