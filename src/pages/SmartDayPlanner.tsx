@@ -9,8 +9,8 @@ import {
   Beef,
   CalendarDays,
   CheckSquare,
-  Clock,
   Flame,
+  Save,
   ShoppingCart,
   Sparkles,
   Target,
@@ -43,6 +43,9 @@ interface Meal {
 
 interface SavedPlan {
   _id: string;
+  name?: string;
+  planName?: string;
+  title?: string;
   date: string;
   items: {
     meal: Meal;
@@ -102,12 +105,19 @@ const todayText = () =>
     year: "numeric",
   });
 
+const savedPlanName = (plan: SavedPlan) =>
+  plan.name ||
+  plan.planName ||
+  plan.title ||
+  `Saved Plan - ${new Date(plan.date).toLocaleDateString("en-IN")}`;
+
 export default function SmartDayPlanner() {
   const { user } = useAuth();
   const { addToCart } = useCart();
 
   const [meals, setMeals] = useState<Meal[]>([]);
   const [selected, setSelected] = useState<Record<string, MealTime[]>>({});
+  const [planName, setPlanName] = useState("");
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<SavedPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -309,7 +319,9 @@ export default function SmartDayPlanner() {
     const macroPenalty = fat > 35 ? 10 : 0;
     const carbBonus = carbs > 0 ? 5 : 0;
 
-    return proteinScore + calorieFit + goalBonus + tagBonus + carbBonus - macroPenalty;
+    return (
+      proteinScore + calorieFit + goalBonus + tagBonus + carbBonus - macroPenalty
+    );
   };
 
   const autoSmartDayPlanner = () => {
@@ -351,10 +363,18 @@ export default function SmartDayPlanner() {
     toast.success("Smart day plan generated");
   };
 
-  const clearPlan = () => setSelected({});
+  const clearPlan = () => {
+    setSelected({});
+    setPlanName("");
+  };
 
   const handleSavePlan = async () => {
-    setSaving(true);
+    const cleanName = planName.trim();
+
+    if (!cleanName) {
+      toast.error("Please enter a plan name before saving.");
+      return;
+    }
 
     const items = Object.entries(selected)
       .filter(([, times]) => times.length > 0)
@@ -362,15 +382,22 @@ export default function SmartDayPlanner() {
 
     if (items.length === 0) {
       toast.error("Select at least one meal");
-      setSaving(false);
       return;
     }
 
+    setSaving(true);
+
     try {
-      await api.post("/user/day-plan", { items });
+      await api.post("/user/day-plan", {
+        name: cleanName,
+        planName: cleanName,
+        items,
+      });
+
       setSelected({});
-      fetchHistory();
-      toast.success("Smart Day Plan saved");
+      setPlanName("");
+      await fetchHistory();
+      toast.success("Plan saved");
     } catch {
       toast.error("Failed to save plan");
     } finally {
@@ -402,12 +429,36 @@ export default function SmartDayPlanner() {
     toast.success("Selected plan added to cart");
   };
 
+  const addSavedPlanToCart = (plan: SavedPlan) => {
+    if (!plan.items?.length) {
+      toast.error("This saved plan has no meals.");
+      return;
+    }
+
+    plan.items.forEach((item) => {
+      item.times.forEach(() => {
+        addToCart({
+          _id: item.meal._id,
+          title: item.meal.title,
+          price: n(item.meal.price),
+          protein: n(item.meal.protein),
+          calories: n(item.meal.calories),
+          carbs: n(item.meal.carbs),
+          fat: n(item.meal.fat),
+          imageUrl: item.meal.imageUrl,
+        });
+      });
+    });
+
+    toast.success(`${savedPlanName(plan)} added to cart`);
+  };
+
   const deletePlan = async (id: string) => {
-    if (!confirm("Delete this plan?")) return;
+    if (!confirm("Delete this saved plan?")) return;
 
     try {
       await api.delete(`/user/day-plan/${id}`);
-      fetchHistory();
+      await fetchHistory();
       toast.success("Plan deleted");
     } catch {
       toast.error("Failed to delete plan");
@@ -433,12 +484,15 @@ export default function SmartDayPlanner() {
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
                 <CalendarDays size={20} />
               </span>
+
               <h1 className="text-[30px] font-black tracking-[-0.04em] text-slate-950">
                 Smart Day Planner
               </h1>
             </div>
+
             <p className="text-base font-medium text-slate-500">
-              Build a full day meal plan based on calories, protein, carbs and fat.
+              Build a full day meal plan based on calories, protein, carbs and
+              fat.
             </p>
           </div>
 
@@ -547,7 +601,8 @@ export default function SmartDayPlanner() {
 
         {!macroGoals.calories && (
           <div className="mb-8 rounded-[18px] border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
-            Complete your body details in MacroTrack first to get accurate macro targets.
+            Complete your body details in MacroTrack first to get accurate macro
+            targets.
           </div>
         )}
 
@@ -556,8 +611,9 @@ export default function SmartDayPlanner() {
             <h2 className="text-xl font-black text-slate-950">
               Choose Meals for Each Time
             </h2>
+
             <p className="mt-1 text-sm font-medium text-slate-500">
-              Tap a meal card to select or deselect it
+              Select breakfast, lunch, snack, or dinner for each meal.
             </p>
           </div>
 
@@ -642,38 +698,64 @@ export default function SmartDayPlanner() {
           </div>
 
           <div className="p-6">
+            <div className="mb-5">
+              <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+                Plan Name <span className="text-red-500">*</span>
+              </label>
+
+              <input
+                value={planName}
+                onChange={(e) => setPlanName(e.target.value)}
+                placeholder="Example: Muscle Gain Monday Plan"
+                className="input-ui"
+              />
+
+              <p className="mt-2 text-xs font-semibold text-slate-500">
+                A plan name is compulsory before saving.
+              </p>
+            </div>
+
             {selectedEntries.length === 0 ? (
               <EmptyState
-                icon={<CalendarDays size={28} />}
                 title="No meals selected yet"
-                text="Use Auto Plan or tap meal cards to build your day"
+                description="Use Auto Plan or choose meals manually to build your day."
               />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 {TIMES.map((time) => {
                   const items = selectedEntries.filter((entry) =>
                     entry.times.includes(time)
                   );
 
                   return (
-                    <div key={time} className="rounded-[18px] border border-slate-200 p-4">
-                      <p className="mb-3 font-black text-slate-950">
+                    <div
+                      key={time}
+                      className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <p className="mb-3 text-sm font-black uppercase tracking-wide text-slate-500">
                         {timeLabels[time]}
                       </p>
 
                       {items.length === 0 ? (
-                        <p className="text-sm font-medium text-slate-500">
+                        <p className="text-sm font-medium text-slate-400">
                           No meal selected
                         </p>
                       ) : (
                         <div className="space-y-2">
                           {items.map(({ meal }) => (
-                            <p
+                            <div
                               key={`${time}-${meal._id}`}
-                              className="text-sm font-semibold text-slate-700"
+                              className="rounded-[14px] bg-white p-3"
                             >
-                              {meal.title} — {n(meal.calories)} kcal
-                            </p>
+                              <p className="font-black text-slate-950">
+                                {meal.title}
+                              </p>
+
+                              <p className="mt-1 text-xs font-semibold text-slate-500">
+                                {n(meal.calories)} kcal · {n(meal.protein)}g
+                                protein · ₹{n(meal.price)}
+                              </p>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -687,15 +769,15 @@ export default function SmartDayPlanner() {
               <button
                 onClick={handleSavePlan}
                 disabled={saving}
-                className="inline-flex h-12 items-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white hover:bg-green-700 disabled:opacity-60"
+                className="inline-flex h-13 items-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white hover:bg-green-700 disabled:opacity-60"
               >
-                <CheckSquare size={17} />
+                <Save size={17} />
                 {saving ? "Saving..." : "Save Plan"}
               </button>
 
               <button
                 onClick={addSelectedPlanToCart}
-                className="inline-flex h-12 items-center gap-2 rounded-[18px] border border-green-600 px-6 text-sm font-black text-green-700 hover:bg-green-50"
+                className="inline-flex h-13 items-center gap-2 rounded-[18px] border border-green-600 px-6 text-sm font-black text-green-700 hover:bg-green-50"
               >
                 <ShoppingCart size={17} />
                 Add Selected Meals to Cart
@@ -707,9 +789,9 @@ export default function SmartDayPlanner() {
         <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-6 py-5">
             <div className="flex items-center gap-3">
-              <Clock size={20} className="text-green-600" />
+              <Save size={20} className="text-green-600" />
               <h2 className="text-xl font-black text-slate-950">
-                Last 15 Days Plans
+                Saved Plans
               </h2>
             </div>
           </div>
@@ -717,55 +799,98 @@ export default function SmartDayPlanner() {
           <div className="p-6">
             {history.length === 0 ? (
               <EmptyState
-                icon={<Clock size={28} />}
-                title="No plans saved yet"
-                text="Your saved day plans will appear here"
+                title="No saved plans yet"
+                description="Create a plan, give it a name, and save it here."
               />
             ) : (
               <div className="space-y-4">
                 {history.map((plan) => {
                   const totals = plan.items.reduce(
                     (acc, item) => {
-                      acc.protein += n(item.meal?.protein) * item.times.length;
-                      acc.calories += n(item.meal?.calories) * item.times.length;
-                      acc.carbs += n(item.meal?.carbs) * item.times.length;
-                      acc.fat += n(item.meal?.fat) * item.times.length;
+                      const count = item.times.length;
+                      acc.calories += n(item.meal?.calories) * count;
+                      acc.protein += n(item.meal?.protein) * count;
+                      acc.carbs += n(item.meal?.carbs) * count;
+                      acc.fat += n(item.meal?.fat) * count;
+                      acc.price += n(item.meal?.price) * count;
+                      acc.items += count;
                       return acc;
                     },
-                    { protein: 0, calories: 0, carbs: 0, fat: 0 }
+                    {
+                      calories: 0,
+                      protein: 0,
+                      carbs: 0,
+                      fat: 0,
+                      price: 0,
+                      items: 0,
+                    }
                   );
 
                   return (
-                    <div key={plan._id} className="rounded-[18px] border p-4">
-                      <div className="mb-3 flex items-start justify-between gap-3">
+                    <div
+                      key={plan._id}
+                      className="rounded-[20px] border border-slate-200 p-5"
+                    >
+                      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                         <div>
-                          <p className="font-black text-slate-950">
+                          <h3 className="text-lg font-black text-slate-950">
+                            {savedPlanName(plan)}
+                          </h3>
+
+                          <p className="mt-1 text-sm font-bold text-slate-500">
                             {new Date(plan.date).toDateString()}
                           </p>
 
-                          <p className="mt-1 text-sm font-medium text-slate-500">
-                            {totals.calories} kcal • {totals.protein}g protein •{" "}
-                            {totals.carbs}g carbs • {totals.fat}g fat
+                          <p className="mt-2 text-sm font-semibold text-slate-500">
+                            {totals.items} items · {totals.calories} kcal ·{" "}
+                            {totals.protein}g protein · {totals.carbs}g carbs ·{" "}
+                            {totals.fat}g fat · ₹{totals.price}
                           </p>
                         </div>
 
-                        <button
-                          onClick={() => deletePlan(plan._id)}
-                          className="inline-flex items-center gap-1 text-sm font-black text-red-600"
-                        >
-                          <Trash2 size={15} />
-                          Delete
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => addSavedPlanToCart(plan)}
+                            className="inline-flex h-10 items-center gap-2 rounded-[14px] bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700"
+                          >
+                            <ShoppingCart size={15} />
+                            Add to Cart
+                          </button>
+
+                          <button
+                            onClick={() => deletePlan(plan._id)}
+                            className="inline-flex h-10 items-center gap-2 rounded-[14px] bg-red-50 px-4 text-sm font-black text-red-600 hover:bg-red-100"
+                          >
+                            <Trash2 size={15} />
+                            Delete
+                          </button>
+                        </div>
                       </div>
 
-                      <ul className="space-y-1 text-sm font-medium text-slate-700">
-                        {plan.items.map((i, idx) => (
-                          <li key={idx}>
-                            <strong>{i.meal?.title || "Meal"}</strong> →{" "}
-                            {i.times.map((t) => timeLabels[t]).join(", ")}
-                          </li>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {plan.items.map((item, idx) => (
+                          <div
+                            key={`${plan._id}-${item.meal?._id}-${idx}`}
+                            className="rounded-[16px] bg-slate-50 p-4"
+                          >
+                            <p className="font-black text-slate-900">
+                              {item.meal?.title || "Meal"}
+                            </p>
+
+                            <p className="mt-1 text-xs font-bold text-slate-500">
+                              {item.times
+                                .map((t) => timeLabels[t])
+                                .join(", ")}
+                            </p>
+
+                            <p className="mt-2 text-xs font-semibold text-slate-500">
+                              {n(item.meal?.calories)} kcal ·{" "}
+                              {n(item.meal?.protein)}g protein · ₹
+                              {n(item.meal?.price)}
+                            </p>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
                   );
                 })}
@@ -797,45 +922,36 @@ function GoalCard({
 }) {
   const percent = target > 0 ? clamp((planned / target) * 100, 0, 100) : 0;
 
-  const styles = {
-    orange: {
-      border: "border-orange-100",
-      icon: "bg-orange-50 text-orange-600",
-      text: "text-orange-600",
-      bar: "bg-orange-500",
-      pill: "bg-orange-50 text-orange-600",
-    },
-    green: {
-      border: "border-green-100",
-      icon: "bg-green-50 text-green-700",
-      text: "text-green-700",
-      bar: "bg-green-600",
-      pill: "bg-green-50 text-green-700",
-    },
-    yellow: {
-      border: "border-yellow-100",
-      icon: "bg-yellow-50 text-yellow-600",
-      text: "text-yellow-600",
-      bar: "bg-yellow-500",
-      pill: "bg-yellow-50 text-yellow-600",
-    },
-    blue: {
-      border: "border-blue-100",
-      icon: "bg-blue-50 text-blue-600",
-      text: "text-blue-600",
-      bar: "bg-blue-500",
-      pill: "bg-blue-50 text-blue-600",
-    },
-  }[color];
+  const colorClass =
+    color === "orange"
+      ? "border-orange-100 bg-orange-50 text-orange-600"
+      : color === "green"
+      ? "border-green-100 bg-green-50 text-green-700"
+      : color === "yellow"
+      ? "border-yellow-100 bg-yellow-50 text-yellow-600"
+      : "border-blue-100 bg-blue-50 text-blue-600";
+
+  const fill =
+    color === "orange"
+      ? "bg-orange-500"
+      : color === "green"
+      ? "bg-green-600"
+      : color === "yellow"
+      ? "bg-yellow-500"
+      : "bg-blue-500";
 
   return (
-    <div className={`rounded-[20px] border bg-white p-5 shadow-sm ${styles.border}`}>
-      <div className="mb-7 flex items-start justify-between">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-full ${styles.icon}`}>
+    <div className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <span
+          className={`flex h-11 w-11 items-center justify-center rounded-full border ${colorClass}`}
+        >
           {icon}
-        </div>
+        </span>
 
-        <span className={`rounded-full px-3 py-1 text-sm font-black ${styles.pill}`}>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-black ${colorClass}`}
+        >
           {Math.round(percent)}%
         </span>
       </div>
@@ -844,7 +960,7 @@ function GoalCard({
         {title}
       </p>
 
-      <p className="mt-2 text-[28px] font-black leading-none tracking-[-0.05em] text-slate-950">
+      <p className="mt-3 text-2xl font-black text-slate-950">
         {planned}
         <span className="text-base font-bold text-slate-400">
           {" "}
@@ -852,60 +968,59 @@ function GoalCard({
         </span>
       </p>
 
-      <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-slate-100">
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
         <div
-          className={`h-full rounded-full ${styles.bar}`}
+          className={`h-full rounded-full ${fill}`}
           style={{ width: `${percent}%` }}
         />
       </div>
 
-      <p className={`mt-3 text-sm font-black ${styles.text}`}>
-        {remaining} {unit}{" "}
-        <span className="font-medium text-slate-500">remaining</span>
+      <p className="mt-3 text-sm font-bold text-slate-500">
+        {remaining} {unit} remaining
       </p>
     </div>
   );
 }
 
 function Badge({
-  children,
   color,
+  children,
 }: {
-  children: React.ReactNode;
   color: "orange" | "green" | "yellow" | "blue";
+  children: React.ReactNode;
 }) {
-  const cls =
+  const className =
     color === "orange"
       ? "bg-orange-50 text-orange-600"
       : color === "green"
       ? "bg-green-50 text-green-700"
       : color === "yellow"
-      ? "bg-yellow-50 text-yellow-600"
+      ? "bg-yellow-50 text-yellow-700"
       : "bg-blue-50 text-blue-600";
 
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-black ${cls}`}>
+    <span className={`rounded-full px-2.5 py-1 text-xs font-black ${className}`}>
       {children}
     </span>
   );
 }
 
 function EmptyState({
-  icon,
   title,
-  text,
+  description,
 }: {
-  icon: React.ReactNode;
   title: string;
-  text: string;
+  description: string;
 }) {
   return (
-    <div className="flex min-h-[210px] flex-col items-center justify-center text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[18px] bg-slate-100 text-slate-500">
-        {icon}
+    <div className="rounded-[20px] bg-slate-50 p-10 text-center">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm">
+        <CheckSquare size={24} />
       </div>
-      <p className="font-black text-slate-950">{title}</p>
-      <p className="mt-2 text-sm font-medium text-slate-500">{text}</p>
+
+      <p className="text-base font-black text-slate-950">{title}</p>
+
+      <p className="mt-2 text-sm font-medium text-slate-500">{description}</p>
     </div>
   );
 }
