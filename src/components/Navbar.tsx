@@ -168,21 +168,14 @@ export default function Navbar() {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
-              <NavLink
-                to="/login"
-                className="rounded-[14px] px-4 py-2.5 text-sm font-black text-slate-900 transition hover:bg-slate-50"
-              >
-                Login
-              </NavLink>
-
-              <NavLink
-                to="/signup"
-                className="rounded-[14px] bg-green-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-green-700"
-              >
-                Signup
-              </NavLink>
-            </div>
+           <div className="flex items-center gap-3">
+  <NavLink
+    to="/login"
+    className="rounded-[14px] px-5 py-2.5 text-sm font-black text-slate-950 transition hover:bg-slate-50"
+  >
+    Login
+  </NavLink>
+</div>
           )}
         </div>
 
@@ -507,23 +500,13 @@ export default function Navbar() {
                   Logout
                 </button>
               ) : (
-                <>
-                  <NavLink
-                    to="/login"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
-                    Login
-                  </NavLink>
-
-                  <NavLink
-                    to="/signup"
-                    className="block w-full rounded-[14px] bg-green-600 px-4 py-3 text-base font-black text-white"
-                    onClick={closeMenu}
-                  >
-                    Signup
-                  </NavLink>
-                </>
+               <NavLink
+  to="/login"
+  className={mobileLinkClass}
+  onClick={closeMenu}
+>
+  Login
+</NavLink>
               )}
             </div>
           </div>

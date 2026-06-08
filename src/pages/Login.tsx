@@ -4,14 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
-import {
-  CheckCircle2,
-  Eye,
-  EyeOff,
-  Lock,
-  Mail,
-  ShieldCheck,
-} from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, X } from "lucide-react";
 
 type LoggedInUser = {
   role: "user" | "admin" | "delivery" | "chef";
@@ -120,132 +113,141 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white px-4 py-10">
-      <div className="mx-auto grid min-h-[calc(100vh-120px)] max-w-6xl items-center gap-10 lg:grid-cols-[1fr_460px]">
-        {/* LEFT SECTION */}
-        <div className="hidden lg:block">
-          <p className="mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
-            Welcome back to MacroBox
-          </p>
-
-          <h1 className="max-w-xl text-5xl font-extrabold leading-tight text-gray-900">
-            Continue where your health goals left off.
-          </h1>
-
-          <p className="mt-5 max-w-xl text-lg text-gray-600">
-            Login to manage your meals, track your macros, plan your day, and
-            follow your orders from checkout to delivery.
-          </p>
-
-          <div className="mt-8 grid max-w-xl gap-4">
-            <Feature text="Resume MacroTrack and see today’s remaining calories, protein, carbs and fat." />
-            <Feature text="Open your Smart Day Planner and build meals around your exact goal." />
-            <Feature text="Track paid orders, delivery agent updates, ETA and live route in one place." />
-          </div>
-        </div>
-
-        {/* LOGIN CARD */}
-        <form
-          onSubmit={handleSubmit}
-          className="w-full rounded-3xl border bg-white p-6 shadow-xl sm:p-8"
-        >
-          <div className="mb-6 text-center">
-            <p className="mx-auto mb-3 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
-              MacroBox Login
-            </p>
-
-            <h2 className="text-3xl font-bold text-gray-900">Login</h2>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Access your MacroBox account securely.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="relative">
-              <Mail
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-
-              <input
-                type="email"
-                name="email"
-                placeholder="Email Address"
-                value={form.email}
-                onChange={handleChange}
-                className="h-12 w-full rounded-xl border pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                required
-              />
+    <main className="min-h-[calc(100vh-73px)] bg-gradient-to-br from-green-50 via-white to-green-50">
+      <div className="mx-auto grid min-h-[calc(100vh-73px)] max-w-[1500px] lg:grid-cols-[1fr_520px]">
+        {/* LEFT SIDE - LANDING PREVIEW */}
+        <section className="hidden px-10 py-12 lg:flex lg:flex-col lg:justify-center">
+          <div className="max-w-3xl">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
+              <span className="text-lg">♨</span>
+              Science-backed nutrition for real results
             </div>
 
-            <div className="relative">
-              <Lock
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+            <h1 className="text-[64px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950">
+              Fuel Your Day
+              <br />
+              <span className="text-green-600">with MacroBox</span>
+            </h1>
 
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                placeholder="Password"
-                value={form.password}
-                onChange={handleChange}
-                className="h-12 w-full rounded-xl border pl-10 pr-12 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                required
-              />
+            <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-slate-600">
+              Login to explore meals, track macros, plan your day and manage
+              your healthy orders.
+            </p>
+          </div>
+        </section>
 
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+        {/* RIGHT SIDE LOGIN PANEL */}
+        <section className="flex min-h-[calc(100vh-73px)] items-start justify-center bg-white px-5 py-8 shadow-[-24px_0_70px_rgba(15,23,42,0.08)] sm:px-8 lg:px-12">
+          <div className="w-full max-w-[430px]">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="mb-10 flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
+              aria-label="Close login"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="mb-8 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-[34px] font-black tracking-[-0.04em] text-slate-950">
+                  Login
+                </h1>
+
+                <p className="mt-2 text-base font-medium text-slate-700">
+                  or{" "}
+                  <Link
+                    to="/signup"
+                    className="font-black text-green-600 hover:underline"
+                  >
+                    create an account
+                  </Link>
+                </p>
+
+                <div className="mt-5 h-[3px] w-12 rounded-full bg-slate-950" />
+              </div>
+
+              <div className="hidden h-24 w-24 items-center justify-center rounded-full bg-green-50 text-5xl sm:flex">
+                🥗
+              </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <ShieldCheck size={14} className="text-green-600" />
-                Secure login
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="relative">
+                <Mail
+                  size={18}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email address"
+                  value={form.email}
+                  onChange={handleChange}
+                  className="h-16 w-full border border-slate-300 bg-white pl-12 pr-4 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-green-600"
+                  required
+                />
+              </div>
+
+              <div className="relative">
+                <Lock
+                  size={18}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="Password"
+                  value={form.password}
+                  onChange={handleChange}
+                  className="h-16 w-full border border-slate-300 bg-white pl-12 pr-12 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-green-600"
+                  required
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-sm font-black text-green-700 hover:underline"
+                >
+                  Forgot password?
+                </button>
               </div>
 
               <button
-                type="button"
-                onClick={() => navigate("/forgot-password")}
-                className="text-sm font-semibold text-green-700 hover:underline"
+                type="submit"
+                disabled={loading}
+                className="h-14 w-full bg-green-600 text-sm font-black uppercase tracking-wide text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Forgot password?
+                {loading ? "Logging in..." : "Login"}
               </button>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="h-12 w-full rounded-xl bg-green-600 text-sm font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "Logging in..." : "Login"}
-            </button>
+              <p className="pt-1 text-xs font-medium leading-5 text-slate-600">
+                By clicking on Login, I accept the{" "}
+                <span className="font-black text-slate-950">
+                  Terms & Conditions
+                </span>{" "}
+                &{" "}
+                <span className="font-black text-slate-950">
+                  Privacy Policy
+                </span>
+              </p>
+            </form>
           </div>
-
-          <p className="mt-5 text-center text-sm text-gray-600">
-            Don’t have an account?{" "}
-            <Link to="/signup" className="font-semibold text-green-700">
-              Sign Up
-            </Link>
-          </p>
-        </form>
+        </section>
       </div>
-    </div>
-  );
-}
-
-function Feature({ text }: { text: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
-      <CheckCircle2 size={20} className="shrink-0 text-green-600" />
-      <p className="font-medium text-gray-700">{text}</p>
-    </div>
+    </main>
   );
 }
