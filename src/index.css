@@ -184,13 +184,6 @@ html[data-theme="dark"] nav {
   border-color: #1e293b !important;
 }
 
-html.dark nav a,
-html.dark nav button,
-html[data-theme="dark"] nav a,
-html[data-theme="dark"] nav button {
-  color: #f8fafc;
-}
-
 html.dark nav .bg-green-50,
 html[data-theme="dark"] nav .bg-green-50 {
   background: #16a34a !important;
