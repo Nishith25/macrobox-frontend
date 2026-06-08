@@ -30,20 +30,17 @@ export type Meal = {
 
 export default function Home() {
   return (
-    <main className="min-h-[calc(100vh-76px)] overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-50 text-slate-950 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 dark:text-white">
+    <main className="min-h-[calc(100vh-76px)] overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-50 text-slate-950">
       <section className="mx-auto flex min-h-[calc(100vh-156px)] max-w-[1240px] flex-col justify-center px-4 py-8 sm:px-6">
-        {/* HERO */}
         <div className="grid items-center gap-10">
           <div>
-            <h1 className="max-w-3xl text-[48px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px] dark:text-white">
+            <h1 className="max-w-3xl text-[48px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px]">
               Fuel Your Day
               <br />
-              <span className="text-green-600 dark:text-green-500">
-                with MacroBox
-              </span>
+              <span className="text-green-600">with MacroBox</span>
             </h1>
 
-            <p className="mt-5 max-w-2xl text-lg font-medium leading-8 text-slate-600 dark:text-slate-300">
+            <p className="mt-5 max-w-2xl text-lg font-medium leading-8 text-slate-600">
               Goal-based meals for fat loss, muscle gain, weight gain and
               everyday clean eating — with complete calories, protein, carbs and
               fat tracking.
@@ -52,7 +49,7 @@ export default function Home() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 to="/meals"
-                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] bg-green-600 px-8 text-base font-black text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700 dark:bg-green-600 dark:text-white dark:hover:bg-green-500"
+                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] bg-green-600 px-8 text-base font-black text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700"
               >
                 Explore Meals
                 <ArrowRight size={20} />
@@ -60,42 +57,38 @@ export default function Home() {
 
               <Link
                 to="/macrotrack"
-                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-slate-200 bg-white px-8 text-base font-black text-slate-950 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-slate-200 bg-white px-8 text-base font-black text-slate-950 shadow-sm transition hover:bg-slate-50"
               >
-                <Zap size={20} className="text-green-600 dark:text-green-400" />
+                <Zap size={20} className="text-green-600" />
                 MacroTrack
               </Link>
 
               <Link
                 to="/smart-day-planner"
-                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-slate-200 bg-white px-8 text-base font-black text-slate-950 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-slate-200 bg-white px-8 text-base font-black text-slate-950 shadow-sm transition hover:bg-slate-50"
               >
-                <CalendarCheck
-                  size={20}
-                  className="text-green-600 dark:text-green-400"
-                />
+                <CalendarCheck size={20} className="text-green-600" />
                 Day Planner
               </Link>
             </div>
           </div>
         </div>
 
-        {/* HOW IT WORKS */}
-        <div className="mt-10 border-t border-green-100 pt-8 dark:border-slate-800">
+        <div className="mt-10 border-t border-green-100 pt-8">
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-green-600 dark:text-green-400">
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-green-600">
                 How it works
               </p>
 
-              <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950 dark:text-white">
+              <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
                 From goal to results in 4 steps
               </h2>
             </div>
 
             <Link
               to="/meals"
-              className="hidden rounded-[18px] bg-green-600 px-6 py-3 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 md:inline-flex md:items-center md:gap-2 dark:bg-green-600 dark:hover:bg-green-500"
+              className="hidden rounded-[18px] bg-green-600 px-6 py-3 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 md:inline-flex md:items-center md:gap-2"
             >
               Get Started
               <ArrowRight size={17} />
@@ -151,22 +144,20 @@ function StepCard({
   description: string;
 }) {
   return (
-    <div className="min-h-[138px] rounded-[18px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="min-h-[138px] rounded-[18px] border border-slate-100 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-3xl font-black tracking-[-0.06em] text-green-100 dark:text-green-900/70">
+        <p className="text-3xl font-black tracking-[-0.06em] text-green-100">
           {number}
         </p>
 
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-400">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
           {icon}
         </span>
       </div>
 
-      <h3 className="text-base font-black text-slate-950 dark:text-white">
-        {title}
-      </h3>
+      <h3 className="text-base font-black text-slate-950">{title}</h3>
 
-      <p className="mt-2 text-sm font-medium leading-5 text-slate-500 dark:text-slate-400">
+      <p className="mt-2 text-sm font-medium leading-5 text-slate-500">
         {description}
       </p>
     </div>

@@ -57,14 +57,14 @@ export default function Navbar() {
     `inline-flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-sm font-black transition ${
       isActive
         ? "bg-green-600 text-white"
-        : "text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+        : "text-slate-800 hover:bg-slate-50 hover:text-slate-950"
     }`;
 
   const cartLinkClass = ({ isActive }: { isActive: boolean }) =>
     `relative inline-flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-sm font-black transition ${
       isActive
         ? "bg-green-600 text-white"
-        : "text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+        : "text-slate-800 hover:bg-slate-50 hover:text-slate-950"
     }`;
 
   const adminLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -85,17 +85,17 @@ export default function Navbar() {
     `flex w-full items-center justify-between rounded-[18px] px-5 py-4 text-lg font-black transition ${
       isActive
         ? "bg-green-600 text-white"
-        : "bg-slate-50 text-slate-950 hover:bg-slate-100 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+        : "bg-slate-50 text-slate-950 hover:bg-slate-100"
     }`;
 
   return (
     <>
-      <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+      <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-[76px] max-w-[1500px] items-center justify-between gap-4 px-4 sm:px-6">
           <Link
             to="/"
             onClick={closeMenu}
-            className="shrink-0 text-2xl font-black tracking-[-0.04em] text-slate-950 dark:text-white"
+            className="shrink-0 text-2xl font-black tracking-[-0.04em] text-slate-950"
           >
             MacroBox
           </Link>
@@ -152,7 +152,7 @@ export default function Navbar() {
 
           <div className="hidden items-center gap-3 lg:flex">
             {isAuthenticated ? (
-              <div className="flex items-center gap-3 border-l border-slate-200 pl-3 dark:border-slate-800">
+              <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
                 <button
                   type="button"
                   onClick={() => navigate("/settings")}
@@ -167,7 +167,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-[14px] px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/40"
+                  className="rounded-[14px] px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50"
                 >
                   Logout
                 </button>
@@ -176,7 +176,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navigate("/login")}
-                className="rounded-[14px] px-5 py-2.5 text-sm font-black text-slate-950 transition hover:bg-slate-50 dark:text-white dark:hover:bg-slate-800"
+                className="rounded-[14px] px-5 py-2.5 text-sm font-black text-slate-950 transition hover:bg-slate-50"
               >
                 Login
               </button>
@@ -191,7 +191,7 @@ export default function Navbar() {
                   navigate("/cart");
                   setOpen(false);
                 }}
-                className="relative flex h-14 w-14 items-center justify-center rounded-[18px] border border-slate-200 text-slate-900 dark:border-slate-700 dark:text-white"
+                className="relative flex h-14 w-14 items-center justify-center rounded-[18px] border border-slate-200 text-slate-900"
                 aria-label="Cart"
               >
                 <ShoppingCart size={24} />
@@ -208,7 +208,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navigate("/login")}
-                className="rounded-[14px] px-3 py-2 text-sm font-black text-slate-950 dark:text-white"
+                className="rounded-[14px] px-3 py-2 text-sm font-black text-slate-950"
               >
                 Login
               </button>
@@ -217,7 +217,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-slate-200 text-slate-900 dark:border-slate-700 dark:text-white"
+              className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-slate-200 text-slate-900"
               aria-label="Open menu"
             >
               <Menu size={27} />
@@ -226,11 +226,11 @@ export default function Navbar() {
         </div>
 
         {(isAdmin || isChef) && (
-          <div className="hidden border-t border-slate-100 bg-white lg:block dark:border-slate-800 dark:bg-slate-950">
+          <div className="hidden border-t border-slate-100 bg-white lg:block">
             <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2 px-4 py-2 sm:px-6">
               {isAdmin && (
                 <>
-                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                     <Shield size={14} />
                     Admin
                   </div>
@@ -254,7 +254,10 @@ export default function Navbar() {
                     Coupons
                   </NavLink>
 
-                  <NavLink to="/admin/delivery-agents" className={adminLinkClass}>
+                  <NavLink
+                    to="/admin/delivery-agents"
+                    className={adminLinkClass}
+                  >
                     <Truck size={14} />
                     Delivery Agents
                   </NavLink>
@@ -269,7 +272,10 @@ export default function Navbar() {
                     Kitchen Orders
                   </NavLink>
 
-                  <NavLink to="/admin/delivery-pincodes" className={adminLinkClass}>
+                  <NavLink
+                    to="/admin/delivery-pincodes"
+                    className={adminLinkClass}
+                  >
                     <MapPin size={14} />
                     Pincodes
                   </NavLink>
@@ -278,7 +284,7 @@ export default function Navbar() {
 
               {isChef && !isAdmin && (
                 <>
-                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                     <ChefHat size={14} />
                     Chef
                   </div>
@@ -301,12 +307,12 @@ export default function Navbar() {
             onClick={closeMenu}
           />
 
-          <aside className="mobile-menu-content absolute inset-y-0 right-0 flex w-full flex-col bg-white shadow-2xl dark:bg-slate-950">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+          <aside className="mobile-menu-content absolute inset-y-0 right-0 flex w-full flex-col bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
               <Link
                 to="/"
                 onClick={closeMenu}
-                className="text-3xl font-black tracking-[-0.04em] text-slate-950 dark:text-white"
+                className="text-3xl font-black tracking-[-0.04em] text-slate-950"
               >
                 MacroBox
               </Link>
@@ -314,7 +320,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={closeMenu}
-                className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-slate-200 text-slate-950 dark:border-slate-700 dark:text-white"
+                className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-slate-200 text-slate-950"
                 aria-label="Close menu"
               >
                 <X size={30} />
@@ -323,17 +329,17 @@ export default function Navbar() {
 
             <div className="flex-1 overflow-y-auto px-5 py-5">
               {isAuthenticated && (
-                <div className="mb-5 rounded-[24px] border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
+                <div className="mb-5 rounded-[24px] border border-slate-200 bg-slate-50 p-5">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-600 text-lg font-black text-white">
                       {user?.name?.charAt(0)?.toUpperCase() || "U"}
                     </div>
 
                     <div className="min-w-0">
-                      <p className="truncate text-lg font-black text-slate-950 dark:text-white">
+                      <p className="truncate text-lg font-black text-slate-950">
                         {user?.name || "User"}
                       </p>
-                      <p className="truncate text-sm font-semibold text-slate-500 dark:text-slate-400">
+                      <p className="truncate text-sm font-semibold text-slate-500">
                         {user?.email}
                       </p>
                     </div>
@@ -374,7 +380,7 @@ export default function Navbar() {
                         navigate("/signup");
                         closeMenu();
                       }}
-                      className="flex w-full items-center justify-between rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-lg font-black text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                      className="flex w-full items-center justify-between rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-lg font-black text-slate-950"
                     >
                       Create Account
                       <UserCircle size={20} />
@@ -471,11 +477,11 @@ export default function Navbar() {
             </div>
 
             {isAuthenticated && (
-              <div className="border-t border-slate-200 p-5 dark:border-slate-800">
+              <div className="border-t border-slate-200 p-5">
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex w-full items-center justify-center gap-2 rounded-[18px] bg-red-50 px-5 py-4 text-lg font-black text-red-600 dark:bg-red-950/30"
+                  className="flex w-full items-center justify-center gap-2 rounded-[18px] bg-red-50 px-5 py-4 text-lg font-black text-red-600"
                 >
                   <LogOut size={20} />
                   Logout

@@ -7,12 +7,10 @@ import {
   CheckCircle2,
   Lock,
   MapPin,
-  Moon,
   Phone,
   Save,
   Settings,
   ShieldCheck,
-  Sun,
   Trash2,
   User,
 } from "lucide-react";
@@ -45,31 +43,10 @@ type CurrentUser = {
   savedAddresses?: SavedAddress[];
 };
 
-type ThemeMode = "light" | "dark";
-
-const getSavedTheme = (): ThemeMode => {
-  const saved = localStorage.getItem("macrobox_theme");
-  return saved === "dark" ? "dark" : "light";
-};
-
-const applyTheme = (nextTheme: ThemeMode) => {
-  localStorage.setItem("macrobox_theme", nextTheme);
-
-  document.documentElement.classList.toggle("dark", nextTheme === "dark");
-  document.documentElement.setAttribute("data-theme", nextTheme);
-
-  document.body.style.background = nextTheme === "dark" ? "#020617" : "#f6f7f8";
-  document.body.style.color = nextTheme === "dark" ? "#f8fafc" : "#0f172a";
-
-  window.dispatchEvent(new Event("macrobox-theme-change"));
-};
-
 export default function SettingsPage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [theme, setTheme] = useState<ThemeMode>(() => getSavedTheme());
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -92,51 +69,24 @@ export default function SettingsPage() {
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
 
-  const isDark = theme === "dark";
-
   const cleanPhone = phone.replace(/\D/g, "").slice(0, 10);
   const currentSavedPhone = (user?.phone || "").replace(/\D/g, "").slice(0, 10);
   const phoneReady = cleanPhone.length === 10;
   const phoneChanged = cleanPhone !== currentSavedPhone;
 
-  const pageClass = isDark
-    ? "min-h-screen bg-slate-950 text-white"
-    : "min-h-screen bg-[#f6f7f8] text-slate-950";
+  const pageClass = "min-h-screen bg-[#f6f7f8] text-slate-950";
 
-  const cardClass = isDark
-    ? "rounded-[24px] border border-slate-800 bg-slate-900 p-5 shadow-none"
-    : "rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.06)]";
+  const cardClass =
+    "rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.06)]";
 
-  const titleClass = isDark ? "text-white" : "text-slate-950";
-  const mutedClass = isDark ? "text-slate-400" : "text-slate-500";
+  const titleClass = "text-slate-950";
+  const mutedClass = "text-slate-500";
 
-  const inputClass = isDark
-    ? "h-12 w-full rounded-[16px] border border-slate-700 bg-slate-950 px-4 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
-    : "h-12 w-full rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
+  const inputClass =
+    "h-12 w-full rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
 
-  const compactAddressCardClass = isDark
-    ? "rounded-[18px] border border-slate-800 bg-slate-950 p-4"
-    : "rounded-[18px] border border-slate-200 bg-slate-50 p-4";
-
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
-  useEffect(() => {
-    const handleStorage = () => {
-      const nextTheme = getSavedTheme();
-      setTheme(nextTheme);
-      applyTheme(nextTheme);
-    };
-
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("macrobox-theme-change", handleStorage);
-
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("macrobox-theme-change", handleStorage);
-    };
-  }, []);
+  const compactAddressCardClass =
+    "rounded-[18px] border border-slate-200 bg-slate-50 p-4";
 
   const loadSettings = async () => {
     try {
@@ -429,42 +379,26 @@ export default function SettingsPage() {
               </h1>
 
               <p className={`mt-1 text-sm font-semibold ${mutedClass}`}>
-                Manage your profile, security, theme and saved addresses.
+                Manage your profile, security and saved addresses.
               </p>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-            className={`inline-flex h-12 w-fit items-center gap-2 rounded-[16px] px-5 text-sm font-black transition ${
-              isDark
-                ? "bg-yellow-400 text-slate-950 hover:bg-yellow-300"
-                : "bg-slate-950 text-white hover:bg-slate-800"
-            }`}
-          >
-            {isDark ? <Sun size={17} /> : <Moon size={17} />}
-            {isDark ? "Light Mode" : "Dark Mode"}
-          </button>
         </section>
 
         <section className="mb-7 grid gap-5 md:grid-cols-3">
           <MiniSummary
-            isDark={isDark}
             label="Signed in as"
             value={user?.name || "User"}
             helper={user?.email || ""}
           />
 
           <MiniSummary
-            isDark={isDark}
             label="Phone"
             value={user?.phone || "Not added"}
             helper={user?.isPhoneVerified ? "Verified" : "Verification required"}
           />
 
           <MiniSummary
-            isDark={isDark}
             label="Default Address"
             value={defaultAddress?.addressLabel || "Not selected"}
             helper={
@@ -480,14 +414,13 @@ export default function SettingsPage() {
         <section className="grid gap-5 lg:grid-cols-2">
           <div className={cardClass}>
             <CardHeader
-              isDark={isDark}
               icon={<User size={20} />}
               title="Profile"
               subtitle="Update your display name and view account status."
             />
 
             <div className="mt-5 space-y-4">
-              <Field label="Name" isDark={isDark}>
+              <Field label="Name">
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -495,7 +428,7 @@ export default function SettingsPage() {
                 />
               </Field>
 
-              <Field label="Email" isDark={isDark}>
+              <Field label="Email">
                 <input value={user?.email || ""} disabled className={inputClass} />
               </Field>
 
@@ -520,14 +453,13 @@ export default function SettingsPage() {
 
           <div className={cardClass}>
             <CardHeader
-              isDark={isDark}
               icon={<Phone size={20} />}
               title="Phone Number"
               subtitle="Verify WhatsApp OTP before updating your phone number."
             />
 
             <div className="mt-5 space-y-4">
-              <Field label="Phone number" isDark={isDark}>
+              <Field label="Phone number">
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     value={phone}
@@ -543,11 +475,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={sendPhoneOtp}
                     disabled={otpLoading || !phoneReady || !phoneChanged}
-                    className={`h-12 shrink-0 rounded-[16px] border px-4 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      isDark
-                        ? "border-green-500 text-green-400 hover:bg-green-950/30"
-                        : "border-green-600 text-green-700 hover:bg-green-50"
-                    }`}
+                    className="h-12 shrink-0 rounded-[16px] border border-green-600 px-4 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {otpLoading && !otpSent
                       ? "Sending..."
@@ -609,11 +537,7 @@ export default function SettingsPage() {
               </PrimaryButton>
 
               <p
-                className={`rounded-[14px] px-4 py-3 text-xs font-bold ${
-                  isDark
-                    ? "bg-yellow-950/30 text-yellow-300"
-                    : "bg-yellow-50 text-yellow-700"
-                }`}
+                className="rounded-[14px] bg-yellow-50 px-4 py-3 text-xs font-bold text-yellow-700"
               >
                 Note: Phone number update requires WhatsApp OTP verification.
               </p>
@@ -622,14 +546,13 @@ export default function SettingsPage() {
 
           <div className={cardClass}>
             <CardHeader
-              isDark={isDark}
               icon={<Lock size={20} />}
               title="Change Password"
               subtitle="Keep your MacroBox account secure."
             />
 
             <div className="mt-5 space-y-4">
-              <Field label="Current password" isDark={isDark}>
+              <Field label="Current password">
                 <input
                   type="password"
                   value={currentPassword}
@@ -639,7 +562,7 @@ export default function SettingsPage() {
                 />
               </Field>
 
-              <Field label="New password" isDark={isDark}>
+              <Field label="New password">
                 <input
                   type="password"
                   value={newPassword}
@@ -649,7 +572,7 @@ export default function SettingsPage() {
                 />
               </Field>
 
-              <Field label="Confirm new password" isDark={isDark}>
+              <Field label="Confirm new password">
                 <input
                   type="password"
                   value={confirmPassword}
@@ -668,7 +591,6 @@ export default function SettingsPage() {
 
           <div className={cardClass}>
             <CardHeader
-              isDark={isDark}
               icon={<ShieldCheck size={20} />}
               title="Account"
               subtitle="Deactivate your account if you no longer want to use MacroBox."
@@ -721,18 +643,13 @@ export default function SettingsPage() {
         <section className={`mt-5 ${cardClass}`}>
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <CardHeader
-              isDark={isDark}
               icon={<MapPin size={20} />}
               title="Saved Addresses"
               subtitle="Compact view of your delivery addresses."
             />
 
             <span
-              className={`w-fit rounded-full px-3 py-1 text-xs font-black ${
-                isDark
-                  ? "bg-slate-800 text-slate-300"
-                  : "bg-slate-100 text-slate-600"
-              }`}
+              className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
             >
               {addresses.length} saved
             </span>
@@ -740,11 +657,7 @@ export default function SettingsPage() {
 
           {addresses.length === 0 ? (
             <p
-              className={`rounded-[18px] p-4 text-sm font-semibold ${
-                isDark
-                  ? "bg-slate-950 text-slate-400"
-                  : "bg-slate-50 text-slate-500"
-              }`}
+              className="rounded-[18px] bg-slate-50 p-4 text-sm font-semibold text-slate-500"
             >
               No saved addresses yet.
             </p>
@@ -756,9 +669,7 @@ export default function SettingsPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3
-                          className={`truncate text-base font-black ${
-                            isDark ? "text-white" : "text-slate-950"
-                          }`}
+                          className="truncate text-base font-black text-slate-950"
                         >
                           {address.addressLabel || "Address"}
                         </h3>
@@ -771,9 +682,7 @@ export default function SettingsPage() {
                       </div>
 
                       <p
-                        className={`mt-1 line-clamp-1 text-sm font-bold ${
-                          isDark ? "text-slate-300" : "text-slate-700"
-                        }`}
+                        className="mt-1 line-clamp-1 text-sm font-bold text-slate-700"
                       >
                         {[address.flatNo, address.buildingName]
                           .filter(Boolean)
@@ -807,11 +716,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => setDefaultAddress(address._id)}
-                        className={`rounded-[12px] border px-3 py-2 text-xs font-black transition ${
-                          isDark
-                            ? "border-slate-700 text-slate-200 hover:bg-slate-800"
-                            : "border-slate-200 text-slate-700 hover:bg-white"
-                        }`}
+                        className="rounded-[12px] border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-white"
                       >
                         Set Default
                       </button>
@@ -839,12 +744,10 @@ export default function SettingsPage() {
 }
 
 function CardHeader({
-  isDark,
   icon,
   title,
   subtitle,
 }: {
-  isDark: boolean;
   icon: React.ReactNode;
   title: string;
   subtitle: string;
@@ -856,19 +759,11 @@ function CardHeader({
       </span>
 
       <div>
-        <h2
-          className={`text-xl font-black tracking-[-0.03em] ${
-            isDark ? "text-white" : "text-slate-950"
-          }`}
-        >
+        <h2 className="text-xl font-black tracking-[-0.03em] text-slate-950">
           {title}
         </h2>
 
-        <p
-          className={`mt-1 text-sm font-semibold ${
-            isDark ? "text-slate-400" : "text-slate-500"
-          }`}
-        >
+        <p className="mt-1 text-sm font-semibold text-slate-500">
           {subtitle}
         </p>
       </div>
@@ -879,19 +774,13 @@ function CardHeader({
 function Field({
   label,
   children,
-  isDark,
 }: {
   label: string;
   children: React.ReactNode;
-  isDark: boolean;
 }) {
   return (
     <label className="block">
-      <span
-        className={`mb-2 block text-xs font-black uppercase tracking-wide ${
-          isDark ? "text-slate-400" : "text-slate-500"
-        }`}
-      >
+      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
         {label}
       </span>
 
@@ -924,45 +813,25 @@ function PrimaryButton({
 }
 
 function MiniSummary({
-  isDark,
   label,
   value,
   helper,
 }: {
-  isDark: boolean;
   label: string;
   value: string;
   helper: string;
 }) {
   return (
-    <div
-      className={`rounded-[20px] border p-4 ${
-        isDark
-          ? "border-slate-800 bg-slate-900"
-          : "border-slate-200 bg-white shadow-sm"
-      }`}
-    >
-      <p
-        className={`text-xs font-black uppercase tracking-wide ${
-          isDark ? "text-slate-400" : "text-slate-500"
-        }`}
-      >
+    <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
         {label}
       </p>
 
-      <p
-        className={`mt-2 truncate text-lg font-black ${
-          isDark ? "text-white" : "text-slate-950"
-        }`}
-      >
+      <p className="mt-2 truncate text-lg font-black text-slate-950">
         {value}
       </p>
 
-      <p
-        className={`mt-1 truncate text-xs font-semibold ${
-          isDark ? "text-slate-500" : "text-slate-500"
-        }`}
-      >
+      <p className="mt-1 truncate text-xs font-semibold text-slate-500">
         {helper}
       </p>
     </div>
