@@ -26,5 +26,16 @@ export function applyMacroBoxTheme(theme: ThemeMode) {
     document.body.style.color = "#0f172a";
   }
 
-  window.dispatchEvent(new CustomEvent("macrobox-theme-change", { detail: theme }));
+  window.dispatchEvent(
+    new CustomEvent("macrobox-theme-change", {
+      detail: theme,
+    })
+  );
+}
+
+export function toggleMacroBoxTheme(): ThemeMode {
+  const current = getSavedTheme();
+  const next = current === "dark" ? "light" : "dark";
+  applyMacroBoxTheme(next);
+  return next;
 }
