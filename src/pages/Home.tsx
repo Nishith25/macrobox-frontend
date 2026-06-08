@@ -4,12 +4,10 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   CalendarCheck,
-  CheckCircle2,
   Flame,
   Leaf,
-  Star,
+  ShieldCheck,
   Target,
-  Utensils,
   Zap,
 } from "lucide-react";
 
@@ -80,86 +78,27 @@ export default function Home() {
                 Day Planner
               </Link>
             </div>
-
-            <div className="mt-7 grid max-w-[560px] grid-cols-4 gap-3">
-              <MiniStat icon={<Utensils size={18} />} value="200+" label="Curated Meals" />
-              <MiniStat icon={<Target size={18} />} value="98%" label="Goal Achievement" />
-              <MiniStat icon={<Star size={18} />} value="4.9★" label="App Rating" />
-              <MiniStat icon={<CheckCircle2 size={18} />} value="100%" label="Dietitian Approved" />
-            </div>
           </div>
 
-          <div className="relative hidden lg:block">
-            <div className="absolute -left-24 top-0 rounded-[18px] bg-white px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.10)]">
-              <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
-                  <ArrowRight size={16} />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-slate-400">This week</p>
-                  <p className="text-sm font-black text-slate-900">
-                    Goal on track 🎯
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="ml-auto max-w-[420px] rounded-[30px] bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.12)]">
-              <div className="mb-4 flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-bold text-slate-400">
-                    Today's Progress
-                  </p>
-                  <p className="text-base font-black text-slate-900">
-                    Muscle Gain Plan
-                  </p>
-                </div>
-
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-50 text-green-700">
-                  <Zap size={21} />
-                </span>
+          {/* CLEAN HERO VISUAL */}
+          <div className="hidden lg:block">
+            <div className="rounded-[34px] border border-green-100 bg-white p-5 shadow-[0_30px_80px_rgba(15,23,42,0.10)]">
+              <div className="overflow-hidden rounded-[28px]">
+                <img
+                  src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1200&q=80"
+                  alt="Healthy MacroBox meal"
+                  className="h-[360px] w-full object-cover"
+                />
               </div>
 
-              <div className="rounded-[22px] bg-slate-50 p-5">
-                <div className="flex items-center gap-5">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full border-[6px] border-green-600 text-sm font-black text-slate-950">
-                    72%
-                  </div>
-
-                  <div>
-                    <p className="text-3xl font-black tracking-[-0.05em] text-slate-950">
-                      1,728
-                    </p>
-                    <p className="text-sm font-medium text-slate-400">
-                      of 2,400 kcal
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-5 space-y-4">
-                <ProgressLine label="Protein" value="142g" width="82%" />
-                <ProgressLine label="Carbs" value="198g" width="66%" />
-                <ProgressLine label="Fat" value="48g" width="55%" />
-              </div>
-
-              <div className="mt-5 flex items-center justify-between rounded-[22px] border border-green-100 bg-green-50 p-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-700">
-                    <Leaf size={18} />
-                  </span>
-
-                  <div>
-                    <p className="text-sm font-black text-green-800">
-                      Grilled Chicken Bowl
-                    </p>
-                    <p className="text-xs font-medium text-green-700">
-                      Suggested for dinner · 520 kcal
-                    </p>
-                  </div>
-                </div>
-
-                <ArrowRight size={17} className="text-green-700" />
+              <div className="mt-5 rounded-[24px] border border-green-100 bg-green-50 p-5">
+                <p className="text-lg font-black text-green-800">
+                  Fresh, balanced and macro-tracked meals.
+                </p>
+                <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+                  Choose meals based on your fitness goal and track every calorie,
+                  protein, carb and fat with ease.
+                </p>
               </div>
             </div>
           </div>
@@ -188,27 +127,31 @@ export default function Home() {
 
           <div className="grid gap-3 md:grid-cols-4">
             <StepCard
+              icon={<Target size={20} />}
               number="01"
               title="Set Your Goal"
-              description="Tell us if you want to lose fat, build muscle, or maintain — we handle the math."
+              description="Tell us if you want to lose fat, build muscle, or maintain your body."
             />
 
             <StepCard
+              icon={<Flame size={20} />}
               number="02"
               title="Pick Your Meals"
-              description="Browse 200+ chef-crafted meals filtered by your goal and daily macro budget."
+              description="Browse meals filtered by your goal and daily macro budget."
             />
 
             <StepCard
+              icon={<Zap size={20} />}
               number="03"
               title="Track & Adjust"
-              description="Log meals, watch your macro rings fill up, and get smart suggestions when you're off track."
+              description="Log meals and adjust your food choices based on your daily targets."
             />
 
             <StepCard
+              icon={<ShieldCheck size={20} />}
               number="04"
               title="Reach Your Target"
-              description="Consistent tracking + goal-aligned meals = real, measurable results."
+              description="Stay consistent with goal-aligned meals and simple tracking."
             />
           </div>
         </div>
@@ -219,77 +162,30 @@ export default function Home() {
 
 /* ================= COMPONENTS ================= */
 
-function MiniStat({
-  icon,
-  value,
-  label,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-}) {
-  return (
-    <div className="rounded-[16px] border border-slate-100 bg-white p-3 shadow-sm">
-      <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
-          {icon}
-        </span>
-
-        <div>
-          <p className="text-lg font-black leading-none text-slate-950">
-            {value}
-          </p>
-          <p className="mt-1 text-[11px] font-medium leading-3 text-slate-400">
-            {label}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProgressLine({
-  label,
-  value,
-  width,
-}: {
-  label: string;
-  value: string;
-  width: string;
-}) {
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="font-medium text-slate-500">{label}</span>
-        <span className="font-bold text-slate-900">{value}</span>
-      </div>
-
-      <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400"
-          style={{ width }}
-        />
-      </div>
-    </div>
-  );
-}
-
 function StepCard({
+  icon,
   number,
   title,
   description,
 }: {
+  icon: React.ReactNode;
   number: string;
   title: string;
   description: string;
 }) {
   return (
     <div className="min-h-[138px] rounded-[18px] border border-slate-100 bg-white p-5 shadow-sm">
-      <p className="text-3xl font-black tracking-[-0.06em] text-green-100">
-        {number}
-      </p>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-3xl font-black tracking-[-0.06em] text-green-100">
+          {number}
+        </p>
 
-      <h3 className="mt-4 text-base font-black text-slate-950">{title}</h3>
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
+          {icon}
+        </span>
+      </div>
+
+      <h3 className="text-base font-black text-slate-950">{title}</h3>
 
       <p className="mt-2 text-sm font-medium leading-5 text-slate-500">
         {description}
