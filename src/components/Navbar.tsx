@@ -1,21 +1,21 @@
-// frontend/src/components/Navbar.tsx (FRONTEND)
-
-import { Link, useNavigate, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useEffect, useState } from "react";
 import {
+  Bell,
+  ChefHat,
+  ClipboardList,
+  MapPin,
   Menu,
-  X,
+  ReceiptText,
+  Settings,
   Shield,
   ShoppingCart,
   TicketPercent,
   Truck,
-  ReceiptText,
-  Settings,
-  ChefHat,
-  ClipboardList,
-  MapPin,
+  Users,
+  X,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -35,8 +35,7 @@ export default function Navbar() {
   const closeMenu = () => setOpen(false);
 
   useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
+    document.body.style.overflow = open ? "hidden" : "";
 
     return () => {
       document.body.style.overflow = "";
@@ -44,51 +43,55 @@ export default function Navbar() {
   }, [open]);
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `px-3 py-2 rounded-lg text-sm font-medium transition ${
-      isActive ? "text-green-700 bg-green-50" : "text-gray-700 hover:bg-gray-50"
-    }`;
-
-  const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `block w-full px-3 py-2 rounded-lg text-base font-medium transition ${
-      isActive ? "text-green-700 bg-green-50" : "text-gray-800 hover:bg-gray-50"
-    }`;
-
-  const adminMiniLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `px-2 py-1 rounded-md text-sm font-semibold ${
-      isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
-    }`;
-
-  const adminIconLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `px-2 py-1 rounded-md text-sm font-semibold flex items-center gap-1 ${
-      isActive ? "text-red-700 underline" : "text-red-600 hover:underline"
-    }`;
-
-  const chefIconLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `px-2 py-1 rounded-md text-sm font-semibold flex items-center gap-1 ${
+    `rounded-[14px] px-4 py-2.5 text-sm font-bold transition ${
       isActive
-        ? "text-orange-700 underline"
-        : "text-orange-600 hover:underline"
+        ? "bg-green-50 text-green-700"
+        : "text-slate-700 hover:bg-slate-50 hover:text-slate-950"
     }`;
 
   const cartLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `relative px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1 ${
-      isActive ? "text-green-700 bg-green-50" : "text-gray-700 hover:bg-gray-50"
+    `relative flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-sm font-bold transition ${
+      isActive
+        ? "bg-green-50 text-green-700"
+        : "text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+    }`;
+
+  const adminLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-1.5 rounded-[10px] px-3 py-2 text-xs font-black transition ${
+      isActive
+        ? "bg-red-100 text-red-700"
+        : "text-red-600 hover:bg-red-50 hover:text-red-700"
+    }`;
+
+  const chefLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-1.5 rounded-[10px] px-3 py-2 text-xs font-black transition ${
+      isActive
+        ? "bg-orange-100 text-orange-700"
+        : "text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+    }`;
+
+  const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `block w-full rounded-[14px] px-4 py-3 text-base font-bold transition ${
+      isActive
+        ? "bg-green-50 text-green-700"
+        : "text-slate-800 hover:bg-slate-50"
     }`;
 
   return (
-    <nav className="sticky top-0 z-50 border-b bg-white shadow-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        {/* LOGO */}
+    <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <Link
           to="/"
           onClick={closeMenu}
-          className="text-2xl font-extrabold tracking-tight text-green-600"
+          className="flex shrink-0 items-center gap-2 text-2xl font-black tracking-[-0.04em] text-green-600"
         >
+          <span className="inline-flex h-9 w-9 rotate-[-25deg] items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-lime-500 shadow-sm">
+            <span className="h-4 w-7 rounded-md bg-green-700/30" />
+          </span>
           MacroBox
         </Link>
 
-        {/* ================= DESKTOP NAV ================= */}
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden flex-1 items-center justify-center gap-1 lg:flex">
           <NavLink to="/" className={navLinkClass}>
             Home
           </NavLink>
@@ -115,15 +118,15 @@ export default function Navbar() {
                 <ShoppingCart size={18} />
                 Cart
                 {cartCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-green-600 px-1 text-[10px] text-white">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-green-600 px-1 text-[11px] font-black text-white">
                     {cartCount}
                   </span>
                 )}
               </NavLink>
 
               <NavLink to="/settings" className={navLinkClass}>
-                <span className="flex items-center gap-1">
-                  <Settings size={16} />
+                <span className="flex items-center gap-2">
+                  <Settings size={17} />
                   Settings
                 </span>
               </NavLink>
@@ -136,130 +139,76 @@ export default function Navbar() {
             </>
           )}
 
-          {/* CHEF LINKS */}
           {isAuthenticated && isChef && (
-            <div className="ml-2 flex items-center gap-1 rounded-lg border border-orange-100 bg-orange-50 px-2 py-1">
-              <ChefHat size={16} className="text-orange-600" />
-
-              <NavLink to="/orderslist" className={chefIconLinkClass}>
-                <ClipboardList size={14} />
+            <NavLink to="/orderslist" className={navLinkClass}>
+              <span className="flex items-center gap-2">
+                <ClipboardList size={17} />
                 Kitchen Orders
-              </NavLink>
-            </div>
+              </span>
+            </NavLink>
           )}
-
-          {/* ADMIN LINKS */}
-          {isAdmin && (
-            <div className="ml-2 flex items-center gap-1 rounded-lg border border-red-100 bg-red-50 px-2 py-1">
-              <Shield size={16} className="text-red-600" />
-
-              <NavLink to="/admin/meals" className={adminMiniLinkClass}>
-                Admin Meals
-              </NavLink>
-
-              <NavLink to="/admin/users" className={adminMiniLinkClass}>
-                Users
-              </NavLink>
-
-              <NavLink to="/admin/orders" className={adminIconLinkClass}>
-                <ReceiptText size={14} />
-                Orders
-              </NavLink>
-
-              <NavLink to="/admin/coupons" className={adminIconLinkClass}>
-                <TicketPercent size={14} />
-                Coupons
-              </NavLink>
-
-              <NavLink
-                to="/admin/delivery-agents"
-                className={adminIconLinkClass}
-              >
-                <Truck size={14} />
-                Delivery Agents
-              </NavLink>
-
-              <NavLink to="/admin/chefs" className={adminIconLinkClass}>
-                <ChefHat size={14} />
-                Chefs
-              </NavLink>
-
-              <NavLink to="/orderslist" className={adminIconLinkClass}>
-                <ClipboardList size={14} />
-                Kitchen Orders
-              </NavLink>
-
-              <NavLink
-                to="/admin/delivery-pincodes"
-                className={adminIconLinkClass}
-              >
-                <MapPin size={14} />
-                Pincodes
-              </NavLink>
-            </div>
-          )}
-
-          {/* AUTH */}
-          <div className="ml-2 flex items-center gap-3">
-            {isAuthenticated ? (
-              <>
-                <span className="text-sm text-gray-600">
-                  Hi,{" "}
-                  <span className="font-semibold">
-                    {user?.name?.split(" ")[0]}
-                  </span>
-
-                  {isAdmin && (
-                    <span className="ml-2 rounded bg-red-100 px-2 py-1 text-xs text-red-600">
-                      ADMIN
-                    </span>
-                  )}
-
-                  {isChef && (
-                    <span className="ml-2 rounded bg-orange-100 px-2 py-1 text-xs text-orange-700">
-                      CHEF
-                    </span>
-                  )}
-                </span>
-
-                <button
-                  onClick={handleLogout}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <NavLink to="/login" className={navLinkClass}>
-                  Login
-                </NavLink>
-
-                <NavLink
-                  to="/signup"
-                  className="rounded-lg bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 hover:bg-green-100"
-                >
-                  Signup
-                </NavLink>
-              </>
-            )}
-          </div>
         </div>
 
-        {/* ================= MOBILE RIGHT ================= */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="hidden items-center gap-3 lg:flex">
+          {isAuthenticated && !isChef && (
+            <button
+              type="button"
+              className="relative rounded-[14px] p-2.5 text-slate-600 transition hover:bg-slate-50"
+            >
+              <Bell size={20} />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+            </button>
+          )}
+
+          {isAuthenticated ? (
+            <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
+              <button
+                type="button"
+                onClick={() => navigate("/settings")}
+                className="flex items-center gap-2 rounded-full bg-green-50 px-3 py-2 text-sm font-black text-green-700"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-600 text-xs text-white">
+                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                </span>
+                {user?.name?.split(" ")[0] || "User"}
+              </button>
+
+              <button
+                onClick={handleLogout}
+                className="rounded-[14px] px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <NavLink to="/login" className={navLinkClass}>
+                Login
+              </NavLink>
+
+              <NavLink
+                to="/signup"
+                className="rounded-[14px] bg-green-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-green-700"
+              >
+                Signup
+              </NavLink>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 lg:hidden">
           {isAuthenticated && !isChef && (
             <button
               onClick={() => {
                 navigate("/cart");
                 setOpen(false);
               }}
-              className="relative rounded-lg px-3 py-2 hover:bg-gray-50"
+              className="relative rounded-[14px] px-3 py-2 hover:bg-slate-50"
               aria-label="Cart"
             >
-              <ShoppingCart size={22} className="text-gray-800" />
+              <ShoppingCart size={22} className="text-slate-800" />
               {cartCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-green-600 px-1 text-[10px] text-white">
+                <span className="absolute -right-1 -top-1 flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-green-600 px-1 text-[10px] font-black text-white">
                   {cartCount}
                 </span>
               )}
@@ -267,7 +216,7 @@ export default function Navbar() {
           )}
 
           <button
-            className="rounded-lg border px-3 py-2 text-gray-800"
+            className="rounded-[14px] border border-slate-200 px-3 py-2 text-slate-800"
             onClick={() => setOpen((v) => !v)}
             aria-label="Open menu"
           >
@@ -276,22 +225,89 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* ================= MOBILE MENU ================= */}
+      {(isAdmin || isChef) && (
+        <div className="hidden border-t border-slate-100 bg-white lg:block">
+          <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2 px-4 py-2 sm:px-6">
+            {isAdmin && (
+              <>
+                <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                  <Shield size={14} />
+                  Admin
+                </div>
+
+                <NavLink to="/admin/meals" className={adminLinkClass}>
+                  Admin Meals
+                </NavLink>
+
+                <NavLink to="/admin/users" className={adminLinkClass}>
+                  <Users size={14} />
+                  Users
+                </NavLink>
+
+                <NavLink to="/admin/orders" className={adminLinkClass}>
+                  <ReceiptText size={14} />
+                  Orders
+                </NavLink>
+
+                <NavLink to="/admin/coupons" className={adminLinkClass}>
+                  <TicketPercent size={14} />
+                  Coupons
+                </NavLink>
+
+                <NavLink to="/admin/delivery-agents" className={adminLinkClass}>
+                  <Truck size={14} />
+                  Delivery Agents
+                </NavLink>
+
+                <NavLink to="/admin/chefs" className={adminLinkClass}>
+                  <ChefHat size={14} />
+                  Chefs
+                </NavLink>
+
+                <NavLink to="/orderslist" className={adminLinkClass}>
+                  <ClipboardList size={14} />
+                  Kitchen Orders
+                </NavLink>
+
+                <NavLink to="/admin/delivery-pincodes" className={adminLinkClass}>
+                  <MapPin size={14} />
+                  Pincodes
+                </NavLink>
+              </>
+            )}
+
+            {isChef && !isAdmin && (
+              <>
+                <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                  <ChefHat size={14} />
+                  Chef
+                </div>
+
+                <NavLink to="/orderslist" className={chefLinkClass}>
+                  <ClipboardList size={14} />
+                  Kitchen Orders
+                </NavLink>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {open && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 md:hidden"
+          className="fixed inset-0 z-50 bg-black/40 lg:hidden"
           onClick={closeMenu}
         >
           <div
-            className="absolute right-0 top-0 h-full w-[85%] max-w-sm overflow-y-auto bg-white p-4 shadow-xl"
+            className="absolute right-0 top-0 h-full w-[86%] max-w-sm overflow-y-auto bg-white p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-lg font-bold text-green-600">Menu</div>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-xl font-black text-green-600">MacroBox</div>
 
               <button
                 onClick={closeMenu}
-                className="rounded-lg p-2 hover:bg-gray-50"
+                className="rounded-xl p-2 hover:bg-slate-50"
                 aria-label="Close menu"
               >
                 <X size={22} />
@@ -299,19 +315,19 @@ export default function Navbar() {
             </div>
 
             {isAuthenticated && (
-              <div className="mb-3 rounded-lg border p-3">
-                <div className="text-sm text-gray-500">Signed in as</div>
-                <div className="font-semibold text-gray-800">{user?.name}</div>
-                <div className="text-xs text-gray-500">{user?.email}</div>
+              <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm font-bold text-slate-500">Signed in as</div>
+                <div className="mt-1 font-black text-slate-900">{user?.name}</div>
+                <div className="text-xs font-medium text-slate-500">{user?.email}</div>
 
                 {isAdmin && (
-                  <div className="mt-2 inline-flex rounded bg-red-100 px-2 py-1 text-xs text-red-600">
+                  <div className="mt-3 inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-600">
                     ADMIN
                   </div>
                 )}
 
                 {isChef && (
-                  <div className="mt-2 inline-flex rounded bg-orange-100 px-2 py-1 text-xs text-orange-700">
+                  <div className="mt-3 inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-black text-orange-700">
                     CHEF
                   </div>
                 )}
@@ -323,21 +339,13 @@ export default function Navbar() {
                 Home
               </NavLink>
 
-              <NavLink
-                to="/meals"
-                className={mobileLinkClass}
-                onClick={closeMenu}
-              >
+              <NavLink to="/meals" className={mobileLinkClass} onClick={closeMenu}>
                 Meals
               </NavLink>
 
               {isAuthenticated && !isChef && (
                 <>
-                  <NavLink
-                    to="/macrotrack"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/macrotrack" className={mobileLinkClass} onClick={closeMenu}>
                     MacroTrack
                   </NavLink>
 
@@ -349,36 +357,20 @@ export default function Navbar() {
                     Smart Day Planner
                   </NavLink>
 
-                  <NavLink
-                    to="/orders"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/orders" className={mobileLinkClass} onClick={closeMenu}>
                     Orders
                   </NavLink>
 
-                  <NavLink
-                    to="/cart"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/cart" className={mobileLinkClass} onClick={closeMenu}>
                     Cart {cartCount > 0 ? `(${cartCount})` : ""}
                   </NavLink>
 
-                  <NavLink
-                    to="/settings"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/settings" className={mobileLinkClass} onClick={closeMenu}>
                     Settings
                   </NavLink>
 
                   {user?.role === "delivery" && (
-                    <NavLink
-                      to="/delivery"
-                      className={mobileLinkClass}
-                      onClick={closeMenu}
-                    >
+                    <NavLink to="/delivery" className={mobileLinkClass} onClick={closeMenu}>
                       Delivery
                     </NavLink>
                   )}
@@ -387,18 +379,11 @@ export default function Navbar() {
 
               {isChef && (
                 <>
-                  <div className="my-2 border-t" />
-
-                  <div className="flex items-center gap-2 px-3 pt-2 text-xs font-semibold text-gray-400">
-                    <ChefHat size={14} className="text-orange-600" />
+                  <div className="my-3 border-t border-slate-200" />
+                  <div className="px-4 pt-1 text-xs font-black uppercase tracking-[0.16em] text-orange-600">
                     Chef
                   </div>
-
-                  <NavLink
-                    to="/orderslist"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/orderslist" className={mobileLinkClass} onClick={closeMenu}>
                     Kitchen Orders
                   </NavLink>
                 </>
@@ -406,42 +391,24 @@ export default function Navbar() {
 
               {isAdmin && (
                 <>
-                  <div className="my-2 border-t" />
-
-                  <div className="flex items-center gap-2 px-3 pt-2 text-xs font-semibold text-gray-400">
-                    <Shield size={14} className="text-red-600" />
+                  <div className="my-3 border-t border-slate-200" />
+                  <div className="px-4 pt-1 text-xs font-black uppercase tracking-[0.16em] text-red-600">
                     Admin
                   </div>
 
-                  <NavLink
-                    to="/admin/meals"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/admin/meals" className={mobileLinkClass} onClick={closeMenu}>
                     Admin Meals
                   </NavLink>
 
-                  <NavLink
-                    to="/admin/users"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/admin/users" className={mobileLinkClass} onClick={closeMenu}>
                     Users
                   </NavLink>
 
-                  <NavLink
-                    to="/admin/orders"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/admin/orders" className={mobileLinkClass} onClick={closeMenu}>
                     Orders
                   </NavLink>
 
-                  <NavLink
-                    to="/admin/coupons"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/admin/coupons" className={mobileLinkClass} onClick={closeMenu}>
                     Coupons
                   </NavLink>
 
@@ -453,19 +420,11 @@ export default function Navbar() {
                     Delivery Agents
                   </NavLink>
 
-                  <NavLink
-                    to="/admin/chefs"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/admin/chefs" className={mobileLinkClass} onClick={closeMenu}>
                     Chef Management
                   </NavLink>
 
-                  <NavLink
-                    to="/orderslist"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/orderslist" className={mobileLinkClass} onClick={closeMenu}>
                     Kitchen Orders
                   </NavLink>
 
@@ -479,34 +438,24 @@ export default function Navbar() {
                 </>
               )}
 
-              <div className="my-2 border-t" />
+              <div className="my-3 border-t border-slate-200" />
 
               {isAuthenticated ? (
                 <button
                   onClick={handleLogout}
-                  className="w-full rounded-lg px-3 py-2 text-left text-base font-medium text-red-600 hover:bg-red-50"
+                  className="w-full rounded-[14px] px-4 py-3 text-left text-base font-bold text-red-600 hover:bg-red-50"
                 >
                   Logout
                 </button>
               ) : (
                 <>
-                  <NavLink
-                    to="/login"
-                    className={mobileLinkClass}
-                    onClick={closeMenu}
-                  >
+                  <NavLink to="/login" className={mobileLinkClass} onClick={closeMenu}>
                     Login
                   </NavLink>
 
                   <NavLink
                     to="/signup"
-                    className={({ isActive }) =>
-                      `block w-full rounded-lg px-3 py-2 text-base font-semibold transition ${
-                        isActive
-                          ? "bg-green-50 text-green-700"
-                          : "bg-green-50 text-green-700 hover:bg-green-100"
-                      }`
-                    }
+                    className="block w-full rounded-[14px] bg-green-600 px-4 py-3 text-base font-black text-white"
                     onClick={closeMenu}
                   >
                     Signup
