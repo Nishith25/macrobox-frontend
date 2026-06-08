@@ -118,10 +118,6 @@ export default function Login() {
         {/* LEFT SIDE - LANDING PREVIEW */}
         <section className="hidden px-10 py-12 lg:flex lg:flex-col lg:justify-center">
           <div className="max-w-3xl">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
-              <span className="text-lg">♨</span>
-              Science-backed nutrition for real results
-            </div>
 
             <h1 className="text-[64px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950">
               Fuel Your Day
