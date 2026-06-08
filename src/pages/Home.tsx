@@ -3,7 +3,6 @@
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  CalendarCheck,
   Flame,
   ShieldCheck,
   Target,
@@ -49,31 +48,31 @@ export default function Home() {
               fat tracking.
             </p>
 
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                to="/meals"
-                className="inline-flex h-13 items-center gap-2 rounded-[18px] bg-green-600 px-7 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700"
-              >
-                Explore Meals
-                <ArrowRight size={18} />
-              </Link>
+            <div className="mt-8 flex flex-wrap gap-3">
+  <Link
+    to="/meals"
+    className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] bg-green-600 px-8 text-base font-black !text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700"
+  >
+    Explore Meals
+    <span className="text-xl">→</span>
+  </Link>
 
-              <Link
-                to="/macrotrack"
-                className="inline-flex h-13 items-center gap-2 rounded-[18px] border border-slate-200 bg-white px-6 text-base font-black text-slate-900 shadow-sm transition hover:border-green-300 hover:bg-green-50"
-              >
-                <Zap size={18} className="text-green-600" />
-                MacroTrack
-              </Link>
+  <Link
+    to="/macrotrack"
+    className="home-outline-btn inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-slate-200 bg-white px-8 text-base font-black !text-slate-950 shadow-sm transition hover:bg-slate-50"
+  >
+    <span className="text-green-600">↯</span>
+    MacroTrack
+  </Link>
 
-              <Link
-                to="/smart-day-planner"
-                className="inline-flex h-13 items-center gap-2 rounded-[18px] border border-slate-200 bg-white px-6 text-base font-black text-slate-900 shadow-sm transition hover:border-green-300 hover:bg-green-50"
-              >
-                <CalendarCheck size={18} className="text-green-600" />
-                Day Planner
-              </Link>
-            </div>
+  <Link
+    to="/smart-day-planner"
+    className="home-outline-btn inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-slate-200 bg-white px-8 text-base font-black !text-slate-950 shadow-sm transition hover:bg-slate-50"
+  >
+    <span className="text-green-600">▣</span>
+    Day Planner
+  </Link>
+</div>
           </div>
 
          

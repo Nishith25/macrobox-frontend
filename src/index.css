@@ -775,3 +775,24 @@ html[data-theme="dark"] .mbx-mobile-logout {
   background: rgba(127, 29, 29, 0.35);
   color: #f87171;
 }
+
+.home-outline-btn {
+  color: #020617 !important;
+  background: #ffffff !important;
+}
+
+.home-outline-btn span {
+  color: #16a34a !important;
+}
+
+html.dark .home-outline-btn,
+html[data-theme="dark"] .home-outline-btn {
+  color: #020617 !important;
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.dark .home-outline-btn span,
+html[data-theme="dark"] .home-outline-btn span {
+  color: #16a34a !important;
+}
