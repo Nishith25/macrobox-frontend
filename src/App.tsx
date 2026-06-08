@@ -9,11 +9,19 @@ function applySavedTheme() {
   const savedTheme = localStorage.getItem("macrobox_theme");
   const theme = savedTheme === "dark" ? "dark" : "light";
 
-  document.documentElement.classList.toggle("dark", theme === "dark");
-  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.classList.remove("dark");
+  document.documentElement.removeAttribute("data-theme");
 
-  document.body.style.background = theme === "dark" ? "#020617" : "#f6f7f8";
-  document.body.style.color = theme === "dark" ? "#f8fafc" : "#0f172a";
+  if (theme === "dark") {
+    document.documentElement.classList.add("dark");
+    document.documentElement.setAttribute("data-theme", "dark");
+    document.body.style.background = "#020617";
+    document.body.style.color = "#f8fafc";
+  } else {
+    document.documentElement.setAttribute("data-theme", "light");
+    document.body.style.background = "#f6f7f8";
+    document.body.style.color = "#0f172a";
+  }
 }
 
 export default function App() {
