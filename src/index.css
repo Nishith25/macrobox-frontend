@@ -492,3 +492,155 @@ html.dark button:disabled {
   cursor: not-allowed !important;
   opacity: 0.5 !important;
 }
+
+/* =========================================================
+   FINAL MACROBOX THEME FIX - KEEP THIS AT VERY BOTTOM
+   ========================================================= */
+
+/* ---------- DARK MODE: make macro stat boxes consistent ---------- */
+
+html[data-theme="dark"] .macro-stat-box,
+html.dark .macro-stat-box {
+  background: #020617 !important;
+  border: 1px solid #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .macro-stat-box *,
+html.dark .macro-stat-box * {
+  color: inherit !important;
+}
+
+html[data-theme="dark"] .macro-stat-box .macro-stat-label,
+html.dark .macro-stat-box .macro-stat-label {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme="dark"] .macro-stat-box .macro-stat-value,
+html.dark .macro-stat-box .macro-stat-value {
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .macro-stat-box .macro-stat-unit,
+html.dark .macro-stat-box .macro-stat-unit {
+  color: #94a3b8 !important;
+}
+
+/* ---------- LIGHT MODE: make macro stat boxes clean ---------- */
+
+html[data-theme="light"] .macro-stat-box {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .macro-stat-box * {
+  color: inherit !important;
+}
+
+html[data-theme="light"] .macro-stat-box .macro-stat-label {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .macro-stat-box .macro-stat-value {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .macro-stat-box .macro-stat-unit {
+  color: #64748b !important;
+}
+
+/* ---------- LIVE DELIVERY CARD FIX ---------- */
+
+.live-delivery-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.live-delivery-card * {
+  color: inherit !important;
+}
+
+.live-delivery-card .live-delivery-muted {
+  color: #64748b !important;
+}
+
+html[data-theme="dark"] .live-delivery-card,
+html.dark .live-delivery-card {
+  background: #020617 !important;
+  border: 1px solid #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .live-delivery-card *,
+html.dark .live-delivery-card * {
+  color: inherit !important;
+}
+
+html[data-theme="dark"] .live-delivery-card .live-delivery-muted,
+html.dark .live-delivery-card .live-delivery-muted {
+  color: #94a3b8 !important;
+}
+
+/* Keep green buttons correct inside live delivery */
+.live-delivery-card .bg-green-600,
+.live-delivery-card button.bg-green-600,
+.live-delivery-card a.bg-green-600 {
+  background: #16a34a !important;
+  color: #ffffff !important;
+}
+
+.live-delivery-card .bg-green-600 *,
+.live-delivery-card button.bg-green-600 *,
+.live-delivery-card a.bg-green-600 * {
+  color: #ffffff !important;
+}
+
+/* ---------- REMOVE BAD GLOBAL GREEN CARD PROBLEM ---------- */
+
+/* Do not allow bg-green-50 cards to become only one highlighted stat in dark mode */
+html[data-theme="dark"] main .bg-green-50:not(.admin-subnav *):not(nav *),
+html.dark main .bg-green-50:not(.admin-subnav *):not(nav *) {
+  background-color: #020617 !important;
+  color: #f8fafc !important;
+  border-color: #1e293b !important;
+}
+
+/* Keep small green icons/pills still visible */
+html[data-theme="dark"] main .rounded-full.bg-green-50,
+html.dark main .rounded-full.bg-green-50 {
+  background-color: rgba(22, 163, 74, 0.16) !important;
+  color: #4ade80 !important;
+}
+
+/* ---------- ADMIN NAV ALWAYS READABLE ---------- */
+
+.admin-subnav {
+  background: #020617 !important;
+  border-top: 1px solid #1e293b !important;
+  border-bottom: 1px solid #1e293b !important;
+}
+
+.admin-subnav-label,
+.admin-subnav-label * {
+  color: #e2e8f0 !important;
+}
+
+.admin-subnav-link,
+.admin-subnav-link * {
+  color: #e2e8f0 !important;
+}
+
+.admin-subnav-link:hover,
+.admin-subnav-link-active,
+.admin-subnav-link[aria-current="page"] {
+  background: #ffffff !important;
+  color: #020617 !important;
+}
+
+.admin-subnav-link:hover *,
+.admin-subnav-link-active *,
+.admin-subnav-link[aria-current="page"] * {
+  color: #020617 !important;
+}

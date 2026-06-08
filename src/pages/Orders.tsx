@@ -1,4 +1,5 @@
 // frontend/src/pages/Orders.tsx (FRONTEND)
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
@@ -65,7 +66,10 @@ type Order = {
       lng?: number | null;
       mapsUrl?: string;
     };
-    slot: { date: string; time: string };
+    slot: {
+      date: string;
+      time: string;
+    };
     status?: string;
     agent?: DeliveryAgent | null;
     tracking?: {
@@ -80,7 +84,9 @@ type Order = {
       };
     };
   };
-  payment: { status: string };
+  payment: {
+    status: string;
+  };
 };
 
 const mapsLinkFromAddress = (addr?: Order["delivery"]["address"]) => {
@@ -88,49 +94,25 @@ const mapsLinkFromAddress = (addr?: Order["delivery"]["address"]) => {
 
   if (addr.mapsUrl) return addr.mapsUrl;
 
-  const t = String(addr.locationText || addr.formattedAddress || "").trim();
+  const text = String(addr.locationText || addr.formattedAddress || "").trim();
 
-  if (!t) return null;
-  if (t.startsWith("http://") || t.startsWith("https://")) return t;
+  if (!text) return null;
+
+  if (text.startsWith("http://") || text.startsWith("https://")) {
+    return text;
+  }
 
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    t
+    text
   )}`;
 };
 
 const readableStatus = (status?: string) => {
   if (!status) return "Unassigned";
+
   return status
     .replaceAll("_", " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
-const paymentBadgeClass = (status?: string) => {
-  switch (status) {
-    case "paid":
-      return "bg-green-50 text-green-700 border-green-100";
-    case "failed":
-      return "bg-red-50 text-red-700 border-red-100";
-    default:
-      return "bg-yellow-50 text-yellow-800 border-yellow-100";
-  }
-};
-
-const deliveryBadgeClass = (status?: string) => {
-  switch (status) {
-    case "accepted":
-      return "bg-blue-50 text-blue-700 border-blue-100";
-    case "picked_up":
-      return "bg-indigo-50 text-indigo-700 border-indigo-100";
-    case "out_for_delivery":
-      return "bg-orange-50 text-orange-700 border-orange-100";
-    case "delivered":
-      return "bg-green-50 text-green-700 border-green-100";
-    case "cancelled":
-      return "bg-red-50 text-red-700 border-red-100";
-    default:
-      return "bg-gray-50 text-gray-700 border-gray-100";
-  }
 };
 
 const formatDateTime = (value?: string | null) => {
@@ -165,6 +147,34 @@ const formatAddress = (addr?: Order["delivery"]["address"]) => {
   return parts.length ? parts.join(", ") : "Address not available";
 };
 
+const paymentBadgeClass = (status?: string) => {
+  switch (status) {
+    case "paid":
+      return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-300";
+    case "failed":
+      return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300";
+    default:
+      return "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-900/60 dark:bg-yellow-950/30 dark:text-yellow-300";
+  }
+};
+
+const deliveryBadgeClass = (status?: string) => {
+  switch (status) {
+    case "accepted":
+      return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300";
+    case "picked_up":
+      return "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-300";
+    case "out_for_delivery":
+      return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-300";
+    case "delivered":
+      return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-300";
+    case "cancelled":
+      return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300";
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
+  }
+};
+
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,254 +193,307 @@ export default function Orders() {
   useEffect(() => {
     fetchOrders();
 
-    const interval = setInterval(() => {
-      fetchOrders();
-    }, 10000);
+    const interval = setInterval(fetchOrders, 10000);
 
     return () => clearInterval(interval);
   }, []);
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <p className="text-center text-gray-500">Loading orders...</p>
-      </div>
+      <main className="min-h-screen bg-[#f6f7f8] px-4 py-10 text-slate-950 dark:bg-slate-950 dark:text-white">
+        <p className="text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+          Loading orders...
+        </p>
+      </main>
     );
   }
 
   if (orders.length === 0) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
-          <p className="text-lg font-semibold text-gray-700">No orders yet.</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Your paid orders and live tracking details will appear here.
-          </p>
+      <main className="min-h-screen bg-[#f6f7f8] px-4 py-10 text-slate-950 dark:bg-slate-950 dark:text-white">
+        <div className="mx-auto max-w-6xl">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-lg font-black text-slate-900 dark:text-white">
+              No orders yet.
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
+              Your paid orders and live tracking details will appear here.
+            </p>
+          </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          View order status, payment, delivery slot and live tracking.
-        </p>
-      </div>
+    <main className="min-h-screen bg-[#f6f7f8] text-slate-950 dark:bg-slate-950 dark:text-white">
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        <div className="mb-7">
+          <h1 className="text-3xl font-black tracking-[-0.04em] text-slate-950 dark:text-white">
+            My Orders
+          </h1>
+          <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
+            View order status, payment, delivery slot and live tracking.
+          </p>
+        </div>
 
-      <div className="grid gap-4">
-        {orders.map((o) => {
-          const mapsUrl = mapsLinkFromAddress(o.delivery?.address);
-          const deliveryStatus = o.delivery?.status || "unassigned";
-          const eta = o.delivery?.tracking?.eta;
-          const currentLocation = o.delivery?.tracking?.currentLocation;
-          const agent = o.delivery?.agent;
-          const totalCarbs = o.totals.totalCarbs ?? 0;
-          const totalFat = o.totals.totalFat ?? 0;
+        <div className="grid gap-5">
+          {orders.map((order) => {
+            const mapsUrl = mapsLinkFromAddress(order.delivery?.address);
+            const deliveryStatus = order.delivery?.status || "unassigned";
+            const eta = order.delivery?.tracking?.eta;
+            const currentLocation = order.delivery?.tracking?.currentLocation;
+            const agent = order.delivery?.agent;
 
-          return (
-            <div
-              key={o._id}
-              className="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md"
-            >
-              {/* TOP */}
-              <div className="flex flex-col gap-3 border-b pb-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <ReceiptText size={18} className="text-green-600" />
-                    <p className="font-bold text-gray-900">
-                      {formatDateTime(o.createdAt)}
+            const totalCalories = order.totals.totalCalories || 0;
+            const totalProtein = order.totals.totalProtein || 0;
+            const totalCarbs = order.totals.totalCarbs || 0;
+            const totalFat = order.totals.totalFat || 0;
+
+            return (
+              <article
+                key={order._id}
+                className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm transition hover:border-green-200 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none"
+              >
+                {/* TOP */}
+                <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-start md:justify-between dark:border-slate-700">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <ReceiptText size={18} className="text-green-600" />
+                      <p className="font-black text-slate-950 dark:text-white">
+                        {formatDateTime(order.createdAt)}
+                      </p>
+                    </div>
+
+                    <p className="mt-1 break-all text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      Order ID: {order._id}
                     </p>
                   </div>
 
-                  <p className="mt-1 break-all text-xs text-gray-500">
-                    Order ID: {o._id}
-                  </p>
-                </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-black ${paymentBadgeClass(
+                        order.payment?.status
+                      )}`}
+                    >
+                      {(order.payment?.status || "created").toUpperCase()}
+                    </span>
 
-                <div className="flex flex-wrap gap-2">
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-bold ${paymentBadgeClass(
-                      o.payment?.status
-                    )}`}
-                  >
-                    {(o.payment?.status || "created").toUpperCase()}
-                  </span>
-
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-bold ${deliveryBadgeClass(
-                      deliveryStatus
-                    )}`}
-                  >
-                    DELIVERY: {readableStatus(deliveryStatus)}
-                  </span>
-                </div>
-              </div>
-
-              {/* BODY */}
-              <div className="mt-4 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                {/* LEFT */}
-                <div className="space-y-4">
-                  {/* MACROS + PRICE */}
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
-                    <MiniStat label="Calories" value={`${o.totals.totalCalories || 0}`} />
-                    <MiniStat label="Protein" value={`${o.totals.totalProtein || 0}g`} />
-                    <MiniStat label="Carbs" value={`${totalCarbs}g`} />
-                    <MiniStat label="Fat" value={`${totalFat}g`} />
-                    <MiniStat label="Discount" value={`₹${o.totals.discount || 0}`} />
-                    <MiniStat label="Payable" value={`₹${o.totals.payable || 0}`} green />
-                  </div>
-
-                  {/* SLOT + ADDRESS */}
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-xl bg-gray-50 p-3">
-                      <div className="mb-1 flex items-center gap-2">
-                        <CalendarClock size={16} className="text-green-600" />
-                        <p className="text-sm font-bold text-gray-900">
-                          Delivery Slot
-                        </p>
-                      </div>
-
-                      <p className="text-sm text-gray-700">
-                        {o.delivery?.slot?.date || "N/A"} •{" "}
-                        {o.delivery?.slot?.time || "N/A"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-gray-50 p-3">
-                      <div className="mb-1 flex items-center gap-2">
-                        <MapPin size={16} className="text-green-600" />
-                        <p className="text-sm font-bold text-gray-900">
-                          Delivery Address
-                        </p>
-                      </div>
-
-                      <p className="line-clamp-2 text-sm text-gray-700">
-                        {formatAddress(o.delivery?.address)}
-                      </p>
-
-                      {mapsUrl ? (
-                        <a
-                          href={mapsUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-1 inline-block text-xs font-semibold text-green-700 underline"
-                        >
-                          Open in Google Maps
-                        </a>
-                      ) : (
-                        <p className="mt-1 text-xs text-gray-500">
-                          No map location
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ITEMS */}
-                  {o.items && o.items.length > 0 && (
-                    <div className="rounded-xl bg-gray-50 p-3">
-                      <div className="mb-2 flex items-center gap-2">
-                        <PackageCheck size={16} className="text-green-600" />
-                        <p className="text-sm font-bold text-gray-900">Items</p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {o.items.map((item, index) => (
-                          <span
-                            key={`${o._id}-${index}`}
-                            className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200"
-                          >
-                            {item.title || "Meal"} × {item.qty || 1}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* RIGHT LIVE TRACKING */}
-                <div className="rounded-xl border border-green-100 bg-green-50/50 p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Truck size={18} className="text-green-700" />
-                      <p className="font-bold text-gray-900">
-                        Live Delivery
-                      </p>
-                    </div>
-
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700">
-                      {readableStatus(deliveryStatus)}
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-black ${deliveryBadgeClass(
+                        deliveryStatus
+                      )}`}
+                    >
+                      DELIVERY: {readableStatus(deliveryStatus)}
                     </span>
                   </div>
+                </div>
 
-                  <div className="space-y-2 text-sm text-gray-700">
-                    <p>
-                      <span className="font-semibold">Agent:</span>{" "}
-                      {agent?.name || "Not assigned yet"}
-                    </p>
+                {/* BODY */}
+                <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+                  {/* LEFT */}
+                  <div className="space-y-5">
+                    {/* MACROS */}
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+                      <MiniStat label="Calories" value={`${totalCalories}`} />
+                      <MiniStat label="Protein" value={`${totalProtein}g`} />
+                      <MiniStat label="Carbs" value={`${totalCarbs}g`} />
+                      <MiniStat label="Fat" value={`${totalFat}g`} />
+                      <MiniStat
+                        label="Discount"
+                        value={`₹${order.totals.discount || 0}`}
+                      />
+                      <MiniStat
+                        label="Payable"
+                        value={`₹${order.totals.payable || 0}`}
+                        highlight
+                      />
+                    </div>
 
-                    <p className="flex items-center gap-1">
-                      <Phone size={14} className="text-green-700" />
-                      <span className="font-semibold">Phone:</span>{" "}
-                      {agent?.deliveryProfile?.phone ||
-                        agent?.phone ||
-                        "N/A"}
-                    </p>
+                    {/* SLOT + ADDRESS */}
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <InfoCard>
+                        <div className="mb-1 flex items-center gap-2">
+                          <CalendarClock
+                            size={16}
+                            className="text-green-600"
+                          />
+                          <p className="text-sm font-black text-slate-950 dark:text-white">
+                            Delivery Slot
+                          </p>
+                        </div>
 
-                    <p>
-                      <span className="font-semibold">ETA:</span>{" "}
-                      {eta?.text || "Not available yet"}
-                      {eta?.distanceText ? ` (${eta.distanceText})` : ""}
-                    </p>
+                        <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                          {order.delivery?.slot?.date || "N/A"} •{" "}
+                          {order.delivery?.slot?.time || "N/A"}
+                        </p>
+                      </InfoCard>
 
-                    <p>
-                      <span className="font-semibold">Last update:</span>{" "}
-                      {formatDateTime(currentLocation?.updatedAt || null)}
-                    </p>
+                      <InfoCard>
+                        <div className="mb-1 flex items-center gap-2">
+                          <MapPin size={16} className="text-green-600" />
+                          <p className="text-sm font-black text-slate-950 dark:text-white">
+                            Delivery Address
+                          </p>
+                        </div>
+
+                        <p className="line-clamp-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                          {formatAddress(order.delivery?.address)}
+                        </p>
+
+                        {mapsUrl ? (
+                          <a
+                            href={mapsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-block text-xs font-black text-green-600 hover:underline dark:text-green-400"
+                          >
+                            Open in Google Maps
+                          </a>
+                        ) : (
+                          <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            No map location
+                          </p>
+                        )}
+                      </InfoCard>
+                    </div>
+
+                    {/* ITEMS */}
+                    {order.items && order.items.length > 0 && (
+                      <InfoCard>
+                        <div className="mb-2 flex items-center gap-2">
+                          <PackageCheck
+                            size={16}
+                            className="text-green-600"
+                          />
+                          <p className="text-sm font-black text-slate-950 dark:text-white">
+                            Items
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {order.items.map((item, index) => (
+                            <span
+                              key={`${order._id}-${index}`}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
+                            >
+                              {item.title || "Meal"} × {item.qty || 1}
+                            </span>
+                          ))}
+                        </div>
+                      </InfoCard>
+                    )}
                   </div>
 
-                  <Link
-                    to={`/track/${o._id}`}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700"
-                  >
-                    <Navigation size={16} />
-                    Track Live
-                  </Link>
+                  {/* RIGHT LIVE TRACKING */}
+                  <div className="live-delivery-card rounded-[22px] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Truck size={18} className="text-green-600" />
+                        <p className="font-black text-slate-950 dark:text-white">
+                          Live Delivery
+                        </p>
+                      </div>
+
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                        {readableStatus(deliveryStatus)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                      <p>
+                        <span className="font-black text-slate-950 dark:text-white">
+                          Agent:
+                        </span>{" "}
+                        {agent?.name || "Not assigned yet"}
+                      </p>
+
+                      <p className="flex items-center gap-1">
+                        <Phone size={14} className="text-green-600" />
+                        <span className="font-black text-slate-950 dark:text-white">
+                          Phone:
+                        </span>{" "}
+                        {agent?.deliveryProfile?.phone || agent?.phone || "N/A"}
+                      </p>
+
+                      <p>
+                        <span className="font-black text-slate-950 dark:text-white">
+                          ETA:
+                        </span>{" "}
+                        {eta?.text || "Not available yet"}
+                        {eta?.distanceText ? ` (${eta.distanceText})` : ""}
+                      </p>
+
+                      <p>
+                        <span className="font-black text-slate-950 dark:text-white">
+                          Last update:
+                        </span>{" "}
+                        {formatDateTime(currentLocation?.updatedAt || null)}
+                      </p>
+                    </div>
+
+                    <Link
+                      to={`/track/${order._id}`}
+                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[16px] bg-green-600 px-4 py-3 text-sm font-black text-white transition hover:bg-green-700"
+                    >
+                      <Navigation size={16} />
+                      Track Live
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            </div>
-          );
-        })}
+              </article>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
 
 function MiniStat({
   label,
   value,
-  green,
+  highlight,
 }: {
   label: string;
   value: string;
-  green?: boolean;
+  highlight?: boolean;
 }) {
   return (
     <div
-      className={`rounded-xl p-3 ${
-        green ? "bg-green-50 text-green-700" : "bg-gray-50"
+      className={`macro-stat-box rounded-[16px] border p-3 ${
+        highlight
+          ? "border-green-200 bg-green-50 dark:border-green-900/60 dark:bg-green-950/30"
+          : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950"
       }`}
     >
-      <p className="text-[11px] font-medium text-gray-500">{label}</p>
       <p
-        className={`mt-1 text-sm font-extrabold ${
-          green ? "text-green-700" : "text-gray-900"
+        className={`macro-stat-label text-[11px] font-black uppercase tracking-wide ${
+          highlight
+            ? "text-green-700 dark:text-green-300"
+            : "text-slate-500 dark:text-slate-400"
+        }`}
+      >
+        {label}
+      </p>
+
+      <p
+        className={`macro-stat-value mt-1 text-sm font-black ${
+          highlight
+            ? "text-green-700 dark:text-green-300"
+            : "text-slate-950 dark:text-white"
         }`}
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function InfoCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-[16px] border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
+      {children}
     </div>
   );
 }
