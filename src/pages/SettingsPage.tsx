@@ -79,10 +79,11 @@ export default function SettingsPage() {
   const [deactivating, setDeactivating] = useState(false);
 
   const isDark = theme === "dark";
+
   const cleanPhone = phone.replace(/\D/g, "").slice(0, 10);
+  const currentSavedPhone = (user?.phone || "").replace(/\D/g, "").slice(0, 10);
   const phoneReady = cleanPhone.length === 10;
-  const currentSavedPhone = user?.phone || "";
-  const phoneChanged = cleanPhone !== currentSavedPhone.replace(/\D/g, "").slice(0, 10);
+  const phoneChanged = cleanPhone !== currentSavedPhone;
 
   const pageClass = isDark
     ? "min-h-screen bg-slate-950 text-white"
@@ -110,10 +111,12 @@ export default function SettingsPage() {
       document.documentElement.classList.add("dark");
       document.documentElement.setAttribute("data-theme", "dark");
       document.body.style.background = "#020617";
+      document.body.style.color = "#f8fafc";
     } else {
       document.documentElement.classList.remove("dark");
       document.documentElement.setAttribute("data-theme", "light");
       document.body.style.background = "#f6f7f8";
+      document.body.style.color = "#0f172a";
     }
 
     window.dispatchEvent(new Event("macrobox-theme-change"));
@@ -412,6 +415,7 @@ export default function SettingsPage() {
               <h1 className={`text-[32px] font-black tracking-[-0.04em] ${titleClass}`}>
                 Settings
               </h1>
+
               <p className={`mt-1 text-sm font-semibold ${mutedClass}`}>
                 Manage your profile, security, theme and saved addresses.
               </p>
@@ -420,7 +424,9 @@ export default function SettingsPage() {
 
           <button
             type="button"
-            onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+            onClick={() =>
+              setTheme((prev) => (prev === "dark" ? "light" : "dark"))
+            }
             className={`inline-flex h-12 w-fit items-center gap-2 rounded-[16px] px-5 text-sm font-black transition ${
               isDark
                 ? "bg-yellow-400 text-slate-950 hover:bg-yellow-300"
@@ -533,7 +539,11 @@ export default function SettingsPage() {
                         : "border-green-600 text-green-700 hover:bg-green-50"
                     }`}
                   >
-                    {otpLoading && !otpSent ? "Sending..." : otpSent ? "Resend OTP" : "Get OTP"}
+                    {otpLoading && !otpSent
+                      ? "Sending..."
+                      : otpSent
+                      ? "Resend OTP"
+                      : "Get OTP"}
                   </button>
                 </div>
               </Field>
@@ -542,7 +552,9 @@ export default function SettingsPage() {
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
                     placeholder="Enter 6-digit OTP"
                     className={inputClass}
                   />
@@ -582,7 +594,9 @@ export default function SettingsPage() {
 
               <p
                 className={`rounded-[14px] px-4 py-3 text-xs font-bold ${
-                  isDark ? "bg-yellow-950/30 text-yellow-300" : "bg-yellow-50 text-yellow-700"
+                  isDark
+                    ? "bg-yellow-950/30 text-yellow-300"
+                    : "bg-yellow-50 text-yellow-700"
                 }`}
               >
                 Note: Phone number update requires WhatsApp OTP verification.
@@ -660,7 +674,8 @@ export default function SettingsPage() {
                   </p>
 
                   <p className="mt-1 text-sm font-semibold text-red-600">
-                    You can reactivate later by signing up again with the same email.
+                    You can reactivate later by signing up again with the same
+                    email.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-3">
@@ -699,7 +714,9 @@ export default function SettingsPage() {
 
             <span
               className={`w-fit rounded-full px-3 py-1 text-xs font-black ${
-                isDark ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"
+                isDark
+                  ? "bg-slate-800 text-slate-300"
+                  : "bg-slate-100 text-slate-600"
               }`}
             >
               {addresses.length} saved
@@ -709,7 +726,9 @@ export default function SettingsPage() {
           {addresses.length === 0 ? (
             <p
               className={`rounded-[18px] p-4 text-sm font-semibold ${
-                isDark ? "bg-slate-950 text-slate-400" : "bg-slate-50 text-slate-500"
+                isDark
+                  ? "bg-slate-950 text-slate-400"
+                  : "bg-slate-50 text-slate-500"
               }`}
             >
               No saved addresses yet.
@@ -741,8 +760,9 @@ export default function SettingsPage() {
                           isDark ? "text-slate-300" : "text-slate-700"
                         }`}
                       >
-                        {[address.flatNo, address.buildingName].filter(Boolean).join(", ") ||
-                          "Address details"}
+                        {[address.flatNo, address.buildingName]
+                          .filter(Boolean)
+                          .join(", ") || "Address details"}
                       </p>
                     </div>
 
@@ -757,7 +777,9 @@ export default function SettingsPage() {
                   </div>
 
                   <p className={`line-clamp-2 text-xs font-semibold ${mutedClass}`}>
-                    {[address.area, address.city, address.state].filter(Boolean).join(", ")}
+                    {[address.area, address.city, address.state]
+                      .filter(Boolean)
+                      .join(", ")}
                     {address.pincode ? ` - ${address.pincode}` : ""}
                   </p>
 
