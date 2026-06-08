@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 import toast from "react-hot-toast";
 import {
+  CheckCircle2,
   Lock,
   MapPin,
   Moon,
@@ -59,6 +60,13 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
 
+  const [otp, setOtp] = useState("");
+  const [devOtp, setDevOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [phoneVerifiedForUpdate, setPhoneVerifiedForUpdate] = useState(false);
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -71,6 +79,9 @@ export default function SettingsPage() {
   const [deactivating, setDeactivating] = useState(false);
 
   const isDark = theme === "dark";
+  const phoneReady = phone.replace(/\D/g, "").length === 10;
+  const currentSavedPhone = user?.phone || "";
+  const phoneChanged = phone.trim() !== currentSavedPhone.trim();
 
   const pageClass = isDark
     ? "min-h-screen bg-slate-950 text-white"
@@ -90,6 +101,17 @@ export default function SettingsPage() {
   const compactAddressCardClass = isDark
     ? "rounded-[18px] border border-slate-800 bg-slate-950 p-4"
     : "rounded-[18px] border border-slate-200 bg-slate-50 p-4";
+
+  const applyTheme = (nextTheme: ThemeMode) => {
+    localStorage.setItem("macrobox_theme", nextTheme);
+    document.documentElement.classList.toggle("dark", nextTheme === "dark");
+    document.documentElement.setAttribute("data-theme", nextTheme);
+    document.body.style.background = nextTheme === "dark" ? "#020617" : "#f6f7f8";
+  };
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   const loadSettings = async () => {
     try {
@@ -121,22 +143,6 @@ export default function SettingsPage() {
     loadSettings();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("macrobox_theme", theme);
-
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-      document.body.style.background = "#020617";
-    } else {
-      document.documentElement.classList.remove("dark");
-      document.body.style.background = "#f6f7f8";
-    }
-
-    return () => {
-      document.body.style.background = "";
-    };
-  }, [theme]);
-
   const defaultAddress = useMemo(
     () => addresses.find((item) => item.isDefault),
     [addresses]
@@ -148,13 +154,15 @@ export default function SettingsPage() {
 
     try {
       const oldUser = JSON.parse(oldRaw);
-      const nextUser = {
-        ...oldUser,
-        name: updatedUser.name,
-        phone: updatedUser.phone,
-      };
-
-      localStorage.setItem("user", JSON.stringify(nextUser));
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          ...oldUser,
+          name: updatedUser.name,
+          phone: updatedUser.phone,
+          isPhoneVerified: updatedUser.isPhoneVerified,
+        })
+      );
     } catch {
       // ignore
     }
@@ -183,9 +191,84 @@ export default function SettingsPage() {
     }
   };
 
+  const resetPhoneOtpState = () => {
+    setOtp("");
+    setDevOtp("");
+    setOtpSent(false);
+    setPhoneVerifiedForUpdate(false);
+    setPhoneVerificationToken("");
+  };
+
+  const sendPhoneOtp = async () => {
+    if (!phoneReady) {
+      toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+
+      const res = await api.post("/auth/send-phone-otp", {
+        phone: phone.trim(),
+        name: name.trim() || user?.name || "MacroBox User",
+      });
+
+      setOtpSent(true);
+      setOtp("");
+      setPhoneVerifiedForUpdate(false);
+      setPhoneVerificationToken("");
+
+      if (res.data?.devOtp) {
+        setDevOtp(res.data.devOtp);
+        toast.success("OTP generated successfully.");
+      } else {
+        setDevOtp("");
+        toast.success(res.data?.message || "OTP sent successfully.");
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to send OTP.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyPhoneOtp = async () => {
+    if (!otp.trim() || otp.trim().length !== 6) {
+      toast.error("Enter valid 6-digit OTP.");
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+
+      const res = await api.post("/auth/verify-phone-otp", {
+        phone: phone.trim(),
+        otp: otp.trim(),
+      });
+
+      setPhoneVerificationToken(res.data.phoneVerificationToken || "");
+      setPhoneVerifiedForUpdate(true);
+      toast.success("Phone verified successfully.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "OTP verification failed.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   const updatePhone = async () => {
-    if (!phone.trim()) {
-      toast.error("Phone number is required");
+    if (!phoneReady) {
+      toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+
+    if (!phoneChanged) {
+      toast.error("Enter a new phone number to update.");
+      return;
+    }
+
+    if (!phoneVerifiedForUpdate || !phoneVerificationToken) {
+      toast.error("Please verify WhatsApp OTP before updating phone.");
       return;
     }
 
@@ -194,10 +277,13 @@ export default function SettingsPage() {
 
       const res = await api.put("/user/phone", {
         phone: phone.trim(),
+        phoneVerificationToken,
       });
 
       setUser(res.data.user);
       syncLocalUser(res.data.user);
+      resetPhoneOtpState();
+
       toast.success("Phone number updated");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to update phone");
@@ -277,12 +363,9 @@ export default function SettingsPage() {
       localStorage.removeItem("user");
 
       toast.success("Account deactivated");
-
       window.location.href = "/login";
     } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message || "Failed to deactivate account"
-      );
+      toast.error(err?.response?.data?.message || "Failed to deactivate account");
     } finally {
       setDeactivating(false);
     }
@@ -304,22 +387,18 @@ export default function SettingsPage() {
     <main className={pageClass}>
       <div className="mx-auto max-w-[1240px] px-4 py-10 sm:px-6">
         <section className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white">
-                <Settings size={23} />
-              </span>
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white">
+              <Settings size={23} />
+            </span>
 
-              <div>
-                <h1
-                  className={`text-[32px] font-black tracking-[-0.04em] ${titleClass}`}
-                >
-                  Settings
-                </h1>
-                <p className={`mt-1 text-sm font-semibold ${mutedClass}`}>
-                  Manage your profile, security, theme and saved addresses.
-                </p>
-              </div>
+            <div>
+              <h1 className={`text-[32px] font-black tracking-[-0.04em] ${titleClass}`}>
+                Settings
+              </h1>
+              <p className={`mt-1 text-sm font-semibold ${mutedClass}`}>
+                Manage your profile, security, theme and saved addresses.
+              </p>
             </div>
           </div>
 
@@ -367,7 +446,6 @@ export default function SettingsPage() {
         </section>
 
         <section className="grid gap-5 lg:grid-cols-2">
-          {/* PROFILE */}
           <div className={cardClass}>
             <CardHeader
               isDark={isDark}
@@ -386,16 +464,10 @@ export default function SettingsPage() {
               </Field>
 
               <Field label="Email" isDark={isDark}>
-                <input
-                  value={user?.email || ""}
-                  disabled
-                  className={inputClass}
-                />
+                <input value={user?.email || ""} disabled className={inputClass} />
               </Field>
 
               <div className="flex flex-wrap gap-2">
-                <StatusPill isDark={isDark}>Role: {user?.role}</StatusPill>
-
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-black ${
                     user?.emailVerified
@@ -414,26 +486,70 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* PHONE */}
           <div className={cardClass}>
             <CardHeader
               isDark={isDark}
               icon={<Phone size={20} />}
               title="Phone Number"
-              subtitle="Used for delivery calls and order communication."
+              subtitle="Verify WhatsApp OTP before updating your phone number."
             />
 
             <div className="mt-5 space-y-4">
               <Field label="Phone number" isDark={isDark}>
-                <input
-                  value={phone}
-                  onChange={(e) =>
-                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
-                  }
-                  placeholder="Phone number"
-                  className={inputClass}
-                />
+                <div className="flex gap-2">
+                  <input
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                      resetPhoneOtpState();
+                    }}
+                    placeholder="Phone number"
+                    className={inputClass}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={sendPhoneOtp}
+                    disabled={otpLoading || !phoneReady || !phoneChanged}
+                    className="shrink-0 rounded-[16px] border border-green-600 px-4 text-sm font-black text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {otpLoading && !otpSent ? "Sending..." : otpSent ? "Resend" : "Get OTP"}
+                  </button>
+                </div>
               </Field>
+
+              {otpSent && !phoneVerifiedForUpdate && (
+                <div className="flex gap-2">
+                  <input
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="Enter 6-digit OTP"
+                    className={inputClass}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={verifyPhoneOtp}
+                    disabled={otpLoading || otp.length !== 6}
+                    className="shrink-0 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {otpLoading ? "Verifying..." : "Verify"}
+                  </button>
+                </div>
+              )}
+
+              {devOtp && !phoneVerifiedForUpdate && (
+                <p className="rounded-[14px] border border-yellow-300 bg-yellow-50 px-4 py-3 text-xs font-black text-yellow-800">
+                  Dev OTP: {devOtp}
+                </p>
+              )}
+
+              {phoneVerifiedForUpdate && (
+                <p className="flex items-center gap-2 rounded-[14px] bg-green-50 px-4 py-3 text-xs font-black text-green-700">
+                  <CheckCircle2 size={16} />
+                  Phone number verified. You can update now.
+                </p>
+              )}
 
               <PrimaryButton onClick={updatePhone} loading={savingPhone}>
                 <Save size={16} />
@@ -441,13 +557,11 @@ export default function SettingsPage() {
               </PrimaryButton>
 
               <p className="rounded-[14px] bg-yellow-50 px-4 py-3 text-xs font-bold text-yellow-700">
-                Note: After updating phone number, phone verification status will
-                be reset.
+                Note: Phone number update requires WhatsApp OTP verification.
               </p>
             </div>
           </div>
 
-          {/* PASSWORD */}
           <div className={cardClass}>
             <CardHeader
               isDark={isDark}
@@ -494,7 +608,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* ACCOUNT */}
           <div className={cardClass}>
             <CardHeader
               isDark={isDark}
@@ -518,8 +631,7 @@ export default function SettingsPage() {
                   </p>
 
                   <p className="mt-1 text-sm font-semibold text-red-600">
-                    You can reactivate later by signing up again with the same
-                    email.
+                    You can reactivate later by signing up again with the same email.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-3">
@@ -545,7 +657,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* SAVED ADDRESSES */}
         <section className={`mt-5 ${cardClass}`}>
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <CardHeader
@@ -557,9 +668,7 @@ export default function SettingsPage() {
 
             <span
               className={`w-fit rounded-full px-3 py-1 text-xs font-black ${
-                isDark
-                  ? "bg-slate-800 text-slate-300"
-                  : "bg-slate-100 text-slate-600"
+                isDark ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"
               }`}
             >
               {addresses.length} saved
@@ -569,9 +678,7 @@ export default function SettingsPage() {
           {addresses.length === 0 ? (
             <p
               className={`rounded-[18px] p-4 text-sm font-semibold ${
-                isDark
-                  ? "bg-slate-950 text-slate-400"
-                  : "bg-slate-50 text-slate-500"
+                isDark ? "bg-slate-950 text-slate-400" : "bg-slate-50 text-slate-500"
               }`}
             >
               No saved addresses yet.
@@ -603,9 +710,8 @@ export default function SettingsPage() {
                           isDark ? "text-slate-300" : "text-slate-700"
                         }`}
                       >
-                        {[address.flatNo, address.buildingName]
-                          .filter(Boolean)
-                          .join(", ") || "Address details"}
+                        {[address.flatNo, address.buildingName].filter(Boolean).join(", ") ||
+                          "Address details"}
                       </p>
                     </div>
 
@@ -619,9 +725,7 @@ export default function SettingsPage() {
                   </div>
 
                   <p className={`line-clamp-2 text-xs font-semibold ${mutedClass}`}>
-                    {[address.area, address.city, address.state]
-                      .filter(Boolean)
-                      .join(", ")}
+                    {[address.area, address.city, address.state].filter(Boolean).join(", ")}
                     {address.pincode ? ` - ${address.pincode}` : ""}
                   </p>
 
@@ -648,7 +752,7 @@ export default function SettingsPage() {
                         href={address.mapsUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-[12px] bg-slate-950 px-3 py-2 text-xs font-black text-white"
+                        className="rounded-[12px] border border-green-600 bg-green-50 px-3 py-2 text-xs font-black text-green-700 hover:bg-green-100"
                       >
                         Open Map
                       </a>
@@ -736,30 +840,13 @@ function PrimaryButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={loading}
       className="inline-flex h-12 items-center gap-2 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {children}
     </button>
-  );
-}
-
-function StatusPill({
-  children,
-  isDark,
-}: {
-  children: React.ReactNode;
-  isDark: boolean;
-}) {
-  return (
-    <span
-      className={`rounded-full px-3 py-1 text-xs font-black ${
-        isDark ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-700"
-      }`}
-    >
-      {children}
-    </span>
   );
 }
 

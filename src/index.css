@@ -109,3 +109,24 @@ a {
 .input-ui[type="number"]::-webkit-outer-spin-button {
   opacity: 0;
 }
+
+html.dark,
+html.dark body,
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: #020617;
+  color: #f8fafc;
+}
+
+html.dark nav,
+html[data-theme="dark"] nav {
+  background: rgba(2, 6, 23, 0.95) !important;
+  border-color: #1e293b !important;
+}
+
+html.dark footer,
+html[data-theme="dark"] footer {
+  background: #020617 !important;
+  border-color: #1e293b !important;
+  color: #cbd5e1 !important;
+}
