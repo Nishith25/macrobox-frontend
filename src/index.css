@@ -527,3 +527,33 @@ html[data-theme="light"] main .bg-red-600 *,
 html[data-theme="light"] main button.bg-red-600 * {
   color: #ffffff !important;
 }
+
+/* ================= ADMIN SUBNAV READABILITY FIX ================= */
+
+.admin-subnav {
+  background: #020617 !important;
+  border-color: #1e293b !important;
+}
+
+.admin-subnav,
+.admin-subnav * {
+  color: #e2e8f0 !important;
+}
+
+.admin-subnav a,
+.admin-subnav button {
+  color: #e2e8f0 !important;
+}
+
+.admin-subnav a:hover,
+.admin-subnav button:hover,
+.admin-subnav a[aria-current="page"] {
+  background: #ffffff !important;
+  color: #020617 !important;
+}
+
+.admin-subnav a:hover *,
+.admin-subnav button:hover *,
+.admin-subnav a[aria-current="page"] * {
+  color: #020617 !important;
+}

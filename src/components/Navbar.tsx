@@ -57,28 +57,24 @@ export default function Navbar() {
     `inline-flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-sm font-black transition ${
       isActive
         ? "bg-green-600 text-white"
-        : "text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+        : "text-slate-800 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
     }`;
 
   const cartLinkClass = ({ isActive }: { isActive: boolean }) =>
     `relative inline-flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-sm font-black transition ${
       isActive
         ? "bg-green-600 text-white"
-        : "text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+        : "text-slate-800 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
     }`;
 
   const adminLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center gap-1.5 rounded-[10px] px-3 py-2 text-xs font-black transition ${
-      isActive
-        ? "bg-white text-slate-950 shadow-sm"
-        : "text-slate-200 hover:bg-white hover:text-slate-950"
+    `admin-subnav-link inline-flex items-center gap-1.5 rounded-[12px] px-3.5 py-2 text-xs font-black transition ${
+      isActive ? "admin-subnav-link-active" : ""
     }`;
 
   const chefLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center gap-1.5 rounded-[10px] px-3 py-2 text-xs font-black transition ${
-      isActive
-        ? "bg-white text-slate-950 shadow-sm"
-        : "text-slate-200 hover:bg-white hover:text-slate-950"
+    `admin-subnav-link inline-flex items-center gap-1.5 rounded-[12px] px-3.5 py-2 text-xs font-black transition ${
+      isActive ? "admin-subnav-link-active" : ""
     }`;
 
   const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -158,7 +154,7 @@ export default function Navbar() {
                   onClick={() => navigate("/settings")}
                   className="flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-black text-white"
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-green-700">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-black text-green-700">
                     {user?.name?.charAt(0)?.toUpperCase() || "U"}
                   </span>
                   {user?.name?.split(" ")[0] || "User"}
@@ -167,7 +163,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-[14px] px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/40"
+                  className="rounded-[14px] px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
                 >
                   Logout
                 </button>
@@ -226,11 +222,11 @@ export default function Navbar() {
         </div>
 
         {(isAdmin || isChef) && (
-          <div className="admin-subnav hidden border-t border-slate-800 bg-slate-950 lg:block">
+          <div className="admin-subnav hidden border-t lg:block">
             <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2 px-4 py-2 sm:px-6">
               {isAdmin && (
                 <>
-                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-300">
+                  <div className="admin-subnav-label mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em]">
                     <Shield size={14} />
                     Admin
                   </div>
@@ -284,7 +280,7 @@ export default function Navbar() {
 
               {isChef && !isAdmin && (
                 <>
-                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-300">
+                  <div className="admin-subnav-label mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em]">
                     <ChefHat size={14} />
                     Chef
                   </div>
