@@ -469,11 +469,38 @@ export default function MacroTrack() {
         </section>
 
         <section className="mb-7 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <Stat icon={<Scale size={20} />} title="BMI" value={bmi ?? "—"} label={bmiLabel} color="orange" />
-          <Stat icon={<Flame size={20} />} title="TARGET CALORIES" value={macroGoals.calories ? `${macroGoals.calories.toLocaleString()} kcal` : "—"} label={goalLabels[goal]} color="green" />
-          <Stat icon={<Dumbbell size={20} />} title="PROTEIN GOAL" value={macroGoals.protein ? `${macroGoals.protein} g` : "—"} label="Daily protein" color="green" />
-          <Stat icon={<Target size={20} />} title="MAINTENANCE" value={maintenanceCalories ? `${maintenanceCalories.toLocaleString()} kcal` : "—"} label="To maintain weight" color="blue" />
-        </section>
+  <Stat
+    icon={<Scale size={20} />}
+    title="BMI"
+    value={bmi ?? "—"}
+    label={bmiLabel}
+    color="orange"
+  />
+
+  <Stat
+    icon={<Flame size={20} />}
+    title="TARGET CALORIES"
+    value={macroGoals.calories ? `${macroGoals.calories.toLocaleString()} kcal` : "—"}
+    label={goalLabels[goal]}
+    color="green"
+  />
+
+  <Stat
+    icon={<Dumbbell size={20} />}
+    title="PROTEIN GOAL"
+    value={macroGoals.protein ? `${macroGoals.protein} g` : "—"}
+    label="Daily protein"
+    color="green"
+  />
+
+  <Stat
+    icon={<Target size={20} />}
+    title="MAINTENANCE"
+    value={maintenanceCalories ? `${maintenanceCalories.toLocaleString()} kcal` : "—"}
+    label="To maintain weight"
+    color="blue"
+  />
+</section>
 
         <section className="mb-7 rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
           <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -669,25 +696,48 @@ function Field({ label, children, className = "" }: { label: string; children: R
   );
 }
 
-function Input({ label, value, setValue, icon }: { label: string; value: string; setValue: (value: string) => void; icon: React.ReactNode }) {
+function Input({
+  label,
+  value,
+  setValue,
+  icon,
+}: {
+  label: string;
+  value: string;
+  setValue: (value: string) => void;
+  icon: React.ReactNode;
+}) {
   return (
     <Field label={label}>
       <div className="relative">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+        <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-500">
           {icon}
         </span>
+
         <input
           type="number"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className="input-ui pl-11"
+          className="input-ui input-ui-icon"
         />
       </div>
     </Field>
   );
 }
 
-function Stat({ title, value, label, icon, color }: { title: string; value: string; label: string; icon: React.ReactNode; color: "green" | "orange" | "blue" }) {
+function Stat({
+  title,
+  value,
+  label,
+  icon,
+  color,
+}: {
+  title: string;
+  value: string;
+  label: string;
+  icon: React.ReactNode;
+  color: "green" | "orange" | "blue";
+}) {
   const colorClass =
     color === "green"
       ? "bg-green-50 text-green-700"
@@ -695,23 +745,45 @@ function Stat({ title, value, label, icon, color }: { title: string; value: stri
       ? "bg-orange-50 text-orange-600"
       : "bg-blue-50 text-blue-600";
 
+  const labelColor =
+    color === "green"
+      ? "text-green-700"
+      : color === "orange"
+      ? "text-orange-600"
+      : "text-blue-600";
+
+  const description =
+    title === "BMI"
+      ? "Body Mass Index"
+      : title === "MAINTENANCE"
+      ? "Total daily energy expenditure"
+      : title === "PROTEIN GOAL"
+      ? "Grams of protein per day"
+      : "Daily caloric target";
+
   return (
-    <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
-      <div className={`mb-8 flex h-11 w-11 items-center justify-center rounded-full ${colorClass}`}>
-        {icon}
-      </div>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[32px] font-black tracking-[-0.06em] text-slate-950">
-            {value}
-          </p>
-          <p className={`mt-1 text-base font-black ${color === "orange" ? "text-orange-600" : color === "blue" ? "text-blue-600" : "text-green-700"}`}>
-            {label}
-          </p>
-          <p className="mt-1 text-sm font-medium text-slate-500">{title === "BMI" ? "Body Mass Index" : title === "MAINTENANCE" ? "Total daily energy expenditure" : title === "PROTEIN GOAL" ? "Grams of protein per day" : "Daily caloric target"}</p>
+    <div className="min-h-[190px] rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+      <div className="mb-10 flex items-start justify-between">
+        <div
+          className={`flex h-11 w-11 items-center justify-center rounded-full ${colorClass}`}
+        >
+          {icon}
         </div>
-        <p className="text-xs font-black text-slate-500">{title}</p>
+
+        <p className="max-w-[100px] text-right text-xs font-black uppercase leading-4 text-slate-500">
+          {title}
+        </p>
       </div>
+
+      <p className="whitespace-nowrap text-[32px] font-black leading-none tracking-[-0.06em] text-slate-950">
+        {value}
+      </p>
+
+      <p className={`mt-3 text-base font-black ${labelColor}`}>{label}</p>
+
+      <p className="mt-1 text-sm font-medium leading-5 text-slate-500">
+        {description}
+      </p>
     </div>
   );
 }
