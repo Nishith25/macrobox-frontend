@@ -188,10 +188,7 @@ export default function Signup() {
         {/* LEFT SIDE */}
         <section className="hidden px-10 py-12 lg:flex lg:flex-col lg:justify-center">
           <div className="max-w-3xl">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
-              <span className="text-lg">♨</span>
-              Join MacroBox
-            </div>
+            
 
             <h1 className="text-[60px] font-black leading-[1.02] tracking-[-0.07em] text-slate-950">
               Build your meals around
@@ -199,16 +196,9 @@ export default function Signup() {
               <span className="text-green-600">your daily macros.</span>
             </h1>
 
-            <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-slate-600">
-              Create your account, verify your phone number, complete your setup
-              and start ordering goal-based meals.
-            </p>
+            
 
-            <div className="mt-8 grid max-w-2xl gap-4">
-              <Feature text="Choose your goal and see meals built for fat loss, muscle gain, weight gain or clean eating." />
-              <Feature text="MacroTrack calculates calories, protein, carbs and fat based on your body details." />
-              <Feature text="After signup, your first screen opens personalized onboarding, not an empty homepage." />
-            </div>
+            
           </div>
         </section>
 
@@ -477,11 +467,3 @@ function PasswordInput({
   );
 }
 
-function Feature({ text }: { text: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
-      <CheckCircle2 size={20} className="shrink-0 text-green-600" />
-      <p className="font-bold leading-6 text-slate-700">{text}</p>
-    </div>
-  );
-}
