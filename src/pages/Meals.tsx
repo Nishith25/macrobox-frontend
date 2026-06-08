@@ -485,7 +485,7 @@ export default function Meals() {
         )}
 
         {cartCount > 0 && (
-          <div className="fixed bottom-6 left-1/2 z-50 w-[calc(100%-32px)] max-w-[440px] -translate-x-1/2 rounded-[24px] bg-slate-950 p-3 shadow-[0_24px_70px_rgba(15,23,42,0.45)]">
+          <div className="fixed left-1/2 z-[9999] w-[calc(100%-32px)] max-w-[440px] -translate-x-1/2 rounded-[24px] bg-slate-950 p-3 shadow-[0_24px_70px_rgba(15,23,42,0.45)] [bottom:calc(20px+env(safe-area-inset-bottom))]">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 pl-2 text-white">
                 <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-green-600">

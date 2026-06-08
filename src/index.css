@@ -78,3 +78,13 @@ a {
   background: #16a34a;
   box-shadow: 0 3px 12px rgba(22, 163, 74, 0.35);
 }
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
