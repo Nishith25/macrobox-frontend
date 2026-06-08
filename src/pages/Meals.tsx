@@ -1,7 +1,7 @@
 // frontend/src/pages/Meals.tsx (FRONTEND)
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -9,11 +9,13 @@ import toast from "react-hot-toast";
 import type { Meal } from "./Home";
 import {
   ArrowUpDown,
+  CheckCircle2,
   Filter,
   Flame,
   Leaf,
   Plus,
   RotateCcw,
+  ShoppingCart,
   SlidersHorizontal,
   TrendingUp,
 } from "lucide-react";
@@ -36,7 +38,11 @@ const goalLabels: Record<GoalType, string> = {
 
 const goalOptions: { key: GoalType; label: string; icon: React.ReactNode }[] = [
   { key: "fat_loss", label: "Fat Loss", icon: <Flame size={14} /> },
-  { key: "muscle_gain", label: "Muscle Gain", icon: <SlidersHorizontal size={14} /> },
+  {
+    key: "muscle_gain",
+    label: "Muscle Gain",
+    icon: <SlidersHorizontal size={14} />,
+  },
   { key: "weight_gain", label: "Weight Gain", icon: <TrendingUp size={14} /> },
   { key: "clean_eating", label: "Clean Eating", icon: <Leaf size={14} /> },
 ];
@@ -48,6 +54,7 @@ const isValidGoal = (value: string | null | undefined): value is GoalType =>
   value === "clean_eating";
 
 export default function Meals() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { cart, addToCart, increaseQty, decreaseQty } = useCart();
@@ -102,6 +109,16 @@ export default function Meals() {
     };
   }, []);
 
+  const cartCount = useMemo(
+    () => cart.reduce((sum, item) => sum + (item.qty || 0), 0),
+    [cart]
+  );
+
+  const cartTotal = useMemo(
+    () => cart.reduce((sum, item) => sum + (item.price || 0) * (item.qty || 0), 0),
+    [cart]
+  );
+
   const maxMealCalories = useMemo(() => {
     if (meals.length === 0) return 1000;
     const highest = Math.max(...meals.map((meal) => Number(meal.calories || 0)));
@@ -128,9 +145,12 @@ export default function Meals() {
     });
 
     return [...result].sort((a, b) => {
-      if (sortBy === "calories_low") return Number(a.calories || 0) - Number(b.calories || 0);
-      if (sortBy === "protein_high") return Number(b.protein || 0) - Number(a.protein || 0);
-      if (sortBy === "price_low") return Number(a.price || 0) - Number(b.price || 0);
+      if (sortBy === "calories_low")
+        return Number(a.calories || 0) - Number(b.calories || 0);
+      if (sortBy === "protein_high")
+        return Number(b.protein || 0) - Number(a.protein || 0);
+      if (sortBy === "price_low")
+        return Number(a.price || 0) - Number(b.price || 0);
       return 0;
     });
   }, [meals, goal, filter, maxCalories, sortBy]);
@@ -150,7 +170,24 @@ export default function Meals() {
       imageUrl: meal.imageUrl,
     });
 
-    toast.success("Added to cart");
+    toast.custom(
+      () => (
+        <div className="rounded-2xl border border-green-200 bg-green-50 px-5 py-4 shadow-xl">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 size={20} className="mt-0.5 text-green-700" />
+            <div>
+              <p className="font-bold text-green-800">
+                {meal.title} added to cart
+              </p>
+              <p className="text-sm text-green-700">
+                ₹{meal.price} · {meal.calories} kcal
+              </p>
+            </div>
+          </div>
+        </div>
+      ),
+      { duration: 1800 }
+    );
   };
 
   const handleIncrease = (meal: MealWithGoals) => {
@@ -184,18 +221,7 @@ export default function Meals() {
       : "Non-Veg Only";
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      {welcome && (
-        <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4">
-          <p className="text-base font-extrabold text-green-800">
-            Welcome offer — 20% off your first order
-          </p>
-          <p className="mt-1 text-sm text-green-700">
-            Your meals are personalized. Pick your first MacroBox meal now.
-          </p>
-        </div>
-      )}
-
+    <div className="mx-auto max-w-7xl px-4 pb-28 pt-10 sm:px-6">
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-4xl font-extrabold text-gray-900">
@@ -235,7 +261,7 @@ export default function Meals() {
             <button
               type="button"
               onClick={() => changeGoal("")}
-              className={`inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition ${
+              className={`rounded-full px-4 py-2 text-sm font-bold transition ${
                 goal === ""
                   ? "bg-gray-900 text-white"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -335,9 +361,6 @@ export default function Meals() {
           <p className="font-bold text-gray-800">
             No meals available for this filter.
           </p>
-          <p className="mt-2 text-sm text-gray-500">
-            Try changing the goal, Veg / Non-Veg filter, or increasing the calorie range.
-          </p>
         </div>
       ) : (
         <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-3">
@@ -414,23 +437,23 @@ export default function Meals() {
                     </div>
 
                     {qty > 0 ? (
-                      <div className="flex items-center gap-3">
+                      <div className="flex overflow-hidden rounded-2xl border border-green-600">
                         <button
                           type="button"
                           onClick={() => decreaseQty(meal._id)}
-                          className="h-10 w-10 rounded-2xl border text-lg font-bold hover:bg-gray-50"
+                          className="h-11 w-14 bg-white text-lg font-bold text-green-700 hover:bg-green-50"
                         >
                           −
                         </button>
 
-                        <span className="min-w-[20px] text-center font-extrabold">
+                        <span className="flex h-11 w-12 items-center justify-center bg-white font-extrabold text-green-700">
                           {qty}
                         </span>
 
                         <button
                           type="button"
                           onClick={() => handleIncrease(meal)}
-                          className="h-10 w-10 rounded-2xl bg-green-600 text-lg font-bold text-white hover:bg-green-700"
+                          className="h-11 w-14 bg-green-50 text-lg font-bold text-green-700 hover:bg-green-100"
                         >
                           +
                         </button>
@@ -450,6 +473,33 @@ export default function Meals() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {cartCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-3xl bg-gray-950 p-3 shadow-2xl">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 pl-2 text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-600">
+                <ShoppingCart size={18} />
+              </div>
+
+              <div>
+                <p className="text-sm font-extrabold">
+                  {cartCount} item{cartCount > 1 ? "s" : ""} in cart
+                </p>
+                <p className="text-xs text-gray-300">₹{cartTotal}</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/cart")}
+              className="rounded-2xl bg-green-600 px-5 py-3 text-sm font-extrabold text-white hover:bg-green-700"
+            >
+              View Cart
+            </button>
+          </div>
         </div>
       )}
     </div>
