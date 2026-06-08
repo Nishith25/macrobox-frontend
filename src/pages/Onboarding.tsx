@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
   ChevronRight,
   Dumbbell,
   Flame,
@@ -15,15 +17,11 @@ import {
   Search,
   Sparkles,
   Target,
-  Utensils,
   Weight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
-import MealCard from "../components/MealCard";
-import { useCart } from "../context/CartContext";
-import type { Meal } from "./Home";
 
 type GoalType = "fat_loss" | "muscle_gain" | "weight_gain" | "clean_eating";
 type Step = 2 | 3 | 4 | 5;
@@ -55,16 +53,27 @@ type Address = {
   mapsUrl: string;
 };
 
+type Meal = {
+  _id: string;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  calories: number;
+  protein: number;
+  carbs?: number;
+  fat?: number;
+  price: number;
+  foodType: "veg" | "nonveg";
+  goalTypes?: GoalType[];
+  isAvailable?: boolean;
+};
+
 let googleMapsScriptLoadingPromise: Promise<void> | null = null;
 
 const loadGoogleMapsScript = () => {
-  if ((window as any).google?.maps?.places) {
-    return Promise.resolve();
-  }
+  if ((window as any).google?.maps?.places) return Promise.resolve();
 
-  if (googleMapsScriptLoadingPromise) {
-    return googleMapsScriptLoadingPromise;
-  }
+  if (googleMapsScriptLoadingPromise) return googleMapsScriptLoadingPromise;
 
   googleMapsScriptLoadingPromise = new Promise((resolve, reject) => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -105,40 +114,45 @@ const goalOptions: {
   key: GoalType;
   title: string;
   subtitle: string;
+  description: string;
   icon: ReactNode;
 }[] = [
   {
     key: "fat_loss",
     title: "Fat Loss",
     subtitle: "Lean, high-protein meals",
-    icon: <Flame size={28} />,
+    description: "Meals that help you stay full while reducing calories.",
+    icon: <Flame size={26} />,
   },
   {
     key: "muscle_gain",
     title: "Muscle Gain",
     subtitle: "Protein-first meals",
-    icon: <Dumbbell size={28} />,
+    description: "High-protein meals to support strength and recovery.",
+    icon: <Dumbbell size={26} />,
   },
   {
     key: "weight_gain",
     title: "Weight Gain",
     subtitle: "Calorie-dense meals",
-    icon: <Weight size={28} />,
+    description: "Balanced higher-calorie meals to help you gain weight.",
+    icon: <Weight size={26} />,
   },
   {
     key: "clean_eating",
     title: "Clean Eating",
     subtitle: "Balanced daily meals",
-    icon: <HeartPulse size={28} />,
+    description: "Simple meals for everyday healthy eating.",
+    icon: <HeartPulse size={26} />,
   },
 ];
 
-const activityOptions: { value: Activity; label: string }[] = [
-  { value: "sedentary", label: "Sedentary" },
-  { value: "light", label: "Light Activity" },
-  { value: "moderate", label: "Moderate Activity" },
-  { value: "active", label: "Active" },
-  { value: "very_active", label: "Very Active" },
+const activityOptions: { value: Activity; label: string; helper: string }[] = [
+  { value: "sedentary", label: "Sedentary", helper: "Little movement" },
+  { value: "light", label: "Light Activity", helper: "1–3 days/week" },
+  { value: "moderate", label: "Moderate Activity", helper: "3–5 days/week" },
+  { value: "active", label: "Active", helper: "6 days/week" },
+  { value: "very_active", label: "Very Active", helper: "Athlete level" },
 ];
 
 const goalLabelMap: Record<GoalType, string> = {
@@ -148,6 +162,26 @@ const goalLabelMap: Record<GoalType, string> = {
   clean_eating: "Clean Eating",
 };
 
+const makeMapsUrl = (lat: number, lng: number) =>
+  `https://www.google.com/maps?q=${lat},${lng}`;
+
+const getAddressComponent = (components: any[] | undefined, type: string) => {
+  if (!components) return "";
+  const found = components.find((component) => component.types.includes(type));
+  return found?.long_name || "";
+};
+
+const getGoogleCity = (components: any[] | undefined) =>
+  getAddressComponent(components, "locality") ||
+  getAddressComponent(components, "administrative_area_level_3") ||
+  getAddressComponent(components, "administrative_area_level_2");
+
+const getGoogleArea = (components: any[] | undefined) =>
+  getAddressComponent(components, "sublocality_level_1") ||
+  getAddressComponent(components, "sublocality") ||
+  getAddressComponent(components, "neighborhood") ||
+  getAddressComponent(components, "route");
+
 export default function Onboarding() {
   const navigate = useNavigate();
 
@@ -156,11 +190,8 @@ export default function Onboarding() {
   const updateUser = auth.updateUser || (() => {});
   const refreshStoredUser = auth.refreshStoredUser || (() => {});
 
-  const { cart, addToCart, increaseQty, decreaseQty } = useCart();
-
   const addressInputRef = useRef<HTMLInputElement | null>(null);
   const autocompleteRef = useRef<any>(null);
-
   const mapRef = useRef<HTMLDivElement | null>(null);
   const googleMapRef = useRef<any>(null);
   const googleMarkerRef = useRef<any>(null);
@@ -179,7 +210,8 @@ export default function Onboarding() {
     height: user?.bodyMetrics?.height ? String(user.bodyMetrics.height) : "",
     weight: user?.bodyMetrics?.weight ? String(user.bodyMetrics.weight) : "",
     age: user?.bodyMetrics?.age ? String(user.bodyMetrics.age) : "",
-    activity: (user?.bodyMetrics?.activity || "light") as Activity,
+    gender: user?.bodyMetrics?.gender || "male",
+    activity: (user?.bodyMetrics?.activity || "moderate") as Activity,
   });
 
   const [addressSearch, setAddressSearch] = useState("");
@@ -211,7 +243,24 @@ export default function Onboarding() {
   const progressPercent = ((step - 1) / 5) * 100;
 
   const inputClass =
-    "h-12 w-full rounded-xl border px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500";
+    "h-13 w-full rounded-[18px] border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100";
+
+  const selectedGoalDetails = useMemo(
+    () => goalOptions.find((item) => item.key === selectedGoal),
+    [selectedGoal]
+  );
+
+  const recommendedMeals = useMemo(() => {
+    const available = meals.filter((meal) => meal.isAvailable !== false);
+
+    if (!selectedGoal) return available.slice(0, 6);
+
+    const matched = available.filter((meal) =>
+      meal.goalTypes?.includes(selectedGoal)
+    );
+
+    return (matched.length ? matched : available).slice(0, 6);
+  }, [meals, selectedGoal]);
 
   useEffect(() => {
     if (!user || initialized) return;
@@ -221,9 +270,7 @@ export default function Onboarding() {
       return;
     }
 
-    if (user?.onboarding?.goal) {
-      setSelectedGoal(user.onboarding.goal);
-    }
+    if (user?.onboarding?.goal) setSelectedGoal(user.onboarding.goal);
 
     const currentStep = Number(user?.onboarding?.currentStep || 2);
 
@@ -239,20 +286,16 @@ export default function Onboarding() {
 
     let cancelled = false;
 
-    const initGoogleAutocomplete = async () => {
+    const setupMaps = async () => {
       try {
         setLoadingMaps(true);
         await loadGoogleMapsScript();
 
-        if (cancelled) return;
+        if (cancelled || !addressInputRef.current) return;
 
-        const googleObj = (window as any).google;
+        const google = (window as any).google;
 
-        if (!googleObj?.maps?.places || !addressInputRef.current) {
-          return;
-        }
-
-        autocompleteRef.current = new googleObj.maps.places.Autocomplete(
+        autocompleteRef.current = new google.maps.places.Autocomplete(
           addressInputRef.current,
           {
             componentRestrictions: { country: "in" },
@@ -262,1203 +305,1065 @@ export default function Onboarding() {
               "address_components",
               "name",
             ],
+            types: ["geocode", "establishment"],
           }
         );
 
         autocompleteRef.current.addListener("place_changed", () => {
           const place = autocompleteRef.current.getPlace();
-          applyGooglePlace(place);
+          const lat = place.geometry?.location?.lat();
+          const lng = place.geometry?.location?.lng();
+
+          if (lat == null || lng == null) {
+            setLocationMsg("Please select a valid address from suggestions.");
+            return;
+          }
+
+          applyLocationToAddress({
+            lat,
+            lng,
+            formattedAddress: place.formatted_address || place.name || "",
+            components: place.address_components,
+            mode: "manual",
+          });
         });
-      } catch (err) {
-        console.error("Google Maps load error:", err);
-        toast.error("Google Maps failed to load. Check API key.");
+      } catch {
+        setLocationMsg("Google address search is not available right now.");
       } finally {
         setLoadingMaps(false);
       }
     };
 
-    initGoogleAutocomplete();
+    setupMaps();
 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== 5) return;
+
+    const fetchMeals = async () => {
+      try {
+        setLoadingMeals(true);
+
+        const res = await api.get("/meals", {
+          params: { all: "true" },
+        });
+
+        const data = Array.isArray(res.data) ? res.data : res.data?.meals || [];
+        setMeals(data);
+      } catch {
+        setMeals([]);
+      } finally {
+        setLoadingMeals(false);
+      }
+    };
+
+    fetchMeals();
   }, [step]);
 
   useEffect(() => {
     if (step !== 4) return;
     if (address.lat == null || address.lng == null) return;
+    if (!(window as any).google?.maps || !mapRef.current) return;
 
-    syncGooglePinMap(address.lat, address.lng);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const google = (window as any).google;
+    const position = { lat: Number(address.lat), lng: Number(address.lng) };
+
+    if (!googleMapRef.current) {
+      googleMapRef.current = new google.maps.Map(mapRef.current, {
+        center: position,
+        zoom: 17,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        zoomControl: true,
+      });
+
+      googleMapRef.current.addListener("click", async (event: any) => {
+        const clickedLat = event.latLng?.lat();
+        const clickedLng = event.latLng?.lng();
+
+        if (clickedLat == null || clickedLng == null) return;
+
+        await pinLocationOnMap(clickedLat, clickedLng);
+      });
+    }
+
+    googleMapRef.current.setCenter(position);
+
+    if (!googleMarkerRef.current) {
+      googleMarkerRef.current = new google.maps.Marker({
+        position,
+        map: googleMapRef.current,
+        draggable: true,
+        title: "Delivery Location",
+      });
+
+      googleMarkerRef.current.addListener("dragend", async () => {
+        const markerPosition = googleMarkerRef.current?.getPosition();
+        if (!markerPosition) return;
+
+        await pinLocationOnMap(markerPosition.lat(), markerPosition.lng());
+      });
+    } else {
+      googleMarkerRef.current.setPosition(position);
+    }
   }, [step, address.lat, address.lng]);
 
-  useEffect(() => {
-    if (step === 5) {
-      loadRecommendedMeals();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
-  const liveTargets = useMemo(() => {
-    const height = Number(body.height);
-    const weight = Number(body.weight);
-    const age = Number(body.age);
-
-    if (!height || !weight || !age || !selectedGoal) {
-      return {
-        calories: null,
-        protein: null,
-        carbs: null,
-        fat: null,
-      };
-    }
-
-    const multiplierMap: Record<Activity, number> = {
-      sedentary: 1.2,
-      light: 1.375,
-      moderate: 1.55,
-      active: 1.725,
-      very_active: 1.9,
-    };
-
-    const bmr = 10 * weight + 6.25 * height - 5 * age + 5;
-    let calories = Math.round(bmr * multiplierMap[body.activity]);
-
-    if (selectedGoal === "fat_loss") calories -= 400;
-    if (selectedGoal === "muscle_gain") calories += 250;
-    if (selectedGoal === "weight_gain") calories += 500;
-
-    calories = Math.max(calories, 1200);
-
-    let protein = Math.round(weight * 1.8);
-
-    if (selectedGoal === "fat_loss") protein = Math.round(weight * 2);
-    if (selectedGoal === "muscle_gain") protein = Math.round(weight * 2.1);
-    if (selectedGoal === "weight_gain") protein = Math.round(weight * 1.7);
-
-    const fat = Math.round((calories * 0.25) / 9);
-    const carbs = Math.max(
-      Math.round((calories - protein * 4 - fat * 9) / 4),
-      50
-    );
-
-    return {
-      calories,
-      protein,
-      carbs,
-      fat,
-    };
-  }, [body, selectedGoal]);
-
-  const normalizePincode = (value: string) =>
-    String(value || "").replace(/\D/g, "").slice(0, 6);
-
-  const extractComponent = (components: any[], type: string) => {
-    const found = components?.find((c) => c.types?.includes(type));
-    return found?.long_name || "";
-  };
-
-  const checkPincode = async (pin?: string) => {
-    const pincode = normalizePincode(pin || address.pincode);
-
-    if (pincode.length !== 6) {
-      setServiceable(null);
-      setLocationMsg("");
-      return false;
-    }
-
+  const patchUserLocally = (data: any) => {
     try {
-      const res = await api.get(`/delivery-pincodes/check/${pincode}`);
-
-      const ok = Boolean(res.data?.serviceable);
-
-      setServiceable(ok);
-      setLocationMsg(
-        res.data?.message ||
-          (ok
-            ? "Great! MacroBox delivers to this area."
-            : "Sorry, we don’t deliver to this address yet.")
-      );
-
-      return ok;
-    } catch (err: any) {
-      setServiceable(false);
-      setLocationMsg(
-        err?.response?.data?.message ||
-          "Sorry, we don’t deliver to this address yet. We will expand soon."
-      );
-
-      return false;
-    }
-  };
-
-  const reverseGeocodeAndUpdateAddress = async (lat: number, lng: number) => {
-    try {
-      await loadGoogleMapsScript();
-
-      const googleObj = (window as any).google;
-
-      if (!googleObj?.maps?.Geocoder) {
-        toast.error("Google Maps is still loading.");
-        return;
-      }
-
-      const geocoder = new googleObj.maps.Geocoder();
-
-      geocoder.geocode(
-        {
-          location: { lat, lng },
+      const nextUser = {
+        ...user,
+        ...data,
+        onboarding: {
+          ...user?.onboarding,
+          ...data?.onboarding,
         },
-        async (results: any[] | null, status: string) => {
-          if (status !== "OK" || !results?.[0]) {
-            setAddress((prev) => ({
-              ...prev,
-              lat,
-              lng,
-              locationMode: "manual",
-              locationText: `${lat}, ${lng}`,
-              formattedAddress: `${lat}, ${lng}`,
-              mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
-            }));
+        bodyMetrics: {
+          ...user?.bodyMetrics,
+          ...data?.bodyMetrics,
+        },
+      };
 
-            toast.error("Could not fetch address for this pin.");
-            return;
-          }
-
-          const place = results[0];
-          const components = place.address_components || [];
-
-          const pincode = extractComponent(components, "postal_code");
-          const city =
-            extractComponent(components, "locality") ||
-            extractComponent(components, "administrative_area_level_3") ||
-            extractComponent(components, "sublocality");
-          const state = extractComponent(
-            components,
-            "administrative_area_level_1"
-          );
-
-          const area =
-            extractComponent(components, "sublocality_level_1") ||
-            extractComponent(components, "sublocality") ||
-            extractComponent(components, "neighborhood");
-
-          const formatted = place.formatted_address || `${lat}, ${lng}`;
-
-          setAddressSearch(formatted);
-
-          setAddress((prev) => ({
-            ...prev,
-            area: area || prev.area,
-            city: city || prev.city,
-            state: state || prev.state,
-            pincode: pincode || prev.pincode,
-            lat,
-            lng,
-            locationMode: "manual",
-            locationText: formatted,
-            formattedAddress: formatted,
-            mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
-          }));
-
-          if (pincode) {
-            await checkPincode(pincode);
-          } else {
-            setServiceable(null);
-            setLocationMsg("Could not detect pincode. Please enter it manually.");
-          }
-        }
-      );
-    } catch (err) {
-      console.error("Reverse geocode error:", err);
-      toast.error("Failed to update address from pin.");
+      updateUser(nextUser);
+      refreshStoredUser();
+    } catch {
+      // ignore local user refresh failures
     }
   };
 
-  const syncGooglePinMap = async (lat: number, lng: number) => {
+  const saveOnboardingProgress = async (payload: any) => {
     try {
-      await loadGoogleMapsScript();
-
-      const googleObj = (window as any).google;
-
-      if (!googleObj?.maps || !mapRef.current) {
-        return;
-      }
-
-      const center = { lat, lng };
-
-      if (!googleMapRef.current) {
-        googleMapRef.current = new googleObj.maps.Map(mapRef.current, {
-          center,
-          zoom: 17,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: true,
-          zoomControl: true,
-          clickableIcons: false,
-          gestureHandling: "greedy",
-        });
-
-        googleMarkerRef.current = new googleObj.maps.Marker({
-          position: center,
-          map: googleMapRef.current,
-          draggable: true,
-          title: "Move pin to exact delivery location",
-        });
-
-        googleMapRef.current.addListener("click", async (event: any) => {
-          const clickedLat = event.latLng.lat();
-          const clickedLng = event.latLng.lng();
-
-          googleMarkerRef.current.setPosition({
-            lat: clickedLat,
-            lng: clickedLng,
-          });
-
-          await reverseGeocodeAndUpdateAddress(clickedLat, clickedLng);
-        });
-
-        googleMarkerRef.current.addListener("dragend", async (event: any) => {
-          const draggedLat = event.latLng.lat();
-          const draggedLng = event.latLng.lng();
-
-          await reverseGeocodeAndUpdateAddress(draggedLat, draggedLng);
-        });
-
-        return;
-      }
-
-      googleMapRef.current.setCenter(center);
-
-      if (googleMarkerRef.current) {
-        googleMarkerRef.current.setPosition(center);
-      }
-    } catch (err) {
-      console.error("Google map init error:", err);
-      toast.error("Failed to load Google map.");
+      await api.post("/user/onboarding", payload);
+      patchUserLocally(payload);
+    } catch {
+      patchUserLocally(payload);
     }
   };
 
-  const applyGooglePlace = async (place: any) => {
-    if (!place) return;
-
-    const lat = place.geometry?.location?.lat?.();
-    const lng = place.geometry?.location?.lng?.();
-
-    const components = place.address_components || [];
-
-    const pincode = extractComponent(components, "postal_code");
-    const city =
-      extractComponent(components, "locality") ||
-      extractComponent(components, "administrative_area_level_3") ||
-      extractComponent(components, "sublocality");
-    const state = extractComponent(components, "administrative_area_level_1");
-
-    const area =
-      extractComponent(components, "sublocality_level_1") ||
-      extractComponent(components, "sublocality") ||
-      extractComponent(components, "neighborhood");
-
-    const formatted = place.formatted_address || place.name || addressSearch;
-
-    setAddressSearch(formatted);
+  const applyLocationToAddress = ({
+    lat,
+    lng,
+    formattedAddress,
+    components,
+    mode,
+  }: {
+    lat: number;
+    lng: number;
+    formattedAddress: string;
+    components?: any[];
+    mode: "manual" | "current";
+  }) => {
+    const city = getGoogleCity(components);
+    const area = getGoogleArea(components);
+    const state = getAddressComponent(components, "administrative_area_level_1");
+    const pincode = getAddressComponent(components, "postal_code");
 
     setAddress((prev) => ({
       ...prev,
+      locationMode: mode,
+      lat,
+      lng,
+      mapsUrl: makeMapsUrl(lat, lng),
+      locationText: formattedAddress || `${lat}, ${lng}`,
+      formattedAddress: formattedAddress || `${lat}, ${lng}`,
       area: area || prev.area,
       city: city || prev.city,
       state: state || prev.state,
       pincode: pincode || prev.pincode,
-      formattedAddress: formatted,
-      locationText: formatted,
-      lat: Number.isFinite(lat) ? lat : prev.lat,
-      lng: Number.isFinite(lng) ? lng : prev.lng,
-      mapsUrl:
-        Number.isFinite(lat) && Number.isFinite(lng)
-          ? `https://www.google.com/maps?q=${lat},${lng}`
-          : prev.mapsUrl,
-      locationMode: "manual",
     }));
 
-    if (pincode) {
-      await checkPincode(pincode);
-    }
+    setAddressSearch(formattedAddress || `${lat}, ${lng}`);
+    setLocationMsg("");
+    setServiceable(pincode ? true : null);
+  };
 
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      setTimeout(() => {
-        syncGooglePinMap(lat, lng);
-      }, 200);
-    }
+  const reverseGeocode = async (lat: number, lng: number) => {
+    const google = (window as any).google;
+
+    if (!google?.maps) return null;
+
+    return new Promise<any | null>((resolve) => {
+      const geocoder = new google.maps.Geocoder();
+
+      geocoder.geocode(
+        { location: { lat, lng } },
+        (results: any[] | null, status: string) => {
+          if (status !== "OK" || !results?.length) {
+            resolve(null);
+            return;
+          }
+
+          resolve(results[0]);
+        }
+      );
+    });
+  };
+
+  const pinLocationOnMap = async (lat: number, lng: number) => {
+    const result = await reverseGeocode(lat, lng);
+
+    applyLocationToAddress({
+      lat,
+      lng,
+      formattedAddress: result?.formatted_address || `${lat}, ${lng}`,
+      components: result?.address_components,
+      mode: "manual",
+    });
   };
 
   const geocodeTypedAddress = async () => {
     if (!addressSearch.trim()) {
-      toast.error("Please type your location.");
+      setLocationMsg("Please enter an address or landmark.");
+      return;
+    }
+
+    const google = (window as any).google;
+
+    if (!google?.maps) {
+      setLocationMsg("Google Maps is still loading. Please try again.");
       return;
     }
 
     try {
-      setSaving(true);
       setLoadingMaps(true);
 
-      await loadGoogleMapsScript();
-
-      const googleObj = (window as any).google;
-
-      if (!googleObj?.maps?.Geocoder) {
-        toast.error("Google Maps search is still loading. Try again.");
-        return;
-      }
-
-      const geocoder = new googleObj.maps.Geocoder();
+      const geocoder = new google.maps.Geocoder();
 
       geocoder.geocode(
         {
-          address: addressSearch,
+          address: addressSearch.trim(),
           componentRestrictions: { country: "IN" },
         },
         (results: any[] | null, status: string) => {
-          setSaving(false);
           setLoadingMaps(false);
 
-          if (status !== "OK" || !results?.[0]) {
-            toast.error("Could not find this address.");
+          if (status !== "OK" || !results?.length) {
+            setLocationMsg("No address found. Try a nearby landmark.");
             return;
           }
 
-          applyGooglePlace(results[0]);
+          const result = results[0];
+          const lat = result.geometry.location.lat();
+          const lng = result.geometry.location.lng();
+
+          applyLocationToAddress({
+            lat,
+            lng,
+            formattedAddress: result.formatted_address,
+            components: result.address_components,
+            mode: "manual",
+          });
         }
       );
-    } catch (err) {
-      setSaving(false);
+    } catch {
       setLoadingMaps(false);
-      console.error("Geocode error:", err);
-      toast.error("Failed to search location.");
+      setLocationMsg("Unable to search address. Please try again.");
     }
   };
 
-  const useCurrentLocation = () => {
+  const useCurrentLocation = async () => {
+    setLocationMsg("");
+
     if (!navigator.geolocation) {
-      toast.error("Location is not supported on this device.");
+      setLocationMsg("Location is not supported on this device.");
+      return;
+    }
+
+    try {
+      await loadGoogleMapsScript();
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = Number(position.coords.latitude);
+          const lng = Number(position.coords.longitude);
+          const result = await reverseGeocode(lat, lng);
+
+          applyLocationToAddress({
+            lat,
+            lng,
+            formattedAddress: result?.formatted_address || `${lat}, ${lng}`,
+            components: result?.address_components,
+            mode: "current",
+          });
+        },
+        () => {
+          setLocationMsg(
+            "Location permission denied. Search your address manually."
+          );
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+        }
+      );
+    } catch {
+      setLocationMsg("Google Maps failed to load. Search manually.");
+    }
+  };
+
+  const goBack = () => {
+    if (step === 2) return;
+    setStep((prev) => (prev - 1) as Step);
+  };
+
+  const handleGoalNext = async (goal: GoalType) => {
+    setSelectedGoal(goal);
+    setSaving(true);
+
+    try {
+      await saveOnboardingProgress({
+        onboarding: {
+          goal,
+          currentStep: 3,
+          completed: false,
+        },
+      });
+
+      setStep(3);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBodyNext = async () => {
+    const height = Number(body.height);
+    const weight = Number(body.weight);
+    const age = Number(body.age);
+
+    if (!height || !weight || !age) {
+      toast.error("Please enter height, weight and age.");
       return;
     }
 
     setSaving(true);
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-
-        setAddress((prev) => ({
-          ...prev,
-          lat,
-          lng,
-          locationMode: "current",
-          locationText: `${lat}, ${lng}`,
-          formattedAddress: `${lat}, ${lng}`,
-          mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
-        }));
-
-        await reverseGeocodeAndUpdateAddress(lat, lng);
-
-        setSaving(false);
-      },
-      () => {
-        setSaving(false);
-        toast.error("Unable to get your current location.");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-      }
-    );
-  };
-
-  const goBack = () => {
-    if (step === 2) {
-      navigate("/signup");
-      return;
-    }
-
-    setStep((prev) => Math.max(2, prev - 1) as Step);
-  };
-
-  const saveGoal = async (goal: GoalType) => {
-    setSelectedGoal(goal);
-    setStep(3);
-
     try {
-      setSaving(true);
-
-      const res = await api.patch("/onboarding/goal", {
-        goal,
-        currentStep: 3,
+      await api.post("/user/body-metrics", {
+        height,
+        weight,
+        age,
+        gender: body.gender,
+        activity: body.activity,
+        goal:
+          selectedGoal === "clean_eating"
+            ? "maintenance"
+            : selectedGoal || "fat_loss",
+        locked: true,
       });
 
-      updateUser({
-        onboarding: res.data?.onboarding || {
-          ...(user?.onboarding || {}),
-          goal,
-          currentStep: 3,
-          completed: false,
-        },
-      });
-    } catch (err: any) {
-      console.error("Goal save failed:", err);
-
-      updateUser({
+      await saveOnboardingProgress({
         onboarding: {
-          ...(user?.onboarding || {}),
-          goal,
-          currentStep: 3,
-          completed: false,
-        },
-      });
-
-      toast.error(
-        err?.response?.data?.message || "Goal saved locally. Continue setup."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveBodyDetails = async (skip = false) => {
-    try {
-      setSaving(true);
-
-      if (!skip) {
-        if (!body.height || !body.weight || !body.age || !body.activity) {
-          toast.error("Please fill all body details or skip for now.");
-          return;
-        }
-      }
-
-      const payload = skip
-        ? {
-            height: null,
-            weight: null,
-            age: null,
-            activity: "",
-          }
-        : {
-            height: Number(body.height),
-            weight: Number(body.weight),
-            age: Number(body.age),
-            activity: body.activity,
-          };
-
-      const res = await api.patch("/onboarding/body-details", payload);
-
-      updateUser({
-        bodyMetrics: res.data?.bodyMetrics,
-        onboarding: res.data?.onboarding || {
-          ...(user?.onboarding || {}),
           goal: selectedGoal,
           currentStep: 4,
           completed: false,
         },
+        bodyMetrics: {
+          height,
+          weight,
+          age,
+          gender: body.gender,
+          activity: body.activity,
+        },
       });
 
       setStep(4);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to save body details");
+    } catch {
+      toast.error("Failed to save body details.");
     } finally {
       setSaving(false);
     }
   };
 
-  const saveAddress = async () => {
+  const handleAddressNext = async () => {
+    if (
+      !address.fullName ||
+      !address.phone ||
+      !address.flatNo ||
+      !address.buildingName ||
+      !address.city ||
+      !address.state ||
+      !address.pincode
+    ) {
+      toast.error("Please complete your delivery address.");
+      return;
+    }
+
+    if (address.lat == null || address.lng == null) {
+      toast.error("Please select your exact delivery location.");
+      return;
+    }
+
+    setSaving(true);
+
     try {
-      if (!address.fullName.trim()) {
-        toast.error("Please enter full name.");
-        return;
-      }
-
-      if (!address.phone.trim()) {
-        toast.error("Please enter phone number.");
-        return;
-      }
-
-      if (!address.flatNo.trim()) {
-        toast.error("Please enter flat / house number.");
-        return;
-      }
-
-      if (!address.buildingName.trim()) {
-        toast.error("Please enter building / apartment.");
-        return;
-      }
-
-      if (!address.city.trim() || !address.state.trim()) {
-        toast.error("Please enter city and state.");
-        return;
-      }
-
-      const cleanPincode = normalizePincode(address.pincode);
-
-      if (cleanPincode.length !== 6) {
-        toast.error("Please enter valid 6-digit pincode.");
-        return;
-      }
-
-      const isServiceable = await checkPincode(cleanPincode);
-
-      if (!isServiceable) {
-        toast.error(
-          "Sorry, we don’t deliver to this address yet. We will expand to your area soon."
-        );
-        return;
-      }
-
-      setSaving(true);
-
-      const finalAddress = {
+      await api.post("/user/addresses", {
         ...address,
-        pincode: cleanPincode,
-      };
-
-      const res = await api.patch("/onboarding/address", {
-        address: finalAddress,
+        mapsUrl: address.mapsUrl || makeMapsUrl(address.lat, address.lng),
       });
 
-      updateUser({
-        onboarding: res.data?.onboarding || {
-          ...(user?.onboarding || {}),
+      await saveOnboardingProgress({
+        onboarding: {
           goal: selectedGoal,
           currentStep: 5,
           completed: false,
         },
       });
 
-      if (res.data?.serviceable === false) {
-        setServiceable(false);
-        setLocationMsg(
-          res.data?.message ||
-            "Sorry, we don’t deliver to this address yet. We will expand soon."
-        );
-        toast.error(
-          res.data?.message ||
-            "Sorry, we don’t deliver to this address yet. We will expand soon."
-        );
-        return;
-      }
-
-      setServiceable(true);
-      toast.success("Address saved successfully.");
-
-      await loadRecommendedMeals();
       setStep(5);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to save address.");
+    } catch {
+      toast.error("Failed to save address.");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const loadRecommendedMeals = async () => {
-    if (!selectedGoal) return;
-
-    try {
-      setLoadingMeals(true);
-
-      const res = await api.get<Meal[]>(`/meals/recommended/${selectedGoal}`);
-      setMeals(res.data || []);
-    } catch {
-      setMeals([]);
-      toast.error("Failed to load recommended meals.");
-    } finally {
-      setLoadingMeals(false);
     }
   };
 
   const completeOnboarding = async () => {
+    if (!selectedGoal) {
+      toast.error("Please choose your goal.");
+      setStep(2);
+      return;
+    }
+
+    setSaving(true);
+
     try {
-      setSaving(true);
-
-      const res = await api.patch("/onboarding/complete");
-
-      if (res.data?.user) {
-        refreshStoredUser(res.data.user);
-      } else {
-        updateUser({
-          onboarding: res.data?.onboarding || {
-            ...(user?.onboarding || {}),
-            goal: selectedGoal,
-            currentStep: 5,
-            completed: true,
-            completedAt: new Date().toISOString(),
-          },
-        });
-      }
-
-      navigate(`/meals?goal=${selectedGoal || ""}&welcome=true`, {
-        replace: true,
+      await saveOnboardingProgress({
+        onboarding: {
+          goal: selectedGoal,
+          currentStep: 5,
+          completed: true,
+        },
       });
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to finish setup.");
+
+      toast.success("MacroBox setup completed!");
+      navigate(`/meals?goal=${selectedGoal}&welcome=true`, { replace: true });
+    } catch {
+      toast.error("Failed to complete setup.");
     } finally {
       setSaving(false);
     }
   };
 
-  const getCartQty = (mealId: string) => {
-    return cart.find((item) => item._id === mealId)?.qty || 0;
-  };
-
-  const handleAddToCart = (meal: Meal) => {
-    addToCart({
-      _id: meal._id,
-      title: meal.title,
-      price: meal.price,
-      protein: meal.protein,
-      calories: meal.calories,
-      carbs: meal.carbs || 0,
-      fat: meal.fat || 0,
-      imageUrl: meal.imageUrl,
-    });
-
-    toast.success("Added to cart");
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 via-white to-white px-4 py-6">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 rounded-3xl border bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-4">
+    <main className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 px-4 py-6 sm:px-6">
+      <div className="mx-auto max-w-[1240px]">
+        {/* TOP PROGRESS */}
+        <div className="mb-7 rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.06)] backdrop-blur">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <button
               type="button"
               onClick={goBack}
-              className="flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+              disabled={step === 2}
+              className="inline-flex h-12 w-fit items-center gap-2 rounded-[16px] border border-slate-200 px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ArrowLeft size={18} />
               Back
             </button>
 
             <div className="text-center">
-              <p className="font-extrabold text-green-700">MacroBox Setup</p>
-              <p className="text-sm text-gray-500">Step {step} of 5</p>
+              <p className="text-lg font-black text-green-700">
+                MacroBox Setup
+              </p>
+              <p className="mt-1 text-sm font-bold text-slate-400">
+                Step {step} of 5
+              </p>
             </div>
 
-            <div className="w-[92px]" />
+            <div className="hidden w-[110px] md:block" />
           </div>
 
-          <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100">
             <div
-              className="h-full rounded-full bg-green-600 transition-all"
+              className="h-full rounded-full bg-green-600 transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
 
-        <div className="rounded-3xl border bg-white p-6 shadow-xl md:p-10">
+        <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.08)] sm:p-8 lg:p-10">
           {step === 2 && (
             <div>
-              <div className="text-center">
-                <p className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
-                  <Target size={16} />
-                  Pick your goal
-                </p>
+              <StepHeader
+                badgeIcon={<Target size={15} />}
+                badge="Pick your goal"
+                title="What are you eating for?"
+                subtitle="This one choice filters your meals, macro targets, and meal suggestions."
+                note="You can also change your goal later from MacroTrack or Settings."
+              />
 
-                <h1 className="text-4xl font-black text-gray-950 md:text-5xl">
-                  What are you eating for?
-                </h1>
+              <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                {goalOptions.map((goal) => {
+                  const active = selectedGoal === goal.key;
 
-                <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-                  This one choice filters your meals, macro targets, and meal
-                  suggestions.
-                </p>
-              </div>
+                  return (
+                    <button
+                      key={goal.key}
+                      type="button"
+                      onClick={() => handleGoalNext(goal.key)}
+                      disabled={saving}
+                      className={`group rounded-[26px] border p-6 text-left transition hover:-translate-y-1 hover:shadow-xl disabled:opacity-60 ${
+                        active
+                          ? "border-green-500 bg-green-50 shadow-[0_16px_40px_rgba(22,163,74,0.14)]"
+                          : "border-slate-200 bg-white hover:border-green-300"
+                      }`}
+                    >
+                      <div className="mb-10 flex items-start justify-between">
+                        <span
+                          className={`flex h-16 w-16 items-center justify-center rounded-[22px] ${
+                            active
+                              ? "bg-green-600 text-white"
+                              : "bg-green-50 text-green-700"
+                          }`}
+                        >
+                          {goal.icon}
+                        </span>
 
-              <div className="mt-10 grid gap-5 md:grid-cols-4">
-                {goalOptions.map((goal) => (
-                  <button
-                    key={goal.key}
-                    type="button"
-                    disabled={saving}
-                    onClick={() => saveGoal(goal.key)}
-                    className={`group rounded-3xl border p-6 text-left transition hover:-translate-y-1 hover:border-green-400 hover:bg-green-50 hover:shadow-xl disabled:opacity-70 ${
-                      selectedGoal === goal.key
-                        ? "border-green-400 bg-green-50 shadow-xl"
-                        : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-100 text-green-700">
-                      {goal.icon}
-                    </div>
+                        {active && (
+                          <CheckCircle2
+                            size={24}
+                            className="text-green-600"
+                          />
+                        )}
+                      </div>
 
-                    <h3 className="text-2xl font-extrabold text-gray-900">
-                      {goal.title}
-                    </h3>
+                      <h3 className="text-2xl font-black text-slate-950">
+                        {goal.title}
+                      </h3>
 
-                    <p className="mt-3 min-h-[52px] text-base leading-7 text-gray-500">
-                      {goal.subtitle}
-                    </p>
+                      <p className="mt-2 text-base font-bold text-slate-500">
+                        {goal.subtitle}
+                      </p>
 
-                    <div className="mt-6 flex items-center justify-between font-bold text-green-700">
-                      <span>
-                        {saving && selectedGoal === goal.key
-                          ? "Saving..."
-                          : "Choose"}
-                      </span>
-                      <ChevronRight size={20} />
-                    </div>
-                  </button>
-                ))}
+                      <p className="mt-4 min-h-[48px] text-sm font-medium leading-6 text-slate-500">
+                        {goal.description}
+                      </p>
+
+                      <div className="mt-8 flex items-center justify-between text-sm font-black text-green-700">
+                        Choose
+                        <ChevronRight size={18} />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {step === 3 && (
-            <div className="mx-auto max-w-3xl">
-              <div className="text-center">
-                <p className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
-                  <Sparkles size={16} />
-                  Body details
-                </p>
+            <div>
+              <StepHeader
+                badgeIcon={<Sparkles size={15} />}
+                badge="Body details"
+                title="Let’s calculate your daily targets"
+                subtitle="These details help MacroBox recommend meals that fit your goal."
+                note={
+                  selectedGoalDetails
+                    ? `Current goal: ${selectedGoalDetails.title}. You can change it later.`
+                    : "You can update these values later from MacroTrack."
+                }
+              />
 
-                <h1 className="text-4xl font-black text-gray-950">
-                  Let’s calculate your daily target
-                </h1>
+              <div className="mx-auto mt-10 max-w-4xl">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <LabeledInput
+                    label="Height (cm)"
+                    value={body.height}
+                    onChange={(value) =>
+                      setBody((prev) => ({ ...prev, height: value }))
+                    }
+                    placeholder="e.g. 175"
+                  />
 
-                <p className="mt-4 text-gray-500">
-                  Your selected goal:{" "}
-                  <span className="font-bold text-green-700">
-                    {selectedGoal ? goalLabelMap[selectedGoal] : "Not selected"}
-                  </span>
-                </p>
-              </div>
+                  <LabeledInput
+                    label="Weight (kg)"
+                    value={body.weight}
+                    onChange={(value) =>
+                      setBody((prev) => ({ ...prev, weight: value }))
+                    }
+                    placeholder="e.g. 70"
+                  />
 
-              <div className="mt-8 grid gap-4 md:grid-cols-2">
-                <input
-                  type="number"
-                  placeholder="Height in cm"
-                  value={body.height}
-                  onChange={(e) =>
-                    setBody((prev) => ({ ...prev, height: e.target.value }))
-                  }
-                  className={inputClass}
-                />
+                  <LabeledInput
+                    label="Age"
+                    value={body.age}
+                    onChange={(value) =>
+                      setBody((prev) => ({ ...prev, age: value }))
+                    }
+                    placeholder="e.g. 21"
+                  />
 
-                <input
-                  type="number"
-                  placeholder="Weight in kg"
-                  value={body.weight}
-                  onChange={(e) =>
-                    setBody((prev) => ({ ...prev, weight: e.target.value }))
-                  }
-                  className={inputClass}
-                />
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+                      Gender
+                    </label>
+                    <select
+                      value={body.gender}
+                      onChange={(e) =>
+                        setBody((prev) => ({
+                          ...prev,
+                          gender: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
 
-                <input
-                  type="number"
-                  placeholder="Age"
-                  value={body.age}
-                  onChange={(e) =>
-                    setBody((prev) => ({ ...prev, age: e.target.value }))
-                  }
-                  className={inputClass}
-                />
+                  <div className="md:col-span-2">
+                    <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+                      Activity Level
+                    </label>
+                    <select
+                      value={body.activity}
+                      onChange={(e) =>
+                        setBody((prev) => ({
+                          ...prev,
+                          activity: e.target.value as Activity,
+                        }))
+                      }
+                      className={inputClass}
+                    >
+                      {activityOptions.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label} — {item.helper}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-                <select
-                  value={body.activity}
-                  onChange={(e) =>
-                    setBody((prev) => ({
-                      ...prev,
-                      activity: e.target.value as Activity,
-                    }))
-                  }
-                  className={inputClass}
-                >
-                  {activityOptions.map((a) => (
-                    <option key={a.value} value={a.value}>
-                      {a.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mt-6 rounded-3xl border border-green-100 bg-green-50 p-5">
-                <p className="text-sm font-bold text-green-700">
-                  Live preview
-                </p>
-
-                {liveTargets.calories ? (
-                  <p className="mt-2 text-2xl font-black text-gray-950">
-                    ~{liveTargets.calories} kcal · {liveTargets.protein}g
-                    protein · {liveTargets.carbs}g carbs · {liveTargets.fat}g
-                    fat
-                  </p>
-                ) : (
-                  <p className="mt-2 text-gray-500">
-                    Fill height, weight, age, and activity to see your daily
-                    macro target.
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => saveBodyDetails(false)}
-                  disabled={saving}
-                  className="h-12 flex-1 rounded-xl bg-green-600 font-bold text-white hover:bg-green-700 disabled:opacity-60"
-                >
-                  {saving ? "Saving..." : "Continue"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => saveBodyDetails(true)}
-                  disabled={saving}
-                  className="h-12 rounded-xl border px-6 font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                >
-                  Skip for now
-                </button>
+                <PrimaryButton onClick={handleBodyNext} loading={saving}>
+                  Continue to Address
+                </PrimaryButton>
               </div>
             </div>
           )}
 
           {step === 4 && (
-            <div className="mx-auto max-w-4xl">
-              <div className="text-center">
-                <p className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
-                  <MapPin size={16} />
-                  Delivery address
-                </p>
+            <div>
+              <StepHeader
+                badgeIcon={<MapPin size={15} />}
+                badge="Delivery location"
+                title="Where should we deliver?"
+                subtitle="Search your address, select the Google result, then adjust the exact pin if needed."
+                note="You can save and change delivery addresses later from checkout."
+              />
 
-                <h1 className="text-4xl font-black text-gray-950">
-                  Where should we deliver?
-                </h1>
+              <div className="mx-auto mt-10 max-w-5xl">
+                <div className="rounded-[26px] border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row">
+                    <div className="relative flex-1">
+                      <Search
+                        size={18}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <input
+                        ref={addressInputRef}
+                        value={addressSearch}
+                        onChange={(e) => setAddressSearch(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            geocodeTypedAddress();
+                          }
+                        }}
+                        placeholder={
+                          loadingMaps
+                            ? "Loading Google Maps..."
+                            : "Search apartment, area, street or landmark"
+                        }
+                        className="h-13 w-full rounded-[18px] border border-slate-200 bg-white pl-11 pr-4 text-sm font-bold outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                      />
+                    </div>
 
-                <p className="mt-4 text-gray-500">
-                  Search your area, then drag the pin to your exact gate or
-                  apartment location.
-                </p>
-              </div>
+                    <button
+                      type="button"
+                      onClick={geocodeTypedAddress}
+                      className="h-13 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white hover:bg-green-700"
+                    >
+                      Search
+                    </button>
 
-              <div className="mt-8 rounded-3xl border border-green-100 bg-green-50 p-5">
-                <p className="mb-3 flex items-center gap-2 font-extrabold text-gray-900">
-                  <Search size={18} className="text-green-600" />
-                  Search Location
-                </p>
+                    <button
+                      type="button"
+                      onClick={useCurrentLocation}
+                      className="h-13 rounded-[18px] border border-green-200 bg-white px-6 text-sm font-black text-green-700 hover:bg-green-50"
+                    >
+                      <Navigation size={16} className="mr-1 inline" />
+                      Current
+                    </button>
+                  </div>
 
-                <div className="flex flex-col gap-3 md:flex-row">
-                  <input
-                    ref={addressInputRef}
-                    value={addressSearch}
-                    onChange={(e) => setAddressSearch(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        geocodeTypedAddress();
-                      }
-                    }}
-                    placeholder={
-                      loadingMaps
-                        ? "Loading Google Maps..."
-                        : "Search full address, apartment, area, landmark..."
-                    }
-                    className="h-14 flex-1 rounded-2xl border border-green-200 bg-white px-5 text-base font-semibold outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                  />
+                  {locationMsg && (
+                    <p className="mt-3 rounded-[16px] bg-red-50 p-3 text-sm font-bold text-red-600">
+                      {locationMsg}
+                    </p>
+                  )}
 
-                  <button
-                    type="button"
-                    onClick={geocodeTypedAddress}
-                    disabled={saving || loadingMaps}
-                    className="h-14 rounded-2xl bg-green-600 px-8 font-bold text-white hover:bg-green-700 disabled:opacity-60"
-                  >
-                    {saving || loadingMaps ? "..." : "Search"}
-                  </button>
+                  {address.lat != null && address.lng != null && (
+                    <div className="mt-4 overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                      <div ref={mapRef} className="h-[320px] w-full" />
+                    </div>
+                  )}
+
+                  {address.formattedAddress && (
+                    <div className="mt-4 rounded-[20px] border border-green-100 bg-green-50 p-4">
+                      <p className="text-xs font-black uppercase tracking-wide text-green-700">
+                        Selected location
+                      </p>
+                      <p className="mt-1 text-sm font-bold leading-6 text-slate-900">
+                        {address.formattedAddress}
+                      </p>
+                      {serviceable === true && (
+                        <p className="mt-2 text-xs font-black text-green-700">
+                          Delivery area detected successfully.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={useCurrentLocation}
-                  disabled={saving || loadingMaps}
-                  className="mt-4 h-12 w-full rounded-2xl bg-green-600 font-bold text-white hover:bg-green-700 disabled:opacity-60"
-                >
-                  <Navigation size={16} className="mr-2 inline" />
-                  Use Current Location
-                </button>
-
-                {address.lat != null && address.lng != null && (
-                  <div className="mt-5 overflow-hidden rounded-3xl border bg-white shadow-sm">
-                    <div className="relative h-[380px] w-full">
-                      <div ref={mapRef} className="h-full w-full" />
-
-                      <div className="pointer-events-none absolute left-4 top-4 rounded-2xl bg-white/95 px-4 py-3 shadow">
-                        <p className="text-xs font-black uppercase tracking-wide text-green-700">
-                          Exact delivery pin
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Drag the pin or tap anywhere on map.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="border-t bg-white px-4 py-3 text-sm text-gray-600">
-                      Move the marker to your exact location. Address fields
-                      will update automatically.
-                    </div>
-                  </div>
-                )}
-
-                {address.formattedAddress && (
-                  <div className="mt-4 rounded-2xl border border-green-200 bg-white p-4">
-                    <p className="text-xs font-black uppercase tracking-wide text-green-700">
-                      Selected address
-                    </p>
-
-                    <p className="mt-2 font-semibold text-gray-800">
-                      {address.formattedAddress}
-                    </p>
-
-                    {address.pincode && (
-                      <p
-                        className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${
-                          serviceable
-                            ? "bg-green-100 text-green-700"
-                            : serviceable === false
-                            ? "bg-red-100 text-red-600"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        Pincode: {address.pincode}
-                      </p>
-                    )}
-
-                    {address.mapsUrl && (
-                      <a
-                        href={address.mapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-3 block text-sm font-bold text-green-700 underline"
-                      >
-                        Open in Google Maps
-                      </a>
-                    )}
-                  </div>
-                )}
-
-                {locationMsg && (
-                  <p
-                    className={`mt-4 rounded-2xl p-3 text-sm font-semibold ${
-                      serviceable
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-50 text-red-600"
-                    }`}
-                  >
-                    {locationMsg}
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-6 grid gap-3 md:grid-cols-2">
-                <input
-                  placeholder="Full Name"
-                  className={inputClass}
-                  value={address.fullName}
-                  onChange={(e) =>
-                    setAddress({ ...address, fullName: e.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Phone Number"
-                  className={inputClass}
-                  value={address.phone}
-                  onChange={(e) =>
-                    setAddress({ ...address, phone: e.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Flat / House No"
-                  className={inputClass}
-                  value={address.flatNo}
-                  onChange={(e) =>
-                    setAddress({ ...address, flatNo: e.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Floor optional"
-                  className={inputClass}
-                  value={address.floor}
-                  onChange={(e) =>
-                    setAddress({ ...address, floor: e.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Building / Apartment"
-                  className={`${inputClass} md:col-span-2`}
-                  value={address.buildingName}
-                  onChange={(e) =>
-                    setAddress({ ...address, buildingName: e.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Area / Locality"
-                  className={inputClass}
-                  value={address.area}
-                  onChange={(e) =>
-                    setAddress({ ...address, area: e.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Landmark optional"
-                  className={inputClass}
-                  value={address.landmark}
-                  onChange={(e) =>
-                    setAddress({ ...address, landmark: e.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="City"
-                  className={inputClass}
-                  value={address.city}
-                  onChange={(e) =>
-                    setAddress({ ...address, city: e.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="State"
-                  className={inputClass}
-                  value={address.state}
-                  onChange={(e) =>
-                    setAddress({ ...address, state: e.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Pincode"
-                  className={inputClass}
-                  value={address.pincode}
-                  onChange={(e) => {
-                    const value = normalizePincode(e.target.value);
-
-                    setAddress({ ...address, pincode: value });
-
-                    if (value.length === 6) {
-                      checkPincode(value);
-                    } else {
-                      setServiceable(null);
-                      setLocationMsg("");
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <input
+                    className={inputClass}
+                    placeholder="Full name"
+                    value={address.fullName}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        fullName: e.target.value,
+                      }))
                     }
-                  }}
-                />
+                  />
 
-                <select
-                  className={inputClass}
-                  value={address.addressLabel}
-                  onChange={(e) =>
-                    setAddress({
-                      ...address,
-                      addressLabel: e.target.value as "Home" | "Work" | "Other",
-                    })
-                  }
-                >
-                  <option value="Home">Home</option>
-                  <option value="Work">Work</option>
-                  <option value="Other">Other</option>
-                </select>
+                  <input
+                    className={inputClass}
+                    placeholder="Phone number"
+                    value={address.phone}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                      }))
+                    }
+                  />
+
+                  <input
+                    className={inputClass}
+                    placeholder="Flat / House No"
+                    value={address.flatNo}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        flatNo: e.target.value,
+                      }))
+                    }
+                  />
+
+                  <input
+                    className={inputClass}
+                    placeholder="Floor optional"
+                    value={address.floor}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        floor: e.target.value,
+                      }))
+                    }
+                  />
+
+                  <input
+                    className={`${inputClass} md:col-span-2`}
+                    placeholder="Building / Apartment"
+                    value={address.buildingName}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        buildingName: e.target.value,
+                      }))
+                    }
+                  />
+
+                  <input
+                    className={inputClass}
+                    placeholder="Area / Locality"
+                    value={address.area}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        area: e.target.value,
+                      }))
+                    }
+                  />
+
+                  <input
+                    className={inputClass}
+                    placeholder="Landmark optional"
+                    value={address.landmark}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        landmark: e.target.value,
+                      }))
+                    }
+                  />
+
+                  <input
+                    className={inputClass}
+                    placeholder="City"
+                    value={address.city}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        city: e.target.value,
+                      }))
+                    }
+                  />
+
+                  <input
+                    className={inputClass}
+                    placeholder="State"
+                    value={address.state}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        state: e.target.value,
+                      }))
+                    }
+                  />
+
+                  <input
+                    className={inputClass}
+                    placeholder="Pincode"
+                    value={address.pincode}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        pincode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                      }))
+                    }
+                  />
+
+                  <select
+                    className={inputClass}
+                    value={address.addressLabel}
+                    onChange={(e) =>
+                      setAddress((prev) => ({
+                        ...prev,
+                        addressLabel: e.target.value as
+                          | "Home"
+                          | "Work"
+                          | "Other",
+                      }))
+                    }
+                  >
+                    <option value="Home">Home</option>
+                    <option value="Work">Work</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <PrimaryButton onClick={handleAddressNext} loading={saving}>
+                  Continue to Meals
+                </PrimaryButton>
               </div>
-
-              <button
-                type="button"
-                onClick={saveAddress}
-                disabled={saving}
-                className="mt-8 h-12 w-full rounded-xl bg-green-600 font-bold text-white hover:bg-green-700 disabled:opacity-60"
-              >
-                {saving ? "Checking delivery area..." : "Save Address & Continue"}
-              </button>
             </div>
           )}
 
           {step === 5 && (
             <div>
-              <div className="text-center">
-                <p className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
-                  <Utensils size={16} />
-                  First meal, right now
-                </p>
-
-                <h1 className="text-4xl font-black text-gray-950">
-                  Here are your best meals for{" "}
-                  {selectedGoal ? goalLabelMap[selectedGoal] : "your goal"}
-                </h1>
-
-                <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-                  Welcome offer — 20% off your first order. Expires in 48 hours.
-                </p>
-              </div>
-
-              <div className="mt-8 rounded-3xl border border-green-200 bg-green-50 p-5 text-center">
-                <p className="font-black text-green-700">
-                  Welcome offer applied for new users 🎉
-                </p>
-              </div>
+              <StepHeader
+                badgeIcon={<Sparkles size={15} />}
+                badge="You are ready"
+                title="Your MacroBox is personalized"
+                subtitle={
+                  selectedGoal
+                    ? `Here are meals filtered for ${goalLabelMap[selectedGoal]}.`
+                    : "Here are meals selected for your setup."
+                }
+                note="You can change your goal, body details and address later."
+              />
 
               {loadingMeals ? (
-                <div className="flex justify-center py-16">
+                <div className="mt-12 flex justify-center">
                   <Loader2 className="animate-spin text-green-600" size={34} />
                 </div>
-              ) : meals.length === 0 ? (
-                <div className="py-16 text-center">
-                  <p className="text-gray-500">
-                    No recommended meals found. You can explore all meals.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={completeOnboarding}
-                    className="mt-6 rounded-xl bg-green-600 px-6 py-3 font-bold text-white hover:bg-green-700"
-                  >
-                    Explore Meals
-                  </button>
-                </div>
               ) : (
-                <div className="mt-10 grid gap-8 md:grid-cols-3">
-                  {meals.map((meal) => (
-                    <MealCard
-                      key={meal._id}
-                      meal={meal}
-                      qty={getCartQty(meal._id)}
-                      onAddToCart={handleAddToCart}
-                      onIncrease={(m) => {
-                        const existing = cart.find(
-                          (item) => item._id === m._id
-                        );
+                <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  {recommendedMeals.length === 0 ? (
+                    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-8 text-center md:col-span-2 xl:col-span-3">
+                      <p className="font-black text-slate-900">
+                        No meals found yet.
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-slate-500">
+                        You can still finish setup and explore meals later.
+                      </p>
+                    </div>
+                  ) : (
+                    recommendedMeals.map((meal) => (
+                      <div
+                        key={meal._id}
+                        className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm"
+                      >
+                        <img
+                          src={meal.imageUrl || "/placeholder-meal.png"}
+                          alt={meal.title}
+                          className="h-44 w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder-meal.png";
+                          }}
+                        />
 
-                        if (existing) increaseQty(m._id);
-                        else handleAddToCart(m);
-                      }}
-                      onDecrease={(m) => decreaseQty(m._id)}
-                    />
-                  ))}
+                        <div className="p-5">
+                          <div className="mb-2 flex items-start justify-between gap-3">
+                            <h3 className="line-clamp-1 text-lg font-black text-slate-950">
+                              {meal.title}
+                            </h3>
+
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-black ${
+                                meal.foodType === "veg"
+                                  ? "bg-green-50 text-green-700"
+                                  : "bg-red-50 text-red-700"
+                              }`}
+                            >
+                              {meal.foodType === "veg" ? "Veg" : "Non-Veg"}
+                            </span>
+                          </div>
+
+                          <p className="line-clamp-2 min-h-[44px] text-sm font-medium leading-6 text-slate-500">
+                            {meal.description || "Goal-based MacroBox meal."}
+                          </p>
+
+                          <div className="mt-4 grid grid-cols-2 gap-2">
+                            <MacroChip label="Calories" value={`${meal.calories} kcal`} />
+                            <MacroChip label="Protein" value={`${meal.protein}g`} />
+                            <MacroChip label="Carbs" value={`${meal.carbs || 0}g`} />
+                            <MacroChip label="Fat" value={`${meal.fat || 0}g`} />
+                          </div>
+
+                          <p className="mt-4 text-xl font-black text-slate-950">
+                            ₹{meal.price}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={completeOnboarding}
-                disabled={saving}
-                className="mt-10 h-12 w-full rounded-xl bg-green-600 font-bold text-white hover:bg-green-700 disabled:opacity-60"
-              >
-                {saving ? "Finishing..." : "Finish Setup"}
-              </button>
+              <div className="mx-auto mt-8 max-w-md">
+                <PrimaryButton onClick={completeOnboarding} loading={saving}>
+                  Finish Setup & Explore Meals
+                </PrimaryButton>
+              </div>
             </div>
           )}
-        </div>
+        </section>
       </div>
+    </main>
+  );
+}
+
+function StepHeader({
+  badgeIcon,
+  badge,
+  title,
+  subtitle,
+  note,
+}: {
+  badgeIcon: ReactNode;
+  badge: string;
+  title: string;
+  subtitle: string;
+  note?: string;
+}) {
+  return (
+    <div className="mx-auto max-w-4xl text-center">
+      <div className="inline-flex items-center gap-2 rounded-full bg-green-50 px-5 py-2 text-sm font-black text-green-700">
+        {badgeIcon}
+        {badge}
+      </div>
+
+      <h1 className="mt-7 text-[36px] font-black leading-tight tracking-[-0.06em] text-slate-950 sm:text-[52px]">
+        {title}
+      </h1>
+
+      <p className="mx-auto mt-3 max-w-2xl text-base font-medium leading-7 text-slate-500 sm:text-lg">
+        {subtitle}
+      </p>
+
+      {note && (
+        <p className="mx-auto mt-4 inline-flex rounded-full border border-green-100 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
+          {note}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function LabeledInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </label>
+
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="h-13 w-full rounded-[18px] border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100"
+      />
+    </div>
+  );
+}
+
+function PrimaryButton({
+  children,
+  onClick,
+  loading,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  loading?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      className="mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-[20px] bg-green-600 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {loading ? <Loader2 size={18} className="animate-spin" /> : null}
+      {children}
+      {!loading ? <ArrowRight size={18} /> : null}
+    </button>
+  );
+}
+
+function MacroChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[16px] bg-slate-50 px-3 py-2">
+      <p className="text-[11px] font-bold text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-900">{value}</p>
     </div>
   );
 }

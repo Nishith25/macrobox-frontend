@@ -1,4 +1,5 @@
 // frontend/src/pages/MacroTrack.tsx (FRONTEND)
+
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/api";
@@ -131,14 +132,27 @@ export default function MacroTrack() {
 
         if (userRes.status === "fulfilled") {
           const m = userRes.value.data.bodyMetrics;
+
           if (m) {
-            setHeight(String(m.height || ""));
-            setWeight(String(m.weight || ""));
-            setAge(String(m.age || ""));
+            const savedHeight = String(m.height || "");
+            const savedWeight = String(m.weight || "");
+            const savedAge = String(m.age || "");
+
+            setHeight(savedHeight);
+            setWeight(savedWeight);
+            setAge(savedAge);
             setGender(m.gender || "male");
             setActivity(m.activity || "moderate");
             setGoalWeight(String(m.goalWeight || ""));
-            setLocked(Boolean(m.locked));
+
+            const hasValidSavedValues =
+              Number(savedHeight) > 0 &&
+              Number(savedWeight) > 0 &&
+              Number(savedAge) > 0;
+
+            setLocked(Boolean(m.locked) && hasValidSavedValues);
+          } else {
+            setLocked(false);
           }
         }
 
@@ -168,14 +182,17 @@ export default function MacroTrack() {
   const w = Number(weight);
   const a = Number(age);
   const gw = Number(goalWeight);
+
   const isValid = h > 0 && w > 0 && a > 0;
+  const needsBodySetup = !isValid;
+  const showBodyForm = !locked || needsBodySetup;
 
   const bmiValue = isValid ? w / Math.pow(h / 100, 2) : null;
   const bmi = bmiValue ? bmiValue.toFixed(1) : null;
 
   const bmiLabel =
     bmi === null
-      ? "—"
+      ? "Set values"
       : Number(bmi) < 18.5
       ? "Underweight"
       : Number(bmi) < 25
@@ -268,10 +285,14 @@ export default function MacroTrack() {
       .map((meal) => {
         const calories = numberOrZero(meal.calories);
         const protein = numberOrZero(meal.protein);
+
         const calorieFit =
           calories <= remaining.calories || remaining.calories === 0 ? 1 : 0.4;
+
         const proteinScore =
-          remaining.protein > 0 ? Math.min(protein / remaining.protein, 1.5) : 0;
+          remaining.protein > 0
+            ? Math.min(protein / remaining.protein, 1.5)
+            : 0;
 
         const score =
           proteinScore * 60 +
@@ -287,35 +308,53 @@ export default function MacroTrack() {
 
   const handleSave = async () => {
     if (!isValid) {
-      alert("Please enter valid body details");
+      alert("Please enter valid height, weight and age first.");
       return;
     }
 
-    await api.post("/user/body-metrics", {
-      height: h,
-      weight: w,
-      age: a,
-      gender,
-      activity,
-      goalWeight: gw,
-      locked: true,
-    });
+    try {
+      await api.post("/user/body-metrics", {
+        height: h,
+        weight: w,
+        age: a,
+        gender,
+        activity,
+        goalWeight: gw,
+        locked: true,
+      });
 
-    setLocked(true);
+      setLocked(true);
+    } catch {
+      alert("Failed to save body details. Please try again.");
+    }
   };
 
-  const handleChange = async () => {
-    await api.post("/user/body-metrics", {
-      height: h,
-      weight: w,
-      age: a,
-      gender,
-      activity,
-      goalWeight: gw,
-      locked: false,
-    });
+  const handleEditValues = async () => {
+    if (!isValid) {
+      setLocked(false);
+      return;
+    }
+
+    try {
+      await api.post("/user/body-metrics", {
+        height: h,
+        weight: w,
+        age: a,
+        gender,
+        activity,
+        goalWeight: gw,
+        locked: false,
+      });
+    } catch {
+      // still allow user to edit locally
+    }
 
     setLocked(false);
+  };
+
+  const handleCancelEdit = () => {
+    if (needsBodySetup) return;
+    setLocked(true);
   };
 
   const addFood = () => {
@@ -395,9 +434,9 @@ export default function MacroTrack() {
               </p>
             </div>
 
-            {locked ? (
+            {!showBodyForm ? (
               <button
-                onClick={handleChange}
+                onClick={handleEditValues}
                 className="inline-flex items-center justify-center gap-2 rounded-[14px] border-2 border-green-600 px-5 py-2.5 text-sm font-black text-green-700 hover:bg-green-50"
               >
                 <Pencil size={16} />
@@ -405,58 +444,128 @@ export default function MacroTrack() {
               </button>
             ) : (
               <div className="flex gap-2">
-                <button
-                  onClick={handleChange}
-                  className="inline-flex items-center justify-center gap-2 rounded-[14px] border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  <X size={16} />
-                  Cancel
-                </button>
+                {!needsBodySetup && (
+                  <button
+                    onClick={handleCancelEdit}
+                    className="inline-flex items-center justify-center gap-2 rounded-[14px] border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    <X size={16} />
+                    Cancel
+                  </button>
+                )}
+
                 <button
                   onClick={handleSave}
                   className="inline-flex items-center justify-center gap-2 rounded-[14px] bg-green-600 px-5 py-2.5 text-sm font-black text-white hover:bg-green-700"
                 >
                   <Check size={16} />
-                  Save Changes
+                  {needsBodySetup ? "Set Values" : "Save Changes"}
                 </button>
               </div>
             )}
           </div>
 
-          {locked ? (
+          {needsBodySetup && (
+            <div className="mb-6 rounded-[20px] border border-green-200 bg-green-50 p-5">
+              <p className="text-base font-black text-green-800">
+                Set your values first
+              </p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-green-700">
+                Enter your height, weight and age to calculate your BMI, target
+                calories, protein goal and daily macro progress.
+              </p>
+            </div>
+          )}
+
+          {!showBodyForm ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-6">
-              <Detail icon={<Scale size={15} />} label="HEIGHT" value={`${height || "—"} cm`} />
-              <Detail icon={<Gauge size={15} />} label="WEIGHT" value={`${weight || "—"} kg`} />
-              <Detail icon={<CalendarDays size={15} />} label="AGE" value={`${age || "—"} yrs`} />
-              <Detail icon={<Target size={15} />} label="GENDER" value={gender === "male" ? "Male" : "Female"} />
-              <Detail icon={<Zap size={15} />} label="ACTIVITY" value={activityLabels[activity]} />
-              <Detail icon={<Target size={15} />} label="GOAL" value={goalLabels[goal]} />
+              <Detail
+                icon={<Scale size={15} />}
+                label="HEIGHT"
+                value={`${height} cm`}
+              />
+              <Detail
+                icon={<Gauge size={15} />}
+                label="WEIGHT"
+                value={`${weight} kg`}
+              />
+              <Detail
+                icon={<CalendarDays size={15} />}
+                label="AGE"
+                value={`${age} yrs`}
+              />
+              <Detail
+                icon={<Target size={15} />}
+                label="GENDER"
+                value={gender === "male" ? "Male" : "Female"}
+              />
+              <Detail
+                icon={<Zap size={15} />}
+                label="ACTIVITY"
+                value={activityLabels[activity] || "Moderate"}
+              />
+              <Detail
+                icon={<Target size={15} />}
+                label="GOAL"
+                value={goalLabels[goal]}
+              />
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-3">
-              <Input label="HEIGHT (CM)" value={height} setValue={setHeight} icon={<Scale size={16} />} />
-              <Input label="WEIGHT (KG)" value={weight} setValue={setWeight} icon={<Gauge size={16} />} />
-              <Input label="AGE (YRS)" value={age} setValue={setAge} icon={<CalendarDays size={16} />} />
+              <Input
+                label="HEIGHT (CM)"
+                value={height}
+                setValue={setHeight}
+                icon={<Scale size={16} />}
+              />
+
+              <Input
+                label="WEIGHT (KG)"
+                value={weight}
+                setValue={setWeight}
+                icon={<Gauge size={16} />}
+              />
+
+              <Input
+                label="AGE (YRS)"
+                value={age}
+                setValue={setAge}
+                icon={<CalendarDays size={16} />}
+              />
 
               <Field label="GENDER">
-                <select value={gender} onChange={(e) => setGender(e.target.value)} className="input-ui">
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="input-ui"
+                >
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                 </select>
               </Field>
 
               <Field label="ACTIVITY LEVEL">
-                <select value={activity} onChange={(e) => setActivity(e.target.value)} className="input-ui">
+                <select
+                  value={activity}
+                  onChange={(e) => setActivity(e.target.value)}
+                  className="input-ui"
+                >
                   <option value="sedentary">Sedentary</option>
                   <option value="light">Light Active</option>
-                  <option value="moderate">Moderately Active (3–5 days/week)</option>
+                  <option value="moderate">
+                    Moderately Active (3–5 days/week)
+                  </option>
                   <option value="active">Very Active</option>
                   <option value="very_active">Athlete</option>
                 </select>
               </Field>
 
               <Field label="FITNESS GOAL">
-                <select value={goal} onChange={(e) => setGoal(e.target.value as GoalType)} className="input-ui">
+                <select
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value as GoalType)}
+                  className="input-ui"
+                >
                   <option value="fat_loss">Fat Loss</option>
                   <option value="weight_loss">Weight Loss</option>
                   <option value="maintenance">Maintenance</option>
@@ -469,38 +578,48 @@ export default function MacroTrack() {
         </section>
 
         <section className="mb-7 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-  <Stat
-    icon={<Scale size={20} />}
-    title="BMI"
-    value={bmi ?? "—"}
-    label={bmiLabel}
-    color="orange"
-  />
+          <Stat
+            icon={<Scale size={20} />}
+            title="BMI"
+            value={bmi ?? "—"}
+            label={bmiLabel}
+            color="orange"
+          />
 
-  <Stat
-    icon={<Flame size={20} />}
-    title="TARGET CALORIES"
-    value={macroGoals.calories ? `${macroGoals.calories.toLocaleString()} kcal` : "—"}
-    label={goalLabels[goal]}
-    color="green"
-  />
+          <Stat
+            icon={<Flame size={20} />}
+            title="TARGET CALORIES"
+            value={
+              macroGoals.calories
+                ? `${macroGoals.calories.toLocaleString()} kcal`
+                : "Set values"
+            }
+            label={needsBodySetup ? "Enter body details" : goalLabels[goal]}
+            color="green"
+          />
 
-  <Stat
-    icon={<Dumbbell size={20} />}
-    title="PROTEIN GOAL"
-    value={macroGoals.protein ? `${macroGoals.protein} g` : "—"}
-    label="Daily protein"
-    color="green"
-  />
+          <Stat
+            icon={<Dumbbell size={20} />}
+            title="PROTEIN GOAL"
+            value={macroGoals.protein ? `${macroGoals.protein} g` : "Set values"}
+            label={needsBodySetup ? "Enter body details" : "Daily protein"}
+            color="green"
+          />
 
-  <Stat
-    icon={<Target size={20} />}
-    title="MAINTENANCE"
-    value={maintenanceCalories ? `${maintenanceCalories.toLocaleString()} kcal` : "—"}
-    label="To maintain weight"
-    color="blue"
-  />
-</section>
+          <Stat
+            icon={<Target size={20} />}
+            title="MAINTENANCE"
+            value={
+              maintenanceCalories
+                ? `${maintenanceCalories.toLocaleString()} kcal`
+                : "Set values"
+            }
+            label={
+              needsBodySetup ? "Enter body details" : "To maintain weight"
+            }
+            color="blue"
+          />
+        </section>
 
         <section className="mb-7 rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
           <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -518,11 +637,50 @@ export default function MacroTrack() {
             </div>
           </div>
 
+          {needsBodySetup && (
+            <div className="mb-5 rounded-[18px] bg-slate-50 p-4 text-sm font-bold text-slate-600">
+              Your daily macro targets will appear here after you set your body
+              values.
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MacroProgress title="Calories" consumed={consumed.calories} goal={macroGoals.calories} remaining={remaining.calories} unit="kcal" color="orange" icon={<Flame size={18} />} />
-            <MacroProgress title="Protein" consumed={consumed.protein} goal={macroGoals.protein} remaining={remaining.protein} unit="g" color="green" icon={<Dumbbell size={18} />} />
-            <MacroProgress title="Carbs" consumed={consumed.carbs} goal={macroGoals.carbs} remaining={remaining.carbs} unit="g" color="yellow" icon={<Apple size={18} />} />
-            <MacroProgress title="Fat" consumed={consumed.fat} goal={macroGoals.fat} remaining={remaining.fat} unit="g" color="blue" icon={<Target size={18} />} />
+            <MacroProgress
+              title="Calories"
+              consumed={consumed.calories}
+              goal={macroGoals.calories}
+              remaining={remaining.calories}
+              unit="kcal"
+              color="orange"
+              icon={<Flame size={18} />}
+            />
+            <MacroProgress
+              title="Protein"
+              consumed={consumed.protein}
+              goal={macroGoals.protein}
+              remaining={remaining.protein}
+              unit="g"
+              color="green"
+              icon={<Dumbbell size={18} />}
+            />
+            <MacroProgress
+              title="Carbs"
+              consumed={consumed.carbs}
+              goal={macroGoals.carbs}
+              remaining={remaining.carbs}
+              unit="g"
+              color="yellow"
+              icon={<Apple size={18} />}
+            />
+            <MacroProgress
+              title="Fat"
+              consumed={consumed.fat}
+              goal={macroGoals.fat}
+              remaining={remaining.fat}
+              unit="g"
+              color="blue"
+              icon={<Target size={18} />}
+            />
           </div>
         </section>
 
@@ -537,11 +695,20 @@ export default function MacroTrack() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="FOOD NAME *" className="md:col-span-2">
-                <input value={foodName} onChange={(e) => setFoodName(e.target.value)} placeholder="e.g. Grilled Chicken Breast" className="input-ui" />
+                <input
+                  value={foodName}
+                  onChange={(e) => setFoodName(e.target.value)}
+                  placeholder="e.g. Grilled Chicken Breast"
+                  className="input-ui"
+                />
               </Field>
 
               <Field label="MEAL TYPE" className="md:col-span-2">
-                <select value={mealType} onChange={(e) => setMealType(e.target.value as MealType)} className="input-ui">
+                <select
+                  value={mealType}
+                  onChange={(e) => setMealType(e.target.value as MealType)}
+                  className="input-ui"
+                >
                   <option>Breakfast</option>
                   <option>Lunch</option>
                   <option>Snack</option>
@@ -550,23 +717,50 @@ export default function MacroTrack() {
               </Field>
 
               <Field label="CALORIES (KCAL) *">
-                <input value={foodCalories} onChange={(e) => setFoodCalories(e.target.value)} type="number" placeholder="0" className="input-ui" />
+                <input
+                  value={foodCalories}
+                  onChange={(e) => setFoodCalories(e.target.value)}
+                  type="number"
+                  placeholder="0"
+                  className="input-ui"
+                />
               </Field>
 
               <Field label="PROTEIN (G) *">
-                <input value={foodProtein} onChange={(e) => setFoodProtein(e.target.value)} type="number" placeholder="0" className="input-ui" />
+                <input
+                  value={foodProtein}
+                  onChange={(e) => setFoodProtein(e.target.value)}
+                  type="number"
+                  placeholder="0"
+                  className="input-ui"
+                />
               </Field>
 
               <Field label="CARBS (G) *">
-                <input value={foodCarbs} onChange={(e) => setFoodCarbs(e.target.value)} type="number" placeholder="0" className="input-ui" />
+                <input
+                  value={foodCarbs}
+                  onChange={(e) => setFoodCarbs(e.target.value)}
+                  type="number"
+                  placeholder="0"
+                  className="input-ui"
+                />
               </Field>
 
               <Field label="FAT (G) *">
-                <input value={foodFat} onChange={(e) => setFoodFat(e.target.value)} type="number" placeholder="0" className="input-ui" />
+                <input
+                  value={foodFat}
+                  onChange={(e) => setFoodFat(e.target.value)}
+                  type="number"
+                  placeholder="0"
+                  className="input-ui"
+                />
               </Field>
             </div>
 
-            <button onClick={addFood} className="mt-5 flex h-13 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white hover:bg-green-700">
+            <button
+              onClick={addFood}
+              className="mt-5 flex h-13 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white hover:bg-green-700"
+            >
               <Plus size={18} />
               Add to Today's Log
             </button>
@@ -583,33 +777,45 @@ export default function MacroTrack() {
             </div>
 
             <p className="mb-5 text-sm font-medium text-slate-500">
-              Based on your remaining macros, here are smart MacroBox suggestions.
+              Based on your remaining macros, here are smart MacroBox
+              suggestions.
             </p>
 
             <div className="space-y-3">
               {suggestedMeals.length === 0 ? (
                 <p className="rounded-[18px] bg-slate-50 p-4 text-sm font-medium text-slate-500">
-                  Add body details and make sure meals have calories, protein, carbs and fat values.
+                  Set body values first to unlock better meal suggestions.
                 </p>
               ) : (
                 suggestedMeals.map((meal) => (
-                  <div key={meal._id} className="flex items-center justify-between gap-4 rounded-[18px] border border-slate-200 p-4">
+                  <div
+                    key={meal._id}
+                    className="flex items-center justify-between gap-4 rounded-[18px] border border-slate-200 p-4"
+                  >
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-black text-slate-950">{meal.title}</p>
+                        <p className="font-black text-slate-950">
+                          {meal.title}
+                        </p>
                         <span className="rounded-full bg-green-50 px-2 py-1 text-[11px] font-black text-green-700">
                           High Protein
                         </span>
                       </div>
                       <p className="mt-2 text-sm font-medium text-slate-500">
-                        🔥 {numberOrZero(meal.calories)} kcal · 🥩 {numberOrZero(meal.protein)}g protein · 🌾 {numberOrZero(meal.carbs)}g carbs · 💧 {numberOrZero(meal.fat)}g fat
+                        🔥 {numberOrZero(meal.calories)} kcal · 🥩{" "}
+                        {numberOrZero(meal.protein)}g protein · 🌾{" "}
+                        {numberOrZero(meal.carbs)}g carbs · 💧{" "}
+                        {numberOrZero(meal.fat)}g fat
                       </p>
                       <p className="mt-1 text-sm font-bold text-green-700">
                         Good match for {goalLabels[goal]}
                       </p>
                     </div>
 
-                    <button onClick={() => addMealToLog(meal)} className="shrink-0 rounded-full bg-green-600 px-5 py-2.5 text-sm font-black text-white hover:bg-green-700">
+                    <button
+                      onClick={() => addMealToLog(meal)}
+                      className="shrink-0 rounded-full bg-green-600 px-5 py-2.5 text-sm font-black text-white hover:bg-green-700"
+                    >
                       Add
                     </button>
                   </div>
@@ -636,7 +842,8 @@ export default function MacroTrack() {
             </div>
 
             <p className="text-sm font-bold text-slate-500">
-              🔥 {consumed.calories} kcal &nbsp; 🥩 {consumed.protein}g P &nbsp; 🌾 {consumed.carbs}g C &nbsp; 💧 {consumed.fat}g F
+              🔥 {consumed.calories} kcal &nbsp; 🥩 {consumed.protein}g P
+              &nbsp; 🌾 {consumed.carbs}g C &nbsp; 💧 {consumed.fat}g F
             </p>
           </div>
 
@@ -647,7 +854,10 @@ export default function MacroTrack() {
           ) : (
             <div className="space-y-3">
               {foodLog.map((item) => (
-                <div key={item.id} className="flex flex-col gap-3 rounded-[18px] border border-slate-200 p-4 md:flex-row md:items-center md:justify-between">
+                <div
+                  key={item.id}
+                  className="flex flex-col gap-3 rounded-[18px] border border-slate-200 p-4 md:flex-row md:items-center md:justify-between"
+                >
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
@@ -656,11 +866,15 @@ export default function MacroTrack() {
                       <p className="font-black text-slate-950">{item.name}</p>
                     </div>
                     <p className="mt-2 text-sm font-medium text-slate-500">
-                      🔥 {item.calories} kcal · 🥩 {item.protein} g · 🌾 {item.carbs} g · 💧 {item.fat} g
+                      🔥 {item.calories} kcal · 🥩 {item.protein} g · 🌾{" "}
+                      {item.carbs} g · 💧 {item.fat} g
                     </p>
                   </div>
 
-                  <button onClick={() => removeFood(item.id)} className="flex h-10 w-10 items-center justify-center rounded-xl text-red-600 hover:bg-red-50">
+                  <button
+                    onClick={() => removeFood(item.id)}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl text-red-600 hover:bg-red-50"
+                  >
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -673,7 +887,15 @@ export default function MacroTrack() {
   );
 }
 
-function Detail({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function Detail({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <div>
       <p className="mb-2 flex items-center gap-2 text-xs font-black text-slate-500">
@@ -685,7 +907,15 @@ function Detail({ icon, label, value }: { icon: React.ReactNode; label: string; 
   );
 }
 
-function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+function Field({
+  label,
+  children,
+  className = "",
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <label className={`block ${className}`}>
       <span className="mb-2 block text-xs font-black text-slate-500">
@@ -788,7 +1018,23 @@ function Stat({
   );
 }
 
-function MacroProgress({ title, consumed, goal, remaining, unit, color, icon }: { title: string; consumed: number; goal: number; remaining: number; unit: string; color: "orange" | "green" | "yellow" | "blue"; icon: React.ReactNode }) {
+function MacroProgress({
+  title,
+  consumed,
+  goal,
+  remaining,
+  unit,
+  color,
+  icon,
+}: {
+  title: string;
+  consumed: number;
+  goal: number;
+  remaining: number;
+  unit: string;
+  color: "orange" | "green" | "yellow" | "blue";
+  icon: React.ReactNode;
+}) {
   const percent = goal > 0 ? clamp((consumed / goal) * 100, 0, 100) : 0;
 
   const fill =
@@ -813,7 +1059,9 @@ function MacroProgress({ title, consumed, goal, remaining, unit, color, icon }: 
     <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className={`flex h-10 w-10 items-center justify-center rounded-full ${light}`}>
+          <span
+            className={`flex h-10 w-10 items-center justify-center rounded-full ${light}`}
+          >
             {icon}
           </span>
           <div>
@@ -828,17 +1076,24 @@ function MacroProgress({ title, consumed, goal, remaining, unit, color, icon }: 
       </div>
 
       <div className="mb-5 h-2.5 overflow-hidden rounded-full bg-slate-200">
-        <div className={`h-full rounded-full ${fill}`} style={{ width: `${percent}%` }} />
+        <div
+          className={`h-full rounded-full ${fill}`}
+          style={{ width: `${percent}%` }}
+        />
       </div>
 
       <div className="flex items-end justify-between">
         <p className="text-2xl font-black text-slate-950">
           {consumed}
-          <span className="text-base font-bold text-slate-400"> / {goal || "—"} {unit}</span>
+          <span className="text-base font-bold text-slate-400">
+            {" "}
+            / {goal || "—"} {unit}
+          </span>
         </p>
 
         <p className="text-right text-sm font-medium text-slate-500">
-          Remaining<br />
+          Remaining
+          <br />
           <span className={`font-black ${light.split(" ").slice(-1)[0]}`}>
             {remaining} {unit}
           </span>
