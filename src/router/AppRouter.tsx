@@ -5,10 +5,19 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
-// Pages - Public
+// Public Pages
 import Home from "../pages/Home";
+
+// Protected User Pages
 import Meals from "../pages/Meals";
 import MealDetails from "../pages/MealDetails";
+import MacroTrack from "../pages/MacroTrack";
+import SmartDayPlanner from "../pages/SmartDayPlanner";
+import Cart from "../pages/Cart";
+import Checkout from "../pages/Checkout";
+import Orders from "../pages/Orders";
+import TrackOrderPage from "../pages/TrackOrderPage";
+import SettingsPage from "../pages/SettingsPage";
 
 // Auth Pages
 import Login from "../pages/Login";
@@ -25,15 +34,8 @@ import ResendVerification from "../pages/ResendVerification";
 // Onboarding Page
 import Onboarding from "../pages/Onboarding";
 
-// User Pages
-import MacroTrack from "../pages/MacroTrack";
-import SmartDayPlanner from "../pages/SmartDayPlanner";
-import Cart from "../pages/Cart";
-import Checkout from "../pages/Checkout";
-import Orders from "../pages/Orders";
+// Delivery
 import DeliveryDashboard from "../pages/DeliveryDashboard";
-import TrackOrderPage from "../pages/TrackOrderPage";
-import SettingsPage from "../pages/SettingsPage";
 
 // Admin Pages
 import AdminUsers from "../pages/AdminUsers";
@@ -67,10 +69,8 @@ export default function AppRouter() {
       {!hideLayout && <Navbar />}
 
       <Routes>
-        {/* ================= PUBLIC ROUTES ================= */}
+        {/* ================= PUBLIC LANDING PAGE ================= */}
         <Route path="/" element={<Home />} />
-        <Route path="/meals" element={<Meals />} />
-        <Route path="/meal/:id" element={<MealDetails />} />
 
         {/* ================= CUSTOMER AUTH ROUTES ================= */}
         <Route path="/login" element={<Login />} />
@@ -101,6 +101,24 @@ export default function AppRouter() {
         />
 
         {/* ================= USER PROTECTED ROUTES ================= */}
+        <Route
+          path="/meals"
+          element={
+            <ProtectedRoute>
+              <Meals />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/meal/:id"
+          element={
+            <ProtectedRoute>
+              <MealDetails />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/macrotrack"
           element={
@@ -176,13 +194,13 @@ export default function AppRouter() {
 
         {/* ================= ADMIN ROUTES ================= */}
         <Route
-  path="/admin"
-  element={
-    <AdminRoute>
-      <Navigate to="/admin/meals" replace />
-    </AdminRoute>
-  }
-/>
+          path="/admin"
+          element={
+            <AdminRoute>
+              <Navigate to="/admin/meals" replace />
+            </AdminRoute>
+          }
+        />
 
         <Route
           path="/admin/meals"

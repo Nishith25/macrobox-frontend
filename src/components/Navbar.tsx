@@ -1,3 +1,5 @@
+// frontend/src/components/Navbar.tsx (FRONTEND)
+
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -79,25 +81,23 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+        {/* LOGO */}
         <Link
           to="/"
           onClick={closeMenu}
-          className="flex shrink-0 items-center gap-2 text-2xl font-black tracking-[-0.04em] text-green-600"
+          className="flex shrink-0 items-center text-2xl font-black tracking-[-0.04em] text-slate-950"
         >
           MacroBox
         </Link>
 
+        {/* DESKTOP CENTER LINKS - ONLY AFTER LOGIN */}
         <div className="hidden flex-1 items-center justify-center gap-1 lg:flex">
-          <NavLink to="/" className={navLinkClass}>
-            Home
-          </NavLink>
-
-          <NavLink to="/meals" className={navLinkClass}>
-            Meals
-          </NavLink>
-
           {isAuthenticated && !isChef && (
             <>
+              <NavLink to="/meals" className={navLinkClass}>
+                Meals
+              </NavLink>
+
               <NavLink to="/macrotrack" className={navLinkClass}>
                 MacroTrack
               </NavLink>
@@ -145,8 +145,8 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* DESKTOP RIGHT AUTH */}
         <div className="hidden items-center gap-3 lg:flex">
-
           {isAuthenticated ? (
             <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
               <button
@@ -168,14 +168,17 @@ export default function Navbar() {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <NavLink to="/login" className={navLinkClass}>
+            <div className="flex items-center gap-3">
+              <NavLink
+                to="/login"
+                className="rounded-[14px] px-4 py-2.5 text-sm font-black text-slate-900 transition hover:bg-slate-50"
+              >
                 Login
               </NavLink>
 
               <NavLink
                 to="/signup"
-                className="rounded-[14px] bg-green-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-green-700"
+                className="rounded-[14px] bg-green-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-green-700"
               >
                 Signup
               </NavLink>
@@ -183,6 +186,7 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* MOBILE RIGHT */}
         <div className="flex items-center gap-2 lg:hidden">
           {isAuthenticated && !isChef && (
             <button
@@ -212,6 +216,7 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* ADMIN / CHEF DESKTOP BAR */}
       {(isAdmin || isChef) && (
         <div className="hidden border-t border-slate-100 bg-white lg:block">
           <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2 px-4 py-2 sm:px-6">
@@ -256,7 +261,10 @@ export default function Navbar() {
                   Kitchen Orders
                 </NavLink>
 
-                <NavLink to="/admin/delivery-pincodes" className={adminLinkClass}>
+                <NavLink
+                  to="/admin/delivery-pincodes"
+                  className={adminLinkClass}
+                >
                   <MapPin size={14} />
                   Pincodes
                 </NavLink>
@@ -280,6 +288,7 @@ export default function Navbar() {
         </div>
       )}
 
+      {/* MOBILE MENU */}
       {open && (
         <div
           className="fixed inset-0 z-50 bg-black/40 lg:hidden"
@@ -290,7 +299,7 @@ export default function Navbar() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <div className="text-xl font-black text-green-600">MacroBox</div>
+              <div className="text-xl font-black text-slate-950">MacroBox</div>
 
               <button
                 onClick={closeMenu}
@@ -303,9 +312,17 @@ export default function Navbar() {
 
             {isAuthenticated && (
               <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm font-bold text-slate-500">Signed in as</div>
-                <div className="mt-1 font-black text-slate-900">{user?.name}</div>
-                <div className="text-xs font-medium text-slate-500">{user?.email}</div>
+                <div className="text-sm font-bold text-slate-500">
+                  Signed in as
+                </div>
+
+                <div className="mt-1 font-black text-slate-900">
+                  {user?.name}
+                </div>
+
+                <div className="text-xs font-medium text-slate-500">
+                  {user?.email}
+                </div>
 
                 {isAdmin && (
                   <div className="mt-3 inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-600">
@@ -322,17 +339,22 @@ export default function Navbar() {
             )}
 
             <div className="space-y-1">
-              <NavLink to="/" className={mobileLinkClass} onClick={closeMenu}>
-                Home
-              </NavLink>
-
-              <NavLink to="/meals" className={mobileLinkClass} onClick={closeMenu}>
-                Meals
-              </NavLink>
-
+              {/* CUSTOMER MOBILE LINKS - ONLY AFTER LOGIN */}
               {isAuthenticated && !isChef && (
                 <>
-                  <NavLink to="/macrotrack" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/meals"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
+                    Meals
+                  </NavLink>
+
+                  <NavLink
+                    to="/macrotrack"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     MacroTrack
                   </NavLink>
 
@@ -344,58 +366,99 @@ export default function Navbar() {
                     Smart Day Planner
                   </NavLink>
 
-                  <NavLink to="/orders" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/orders"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Orders
                   </NavLink>
 
-                  <NavLink to="/cart" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/cart"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Cart {cartCount > 0 ? `(${cartCount})` : ""}
                   </NavLink>
 
-                  <NavLink to="/settings" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/settings"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Settings
                   </NavLink>
 
                   {user?.role === "delivery" && (
-                    <NavLink to="/delivery" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/delivery"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Delivery
                     </NavLink>
                   )}
                 </>
               )}
 
+              {/* CHEF MOBILE LINKS */}
               {isChef && (
                 <>
                   <div className="my-3 border-t border-slate-200" />
+
                   <div className="px-4 pt-1 text-xs font-black uppercase tracking-[0.16em] text-orange-600">
                     Chef
                   </div>
-                  <NavLink to="/orderslist" className={mobileLinkClass} onClick={closeMenu}>
+
+                  <NavLink
+                    to="/orderslist"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Kitchen Orders
                   </NavLink>
                 </>
               )}
 
+              {/* ADMIN MOBILE LINKS */}
               {isAdmin && (
                 <>
                   <div className="my-3 border-t border-slate-200" />
+
                   <div className="px-4 pt-1 text-xs font-black uppercase tracking-[0.16em] text-red-600">
                     Admin
                   </div>
 
-                  <NavLink to="/admin/meals" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/admin/meals"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Admin Meals
                   </NavLink>
 
-                  <NavLink to="/admin/users" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/admin/users"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Users
                   </NavLink>
 
-                  <NavLink to="/admin/orders" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/admin/orders"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Orders
                   </NavLink>
 
-                  <NavLink to="/admin/coupons" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/admin/coupons"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Coupons
                   </NavLink>
 
@@ -407,11 +470,19 @@ export default function Navbar() {
                     Delivery Agents
                   </NavLink>
 
-                  <NavLink to="/admin/chefs" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/admin/chefs"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Chef Management
                   </NavLink>
 
-                  <NavLink to="/orderslist" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/orderslist"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Kitchen Orders
                   </NavLink>
 
@@ -427,6 +498,7 @@ export default function Navbar() {
 
               <div className="my-3 border-t border-slate-200" />
 
+              {/* MOBILE AUTH */}
               {isAuthenticated ? (
                 <button
                   onClick={handleLogout}
@@ -436,7 +508,11 @@ export default function Navbar() {
                 </button>
               ) : (
                 <>
-                  <NavLink to="/login" className={mobileLinkClass} onClick={closeMenu}>
+                  <NavLink
+                    to="/login"
+                    className={mobileLinkClass}
+                    onClick={closeMenu}
+                  >
                     Login
                   </NavLink>
 
