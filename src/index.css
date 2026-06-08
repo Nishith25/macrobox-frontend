@@ -39,6 +39,10 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -54,29 +58,190 @@ a {
 }
 
 .pac-container {
-  z-index: 99999 !important;
+  z-index: 999999 !important;
   border-radius: 12px;
   margin-top: 6px;
   font-family: inherit;
 }
 
-/* ================= THEME BASE ================= */
+/* ================= THEME VARIABLES ================= */
 
-html[data-theme="light"],
-html[data-theme="light"] body {
-  background: #f6f7f8 !important;
-  color: #0f172a !important;
+:root,
+html[data-theme="light"] {
+  --mb-bg: #f6f7f8;
+  --mb-page: #f6f7f8;
+  --mb-card: #ffffff;
+  --mb-card-soft: #f8fafc;
+  --mb-border: #e2e8f0;
+  --mb-text: #0f172a;
+  --mb-muted: #64748b;
+  --mb-muted-2: #94a3b8;
+  --mb-input: #ffffff;
+  --mb-input-disabled: #f1f5f9;
+  --mb-green: #16a34a;
+  color-scheme: light;
 }
 
-html[data-theme="dark"],
-html[data-theme="dark"] body,
 html.dark,
-html.dark body {
-  background: #020617 !important;
-  color: #f8fafc !important;
+html[data-theme="dark"] {
+  --mb-bg: #020617;
+  --mb-page: #020617;
+  --mb-card: #0f172a;
+  --mb-card-soft: #111827;
+  --mb-border: #1e293b;
+  --mb-text: #f8fafc;
+  --mb-muted: #cbd5e1;
+  --mb-muted-2: #94a3b8;
+  --mb-input: #020617;
+  --mb-input-disabled: #111827;
+  --mb-green: #16a34a;
+  color-scheme: dark;
 }
 
-/* ================= NAVBAR ================= */
+html,
+body {
+  background: var(--mb-bg) !important;
+  color: var(--mb-text) !important;
+}
+
+/* ================= GLOBAL THEME STABILITY ================= */
+
+html.dark main,
+html[data-theme="dark"] main,
+html.dark .min-h-screen,
+html[data-theme="dark"] .min-h-screen {
+  background-color: var(--mb-page) !important;
+  color: var(--mb-text) !important;
+}
+
+/* Remove light gradients in dark mode */
+html.dark .bg-gradient-to-b,
+html.dark .bg-gradient-to-br,
+html.dark .bg-gradient-to-r,
+html[data-theme="dark"] .bg-gradient-to-b,
+html[data-theme="dark"] .bg-gradient-to-br,
+html[data-theme="dark"] .bg-gradient-to-r {
+  background-image: none !important;
+  background-color: var(--mb-page) !important;
+}
+
+/* Common page/card backgrounds */
+html.dark .bg-white,
+html[data-theme="dark"] .bg-white {
+  background-color: var(--mb-card) !important;
+  color: var(--mb-text) !important;
+}
+
+html.dark .bg-gray-50,
+html.dark .bg-slate-50,
+html[data-theme="dark"] .bg-gray-50,
+html[data-theme="dark"] .bg-slate-50 {
+  background-color: var(--mb-card-soft) !important;
+  color: var(--mb-text) !important;
+}
+
+html.dark .bg-gray-100,
+html.dark .bg-slate-100,
+html[data-theme="dark"] .bg-gray-100,
+html[data-theme="dark"] .bg-slate-100 {
+  background-color: #1e293b !important;
+  color: var(--mb-text) !important;
+}
+
+html.dark .bg-\[\#f6f7f8\],
+html.dark .bg-\[\#f8fafc\],
+html.dark .bg-\[\#f9fafb\],
+html[data-theme="dark"] .bg-\[\#f6f7f8\],
+html[data-theme="dark"] .bg-\[\#f8fafc\],
+html[data-theme="dark"] .bg-\[\#f9fafb\] {
+  background-color: var(--mb-page) !important;
+  color: var(--mb-text) !important;
+}
+
+/* Text colors */
+html.dark .text-gray-900,
+html.dark .text-slate-950,
+html.dark .text-slate-900,
+html.dark .text-gray-800,
+html.dark .text-slate-800,
+html[data-theme="dark"] .text-gray-900,
+html[data-theme="dark"] .text-slate-950,
+html[data-theme="dark"] .text-slate-900,
+html[data-theme="dark"] .text-gray-800,
+html[data-theme="dark"] .text-slate-800 {
+  color: var(--mb-text) !important;
+}
+
+html.dark .text-gray-700,
+html.dark .text-slate-700,
+html.dark .text-gray-600,
+html.dark .text-slate-600,
+html[data-theme="dark"] .text-gray-700,
+html[data-theme="dark"] .text-slate-700,
+html[data-theme="dark"] .text-gray-600,
+html[data-theme="dark"] .text-slate-600 {
+  color: var(--mb-muted) !important;
+}
+
+html.dark .text-gray-500,
+html.dark .text-slate-500,
+html.dark .text-gray-400,
+html.dark .text-slate-400,
+html[data-theme="dark"] .text-gray-500,
+html[data-theme="dark"] .text-slate-500,
+html[data-theme="dark"] .text-gray-400,
+html[data-theme="dark"] .text-slate-400 {
+  color: var(--mb-muted-2) !important;
+}
+
+/* Borders */
+html.dark .border,
+html.dark .border-slate-200,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html[data-theme="dark"] .border,
+html[data-theme="dark"] .border-slate-200,
+html[data-theme="dark"] .border-gray-100,
+html[data-theme="dark"] .border-gray-200 {
+  border-color: var(--mb-border) !important;
+}
+
+/* Inputs/selects/textareas */
+html.dark input,
+html.dark select,
+html.dark textarea,
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background-color: var(--mb-input) !important;
+  border-color: #334155 !important;
+  color: var(--mb-text) !important;
+}
+
+html.dark input:disabled,
+html.dark select:disabled,
+html.dark textarea:disabled,
+html[data-theme="dark"] input:disabled,
+html[data-theme="dark"] select:disabled,
+html[data-theme="dark"] textarea:disabled {
+  background-color: var(--mb-input-disabled) !important;
+  color: #94a3b8 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder,
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Navbar */
+html.dark nav,
+html[data-theme="dark"] nav {
+  background: rgba(2, 6, 23, 0.96) !important;
+  border-color: var(--mb-border) !important;
+  color: var(--mb-text) !important;
+}
 
 html[data-theme="light"] nav {
   background: rgba(255, 255, 255, 0.96) !important;
@@ -84,176 +249,29 @@ html[data-theme="light"] nav {
   color: #0f172a !important;
 }
 
-html[data-theme="dark"] nav,
-html.dark nav {
+/* Footer */
+html.dark footer,
+html[data-theme="dark"] footer {
   background: #020617 !important;
-  border-color: #1e293b !important;
-  color: #f8fafc !important;
-}
-
-html[data-theme="light"] nav a,
-html[data-theme="light"] nav button {
-  color: #0f172a;
-}
-
-html[data-theme="dark"] nav a,
-html[data-theme="dark"] nav button,
-html.dark nav a,
-html.dark nav button {
-  color: #f8fafc;
-}
-
-/* Active green navbar buttons must stay readable */
-html[data-theme="light"] nav .bg-green-600,
-html[data-theme="dark"] nav .bg-green-600,
-html.dark nav .bg-green-600 {
-  background-color: #16a34a !important;
-  color: #ffffff !important;
-}
-
-html[data-theme="light"] nav .bg-green-50 {
-  background-color: #f0fdf4 !important;
-  color: #15803d !important;
-}
-
-html[data-theme="dark"] nav .bg-green-50,
-html.dark nav .bg-green-50 {
-  background-color: #16a34a !important;
-  color: #ffffff !important;
-}
-
-/* ================= FOOTER ================= */
-
-html[data-theme="dark"] footer,
-html.dark footer {
-  background: #020617 !important;
-  border-color: #1e293b !important;
+  border-color: var(--mb-border) !important;
   color: #94a3b8 !important;
 }
 
-/* ================= DARK MODE GLOBAL PAGE FIX ================= */
-
-html[data-theme="dark"] main,
-html.dark main,
-html[data-theme="dark"] .min-h-screen,
-html.dark .min-h-screen {
-  background: #020617 !important;
-  color: #f8fafc !important;
-}
-
-/* White cards */
-html[data-theme="dark"] .bg-white,
-html.dark .bg-white {
-  background-color: #0f172a !important;
-  color: #f8fafc !important;
-}
-
-/* Light gray cards */
-html[data-theme="dark"] .bg-gray-50,
-html[data-theme="dark"] .bg-slate-50,
-html.dark .bg-gray-50,
-html.dark .bg-slate-50 {
-  background-color: #111827 !important;
-  color: #f8fafc !important;
-}
-
-html[data-theme="dark"] .bg-gray-100,
-html[data-theme="dark"] .bg-slate-100,
-html.dark .bg-gray-100,
-html.dark .bg-slate-100 {
-  background-color: #1e293b !important;
-  color: #f8fafc !important;
-}
-
-/* Text colors */
-html[data-theme="dark"] .text-gray-900,
-html[data-theme="dark"] .text-slate-950,
-html[data-theme="dark"] .text-slate-900,
-html[data-theme="dark"] .text-gray-800,
-html[data-theme="dark"] .text-slate-800,
-html.dark .text-gray-900,
-html.dark .text-slate-950,
-html.dark .text-slate-900,
-html.dark .text-gray-800,
-html.dark .text-slate-800 {
-  color: #f8fafc !important;
-}
-
-html[data-theme="dark"] .text-gray-700,
-html[data-theme="dark"] .text-slate-700,
-html[data-theme="dark"] .text-gray-600,
-html[data-theme="dark"] .text-slate-600,
-html.dark .text-gray-700,
-html.dark .text-slate-700,
-html.dark .text-gray-600,
-html.dark .text-slate-600 {
-  color: #cbd5e1 !important;
-}
-
-html[data-theme="dark"] .text-gray-500,
-html[data-theme="dark"] .text-slate-500,
-html[data-theme="dark"] .text-gray-400,
-html[data-theme="dark"] .text-slate-400,
-html.dark .text-gray-500,
-html.dark .text-slate-500,
-html.dark .text-gray-400,
-html.dark .text-slate-400 {
-  color: #94a3b8 !important;
-}
-
-/* Borders */
-html[data-theme="dark"] .border,
-html[data-theme="dark"] .border-slate-200,
-html[data-theme="dark"] .border-gray-100,
-html[data-theme="dark"] .border-gray-200,
-html.dark .border,
-html.dark .border-slate-200,
-html.dark .border-gray-100,
-html.dark .border-gray-200 {
-  border-color: #1e293b !important;
-}
-
-/* Inputs */
-html[data-theme="dark"] input,
-html[data-theme="dark"] select,
-html[data-theme="dark"] textarea,
-html.dark input,
-html.dark select,
-html.dark textarea {
-  background-color: #020617 !important;
-  border-color: #334155 !important;
-  color: #f8fafc !important;
-}
-
-html[data-theme="dark"] input::placeholder,
-html[data-theme="dark"] textarea::placeholder,
-html.dark input::placeholder,
-html.dark textarea::placeholder {
-  color: #64748b !important;
-}
-
-html[data-theme="light"] input,
-html[data-theme="light"] select,
-html[data-theme="light"] textarea {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-}
-
-/* ================= COLOR SAFETY ================= */
-
+/* Brand/action colors */
+html.dark .bg-green-600,
 html[data-theme="dark"] .bg-green-600,
-html.dark .bg-green-600 {
-  background-color: #16a34a !important;
-  color: #ffffff !important;
-}
-
 html[data-theme="light"] .bg-green-600 {
   background-color: #16a34a !important;
   color: #ffffff !important;
 }
 
-html[data-theme="dark"] .bg-green-50,
-html.dark .bg-green-50 {
+html.dark .text-green-700,
+html[data-theme="dark"] .text-green-700 {
+  color: #4ade80 !important;
+}
+
+html.dark .bg-green-50,
+html[data-theme="dark"] .bg-green-50 {
   background-color: rgba(22, 163, 74, 0.16) !important;
 }
 
@@ -261,42 +279,70 @@ html[data-theme="light"] .bg-green-50 {
   background-color: #f0fdf4 !important;
 }
 
-html[data-theme="dark"] .text-green-700,
-html.dark .text-green-700 {
-  color: #4ade80 !important;
+/* Colored macro/info cards */
+html.dark .bg-orange-50,
+html.dark .bg-amber-50,
+html.dark .bg-blue-50,
+html.dark .bg-sky-50,
+html.dark .bg-emerald-50,
+html.dark .bg-lime-50,
+html.dark .bg-yellow-50,
+html[data-theme="dark"] .bg-orange-50,
+html[data-theme="dark"] .bg-amber-50,
+html[data-theme="dark"] .bg-blue-50,
+html[data-theme="dark"] .bg-sky-50,
+html[data-theme="dark"] .bg-emerald-50,
+html[data-theme="dark"] .bg-lime-50,
+html[data-theme="dark"] .bg-yellow-50 {
+  background-color: #111827 !important;
+  border-color: var(--mb-border) !important;
+  color: var(--mb-text) !important;
 }
 
-html[data-theme="dark"] .bg-yellow-50,
-html.dark .bg-yellow-50 {
-  background-color: rgba(234, 179, 8, 0.12) !important;
+html.dark .text-orange-600,
+html.dark .text-orange-700,
+html[data-theme="dark"] .text-orange-600,
+html[data-theme="dark"] .text-orange-700 {
+  color: #fb923c !important;
 }
 
-html[data-theme="dark"] .text-yellow-700,
-html[data-theme="dark"] .text-yellow-800,
+html.dark .text-blue-600,
+html.dark .text-blue-700,
+html[data-theme="dark"] .text-blue-600,
+html[data-theme="dark"] .text-blue-700 {
+  color: #60a5fa !important;
+}
+
+html.dark .text-amber-600,
+html.dark .text-amber-700,
 html.dark .text-yellow-700,
-html.dark .text-yellow-800 {
-  color: #fde68a !important;
+html.dark .text-yellow-800,
+html[data-theme="dark"] .text-amber-600,
+html[data-theme="dark"] .text-amber-700,
+html[data-theme="dark"] .text-yellow-700,
+html[data-theme="dark"] .text-yellow-800 {
+  color: #fbbf24 !important;
 }
 
-html[data-theme="dark"] .bg-red-50,
-html.dark .bg-red-50 {
+html.dark .bg-red-50,
+html[data-theme="dark"] .bg-red-50 {
   background-color: rgba(239, 68, 68, 0.12) !important;
 }
 
-html[data-theme="dark"] .text-red-600,
-html[data-theme="dark"] .text-red-700,
 html.dark .text-red-600,
-html.dark .text-red-700 {
+html.dark .text-red-700,
+html[data-theme="dark"] .text-red-600,
+html[data-theme="dark"] .text-red-700 {
   color: #f87171 !important;
 }
 
-/* Remove heavy shadows in dark mode */
-html[data-theme="dark"] .shadow-sm,
-html[data-theme="dark"] .shadow-xl,
-html[data-theme="dark"] .shadow-2xl,
+/* Shadows */
 html.dark .shadow-sm,
 html.dark .shadow-xl,
-html.dark .shadow-2xl {
+html.dark .shadow-2xl,
+html[data-theme="dark"] .shadow-sm,
+html[data-theme="dark"] .shadow-xl,
+html[data-theme="dark"] .shadow-2xl {
   box-shadow: none !important;
 }
 
@@ -315,6 +361,12 @@ html.dark .shadow-2xl {
   height: 100dvh !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
+}
+
+html.dark .mobile-menu-content,
+html[data-theme="dark"] .mobile-menu-content {
+  background: #020617 !important;
+  color: #f8fafc !important;
 }
 
 /* ================= MEALS RANGE ================= */
@@ -373,185 +425,15 @@ html.dark .shadow-2xl {
   opacity: 0;
 }
 
-html[data-theme="dark"] .input-ui,
-html.dark .input-ui {
+html.dark .input-ui,
+html[data-theme="dark"] .input-ui {
   background: #020617 !important;
   border-color: #334155 !important;
   color: #f8fafc !important;
 }
 
-/* ================= FINAL FULL WEBSITE DARK MODE OVERRIDE ================= */
+/* ================= HOME OUTLINE BUTTON FIX ================= */
 
-/* Fix pages using gradients like Cart/Home */
-html.dark .bg-gradient-to-b,
-html.dark .bg-gradient-to-br,
-html.dark .bg-gradient-to-r,
-html[data-theme="dark"] .bg-gradient-to-b,
-html[data-theme="dark"] .bg-gradient-to-br,
-html[data-theme="dark"] .bg-gradient-to-r {
-  background-image: none !important;
-  background-color: #020617 !important;
-}
-
-/* Fix Tailwind gradient color utilities in dark mode */
-html.dark .from-green-50,
-html.dark .via-white,
-html.dark .to-green-50,
-html.dark .from-white,
-html.dark .to-white,
-html[data-theme="dark"] .from-green-50,
-html[data-theme="dark"] .via-white,
-html[data-theme="dark"] .to-green-50,
-html[data-theme="dark"] .from-white,
-html[data-theme="dark"] .to-white {
-  --tw-gradient-from: #020617 !important;
-  --tw-gradient-via: #020617 !important;
-  --tw-gradient-to: #020617 !important;
-}
-
-/* Cart / page hero section fix */
-html.dark section,
-html[data-theme="dark"] section {
-  color: #f8fafc;
-}
-
-html.dark .bg-green-50\/40,
-html.dark .bg-green-50\/50,
-html.dark .bg-green-50\/60,
-html[data-theme="dark"] .bg-green-50\/40,
-html[data-theme="dark"] .bg-green-50\/50,
-html[data-theme="dark"] .bg-green-50\/60 {
-  background-color: rgba(22, 163, 74, 0.12) !important;
-}
-
-/* Fix colored macro cards in Cart / Smart Planner */
-html.dark .bg-orange-50,
-html.dark .bg-amber-50,
-html.dark .bg-blue-50,
-html.dark .bg-sky-50,
-html.dark .bg-emerald-50,
-html.dark .bg-lime-50,
-html.dark .bg-yellow-50,
-html[data-theme="dark"] .bg-orange-50,
-html[data-theme="dark"] .bg-amber-50,
-html[data-theme="dark"] .bg-blue-50,
-html[data-theme="dark"] .bg-sky-50,
-html[data-theme="dark"] .bg-emerald-50,
-html[data-theme="dark"] .bg-lime-50,
-html[data-theme="dark"] .bg-yellow-50 {
-  background-color: #111827 !important;
-  color: #f8fafc !important;
-  border-color: #1e293b !important;
-}
-
-/* Fix text inside light colored macro boxes */
-html.dark .bg-orange-50 *,
-html.dark .bg-amber-50 *,
-html.dark .bg-blue-50 *,
-html.dark .bg-sky-50 *,
-html.dark .bg-emerald-50 *,
-html.dark .bg-lime-50 *,
-html.dark .bg-yellow-50 *,
-html[data-theme="dark"] .bg-orange-50 *,
-html[data-theme="dark"] .bg-amber-50 *,
-html[data-theme="dark"] .bg-blue-50 *,
-html[data-theme="dark"] .bg-sky-50 *,
-html[data-theme="dark"] .bg-emerald-50 *,
-html[data-theme="dark"] .bg-lime-50 *,
-html[data-theme="dark"] .bg-yellow-50 * {
-  color: #f8fafc !important;
-}
-
-/* Keep orange/blue/green labels readable */
-html.dark .text-orange-600,
-html.dark .text-orange-700,
-html[data-theme="dark"] .text-orange-600,
-html[data-theme="dark"] .text-orange-700 {
-  color: #fb923c !important;
-}
-
-html.dark .text-blue-600,
-html.dark .text-blue-700,
-html[data-theme="dark"] .text-blue-600,
-html[data-theme="dark"] .text-blue-700 {
-  color: #60a5fa !important;
-}
-
-html.dark .text-amber-600,
-html.dark .text-amber-700,
-html[data-theme="dark"] .text-amber-600,
-html[data-theme="dark"] .text-amber-700 {
-  color: #fbbf24 !important;
-}
-
-/* Fix badges/pills in dark mode */
-html.dark .rounded-full.bg-white,
-html[data-theme="dark"] .rounded-full.bg-white {
-  background-color: #0f172a !important;
-  color: #f8fafc !important;
-}
-
-/* Fix disabled buttons in dark mode */
-html.dark button:disabled,
-html[data-theme="dark"] button:disabled {
-  opacity: 0.45 !important;
-}
-
-/* Fix white/grey top page blocks like Cart header */
-html.dark .bg-\[\#f6f7f8\],
-html[data-theme="dark"] .bg-\[\#f6f7f8\] {
-  background-color: #020617 !important;
-}
-
-/* Fix all very light custom panels */
-html.dark .bg-\[\#f8fafc\],
-html.dark .bg-\[\#f9fafb\],
-html.dark .bg-\[\#f6f7f8\],
-html[data-theme="dark"] .bg-\[\#f8fafc\],
-html[data-theme="dark"] .bg-\[\#f9fafb\],
-html[data-theme="dark"] .bg-\[\#f6f7f8\] {
-  background-color: #020617 !important;
-  color: #f8fafc !important;
-}
-
-/* Fix cards using white but nested inside dark page */
-html.dark .shadow-\[0_12px_35px_rgba\(15\,23\,42\,0\.06\)\],
-html.dark .shadow-\[0_18px_35px_rgba\(22\,163\,74\,0\.25\)\],
-html[data-theme="dark"] .shadow-\[0_12px_35px_rgba\(15\,23\,42\,0\.06\)\],
-html[data-theme="dark"] .shadow-\[0_18px_35px_rgba\(22\,163\,74\,0\.25\)\] {
-  box-shadow: none !important;
-}
-
-/* Mobile menu should always be proper dark when dark mode is active */
-html.dark .mobile-menu-panel,
-html[data-theme="dark"] .mobile-menu-panel {
-  background: #020617 !important;
-}
-
-html.dark .mobile-menu-content,
-html[data-theme="dark"] .mobile-menu-content {
-  background: #020617 !important;
-  color: #f8fafc !important;
-}
-
-/* Fix links/buttons becoming too dim in dark mode */
-html.dark a,
-html.dark button,
-html[data-theme="dark"] a,
-html[data-theme="dark"] button {
-  text-decoration: none;
-}
-
-/* Keep main CTA readable */
-html.dark a.bg-green-600,
-html.dark button.bg-green-600,
-html[data-theme="dark"] a.bg-green-600,
-html[data-theme="dark"] button.bg-green-600 {
-  background-color: #16a34a !important;
-  color: #ffffff !important;
-}
-
-/* Outline buttons in dark mode */
 html.dark .home-outline-btn,
 html[data-theme="dark"] .home-outline-btn {
   background-color: #0f172a !important;

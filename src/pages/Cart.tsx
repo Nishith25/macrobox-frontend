@@ -286,7 +286,7 @@ export default function Cart() {
   const payable = Math.max(subtotal - discount, 0);
 
   const inputClass =
-    "h-12 w-full rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100";
+    "h-12 w-full rounded-[16px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900 px-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100";
 
   const fetchAvailableCoupons = async () => {
     try {
@@ -951,17 +951,17 @@ export default function Cart() {
 
   if (cart.length === 0) {
     return (
-      <main className="min-h-screen bg-[#f6f7f8] px-4 py-16 sm:px-6">
-        <div className="mx-auto max-w-[820px] rounded-[28px] border border-slate-200 bg-white p-10 text-center shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <main className="min-h-screen bg-[#f6f7f8] px-4 py-16 text-slate-950 dark:text-white dark:bg-slate-950 dark:text-white sm:px-6">
+        <div className="mx-auto max-w-[820px] rounded-[28px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900 p-10 text-center shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-700">
             <ShoppingBag size={30} />
           </div>
 
-          <h1 className="mt-5 text-3xl font-black tracking-[-0.04em] text-slate-950">
+          <h1 className="mt-5 text-3xl font-black tracking-[-0.04em] text-slate-950 dark:text-white">
             Your cart is empty
           </h1>
 
-          <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-slate-500">
+          <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
             Add your favourite MacroBox meals to continue checkout.
           </p>
 
@@ -978,8 +978,8 @@ export default function Cart() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] pb-24">
-      <section className="border-b border-slate-200 bg-white/70 px-4 py-8 sm:px-6">
+    <main className="min-h-screen bg-[#f6f7f8] pb-24 text-slate-950 dark:text-white dark:bg-slate-950 dark:text-white">
+      <section className="border-b border-slate-200 dark:border-slate-800 bg-white/70 px-4 py-8 dark:border-slate-800 dark:bg-slate-950 sm:px-6">
         <div className="mx-auto flex max-w-[1240px] flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
@@ -987,11 +987,11 @@ export default function Cart() {
               Secure Checkout
             </p>
 
-            <h1 className="mt-4 text-[34px] font-black tracking-[-0.05em] text-slate-950">
+            <h1 className="mt-4 text-[34px] font-black tracking-[-0.05em] text-slate-950 dark:text-white">
               Your Cart
             </h1>
 
-            <p className="mt-1 text-base font-medium text-slate-500">
+            <p className="mt-1 text-base font-medium text-slate-500 dark:text-slate-400">
               Review meals, choose delivery location, and complete payment.
             </p>
           </div>
@@ -1015,7 +1015,7 @@ export default function Cart() {
                 <IconCircle>
                   <ShoppingBag size={20} />
                 </IconCircle>
-                <h2 className="text-xl font-black text-slate-950">
+                <h2 className="text-xl font-black text-slate-950 dark:text-white">
                   Meals in Cart
                 </h2>
               </div>
@@ -1029,11 +1029,11 @@ export default function Cart() {
               {cart.map((item) => (
                 <div
                   key={item._id}
-                  className="rounded-[22px] border border-slate-200 bg-white p-4"
+                  className="rounded-[22px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900 p-4"
                 >
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
-                      <h3 className="truncate text-base font-black text-slate-950">
+                      <h3 className="truncate text-base font-black text-slate-950 dark:text-white">
                         {item.title}
                       </h3>
 
@@ -1067,12 +1067,12 @@ export default function Cart() {
                       <button
                         type="button"
                         onClick={() => decreaseQty(item._id)}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 dark:text-slate-300 transition hover:bg-slate-200"
                       >
                         <Minus size={16} />
                       </button>
 
-                      <span className="flex min-w-8 justify-center text-base font-black text-slate-950">
+                      <span className="flex min-w-8 justify-center text-base font-black text-slate-950 dark:text-white">
                         {item.qty}
                       </span>
 
@@ -1104,7 +1104,7 @@ export default function Cart() {
                 <IconCircle>
                   <MapPin size={20} />
                 </IconCircle>
-                <h2 className="text-xl font-black text-slate-950">
+                <h2 className="text-xl font-black text-slate-950 dark:text-white">
                   Delivery Address
                 </h2>
               </div>
@@ -1114,14 +1114,14 @@ export default function Cart() {
               </span>
             </div>
 
-            <p className="mb-5 text-sm font-medium leading-6 text-slate-500">
+            <p className="mb-5 text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
               Search your address like Swiggy/Zomato, select the correct Google
               result, then drag the marker or tap the map to adjust the exact
               delivery pin.
             </p>
 
             {savedAddresses.length > 0 && (
-              <div className="mb-5 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-5 rounded-[22px] border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-sm font-black text-slate-900">
                     Saved Addresses
@@ -1133,7 +1133,7 @@ export default function Cart() {
                 </div>
 
                 {loadingSavedAddresses ? (
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                     Loading saved addresses...
                   </p>
                 ) : (
@@ -1143,13 +1143,13 @@ export default function Cart() {
                         key={saved._id}
                         type="button"
                         onClick={() => selectSavedAddress(saved)}
-                        className="rounded-[18px] border border-slate-200 bg-white p-3 text-left transition hover:border-green-500 hover:bg-green-50"
+                        className="rounded-[18px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900 p-3 text-left transition hover:border-green-500 hover:bg-green-50"
                       >
                         <p className="truncate text-sm font-black text-slate-900">
                           {saved.addressLabel} • {saved.fullName}
                         </p>
 
-                        <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-500">
+                        <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">
                           {saved.flatNo}, {saved.buildingName}, {saved.area},{" "}
                           {saved.city} - {saved.pincode}
                         </p>
@@ -1160,14 +1160,14 @@ export default function Cart() {
               </div>
             )}
 
-            <div className="rounded-[22px] border border-slate-200 bg-white p-4">
+            <div className="rounded-[22px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900 p-4">
               <div className="mb-4">
-                <p className="flex items-center gap-2 text-base font-black text-slate-950">
+                <p className="flex items-center gap-2 text-base font-black text-slate-950 dark:text-white">
                   <Search size={18} className="text-green-600" />
                   Search Location
                 </p>
 
-                <p className="mt-1 text-sm font-medium text-slate-500">
+                <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
                   Type your apartment, street, area, or landmark and select from
                   Google suggestions.
                 </p>
@@ -1195,7 +1195,7 @@ export default function Cart() {
                         ? "Search exact delivery address..."
                         : "Loading Google Maps search..."
                     }
-                    className="h-12 w-full rounded-[16px] border border-slate-200 bg-white pl-11 pr-10 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                    className="h-12 w-full rounded-[16px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900 pl-11 pr-10 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100"
                   />
 
                   {addressSearch && (
@@ -1205,7 +1205,7 @@ export default function Cart() {
                         setAddressSearch("");
                         setLocationMsg(null);
                       }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-300"
                     >
                       <X size={16} />
                     </button>
@@ -1245,7 +1245,7 @@ export default function Cart() {
               </div>
 
               {address.lat != null && address.lng != null && (
-                <div className="mt-5 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
+                <div className="mt-5 overflow-hidden rounded-[22px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900">
                   <div className="relative h-[380px] w-full">
                     <div ref={googleMapRef} className="h-full w-full" />
 
@@ -1254,7 +1254,7 @@ export default function Cart() {
                         Exact Delivery Pin
                       </p>
 
-                      <p className="mt-1 text-xs font-medium text-slate-500">
+                      <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
                         Drag pin or tap map to adjust.
                       </p>
                     </div>
@@ -1287,7 +1287,7 @@ export default function Cart() {
               )}
             </div>
 
-            <div className="mt-5 rounded-[22px] border border-slate-200 bg-white p-4">
+            <div className="mt-5 rounded-[22px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900 p-4">
               <p className="mb-4 text-sm font-black text-slate-900">
                 Delivery Details
               </p>
@@ -1432,7 +1432,7 @@ export default function Cart() {
                 </select>
               </div>
 
-              <label className="mt-4 flex items-center gap-2 rounded-[16px] bg-slate-50 p-3 text-sm font-bold text-slate-700">
+              <label className="mt-4 flex items-center gap-2 rounded-[16px] bg-slate-50 dark:bg-slate-950 p-3 text-sm font-bold text-slate-700 dark:text-slate-300">
                 <input
                   type="checkbox"
                   checked={saveAddressForFuture}
@@ -1455,7 +1455,7 @@ export default function Cart() {
               <IconCircle>
                 <ShieldCheck size={19} />
               </IconCircle>
-              <h2 className="text-xl font-black text-slate-950">
+              <h2 className="text-xl font-black text-slate-950 dark:text-white">
                 Order Summary
               </h2>
             </div>
@@ -1482,22 +1482,22 @@ export default function Cart() {
               <SummaryMetric color="blue" label="Fat" value={`${totalFat}`} unit="g" />
             </div>
 
-            <hr className="my-5 border-slate-200" />
+            <hr className="my-5 border-slate-200 dark:border-slate-800" />
 
             <div className="space-y-3 text-sm">
               <p className="flex justify-between">
-                <span className="font-medium text-slate-500">Subtotal</span>
-                <b className="text-slate-950">₹{subtotal}</b>
+                <span className="font-medium text-slate-500 dark:text-slate-400">Subtotal</span>
+                <b className="text-slate-950 dark:text-white">₹{subtotal}</b>
               </p>
 
               <p className="flex justify-between">
-                <span className="font-medium text-slate-500">Discount</span>
-                <b className="text-slate-500">-₹{discount}</b>
+                <span className="font-medium text-slate-500 dark:text-slate-400">Discount</span>
+                <b className="text-slate-500 dark:text-slate-400">-₹{discount}</b>
               </p>
 
-              <div className="border-t border-slate-200 pt-4">
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
                 <p className="flex justify-between text-lg font-black">
-                  <span className="text-slate-950">Total Payable</span>
+                  <span className="text-slate-950 dark:text-white">Total Payable</span>
                   <span className="text-green-700">₹{payable}</span>
                 </p>
               </div>
@@ -1509,7 +1509,7 @@ export default function Cart() {
               <IconCircle>
                 <Tag size={18} />
               </IconCircle>
-              <h2 className="text-xl font-black text-slate-950">
+              <h2 className="text-xl font-black text-slate-950 dark:text-white">
                 Apply Coupon
               </h2>
             </div>
@@ -1548,11 +1548,11 @@ export default function Cart() {
               </p>
 
               {loadingCoupons ? (
-                <p className="text-sm font-medium text-slate-500">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                   Loading coupons...
                 </p>
               ) : availableCoupons.length === 0 ? (
-                <p className="rounded-[16px] border border-slate-200 bg-white p-3 text-center text-sm font-medium text-slate-500">
+                <p className="rounded-[16px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900 p-3 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
                   No coupons available for your cart.
                 </p>
               ) : (
@@ -1567,13 +1567,13 @@ export default function Cart() {
                         type="button"
                         onClick={() => applyCoupon(item.code)}
                         disabled={applying}
-                        className="w-full rounded-[16px] border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-green-500 hover:bg-green-50"
+                        className="w-full rounded-[16px] border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-left transition hover:border-green-500 hover:bg-green-50"
                       >
-                        <p className="text-sm font-black text-slate-950">
+                        <p className="text-sm font-black text-slate-950 dark:text-white">
                           {item.code}
                         </p>
 
-                        <p className="mt-1 text-xs font-bold text-slate-500">
+                        <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">
                           {formatCouponLabel(item)} • Min ₹{item.minCartTotal}
                         </p>
 
@@ -1595,7 +1595,7 @@ export default function Cart() {
               <IconCircle>
                 <Clock size={18} />
               </IconCircle>
-              <h2 className="text-xl font-black text-slate-950">
+              <h2 className="text-xl font-black text-slate-950 dark:text-white">
                 Delivery Time
               </h2>
             </div>
@@ -1658,7 +1658,7 @@ export default function Cart() {
               {checkingOut ? "Processing..." : "Checkout & Pay"}
             </button>
 
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-slate-500">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400">
               <span>○ Secure Payment</span>
               <span>⚡ Fast Delivery</span>
               <span>○ Fresh Meals</span>
@@ -1672,7 +1672,7 @@ export default function Cart() {
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)]">
+    <section className="rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
       {children}
     </section>
   );
@@ -1680,7 +1680,7 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 
 function IconCircle({ children }: { children: React.ReactNode }) {
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-300">
       {children}
     </span>
   );
@@ -1703,7 +1703,7 @@ function MacroPill({
       : "bg-blue-50 text-blue-700";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-black ${className}`}>
+    <span className={`rounded-full px-3 py-1 text-xs font-black dark:bg-slate-800 dark:text-slate-100 ${className}`}>
       {children}
     </span>
   );
@@ -1730,10 +1730,10 @@ function SummaryMetric({
       : "border-blue-100 bg-blue-50 text-blue-700";
 
   return (
-    <div className={`rounded-[18px] border p-4 ${className}`}>
+    <div className={`rounded-[18px] border p-4 dark:border-slate-800 dark:bg-slate-950 dark:text-white ${className}`}>
       <p className="text-xs font-black">{label}</p>
-      <p className="mt-2 text-xl font-black text-slate-950">
-        {value} <span className="text-sm font-bold text-slate-500">{unit}</span>
+      <p className="mt-2 text-xl font-black text-slate-950 dark:text-white dark:text-white">
+        {value} <span className="text-sm font-bold text-slate-500 dark:text-slate-400 dark:text-slate-400">{unit}</span>
       </p>
     </div>
   );

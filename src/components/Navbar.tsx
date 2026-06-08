@@ -56,7 +56,7 @@ export default function Navbar() {
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `inline-flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-sm font-black transition ${
       isActive
-        ? "bg-green-50 text-green-700 dark:bg-green-600 dark:text-white"
+        ? "bg-green-600 text-white"
         : "text-slate-800 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
     }`;
 
@@ -156,9 +156,9 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={() => navigate("/settings")}
-                  className="flex items-center gap-2 rounded-full bg-green-50 px-3 py-2 text-sm font-black text-green-700 dark:bg-green-600 dark:text-white"
+                  className="flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-black text-white"
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-600 text-xs text-white dark:bg-white dark:text-green-700">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-green-700">
                     {user?.name?.charAt(0)?.toUpperCase() || "U"}
                   </span>
                   {user?.name?.split(" ")[0] || "User"}
@@ -295,13 +295,13 @@ export default function Navbar() {
       </nav>
 
       {open && (
-        <div className="fixed inset-0 z-[99999] lg:hidden">
+        <div className="mobile-menu-panel lg:hidden">
           <div
             className="absolute inset-0 bg-black/45 backdrop-blur-sm"
             onClick={closeMenu}
           />
 
-          <aside className="absolute inset-y-0 right-0 flex h-[100dvh] w-full flex-col bg-white shadow-2xl dark:bg-slate-950">
+          <aside className="mobile-menu-content absolute inset-y-0 right-0 flex w-full flex-col bg-white shadow-2xl dark:bg-slate-950">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-800">
               <Link
                 to="/"
@@ -392,11 +392,7 @@ export default function Navbar() {
                       MacroTrack <span>→</span>
                     </NavLink>
 
-                    <NavLink
-                      to="/smart-day-planner"
-                      className={mobileLinkClass}
-                      onClick={closeMenu}
-                    >
+                    <NavLink to="/smart-day-planner" className={mobileLinkClass} onClick={closeMenu}>
                       Smart Day Planner <span>→</span>
                     </NavLink>
 
@@ -454,11 +450,7 @@ export default function Navbar() {
                       Coupons <span>→</span>
                     </NavLink>
 
-                    <NavLink
-                      to="/admin/delivery-agents"
-                      className={mobileLinkClass}
-                      onClick={closeMenu}
-                    >
+                    <NavLink to="/admin/delivery-agents" className={mobileLinkClass} onClick={closeMenu}>
                       Delivery Agents <span>→</span>
                     </NavLink>
 
@@ -470,11 +462,7 @@ export default function Navbar() {
                       Kitchen Orders <span>→</span>
                     </NavLink>
 
-                    <NavLink
-                      to="/admin/delivery-pincodes"
-                      className={mobileLinkClass}
-                      onClick={closeMenu}
-                    >
+                    <NavLink to="/admin/delivery-pincodes" className={mobileLinkClass} onClick={closeMenu}>
                       Delivery Pincodes <span>→</span>
                     </NavLink>
                   </>

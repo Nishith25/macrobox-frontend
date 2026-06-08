@@ -16,13 +16,6 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import {
-  applyMacroBoxTheme,
-  getSavedTheme,
-  type ThemeMode,
-} from "../utils/theme";
-
-/* ================= TYPES ================= */
 
 type SavedAddress = {
   _id?: string;
@@ -52,7 +45,24 @@ type CurrentUser = {
   savedAddresses?: SavedAddress[];
 };
 
-/* ================= PAGE ================= */
+type ThemeMode = "light" | "dark";
+
+const getSavedTheme = (): ThemeMode => {
+  const saved = localStorage.getItem("macrobox_theme");
+  return saved === "dark" ? "dark" : "light";
+};
+
+const applyTheme = (nextTheme: ThemeMode) => {
+  localStorage.setItem("macrobox_theme", nextTheme);
+
+  document.documentElement.classList.toggle("dark", nextTheme === "dark");
+  document.documentElement.setAttribute("data-theme", nextTheme);
+
+  document.body.style.background = nextTheme === "dark" ? "#020617" : "#f6f7f8";
+  document.body.style.color = nextTheme === "dark" ? "#f8fafc" : "#0f172a";
+
+  window.dispatchEvent(new Event("macrobox-theme-change"));
+};
 
 export default function SettingsPage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -108,25 +118,25 @@ export default function SettingsPage() {
     ? "rounded-[18px] border border-slate-800 bg-slate-950 p-4"
     : "rounded-[18px] border border-slate-200 bg-slate-50 p-4";
 
-  /* ================= THEME SYNC ================= */
-
   useEffect(() => {
-    applyMacroBoxTheme(theme);
+    applyTheme(theme);
   }, [theme]);
 
   useEffect(() => {
-    const syncTheme = () => {
-      setTheme(getSavedTheme());
+    const handleStorage = () => {
+      const nextTheme = getSavedTheme();
+      setTheme(nextTheme);
+      applyTheme(nextTheme);
     };
 
-    window.addEventListener("macrobox-theme-change", syncTheme);
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("macrobox-theme-change", handleStorage);
 
     return () => {
-      window.removeEventListener("macrobox-theme-change", syncTheme);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("macrobox-theme-change", handleStorage);
     };
   }, []);
-
-  /* ================= LOAD DATA ================= */
 
   const loadSettings = async () => {
     try {
@@ -180,7 +190,7 @@ export default function SettingsPage() {
         })
       );
     } catch {
-      // ignore
+      // ignore local storage parse errors
     }
   };
 
@@ -191,8 +201,6 @@ export default function SettingsPage() {
     setPhoneVerifiedForUpdate(false);
     setPhoneVerificationToken("");
   };
-
-  /* ================= PROFILE ================= */
 
   const updateProfile = async () => {
     if (!name.trim()) {
@@ -209,7 +217,6 @@ export default function SettingsPage() {
 
       setUser(res.data.user);
       syncLocalUser(res.data.user);
-
       toast.success("Profile updated");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to update profile");
@@ -217,8 +224,6 @@ export default function SettingsPage() {
       setSavingProfile(false);
     }
   };
-
-  /* ================= PHONE OTP UPDATE ================= */
 
   const sendPhoneOtp = async () => {
     if (!phoneReady) {
@@ -274,7 +279,6 @@ export default function SettingsPage() {
 
       setPhoneVerificationToken(res.data.phoneVerificationToken || "");
       setPhoneVerifiedForUpdate(true);
-
       toast.success("Phone verified successfully.");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "OTP verification failed.");
@@ -319,8 +323,6 @@ export default function SettingsPage() {
     }
   };
 
-  /* ================= PASSWORD ================= */
-
   const changePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error("Please fill all password fields");
@@ -357,8 +359,6 @@ export default function SettingsPage() {
     }
   };
 
-  /* ================= ADDRESS ================= */
-
   const deleteAddress = async (addressId?: string) => {
     if (!addressId) return;
     if (!window.confirm("Delete this saved address?")) return;
@@ -384,8 +384,6 @@ export default function SettingsPage() {
     }
   };
 
-  /* ================= ACCOUNT ================= */
-
   const deactivateAccount = async () => {
     try {
       setDeactivating(true);
@@ -404,8 +402,6 @@ export default function SettingsPage() {
     }
   };
 
-  /* ================= LOADING ================= */
-
   if (loading) {
     return (
       <main className={pageClass}>
@@ -418,12 +414,9 @@ export default function SettingsPage() {
     );
   }
 
-  /* ================= UI ================= */
-
   return (
     <main className={pageClass}>
       <div className="mx-auto max-w-[1240px] px-4 py-8 sm:px-6 lg:py-10">
-        {/* HEADER */}
         <section className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white">
@@ -431,9 +424,7 @@ export default function SettingsPage() {
             </span>
 
             <div>
-              <h1
-                className={`text-[32px] font-black tracking-[-0.04em] ${titleClass}`}
-              >
+              <h1 className={`text-[32px] font-black tracking-[-0.04em] ${titleClass}`}>
                 Settings
               </h1>
 
@@ -445,9 +436,7 @@ export default function SettingsPage() {
 
           <button
             type="button"
-            onClick={() =>
-              setTheme((prev) => (prev === "dark" ? "light" : "dark"))
-            }
+            onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
             className={`inline-flex h-12 w-fit items-center gap-2 rounded-[16px] px-5 text-sm font-black transition ${
               isDark
                 ? "bg-yellow-400 text-slate-950 hover:bg-yellow-300"
@@ -459,7 +448,6 @@ export default function SettingsPage() {
           </button>
         </section>
 
-        {/* SUMMARY */}
         <section className="mb-7 grid gap-5 md:grid-cols-3">
           <MiniSummary
             isDark={isDark}
@@ -489,9 +477,7 @@ export default function SettingsPage() {
           />
         </section>
 
-        {/* MAIN CARDS */}
         <section className="grid gap-5 lg:grid-cols-2">
-          {/* PROFILE */}
           <div className={cardClass}>
             <CardHeader
               isDark={isDark}
@@ -510,11 +496,7 @@ export default function SettingsPage() {
               </Field>
 
               <Field label="Email" isDark={isDark}>
-                <input
-                  value={user?.email || ""}
-                  disabled
-                  className={inputClass}
-                />
+                <input value={user?.email || ""} disabled className={inputClass} />
               </Field>
 
               <div className="flex flex-wrap gap-2">
@@ -536,7 +518,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* PHONE */}
           <div className={cardClass}>
             <CardHeader
               isDark={isDark}
@@ -577,6 +558,12 @@ export default function SettingsPage() {
                 </div>
               </Field>
 
+              {!phoneChanged && (
+                <p className={`text-xs font-bold ${mutedClass}`}>
+                  Enter a new phone number to enable OTP verification.
+                </p>
+              )}
+
               {otpSent && !phoneVerifiedForUpdate && (
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
@@ -600,25 +587,13 @@ export default function SettingsPage() {
               )}
 
               {devOtp && !phoneVerifiedForUpdate && (
-                <p
-                  className={`rounded-[14px] border px-4 py-3 text-xs font-black ${
-                    isDark
-                      ? "border-yellow-700 bg-yellow-950/30 text-yellow-300"
-                      : "border-yellow-300 bg-yellow-50 text-yellow-800"
-                  }`}
-                >
+                <p className="rounded-[14px] border border-yellow-300 bg-yellow-50 px-4 py-3 text-xs font-black text-yellow-800">
                   Dev OTP: {devOtp}
                 </p>
               )}
 
               {phoneVerifiedForUpdate && (
-                <p
-                  className={`flex items-center gap-2 rounded-[14px] px-4 py-3 text-xs font-black ${
-                    isDark
-                      ? "bg-green-950/30 text-green-300"
-                      : "bg-green-50 text-green-700"
-                  }`}
-                >
+                <p className="flex items-center gap-2 rounded-[14px] bg-green-50 px-4 py-3 text-xs font-black text-green-700">
                   <CheckCircle2 size={16} />
                   Phone number verified. You can update now.
                 </p>
@@ -645,7 +620,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* PASSWORD */}
           <div className={cardClass}>
             <CardHeader
               isDark={isDark}
@@ -692,7 +666,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* ACCOUNT */}
           <div className={cardClass}>
             <CardHeader
               isDark={isDark}
@@ -711,20 +684,13 @@ export default function SettingsPage() {
                   Deactivate Account
                 </button>
               ) : (
-                <div
-                  className={`rounded-[18px] border p-4 ${
-                    isDark
-                      ? "border-red-900 bg-red-950/30"
-                      : "border-red-200 bg-red-50"
-                  }`}
-                >
-                  <p className="font-black text-red-600">
+                <div className="rounded-[18px] border border-red-200 bg-red-50 p-4">
+                  <p className="font-black text-red-700">
                     Are you sure you want to deactivate your account?
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold text-red-500">
-                    You can reactivate later by signing up again with the same
-                    email.
+                  <p className="mt-1 text-sm font-semibold text-red-600">
+                    You can reactivate later by signing up again with the same email.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-3">
@@ -741,11 +707,7 @@ export default function SettingsPage() {
                       type="button"
                       onClick={() => setShowDeactivateConfirm(false)}
                       disabled={deactivating}
-                      className={`rounded-[14px] border px-4 py-2.5 text-sm font-black ${
-                        isDark
-                          ? "border-slate-700 bg-slate-900 text-white hover:bg-slate-800"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      }`}
+                      className="rounded-[14px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
                     >
                       Cancel
                     </button>
@@ -756,7 +718,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* SAVED ADDRESSES */}
         <section className={`mt-5 ${cardClass}`}>
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <CardHeader
@@ -861,11 +822,7 @@ export default function SettingsPage() {
                         href={address.mapsUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className={`rounded-[12px] border px-3 py-2 text-xs font-black ${
-                          isDark
-                            ? "border-green-500 bg-green-950/30 text-green-300 hover:bg-green-950/50"
-                            : "border-green-600 bg-green-50 text-green-700 hover:bg-green-100"
-                        }`}
+                        className="rounded-[12px] border border-green-600 bg-green-50 px-3 py-2 text-xs font-black text-green-700 hover:bg-green-100"
                       >
                         Open Map
                       </a>
@@ -881,8 +838,6 @@ export default function SettingsPage() {
   );
 }
 
-/* ================= COMPONENTS ================= */
-
 function CardHeader({
   isDark,
   icon,
@@ -896,11 +851,7 @@ function CardHeader({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span
-        className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-          isDark ? "bg-green-950/40 text-green-300" : "bg-green-50 text-green-700"
-        }`}
-      >
+      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
         {icon}
       </span>
 
