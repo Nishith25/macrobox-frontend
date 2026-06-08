@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { useAuth } from "../context/AuthContext";
 
 // Public Pages
 import Home from "../pages/Home";
@@ -54,6 +55,35 @@ import ProtectedRoute from "./ProtectedRoute";
 import AdminRoute from "./AdminRoute";
 import DeliveryRoute from "./DeliveryRoute";
 
+/* 
+  Public-only route:
+  If user is already logged in and opens /login or /signup using browser back,
+  redirect them to the correct page instead of showing auth page again.
+*/
+function AuthRedirectRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isAdmin, user } = useAuth();
+
+  if (!isAuthenticated) return children;
+
+  if (isAdmin) {
+    return <Navigate to="/admin/meals" replace />;
+  }
+
+  if (user?.role === "delivery") {
+    return <Navigate to="/delivery" replace />;
+  }
+
+  if (user?.role === "chef") {
+    return <Navigate to="/orderslist" replace />;
+  }
+
+  if (user?.role === "user" && !user?.onboarding?.completed) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return <Navigate to="/meals" replace />;
+}
+
 export default function AppRouter() {
   const location = useLocation();
 
@@ -73,8 +103,23 @@ export default function AppRouter() {
         <Route path="/" element={<Home />} />
 
         {/* ================= CUSTOMER AUTH ROUTES ================= */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route
+          path="/login"
+          element={
+            <AuthRedirectRoute>
+              <Login />
+            </AuthRedirectRoute>
+          }
+        />
+
+        <Route
+          path="/signup"
+          element={
+            <AuthRedirectRoute>
+              <Signup />
+            </AuthRedirectRoute>
+          }
+        />
 
         {/* ================= DELIVERY AUTH ROUTES ================= */}
         <Route path="/deliverylogin" element={<DeliveryLogin />} />
