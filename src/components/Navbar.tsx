@@ -70,15 +70,15 @@ export default function Navbar() {
   const adminLinkClass = ({ isActive }: { isActive: boolean }) =>
     `inline-flex items-center gap-1.5 rounded-[10px] px-3 py-2 text-xs font-black transition ${
       isActive
-        ? "bg-red-100 text-red-700"
-        : "text-red-600 hover:bg-red-50 hover:text-red-700"
+        ? "bg-white text-slate-950 shadow-sm"
+        : "text-slate-200 hover:bg-white hover:text-slate-950"
     }`;
 
   const chefLinkClass = ({ isActive }: { isActive: boolean }) =>
     `inline-flex items-center gap-1.5 rounded-[10px] px-3 py-2 text-xs font-black transition ${
       isActive
-        ? "bg-orange-100 text-orange-700"
-        : "text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+        ? "bg-white text-slate-950 shadow-sm"
+        : "text-slate-200 hover:bg-white hover:text-slate-950"
     }`;
 
   const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -226,11 +226,11 @@ export default function Navbar() {
         </div>
 
         {(isAdmin || isChef) && (
-          <div className="hidden border-t border-slate-100 bg-white lg:block dark:border-slate-800 dark:bg-slate-950">
+          <div className="admin-subnav hidden border-t border-slate-800 bg-slate-950 lg:block">
             <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2 px-4 py-2 sm:px-6">
               {isAdmin && (
                 <>
-                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-300">
                     <Shield size={14} />
                     Admin
                   </div>
@@ -254,7 +254,10 @@ export default function Navbar() {
                     Coupons
                   </NavLink>
 
-                  <NavLink to="/admin/delivery-agents" className={adminLinkClass}>
+                  <NavLink
+                    to="/admin/delivery-agents"
+                    className={adminLinkClass}
+                  >
                     <Truck size={14} />
                     Delivery Agents
                   </NavLink>
@@ -269,7 +272,10 @@ export default function Navbar() {
                     Kitchen Orders
                   </NavLink>
 
-                  <NavLink to="/admin/delivery-pincodes" className={adminLinkClass}>
+                  <NavLink
+                    to="/admin/delivery-pincodes"
+                    className={adminLinkClass}
+                  >
                     <MapPin size={14} />
                     Pincodes
                   </NavLink>
@@ -278,7 +284,7 @@ export default function Navbar() {
 
               {isChef && !isAdmin && (
                 <>
-                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  <div className="mr-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-300">
                     <ChefHat size={14} />
                     Chef
                   </div>
@@ -384,32 +390,61 @@ export default function Navbar() {
 
                 {isAuthenticated && !isChef && (
                   <>
-                    <NavLink to="/meals" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/meals"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Meals <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/macrotrack" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/macrotrack"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       MacroTrack <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/smart-day-planner" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/smart-day-planner"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Smart Day Planner <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/orders" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/orders"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Orders <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/cart" className={mobileLinkClass} onClick={closeMenu}>
-                      Cart {cartCount > 0 ? `(${cartCount})` : ""} <span>→</span>
+                    <NavLink
+                      to="/cart"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
+                      Cart {cartCount > 0 ? `(${cartCount})` : ""}{" "}
+                      <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/settings" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/settings"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Settings <span>→</span>
                     </NavLink>
 
                     {user?.role === "delivery" && (
-                      <NavLink to="/delivery" className={mobileLinkClass} onClick={closeMenu}>
+                      <NavLink
+                        to="/delivery"
+                        className={mobileLinkClass}
+                        onClick={closeMenu}
+                      >
                         Delivery <span>→</span>
                       </NavLink>
                     )}
@@ -422,7 +457,11 @@ export default function Navbar() {
                       Chef
                     </p>
 
-                    <NavLink to="/orderslist" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/orderslist"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Kitchen Orders <span>→</span>
                     </NavLink>
                   </>
@@ -434,35 +473,67 @@ export default function Navbar() {
                       Admin
                     </p>
 
-                    <NavLink to="/admin/meals" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/meals"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Admin Meals <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/users" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/users"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Users <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/orders" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/orders"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Orders <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/coupons" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/coupons"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Coupons <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/delivery-agents" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/delivery-agents"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Delivery Agents <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/chefs" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/chefs"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Chef Management <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/orderslist" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/orderslist"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Kitchen Orders <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/delivery-pincodes" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/delivery-pincodes"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Delivery Pincodes <span>→</span>
                     </NavLink>
                   </>

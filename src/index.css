@@ -445,3 +445,27 @@ html.dark .home-outline-btn *,
 html[data-theme="dark"] .home-outline-btn * {
   color: inherit !important;
 }
+
+/* ================= ADMIN SUB NAV VISIBILITY FIX ================= */
+
+.admin-subnav {
+  background: #020617 !important;
+  border-color: #1e293b !important;
+}
+
+.admin-subnav a,
+.admin-subnav button,
+.admin-subnav div {
+  color: #e2e8f0 !important;
+}
+
+.admin-subnav a:hover,
+.admin-subnav button:hover {
+  background: #ffffff !important;
+  color: #020617 !important;
+}
+
+.admin-subnav a[aria-current="page"] {
+  background: #ffffff !important;
+  color: #020617 !important;
+}
