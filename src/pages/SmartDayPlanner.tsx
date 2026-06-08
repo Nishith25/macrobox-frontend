@@ -8,11 +8,15 @@ import toast from "react-hot-toast";
 import {
   Beef,
   CalendarDays,
+  CheckSquare,
+  Clock,
   Flame,
+  ShoppingCart,
   Sparkles,
   Target,
   Trash2,
   Utensils,
+  X,
 } from "lucide-react";
 
 type GoalType =
@@ -170,13 +174,7 @@ export default function SmartDayPlanner() {
     const activity = bodyMetrics?.activity || "moderate";
 
     if (!h || !w || !a) {
-      return {
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
-        maintenance: 0,
-      };
+      return { calories: 0, protein: 0, carbs: 0, fat: 0, maintenance: 0 };
     }
 
     const bmr =
@@ -189,12 +187,10 @@ export default function SmartDayPlanner() {
     );
 
     let adjustment = 0;
-
     if (goal === "weight_loss") adjustment = -450;
     if (goal === "fat_loss") adjustment = -550;
     if (goal === "weight_gain") adjustment = 400;
     if (goal === "muscle_gain") adjustment = 250;
-    if (goal === "maintenance") adjustment = 0;
 
     if (gw && w) {
       const raw = Math.round(((gw - w) * 7700) / 60);
@@ -355,9 +351,7 @@ export default function SmartDayPlanner() {
     toast.success("Smart day plan generated");
   };
 
-  const clearPlan = () => {
-    setSelected({});
-  };
+  const clearPlan = () => setSelected({});
 
   const handleSavePlan = async () => {
     setSaving(true);
@@ -422,45 +416,53 @@ export default function SmartDayPlanner() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <p className="text-gray-500">Loading Smart Day Planner...</p>
-      </div>
+      <main className="min-h-screen bg-[#f6f7f8] px-4 py-10">
+        <div className="mx-auto max-w-[1240px] rounded-[24px] border bg-white p-10 text-slate-500 shadow-sm">
+          Loading Smart Day Planner...
+        </div>
+      </main>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
-      <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Smart Day Planner
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Build a full day meal plan based on calories, protein, carbs and fat.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <div className="rounded-full bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
-            {goalLabels[goal]}
-          </div>
-
-          <div className="rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
-            {todayText()}
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-6 rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+    <main className="min-h-screen bg-[#f6f7f8] px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-[1240px]">
+        <section className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Your Goal
-            </label>
+            <div className="mb-2 flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
+                <CalendarDays size={20} />
+              </span>
+              <h1 className="text-[30px] font-black tracking-[-0.04em] text-slate-950">
+                Smart Day Planner
+              </h1>
+            </div>
+            <p className="text-base font-medium text-slate-500">
+              Build a full day meal plan based on calories, protein, carbs and fat.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <div className="rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
+              ↗ {goalLabels[goal]}
+            </div>
+
+            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-500">
+              {todayText()}
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-8 rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+          <label className="mb-3 block text-xs font-black uppercase tracking-wide text-slate-500">
+            Your Goal
+          </label>
+
+          <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
             <select
               value={goal}
               onChange={(e) => setGoal(e.target.value as GoalType)}
-              className="h-11 w-full rounded-xl border px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+              className="input-ui"
             >
               <option value="fat_loss">Fat Loss</option>
               <option value="weight_loss">Weight Loss</option>
@@ -468,273 +470,311 @@ export default function SmartDayPlanner() {
               <option value="weight_gain">Weight Gain</option>
               <option value="muscle_gain">Muscle Gain</option>
             </select>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={autoSmartDayPlanner}
+                className="inline-flex h-12 items-center gap-2 rounded-[18px] bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700"
+              >
+                <Sparkles size={17} />
+                Auto Smart Day Plan
+              </button>
+
+              <button
+                onClick={clearPlan}
+                className="inline-flex h-12 items-center gap-2 rounded-[18px] bg-slate-100 px-5 text-sm font-black text-slate-700 hover:bg-slate-200"
+              >
+                <X size={17} />
+                Clear
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-8">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-950">
+              Daily Macro Targets
+            </h2>
+
+            <span className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-bold text-slate-500">
+              {selectedEntries.length} meals selected
+            </span>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={autoSmartDayPlanner}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700"
-            >
-              <Sparkles size={16} />
-              Auto Smart Day Plan
-            </button>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <GoalCard
+              icon={<Flame size={20} />}
+              title="Calories"
+              planned={plannedTotals.calories}
+              target={macroGoals.calories}
+              remaining={remaining.calories}
+              unit="kcal"
+              color="orange"
+            />
 
-            <button
-              onClick={clearPlan}
-              className="h-11 rounded-xl border px-4 text-sm font-semibold hover:bg-gray-50"
-            >
-              Clear
-            </button>
+            <GoalCard
+              icon={<Beef size={20} />}
+              title="Protein"
+              planned={plannedTotals.protein}
+              target={macroGoals.protein}
+              remaining={remaining.protein}
+              unit="g"
+              color="green"
+            />
+
+            <GoalCard
+              icon={<Target size={20} />}
+              title="Carbs"
+              planned={plannedTotals.carbs}
+              target={macroGoals.carbs}
+              remaining={remaining.carbs}
+              unit="g"
+              color="yellow"
+            />
+
+            <GoalCard
+              icon={<Utensils size={20} />}
+              title="Fat"
+              planned={plannedTotals.fat}
+              target={macroGoals.fat}
+              remaining={remaining.fat}
+              unit="g"
+              color="blue"
+            />
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-4">
-        <GoalCard
-          icon={<Flame size={20} />}
-          title="Calories"
-          planned={plannedTotals.calories}
-          target={macroGoals.calories}
-          remaining={remaining.calories}
-          unit="kcal"
-        />
-
-        <GoalCard
-          icon={<Beef size={20} />}
-          title="Protein"
-          planned={plannedTotals.protein}
-          target={macroGoals.protein}
-          remaining={remaining.protein}
-          unit="g"
-        />
-
-        <GoalCard
-          icon={<Target size={20} />}
-          title="Carbs"
-          planned={plannedTotals.carbs}
-          target={macroGoals.carbs}
-          remaining={remaining.carbs}
-          unit="g"
-        />
-
-        <GoalCard
-          icon={<Utensils size={20} />}
-          title="Fat"
-          planned={plannedTotals.fat}
-          target={macroGoals.fat}
-          remaining={remaining.fat}
-          unit="g"
-        />
-      </div>
-
-      {!macroGoals.calories && (
-        <div className="mb-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-          Complete your body details in MacroTrack first to get accurate macro
-          targets.
-        </div>
-      )}
-
-      <div className="mb-8">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">
-            Choose Meals for Each Time
-          </h2>
-          <p className="text-sm text-gray-500">
-            {selectedEntries.length} meal
-            {selectedEntries.length === 1 ? "" : "s"} selected
-          </p>
-        </div>
-
-        {meals.length === 0 ? (
-          <div className="rounded-2xl border bg-white p-6 text-center text-gray-500">
-            No meals available.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {meals.map((m) => {
-              const selectedTimes = selected[m._id] || [];
-
-              return (
-                <div
-                  key={m._id}
-                  className={`rounded-2xl border bg-white p-4 shadow-sm transition ${
-                    selectedTimes.length
-                      ? "border-green-400 bg-green-50/40"
-                      : "hover:border-green-200"
-                  }`}
-                >
-                  <div className="mb-3 flex gap-3">
-                    {m.imageUrl && (
-                      <img
-                        src={m.imageUrl}
-                        alt={m.title}
-                        className="h-20 w-20 rounded-xl object-cover"
-                      />
-                    )}
-
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-lg font-bold text-gray-900">
-                        {m.title}
-                      </h3>
-
-                      <p className="mt-1 text-sm text-gray-600">
-                        {n(m.calories)} kcal • {n(m.protein)}g protein
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-500">
-                        {n(m.carbs)}g carbs • {n(m.fat)}g fat
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {TIMES.map((t) => {
-                      const active = selectedTimes.includes(t);
-
-                      return (
-                        <button
-                          key={t}
-                          onClick={() => toggleSelect(m._id, t)}
-                          className={`rounded-full border px-3 py-1 text-sm font-medium capitalize ${
-                            active
-                              ? "border-green-600 bg-green-600 text-white"
-                              : "bg-white text-gray-700 hover:border-green-500"
-                          }`}
-                        >
-                          {timeLabels[t]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+        {!macroGoals.calories && (
+          <div className="mb-8 rounded-[18px] border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
+            Complete your body details in MacroTrack first to get accurate macro targets.
           </div>
         )}
-      </div>
 
-      <div className="mb-8 rounded-2xl border bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-xl font-bold text-gray-900">
-          Selected Day Plan
-        </h2>
+        <section className="mb-8">
+          <div className="mb-5">
+            <h2 className="text-xl font-black text-slate-950">
+              Choose Meals for Each Time
+            </h2>
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              Tap a meal card to select or deselect it
+            </p>
+          </div>
 
-        {selectedEntries.length === 0 ? (
-          <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
-            No meals selected yet. Use Auto Plan or select meals manually.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {TIMES.map((time) => {
-              const items = selectedEntries.filter((entry) =>
-                entry.times.includes(time)
-              );
+          {meals.length === 0 ? (
+            <div className="rounded-[24px] border bg-white p-10 text-center text-slate-500">
+              No meals available.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {meals.map((m) => {
+                const selectedTimes = selected[m._id] || [];
 
-              return (
-                <div key={time} className="rounded-xl border p-3">
-                  <p className="mb-2 font-bold text-gray-900">
-                    {timeLabels[time]}
-                  </p>
+                return (
+                  <article
+                    key={m._id}
+                    className={`overflow-hidden rounded-[20px] border bg-white shadow-sm transition ${
+                      selectedTimes.length
+                        ? "border-green-400 bg-green-50/40"
+                        : "border-slate-200 hover:border-green-200"
+                    }`}
+                  >
+                    <div className="flex min-h-[122px]">
+                      <div className="h-[122px] w-[130px] shrink-0 overflow-hidden bg-slate-100">
+                        <img
+                          src={m.imageUrl || "/placeholder-meal.png"}
+                          alt={m.title}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder-meal.png";
+                          }}
+                        />
+                      </div>
 
-                  {items.length === 0 ? (
-                    <p className="text-sm text-gray-500">No meal selected</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {items.map(({ meal }) => (
-                        <p key={`${time}-${meal._id}`} className="text-sm text-gray-700">
-                          {meal.title} — {n(meal.calories)} kcal,{" "}
-                          {n(meal.protein)}g protein
+                      <div className="min-w-0 flex-1 p-4">
+                        <h3 className="truncate text-base font-black text-slate-950">
+                          {m.title}
+                        </h3>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Badge color="orange">🔥 {n(m.calories)} kcal</Badge>
+                          <Badge color="green">🥩 {n(m.protein)}g</Badge>
+                          <Badge color="yellow">🌾 {n(m.carbs)}g</Badge>
+                          <Badge color="blue">💧 {n(m.fat)}g</Badge>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {TIMES.map((t) => {
+                            const active = selectedTimes.includes(t);
+
+                            return (
+                              <button
+                                key={t}
+                                onClick={() => toggleSelect(m._id, t)}
+                                className={`rounded-full border px-3 py-1 text-xs font-black ${
+                                  active
+                                    ? "border-green-600 bg-green-600 text-white"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-green-500"
+                                }`}
+                              >
+                                {timeLabels[t]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="mb-8 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-6 py-5">
+            <div className="flex items-center gap-3">
+              <CheckSquare size={20} className="text-green-600" />
+              <h2 className="text-xl font-black text-slate-950">
+                Selected Day Plan
+              </h2>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {selectedEntries.length === 0 ? (
+              <EmptyState
+                icon={<CalendarDays size={28} />}
+                title="No meals selected yet"
+                text="Use Auto Plan or tap meal cards to build your day"
+              />
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {TIMES.map((time) => {
+                  const items = selectedEntries.filter((entry) =>
+                    entry.times.includes(time)
+                  );
+
+                  return (
+                    <div key={time} className="rounded-[18px] border border-slate-200 p-4">
+                      <p className="mb-3 font-black text-slate-950">
+                        {timeLabels[time]}
+                      </p>
+
+                      {items.length === 0 ? (
+                        <p className="text-sm font-medium text-slate-500">
+                          No meal selected
                         </p>
-                      ))}
+                      ) : (
+                        <div className="space-y-2">
+                          {items.map(({ meal }) => (
+                            <p
+                              key={`${time}-${meal._id}`}
+                              className="text-sm font-semibold text-slate-700"
+                            >
+                              {meal.title} — {n(meal.calories)} kcal
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                onClick={handleSavePlan}
+                disabled={saving}
+                className="inline-flex h-12 items-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white hover:bg-green-700 disabled:opacity-60"
+              >
+                <CheckSquare size={17} />
+                {saving ? "Saving..." : "Save Plan"}
+              </button>
+
+              <button
+                onClick={addSelectedPlanToCart}
+                className="inline-flex h-12 items-center gap-2 rounded-[18px] border border-green-600 px-6 text-sm font-black text-green-700 hover:bg-green-50"
+              >
+                <ShoppingCart size={17} />
+                Add Selected Meals to Cart
+              </button>
+            </div>
           </div>
-        )}
+        </section>
 
-        <div className="mt-5 flex flex-wrap gap-3">
-          <button
-            onClick={handleSavePlan}
-            disabled={saving}
-            className="rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
-          >
-            {saving ? "Saving..." : "Save Plan"}
-          </button>
+        <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-6 py-5">
+            <div className="flex items-center gap-3">
+              <Clock size={20} className="text-green-600" />
+              <h2 className="text-xl font-black text-slate-950">
+                Last 15 Days Plans
+              </h2>
+            </div>
+          </div>
 
-          <button
-            onClick={addSelectedPlanToCart}
-            className="rounded-xl border border-green-600 px-5 py-3 text-sm font-semibold text-green-700 hover:bg-green-50"
-          >
-            Add Selected Meals to Cart
-          </button>
-        </div>
-      </div>
+          <div className="p-6">
+            {history.length === 0 ? (
+              <EmptyState
+                icon={<Clock size={28} />}
+                title="No plans saved yet"
+                text="Your saved day plans will appear here"
+              />
+            ) : (
+              <div className="space-y-4">
+                {history.map((plan) => {
+                  const totals = plan.items.reduce(
+                    (acc, item) => {
+                      acc.protein += n(item.meal?.protein) * item.times.length;
+                      acc.calories += n(item.meal?.calories) * item.times.length;
+                      acc.carbs += n(item.meal?.carbs) * item.times.length;
+                      acc.fat += n(item.meal?.fat) * item.times.length;
+                      return acc;
+                    },
+                    { protein: 0, calories: 0, carbs: 0, fat: 0 }
+                  );
 
-      <div className="rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <CalendarDays size={20} className="text-green-600" />
-          <h2 className="text-xl font-bold text-gray-900">
-            Last 15 Days Plans
-          </h2>
-        </div>
+                  return (
+                    <div key={plan._id} className="rounded-[18px] border p-4">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-black text-slate-950">
+                            {new Date(plan.date).toDateString()}
+                          </p>
 
-        {history.length === 0 ? (
-          <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
-            No plans saved yet.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {history.map((plan) => {
-              const totals = plan.items.reduce(
-                (acc, item) => {
-                  acc.protein += n(item.meal?.protein) * item.times.length;
-                  acc.calories += n(item.meal?.calories) * item.times.length;
-                  acc.carbs += n(item.meal?.carbs) * item.times.length;
-                  acc.fat += n(item.meal?.fat) * item.times.length;
-                  return acc;
-                },
-                { protein: 0, calories: 0, carbs: 0, fat: 0 }
-              );
+                          <p className="mt-1 text-sm font-medium text-slate-500">
+                            {totals.calories} kcal • {totals.protein}g protein •{" "}
+                            {totals.carbs}g carbs • {totals.fat}g fat
+                          </p>
+                        </div>
 
-              return (
-                <div key={plan._id} className="rounded-xl border p-4">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        {new Date(plan.date).toDateString()}
-                      </p>
+                        <button
+                          onClick={() => deletePlan(plan._id)}
+                          className="inline-flex items-center gap-1 text-sm font-black text-red-600"
+                        >
+                          <Trash2 size={15} />
+                          Delete
+                        </button>
+                      </div>
 
-                      <p className="mt-1 text-sm text-gray-600">
-                        {totals.calories} kcal • {totals.protein}g protein •{" "}
-                        {totals.carbs}g carbs • {totals.fat}g fat
-                      </p>
+                      <ul className="space-y-1 text-sm font-medium text-slate-700">
+                        {plan.items.map((i, idx) => (
+                          <li key={idx}>
+                            <strong>{i.meal?.title || "Meal"}</strong> →{" "}
+                            {i.times.map((t) => timeLabels[t]).join(", ")}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-
-                    <button
-                      onClick={() => deletePlan(plan._id)}
-                      className="inline-flex items-center gap-1 text-sm font-semibold text-red-600"
-                    >
-                      <Trash2 size={15} />
-                      Delete
-                    </button>
-                  </div>
-
-                  <ul className="space-y-1 text-sm text-gray-700">
-                    {plan.items.map((i, idx) => (
-                      <li key={idx}>
-                        <strong>{i.meal?.title || "Meal"}</strong> →{" "}
-                        {i.times.map((t) => timeLabels[t]).join(", ")}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -745,7 +785,7 @@ function GoalCard({
   target,
   remaining,
   unit,
-  highlight,
+  color,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -753,42 +793,119 @@ function GoalCard({
   target: number;
   remaining: number;
   unit: string;
-  highlight?: boolean;
+  color: "orange" | "green" | "yellow" | "blue";
 }) {
   const percent = target > 0 ? clamp((planned / target) * 100, 0, 100) : 0;
 
+  const styles = {
+    orange: {
+      border: "border-orange-100",
+      icon: "bg-orange-50 text-orange-600",
+      text: "text-orange-600",
+      bar: "bg-orange-500",
+      pill: "bg-orange-50 text-orange-600",
+    },
+    green: {
+      border: "border-green-100",
+      icon: "bg-green-50 text-green-700",
+      text: "text-green-700",
+      bar: "bg-green-600",
+      pill: "bg-green-50 text-green-700",
+    },
+    yellow: {
+      border: "border-yellow-100",
+      icon: "bg-yellow-50 text-yellow-600",
+      text: "text-yellow-600",
+      bar: "bg-yellow-500",
+      pill: "bg-yellow-50 text-yellow-600",
+    },
+    blue: {
+      border: "border-blue-100",
+      icon: "bg-blue-50 text-blue-600",
+      text: "text-blue-600",
+      bar: "bg-blue-500",
+      pill: "bg-blue-50 text-blue-600",
+    },
+  }[color];
+
   return (
-    <div
-      className={`rounded-2xl border p-4 shadow-sm ${
-        highlight ? "border-green-300 bg-green-50" : "bg-white"
-      }`}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-green-700">
+    <div className={`rounded-[20px] border bg-white p-5 shadow-sm ${styles.border}`}>
+      <div className="mb-7 flex items-start justify-between">
+        <div className={`flex h-11 w-11 items-center justify-center rounded-full ${styles.icon}`}>
           {icon}
         </div>
 
-        <p className="text-xs font-semibold text-gray-500">
+        <span className={`rounded-full px-3 py-1 text-sm font-black ${styles.pill}`}>
           {Math.round(percent)}%
-        </p>
+        </span>
       </div>
 
-      <p className="text-sm text-gray-500">{title}</p>
-
-      <p className="mt-1 text-xl font-bold text-gray-900">
-        {planned} / {target || "—"} {unit}
+      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+        {title}
       </p>
 
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
+      <p className="mt-2 text-[28px] font-black leading-none tracking-[-0.05em] text-slate-950">
+        {planned}
+        <span className="text-base font-bold text-slate-400">
+          {" "}
+          / {target || "—"} {unit}
+        </span>
+      </p>
+
+      <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-green-600"
+          className={`h-full rounded-full ${styles.bar}`}
           style={{ width: `${percent}%` }}
         />
       </div>
 
-      <p className="mt-2 text-xs font-medium text-green-700">
-        Remaining: {remaining} {unit}
+      <p className={`mt-3 text-sm font-black ${styles.text}`}>
+        {remaining} {unit}{" "}
+        <span className="font-medium text-slate-500">remaining</span>
       </p>
+    </div>
+  );
+}
+
+function Badge({
+  children,
+  color,
+}: {
+  children: React.ReactNode;
+  color: "orange" | "green" | "yellow" | "blue";
+}) {
+  const cls =
+    color === "orange"
+      ? "bg-orange-50 text-orange-600"
+      : color === "green"
+      ? "bg-green-50 text-green-700"
+      : color === "yellow"
+      ? "bg-yellow-50 text-yellow-600"
+      : "bg-blue-50 text-blue-600";
+
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-xs font-black ${cls}`}>
+      {children}
+    </span>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  text,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="flex min-h-[210px] flex-col items-center justify-center text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[18px] bg-slate-100 text-slate-500">
+        {icon}
+      </div>
+      <p className="font-black text-slate-950">{title}</p>
+      <p className="mt-2 text-sm font-medium text-slate-500">{text}</p>
     </div>
   );
 }
