@@ -153,16 +153,12 @@ export default function Navbar() {
           <div className="hidden items-center gap-3 lg:flex">
             {isAuthenticated ? (
               <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
-                <button
-                  type="button"
-                  onClick={() => navigate("/settings")}
-                  className="flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-black text-white"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-green-700">
-                    {user?.name?.charAt(0)?.toUpperCase() || "U"}
-                  </span>
-                  {user?.name?.split(" ")[0] || "User"}
-                </button>
+                <div className="flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-black text-white">
+  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-green-700">
+    {user?.name?.charAt(0)?.toUpperCase() || "U"}
+  </span>
+  {user?.name?.split(" ")[0] || "User"}
+</div>
 
                 <button
                   type="button"
