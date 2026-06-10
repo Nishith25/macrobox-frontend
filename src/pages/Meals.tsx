@@ -228,7 +228,7 @@ export default function Meals() {
       : "Non-Veg Only";
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] px-4 pb-32 pt-8 sm:px-6 sm:pt-10">
+    <main className="min-h-screen bg-[#f6f7f8] px-4 pb-32 pt-8 text-slate-950 sm:px-6 sm:pt-10">
       <div className="mx-auto max-w-[1420px]">
         <section className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -241,7 +241,7 @@ export default function Meals() {
             </p>
           </div>
 
-          <div className="inline-flex w-full max-w-[330px] rounded-[20px] border border-slate-200 bg-white p-1 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:w-fit sm:max-w-none">
+          <div className="inline-flex w-full rounded-[20px] border border-slate-200 bg-white p-1 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:w-fit">
             {(["all", "veg", "nonveg"] as FilterType[]).map((type) => (
               <button
                 key={type}
@@ -259,7 +259,7 @@ export default function Meals() {
           </div>
         </section>
 
-        <section className="mb-7 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)] sm:rounded-[26px]">
+        <section className="mb-7 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
           <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_220px_230px] lg:items-center xl:grid-cols-[1fr_260px_260px]">
             <div className="flex flex-wrap items-center gap-2">
               <div className="mr-1 flex items-center gap-2 text-sm font-extrabold text-slate-500 sm:text-[15px]">
@@ -362,15 +362,15 @@ export default function Meals() {
         </section>
 
         {loading ? (
-          <div className="rounded-[26px] border border-slate-200 bg-white p-12 text-center font-bold text-slate-500">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-8 text-center font-bold text-slate-500 sm:p-12">
             Loading meals...
           </div>
         ) : error ? (
-          <div className="rounded-[26px] border border-red-100 bg-red-50 p-12 text-center font-bold text-red-600">
+          <div className="rounded-[24px] border border-red-100 bg-red-50 p-8 text-center font-bold text-red-600 sm:p-12">
             {error}
           </div>
         ) : filteredMeals.length === 0 ? (
-          <div className="rounded-[26px] border border-slate-200 bg-white p-12 text-center">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-8 text-center sm:p-12">
             <p className="font-black text-slate-900">
               No meals available for this filter.
             </p>
@@ -379,7 +379,7 @@ export default function Meals() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredMeals.map((meal, index) => {
               const qty = getCartQty(meal._id);
 
@@ -388,7 +388,7 @@ export default function Meals() {
                   key={meal._id}
                   className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.12)]"
                 >
-                  <div className="relative h-[255px] overflow-hidden bg-slate-100">
+                  <div className="relative h-[230px] overflow-hidden bg-slate-100 sm:h-[255px]">
                     <img
                       src={meal.imageUrl || "/placeholder-meal.png"}
                       alt={meal.title}
@@ -418,9 +418,9 @@ export default function Meals() {
                     </div>
                   </div>
 
-                  <div className="p-5">
+                  <div className="p-4 sm:p-5">
                     <div className="mb-3 flex items-start justify-between gap-3">
-                      <h2 className="line-clamp-1 text-[21px] font-black tracking-[-0.03em] text-slate-950">
+                      <h2 className="line-clamp-1 text-[20px] font-black tracking-[-0.03em] text-slate-950 sm:text-[21px]">
                         {meal.title || "Untitled Meal"}
                       </h2>
 
@@ -435,11 +435,11 @@ export default function Meals() {
                       </span>
                     </div>
 
-                    <p className="min-h-[48px] text-sm font-medium leading-6 text-slate-500">
+                    <p className="min-h-[42px] text-sm font-medium leading-6 text-slate-500 sm:min-h-[48px]">
                       {meal.description || "No description added"}
                     </p>
 
-                    <div className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-3">
                       <MacroBox
                         label="Calories"
                         value={`${meal.calories || 0} kcal`}
@@ -467,19 +467,19 @@ export default function Meals() {
                           <button
                             type="button"
                             onClick={() => decreaseQty(meal._id)}
-                            className="h-12 w-14 bg-white text-xl font-black text-green-700 transition hover:bg-green-50"
+                            className="h-11 w-12 bg-white text-xl font-black text-green-700 transition hover:bg-green-50 sm:h-12 sm:w-14"
                           >
                             −
                           </button>
 
-                          <span className="flex h-12 w-12 items-center justify-center bg-white font-black text-green-700">
+                          <span className="flex h-11 w-10 items-center justify-center bg-white font-black text-green-700 sm:h-12 sm:w-12">
                             {qty}
                           </span>
 
                           <button
                             type="button"
                             onClick={() => handleIncrease(meal)}
-                            className="h-12 w-14 bg-green-50 text-xl font-black text-green-700 transition hover:bg-green-100"
+                            className="h-11 w-12 bg-green-50 text-xl font-black text-green-700 transition hover:bg-green-100 sm:h-12 sm:w-14"
                           >
                             +
                           </button>
@@ -488,7 +488,7 @@ export default function Meals() {
                         <button
                           type="button"
                           onClick={() => handleAdd(meal)}
-                          className="inline-flex h-12 items-center gap-2 rounded-[16px] bg-green-600 px-6 text-sm font-black text-white shadow-[0_10px_24px_rgba(22,163,74,0.25)] transition hover:bg-green-700"
+                          className="inline-flex h-11 items-center gap-2 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white shadow-[0_10px_24px_rgba(22,163,74,0.25)] transition hover:bg-green-700 sm:h-12 sm:px-6"
                         >
                           <Plus size={18} />
                           Add
@@ -505,13 +505,13 @@ export default function Meals() {
         {cartCount > 0 && (
           <div className="fixed left-1/2 z-[9999] w-[calc(100%-32px)] max-w-[440px] -translate-x-1/2 rounded-[24px] bg-slate-950 p-3 shadow-[0_24px_70px_rgba(15,23,42,0.45)] [bottom:calc(20px+env(safe-area-inset-bottom))]">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 pl-2 text-white">
-                <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-green-600">
+              <div className="flex min-w-0 items-center gap-3 pl-2 text-white">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] bg-green-600">
                   <ShoppingCart size={19} />
                 </div>
 
-                <div>
-                  <p className="text-sm font-black">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black">
                     {cartCount} item{cartCount > 1 ? "s" : ""} in cart
                   </p>
                   <p className="mt-0.5 text-xs font-bold text-slate-300">
@@ -523,7 +523,7 @@ export default function Meals() {
               <button
                 type="button"
                 onClick={() => navigate("/cart")}
-                className="rounded-[16px] bg-green-600 px-5 py-3 text-sm font-black text-white transition hover:bg-green-700"
+                className="shrink-0 rounded-[16px] bg-green-600 px-5 py-3 text-sm font-black text-white transition hover:bg-green-700"
               >
                 View Cart
               </button>
@@ -537,9 +537,11 @@ export default function Meals() {
 
 function MacroBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[16px] bg-slate-50 px-4 py-3">
-      <p className="text-xs font-bold text-slate-400">{label}</p>
-      <p className="mt-1 text-base font-black text-slate-900">{value}</p>
+    <div className="rounded-[16px] bg-slate-50 px-3 py-2.5 sm:px-4 sm:py-3">
+      <p className="text-[11px] font-bold text-slate-400 sm:text-xs">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-900 sm:text-base">
+        {value}
+      </p>
     </div>
   );
 }

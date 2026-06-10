@@ -951,8 +951,8 @@ export default function Cart() {
 
   if (cart.length === 0) {
     return (
-      <main className="min-h-screen bg-[#f6f7f8] px-4 py-16 text-slate-950 sm:px-6">
-        <div className="mx-auto max-w-[820px] rounded-[28px] border border-slate-200 bg-white p-10 text-center shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <main className="min-h-screen bg-[#f6f7f8] px-4 py-14 text-slate-950 sm:px-6 sm:py-16">
+        <div className="mx-auto max-w-[820px] rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:p-10">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-700">
             <ShoppingBag size={30} />
           </div>
@@ -978,8 +978,8 @@ export default function Cart() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] pb-24 text-slate-950">
-      <section className="border-b border-slate-200 bg-white/70 px-4 py-8 sm:px-6">
+    <main className="min-h-screen bg-[#f6f7f8] pb-32 text-slate-950 xl:pb-24">
+      <section className="border-b border-slate-200 bg-white/80 px-4 py-6 sm:px-6 sm:py-8">
         <div className="mx-auto flex max-w-[1240px] flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
@@ -987,16 +987,16 @@ export default function Cart() {
               Secure Checkout
             </p>
 
-            <h1 className="mt-4 text-[34px] font-black tracking-[-0.05em] text-slate-950">
+            <h1 className="mt-4 text-[38px] font-black tracking-[-0.07em] text-slate-950 sm:text-[34px]">
               Your Cart
             </h1>
 
-            <p className="mt-1 text-base font-medium text-slate-500">
+            <p className="mt-1 max-w-xl text-base font-medium leading-7 text-slate-500">
               Review meals, choose delivery location, and complete payment.
             </p>
           </div>
 
-          <div className="w-fit rounded-[22px] bg-green-700 px-7 py-4 text-white shadow-[0_16px_35px_rgba(22,101,52,0.25)]">
+          <div className="w-fit rounded-[22px] bg-green-700 px-6 py-4 text-white shadow-[0_16px_35px_rgba(22,101,52,0.25)] sm:px-7">
             <p className="text-xs font-black uppercase tracking-wide text-green-100">
               Total Payable
             </p>
@@ -1007,10 +1007,10 @@ export default function Cart() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-[1240px] gap-7 px-4 py-8 sm:px-6 xl:grid-cols-[1fr_390px]">
-        <div className="space-y-7">
+      <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:grid-cols-[1fr_390px] xl:gap-7">
+        <div className="space-y-6 xl:space-y-7">
           <SectionCard>
-            <div className="mb-5 flex items-center justify-between">
+            <div className="mb-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <IconCircle>
                   <ShoppingBag size={20} />
@@ -1025,7 +1025,7 @@ export default function Cart() {
               </span>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {cart.map((item) => (
                 <div
                   key={item._id}
@@ -1033,22 +1033,22 @@ export default function Cart() {
                 >
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
-                      <h3 className="truncate text-base font-black text-slate-950">
+                      <h3 className="line-clamp-2 text-base font-black text-slate-950">
                         {item.title}
                       </h3>
 
                       <div className="mt-2 flex flex-wrap gap-2">
                         <MacroPill color="green">
-                          🥩 {item.protein * item.qty}g protein
+                          🥩 {item.protein * item.qty}g
                         </MacroPill>
                         <MacroPill color="orange">
                           🔥 {item.calories * item.qty} kcal
                         </MacroPill>
                         <MacroPill color="yellow">
-                          🌾 {(item.carbs || 0) * item.qty}g carbs
+                          🌾 {(item.carbs || 0) * item.qty}g
                         </MacroPill>
                         <MacroPill color="blue">
-                          💧 {(item.fat || 0) * item.qty}g fat
+                          💧 {(item.fat || 0) * item.qty}g
                         </MacroPill>
                       </div>
 
@@ -1063,31 +1063,33 @@ export default function Cart() {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => decreaseQty(item._id)}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
-                      >
-                        <Minus size={16} />
-                      </button>
+                    <div className="flex items-center justify-between gap-2 md:justify-end">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => decreaseQty(item._id)}
+                          className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                        >
+                          <Minus size={16} />
+                        </button>
 
-                      <span className="flex min-w-8 justify-center text-base font-black text-slate-950">
-                        {item.qty}
-                      </span>
+                        <span className="flex min-w-8 justify-center text-base font-black text-slate-950">
+                          {item.qty}
+                        </span>
 
-                      <button
-                        type="button"
-                        onClick={() => increaseQty(item._id)}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white transition hover:bg-green-700"
-                      >
-                        <Plus size={16} />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => increaseQty(item._id)}
+                          className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white transition hover:bg-green-700"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
 
                       <button
                         type="button"
                         onClick={() => removeFromCart(item._id)}
-                        className="ml-1 flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
                       >
                         <Trash2 size={17} />
                       </button>
@@ -1109,15 +1111,14 @@ export default function Cart() {
                 </h2>
               </div>
 
-              <span className="rounded-full bg-orange-50 px-4 py-1.5 text-xs font-black text-orange-700">
+              <span className="hidden rounded-full bg-orange-50 px-4 py-1.5 text-xs font-black text-orange-700 sm:inline-flex">
                 Exact pin required
               </span>
             </div>
 
             <p className="mb-5 text-sm font-medium leading-6 text-slate-500">
-              Search your address like Swiggy/Zomato, select the correct Google
-              result, then drag the marker or tap the map to adjust the exact
-              delivery pin.
+              Search your address, select the correct Google result, then drag
+              the marker or tap the map to adjust the exact delivery pin.
             </p>
 
             {savedAddresses.length > 0 && (
@@ -1167,8 +1168,8 @@ export default function Cart() {
                   Search Location
                 </p>
 
-                <p className="mt-1 text-sm font-medium text-slate-500">
-                  Type your apartment, street, area, or landmark and select from
+                <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                  Type apartment, street, area, or landmark and select from
                   Google suggestions.
                 </p>
               </div>
@@ -1222,14 +1223,14 @@ export default function Cart() {
                 </button>
               </div>
 
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={useCurrentLocation}
-                  className="h-12 flex-1 rounded-[16px] bg-green-600 text-sm font-black text-white transition hover:bg-green-700"
+                  className="h-12 rounded-[16px] bg-green-600 text-sm font-black text-white transition hover:bg-green-700"
                 >
                   <Navigation size={17} className="mr-1 inline" />
-                  Use Current Location
+                  Current Location
                 </button>
 
                 {address.mapsUrl && (
@@ -1237,29 +1238,29 @@ export default function Cart() {
                     href={address.mapsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex h-12 flex-1 items-center justify-center rounded-[16px] border border-green-200 bg-white text-sm font-black text-green-700 transition hover:bg-green-50"
+                    className="flex h-12 items-center justify-center rounded-[16px] border border-green-200 bg-white text-sm font-black text-green-700 transition hover:bg-green-50"
                   >
-                    Open in Google Maps
+                    Open Maps
                   </a>
                 )}
               </div>
 
               {address.lat != null && address.lng != null && (
                 <div className="mt-5 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
-                  <div className="relative h-[380px] w-full">
+                  <div className="relative h-[300px] w-full sm:h-[380px]">
                     <div ref={googleMapRef} className="h-full w-full" />
 
-                    <div className="absolute left-4 top-4 z-10 rounded-[16px] bg-white/95 px-4 py-3 shadow-lg">
-                      <p className="text-xs font-black uppercase tracking-wide text-green-700">
+                    <div className="absolute left-3 top-3 z-10 rounded-[16px] bg-white/95 px-3 py-2 shadow-lg sm:left-4 sm:top-4 sm:px-4 sm:py-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-green-700 sm:text-xs">
                         Exact Delivery Pin
                       </p>
 
-                      <p className="mt-1 text-xs font-medium text-slate-500">
-                        Drag pin or tap map to adjust.
+                      <p className="mt-1 text-[11px] font-medium text-slate-500 sm:text-xs">
+                        Drag pin or tap map.
                       </p>
                     </div>
 
-                    <div className="absolute bottom-4 left-1/2 z-10 w-[92%] max-w-xl -translate-x-1/2 rounded-[18px] bg-white px-4 py-3 shadow-xl">
+                    <div className="absolute bottom-3 left-1/2 z-10 w-[92%] max-w-xl -translate-x-1/2 rounded-[18px] bg-white px-4 py-3 shadow-xl sm:bottom-4">
                       <div className="mb-2 flex items-center gap-2">
                         <CheckCircle2 size={16} className="text-green-600" />
 
@@ -1479,7 +1480,12 @@ export default function Cart() {
                 value={`${totalCarbs}`}
                 unit="g"
               />
-              <SummaryMetric color="blue" label="Fat" value={`${totalFat}`} unit="g" />
+              <SummaryMetric
+                color="blue"
+                label="Fat"
+                value={`${totalFat}`}
+                unit="g"
+              />
             </div>
 
             <hr className="my-5 border-slate-200" />
@@ -1652,7 +1658,7 @@ export default function Cart() {
               type="button"
               onClick={checkout}
               disabled={checkingOut}
-              className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
+              className="mt-5 hidden h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60 xl:flex"
             >
               <LocateFixed size={18} />
               {checkingOut ? "Processing..." : "Checkout & Pay"}
@@ -1666,13 +1672,36 @@ export default function Cart() {
           </SectionCard>
         </aside>
       </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-[9998] border-t border-slate-200 bg-white/95 p-3 shadow-[0_-18px_45px_rgba(15,23,42,0.12)] backdrop-blur xl:hidden">
+        <div className="mx-auto flex max-w-[560px] items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+              Payable
+            </p>
+            <p className="text-2xl font-black tracking-[-0.05em] text-green-700">
+              ₹{payable}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={checkout}
+            disabled={checkingOut}
+            className="flex h-13 min-w-[190px] items-center justify-center gap-2 rounded-[18px] bg-green-600 px-5 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
+          >
+            <LocateFixed size={18} />
+            {checkingOut ? "Processing..." : "Checkout & Pay"}
+          </button>
+        </div>
+      </div>
     </main>
   );
 }
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.05)]">
+    <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_35px_rgba(15,23,42,0.05)] sm:p-5">
       {children}
     </section>
   );
@@ -1730,9 +1759,9 @@ function SummaryMetric({
       : "border-blue-100 bg-blue-50 text-blue-700";
 
   return (
-    <div className={`rounded-[18px] border p-4 ${className}`}>
+    <div className={`rounded-[18px] border p-3 sm:p-4 ${className}`}>
       <p className="text-xs font-black">{label}</p>
-      <p className="mt-2 text-xl font-black text-slate-950">
+      <p className="mt-2 text-lg font-black text-slate-950 sm:text-xl">
         {value} <span className="text-sm font-bold text-slate-500">{unit}</span>
       </p>
     </div>

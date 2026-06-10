@@ -337,34 +337,34 @@ export default function Orders() {
   return (
     <main className="min-h-screen bg-[#f6f7f8] text-slate-950">
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-3xl font-black tracking-[-0.04em] text-slate-950">
+            <h1 className="text-[34px] font-black tracking-[-0.06em] text-slate-950 md:text-3xl">
               My Orders
             </h1>
 
-            <p className="mt-1 text-sm font-semibold text-slate-500">
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
               View order status, payment, delivery slot and live tracking.
             </p>
           </div>
 
-          <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600 shadow-sm">
+          <div className="w-fit rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600 shadow-sm">
             {filteredOrders.length} of {orders.length} orders
           </div>
         </div>
 
         <section className="mb-5 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50 text-green-700">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
               <SlidersHorizontal size={18} />
             </span>
 
             <div>
               <h2 className="text-base font-black text-slate-950">
-                Filter Your Orders
+                Filter Orders
               </h2>
-              <p className="text-xs font-semibold text-slate-500">
-                Search by meal, order ID, payment, delivery status or address.
+              <p className="text-xs font-semibold leading-5 text-slate-500">
+                Search by meal, order ID, payment, status or address.
               </p>
             </div>
           </div>
@@ -379,7 +379,7 @@ export default function Orders() {
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search orders, meals, address..."
+                placeholder="Search orders..."
                 className="h-12 w-full rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
               />
             </div>
@@ -413,7 +413,9 @@ export default function Orders() {
 
             <select
               value={rangeFilter}
-              onChange={(event) => setRangeFilter(event.target.value as RangeFilter)}
+              onChange={(event) =>
+                setRangeFilter(event.target.value as RangeFilter)
+              }
               className="h-12 w-full rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
             >
               <option value="all">All Time</option>
@@ -472,7 +474,7 @@ export default function Orders() {
               className="ml-auto inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <X size={14} />
-              Clear Filters
+              Clear
             </button>
           </div>
         </section>
@@ -504,7 +506,7 @@ export default function Orders() {
               return (
                 <article
                   key={order._id}
-                  className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm transition hover:border-green-200"
+                  className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200 sm:p-5"
                 >
                   <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-start md:justify-between">
                     <div>
@@ -541,8 +543,8 @@ export default function Orders() {
                   </div>
 
                   <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-5">
-                      <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+                    <div className="space-y-4 sm:space-y-5">
+                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 md:grid-cols-6">
                         <MiniStat label="Calories" value={`${totalCalories}`} />
                         <MiniStat label="Protein" value={`${totalProtein}g`} />
                         <MiniStat label="Carbs" value={`${totalCarbs}g`} />
@@ -664,14 +666,14 @@ function MiniStat({
 }) {
   return (
     <div
-      className={`rounded-[16px] border p-3 ${
+      className={`rounded-[14px] border p-2.5 sm:rounded-[16px] sm:p-3 ${
         highlight
           ? "border-green-200 bg-green-50"
           : "border-slate-200 bg-slate-50"
       }`}
     >
       <p
-        className={`text-[11px] font-black uppercase tracking-wide ${
+        className={`text-[10px] font-black uppercase tracking-wide sm:text-[11px] ${
           highlight ? "text-green-700" : "text-slate-500"
         }`}
       >
@@ -679,7 +681,7 @@ function MiniStat({
       </p>
 
       <p
-        className={`mt-1 text-sm font-black ${
+        className={`mt-1 text-xs font-black sm:text-sm ${
           highlight ? "text-green-700" : "text-slate-950"
         }`}
       >
@@ -730,7 +732,7 @@ function LiveDeliveryCard({
   updatedAt?: string | null;
 }) {
   return (
-    <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-5">
+    <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Truck size={18} className="text-green-600" />
@@ -743,7 +745,7 @@ function LiveDeliveryCard({
         </span>
       </div>
 
-      <div className="space-y-2 text-sm font-semibold text-slate-600">
+      <div className="space-y-2 text-sm font-semibold leading-6 text-slate-600">
         <p>
           <span className="font-black text-slate-950">Agent:</span>{" "}
           {agent?.name || "Not assigned yet"}
