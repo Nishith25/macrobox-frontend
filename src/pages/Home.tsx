@@ -62,48 +62,44 @@ export default function Home() {
               fat tracking.
             </p>
 
-            <div className="mx-auto mt-8 flex w-full max-w-[380px] flex-col items-center gap-3 sm:mx-0 sm:max-w-none sm:items-start">
+            {/* MAIN ACTION BUTTONS - SINGLE LINE */}
+            <div className="mx-auto mt-8 grid w-full max-w-[420px] grid-cols-1 gap-3 sm:mx-0 sm:max-w-none sm:grid-cols-2 lg:flex lg:flex-nowrap lg:items-center">
               <button
                 type="button"
                 onClick={() => navigate("/meals")}
-                className="inline-flex h-16 w-full items-center justify-center gap-3 rounded-[22px] bg-green-600 px-8 text-lg font-black text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700 sm:w-auto"
+                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] bg-green-600 px-7 text-sm font-black text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700 lg:w-auto"
               >
                 Explore Meals
-                <ArrowRight size={22} />
+                <ArrowRight size={19} />
               </button>
 
               <button
                 type="button"
                 onClick={() => goProtected("/challenges")}
-                className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-[18px] border border-green-200 bg-white px-8 text-base font-black text-green-700 shadow-sm transition hover:bg-green-50 sm:w-auto"
+                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-green-200 bg-white px-7 text-sm font-black text-green-700 shadow-sm transition hover:bg-green-50 lg:w-auto"
               >
-                <Trophy size={19} />
+                <Trophy size={18} />
                 7-Day Challenge
-                <ArrowRight size={19} />
+                <ArrowRight size={18} />
               </button>
 
-              <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => goProtected("/macrotrack")}
-                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
-                >
-                  <Zap size={20} className="text-green-600" />
-                  MacroTrack
-                </button>
+              <button
+                type="button"
+                onClick={() => goProtected("/macrotrack")}
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-[18px] border border-slate-200 bg-white px-7 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 lg:w-auto"
+              >
+                <Zap size={18} className="text-green-600" />
+                MacroTrack
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => goProtected("/smart-day-planner")}
-                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 text-center text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
-                >
-                  <CalendarCheck
-                    size={20}
-                    className="shrink-0 text-green-600"
-                  />
-                  Smart Day Planner
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => goProtected("/smart-day-planner")}
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-[18px] border border-slate-200 bg-white px-7 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 lg:w-auto"
+              >
+                <CalendarCheck size={18} className="shrink-0 text-green-600" />
+                Smart Day Planner
+              </button>
             </div>
           </div>
         </div>
