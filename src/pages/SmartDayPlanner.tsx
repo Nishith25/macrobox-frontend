@@ -467,8 +467,8 @@ export default function SmartDayPlanner() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f6f7f8] px-4 py-10">
-        <div className="mx-auto max-w-[1240px] rounded-[24px] border bg-white p-10 text-slate-500 shadow-sm">
+      <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 sm:py-10">
+        <div className="mx-auto max-w-[1240px] rounded-[24px] border bg-white p-8 text-slate-500 shadow-sm">
           Loading Smart Day Planner...
         </div>
       </main>
@@ -476,7 +476,7 @@ export default function SmartDayPlanner() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] px-4 py-10 sm:px-6">
+    <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-[1240px]">
         <section className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -490,7 +490,7 @@ export default function SmartDayPlanner() {
               </h1>
             </div>
 
-            <p className="text-base font-medium text-slate-500">
+            <p className="text-base font-medium leading-7 text-slate-500">
               Build a full day meal plan based on calories, protein, carbs and
               fat.
             </p>
@@ -507,12 +507,12 @@ export default function SmartDayPlanner() {
           </div>
         </section>
 
-        <section className="mb-8 rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+        <section className="mb-8 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)] sm:p-6">
           <label className="mb-3 block text-xs font-black uppercase tracking-wide text-slate-500">
             Your Goal
           </label>
 
-          <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
             <select
               value={goal}
               onChange={(e) => setGoal(e.target.value as GoalType)}
@@ -525,18 +525,18 @@ export default function SmartDayPlanner() {
               <option value="muscle_gain">Muscle Gain</option>
             </select>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
               <button
                 onClick={autoSmartDayPlanner}
-                className="inline-flex h-12 items-center gap-2 rounded-[18px] bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700 sm:px-5"
               >
                 <Sparkles size={17} />
-                Auto Smart Day Plan
+                Auto Plan
               </button>
 
               <button
                 onClick={clearPlan}
-                className="inline-flex h-12 items-center gap-2 rounded-[18px] bg-slate-100 px-5 text-sm font-black text-slate-700 hover:bg-slate-200"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-slate-100 px-4 text-sm font-black text-slate-700 hover:bg-slate-200 sm:px-5"
               >
                 <X size={17} />
                 Clear
@@ -546,7 +546,7 @@ export default function SmartDayPlanner() {
         </section>
 
         <section className="mb-8">
-          <div className="mb-5 flex items-center justify-between">
+          <div className="mb-5 flex items-center justify-between gap-3">
             <h2 className="text-xl font-black text-slate-950">
               Daily Macro Targets
             </h2>
@@ -556,7 +556,7 @@ export default function SmartDayPlanner() {
             </span>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
             <GoalCard
               icon={<Flame size={20} />}
               title="Calories"
@@ -612,7 +612,7 @@ export default function SmartDayPlanner() {
               Choose Meals for Each Time
             </h2>
 
-            <p className="mt-1 text-sm font-medium text-slate-500">
+            <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
               Select breakfast, lunch, snack, or dinner for each meal.
             </p>
           </div>
@@ -636,7 +636,7 @@ export default function SmartDayPlanner() {
                     }`}
                   >
                     <div className="flex min-h-[122px]">
-                      <div className="h-[122px] w-[130px] shrink-0 overflow-hidden bg-slate-100">
+                      <div className="h-[122px] w-[112px] shrink-0 overflow-hidden bg-slate-100 sm:w-[130px]">
                         <img
                           src={m.imageUrl || "/placeholder-meal.png"}
                           alt={m.title}
@@ -647,19 +647,19 @@ export default function SmartDayPlanner() {
                         />
                       </div>
 
-                      <div className="min-w-0 flex-1 p-4">
+                      <div className="min-w-0 flex-1 p-3 sm:p-4">
                         <h3 className="truncate text-base font-black text-slate-950">
                           {m.title}
                         </h3>
 
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
                           <Badge color="orange">🔥 {n(m.calories)} kcal</Badge>
                           <Badge color="green">🥩 {n(m.protein)}g</Badge>
                           <Badge color="yellow">🌾 {n(m.carbs)}g</Badge>
                           <Badge color="blue">💧 {n(m.fat)}g</Badge>
                         </div>
 
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2">
                           {TIMES.map((t) => {
                             const active = selectedTimes.includes(t);
 
@@ -667,7 +667,7 @@ export default function SmartDayPlanner() {
                               <button
                                 key={t}
                                 onClick={() => toggleSelect(m._id, t)}
-                                className={`rounded-full border px-3 py-1 text-xs font-black ${
+                                className={`rounded-full border px-2.5 py-1 text-[11px] font-black sm:px-3 sm:text-xs ${
                                   active
                                     ? "border-green-600 bg-green-600 text-white"
                                     : "border-slate-200 bg-white text-slate-600 hover:border-green-500"
@@ -688,7 +688,7 @@ export default function SmartDayPlanner() {
         </section>
 
         <section className="mb-8 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-6 py-5">
+          <div className="border-b border-slate-100 px-4 py-5 sm:px-6">
             <div className="flex items-center gap-3">
               <CheckSquare size={20} className="text-green-600" />
               <h2 className="text-xl font-black text-slate-950">
@@ -697,7 +697,7 @@ export default function SmartDayPlanner() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <div className="mb-5">
               <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
                 Plan Name <span className="text-red-500">*</span>
@@ -721,7 +721,7 @@ export default function SmartDayPlanner() {
                 description="Use Auto Plan or choose meals manually to build your day."
               />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 {TIMES.map((time) => {
                   const items = selectedEntries.filter((entry) =>
                     entry.times.includes(time)
@@ -765,11 +765,11 @@ export default function SmartDayPlanner() {
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6 grid gap-3 sm:flex sm:flex-wrap">
               <button
                 onClick={handleSavePlan}
                 disabled={saving}
-                className="inline-flex h-13 items-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white hover:bg-green-700 disabled:opacity-60"
+                className="inline-flex h-13 items-center justify-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white hover:bg-green-700 disabled:opacity-60"
               >
                 <Save size={17} />
                 {saving ? "Saving..." : "Save Plan"}
@@ -777,7 +777,7 @@ export default function SmartDayPlanner() {
 
               <button
                 onClick={addSelectedPlanToCart}
-                className="inline-flex h-13 items-center gap-2 rounded-[18px] border border-green-600 px-6 text-sm font-black text-green-700 hover:bg-green-50"
+                className="inline-flex h-13 items-center justify-center gap-2 rounded-[18px] border border-green-600 px-6 text-sm font-black text-green-700 hover:bg-green-50"
               >
                 <ShoppingCart size={17} />
                 Add Selected Meals to Cart
@@ -787,7 +787,7 @@ export default function SmartDayPlanner() {
         </section>
 
         <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-6 py-5">
+          <div className="border-b border-slate-100 px-4 py-5 sm:px-6">
             <div className="flex items-center gap-3">
               <Save size={20} className="text-green-600" />
               <h2 className="text-xl font-black text-slate-950">
@@ -796,7 +796,7 @@ export default function SmartDayPlanner() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {history.length === 0 ? (
               <EmptyState
                 title="No saved plans yet"
@@ -829,7 +829,7 @@ export default function SmartDayPlanner() {
                   return (
                     <div
                       key={plan._id}
-                      className="rounded-[20px] border border-slate-200 p-5"
+                      className="rounded-[20px] border border-slate-200 p-4 sm:p-5"
                     >
                       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                         <div>
@@ -841,25 +841,25 @@ export default function SmartDayPlanner() {
                             {new Date(plan.date).toDateString()}
                           </p>
 
-                          <p className="mt-2 text-sm font-semibold text-slate-500">
+                          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
                             {totals.items} items · {totals.calories} kcal ·{" "}
                             {totals.protein}g protein · {totals.carbs}g carbs ·{" "}
                             {totals.fat}g fat · ₹{totals.price}
                           </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                           <button
                             onClick={() => addSavedPlanToCart(plan)}
-                            className="inline-flex h-10 items-center gap-2 rounded-[14px] bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-[14px] bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700"
                           >
                             <ShoppingCart size={15} />
-                            Add to Cart
+                            Cart
                           </button>
 
                           <button
                             onClick={() => deletePlan(plan._id)}
-                            className="inline-flex h-10 items-center gap-2 rounded-[14px] bg-red-50 px-4 text-sm font-black text-red-600 hover:bg-red-100"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-[14px] bg-red-50 px-4 text-sm font-black text-red-600 hover:bg-red-100"
                           >
                             <Trash2 size={15} />
                             Delete
@@ -941,28 +941,28 @@ function GoalCard({
       : "bg-blue-500";
 
   return (
-    <div className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="mb-4 flex items-center justify-between">
         <span
-          className={`flex h-11 w-11 items-center justify-center rounded-full border ${colorClass}`}
+          className={`flex h-10 w-10 items-center justify-center rounded-full border sm:h-11 sm:w-11 ${colorClass}`}
         >
           {icon}
         </span>
 
         <span
-          className={`rounded-full px-3 py-1 text-xs font-black ${colorClass}`}
+          className={`rounded-full px-2.5 py-1 text-[11px] font-black sm:px-3 sm:text-xs ${colorClass}`}
         >
           {Math.round(percent)}%
         </span>
       </div>
 
-      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">
         {title}
       </p>
 
-      <p className="mt-3 text-2xl font-black text-slate-950">
+      <p className="mt-3 text-xl font-black text-slate-950 sm:text-2xl">
         {planned}
-        <span className="text-base font-bold text-slate-400">
+        <span className="text-sm font-bold text-slate-400 sm:text-base">
           {" "}
           / {target || "—"} {unit}
         </span>
@@ -975,7 +975,7 @@ function GoalCard({
         />
       </div>
 
-      <p className="mt-3 text-sm font-bold text-slate-500">
+      <p className="mt-3 text-xs font-bold text-slate-500 sm:text-sm">
         {remaining} {unit} remaining
       </p>
     </div>
@@ -1013,7 +1013,7 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-[20px] bg-slate-50 p-10 text-center">
+    <div className="rounded-[20px] bg-slate-50 p-8 text-center sm:p-10">
       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm">
         <CheckSquare size={24} />
       </div>

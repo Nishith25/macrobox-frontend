@@ -77,6 +77,13 @@ const activityLabels: Record<string, string> = {
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
+const todayText = () =>
+  new Date().toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
 const foodLogStorageKey = (userId?: string) =>
   `macrotrack-food-log-${userId || "guest"}-${todayKey()}`;
 
@@ -403,8 +410,8 @@ export default function MacroTrack() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f6f7f8] px-4 py-10">
-        <div className="mx-auto max-w-[1240px] rounded-[24px] border bg-white p-10 text-slate-500 shadow-sm">
+      <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 sm:py-10">
+        <div className="mx-auto max-w-[1240px] rounded-[24px] border bg-white p-8 text-slate-500 shadow-sm">
           Loading MacroTrack...
         </div>
       </main>
@@ -412,24 +419,43 @@ export default function MacroTrack() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] px-4 py-10 sm:px-6">
+    <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-[1240px]">
-        <div className="mb-7">
-          <h1 className="text-[28px] font-black tracking-[-0.04em] text-slate-950">
-            Welcome, {user?.name?.split(" ")[0] || "User"} 👋
-          </h1>
-          <p className="mt-1 text-base font-medium text-slate-500">
-            MacroTrack your calories, protein, carbs and fats for today.
-          </p>
-        </div>
+        <section className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
+                <Zap size={20} />
+              </span>
 
-        <section className="mb-7 rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
-          <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <h1 className="text-[30px] font-black tracking-[-0.04em] text-slate-950">
+                MacroTrack
+              </h1>
+            </div>
+
+            <p className="text-base font-medium text-slate-500">
+              Track calories, protein, carbs and fat for today.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <div className="rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
+              ↗ {goalLabels[goal]}
+            </div>
+
+            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-500">
+              {todayText()}
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-7 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)] sm:p-6">
+          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="text-xl font-black text-slate-950">
+              <h2 className="text-[22px] font-black tracking-[-0.04em] text-slate-950 sm:text-xl">
                 Body Details & Goal
               </h2>
-              <p className="mt-1 text-sm font-medium text-slate-500">
+              <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
                 Used to calculate your daily macro targets.
               </p>
             </div>
@@ -437,17 +463,17 @@ export default function MacroTrack() {
             {!showBodyForm ? (
               <button
                 onClick={handleEditValues}
-                className="inline-flex items-center justify-center gap-2 rounded-[14px] border-2 border-green-600 px-5 py-2.5 text-sm font-black text-green-700 hover:bg-green-50"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[16px] border-2 border-green-600 px-5 text-sm font-black text-green-700 hover:bg-green-50 sm:w-auto"
               >
                 <Pencil size={16} />
                 Change Values
               </button>
             ) : (
-              <div className="flex gap-2">
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
                 {!needsBodySetup && (
                   <button
                     onClick={handleCancelEdit}
-                    className="inline-flex items-center justify-center gap-2 rounded-[14px] border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-[16px] border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50"
                   >
                     <X size={16} />
                     Cancel
@@ -456,7 +482,9 @@ export default function MacroTrack() {
 
                 <button
                   onClick={handleSave}
-                  className="inline-flex items-center justify-center gap-2 rounded-[14px] bg-green-600 px-5 py-2.5 text-sm font-black text-white hover:bg-green-700"
+                  className={`inline-flex h-12 items-center justify-center gap-2 rounded-[16px] bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700 ${
+                    needsBodySetup ? "col-span-2" : ""
+                  }`}
                 >
                   <Check size={16} />
                   {needsBodySetup ? "Set Values" : "Save Changes"}
@@ -466,19 +494,19 @@ export default function MacroTrack() {
           </div>
 
           {needsBodySetup && (
-            <div className="mb-6 rounded-[20px] border border-green-200 bg-green-50 p-5">
+            <div className="mb-5 rounded-[18px] border border-green-200 bg-green-50 p-4">
               <p className="text-base font-black text-green-800">
                 Set your values first
               </p>
               <p className="mt-1 text-sm font-semibold leading-6 text-green-700">
-                Enter your height, weight and age to calculate your BMI, target
-                calories, protein goal and daily macro progress.
+                Enter height, weight and age to calculate your daily macro
+                targets.
               </p>
             </div>
           )}
 
           {!showBodyForm ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <Detail
                 icon={<Scale size={15} />}
                 label="HEIGHT"
@@ -511,7 +539,7 @@ export default function MacroTrack() {
               />
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Input
                 label="HEIGHT (CM)"
                 value={height}
@@ -577,7 +605,7 @@ export default function MacroTrack() {
           )}
         </section>
 
-        <section className="mb-7 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Stat
             icon={<Scale size={20} />}
             title="BMI"
@@ -594,7 +622,7 @@ export default function MacroTrack() {
                 ? `${macroGoals.calories.toLocaleString()} kcal`
                 : "Set values"
             }
-            label={needsBodySetup ? "Enter body details" : goalLabels[goal]}
+            label={needsBodySetup ? "Enter details" : goalLabels[goal]}
             color="green"
           />
 
@@ -602,7 +630,7 @@ export default function MacroTrack() {
             icon={<Dumbbell size={20} />}
             title="PROTEIN GOAL"
             value={macroGoals.protein ? `${macroGoals.protein} g` : "Set values"}
-            label={needsBodySetup ? "Enter body details" : "Daily protein"}
+            label={needsBodySetup ? "Enter details" : "Daily protein"}
             color="green"
           />
 
@@ -614,25 +642,23 @@ export default function MacroTrack() {
                 ? `${maintenanceCalories.toLocaleString()} kcal`
                 : "Set values"
             }
-            label={
-              needsBodySetup ? "Enter body details" : "To maintain weight"
-            }
+            label={needsBodySetup ? "Enter details" : "Maintain weight"}
             color="blue"
           />
         </section>
 
-        <section className="mb-7 rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
-          <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <section className="mb-7 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)] sm:p-6">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-xl font-black text-slate-950">
                 MacroTrack Today
               </h2>
-              <p className="mt-1 text-sm font-medium text-slate-500">
-                Track how much you ate and how much is still remaining today.
+              <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                Track what you ate and what is still remaining.
               </p>
             </div>
 
-            <div className="rounded-full bg-green-50 px-4 py-2 text-sm font-black text-green-700">
+            <div className="w-fit rounded-full bg-green-50 px-4 py-2 text-sm font-black text-green-700">
               {todayKey()}
             </div>
           </div>
@@ -644,7 +670,7 @@ export default function MacroTrack() {
             </div>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
             <MacroProgress
               title="Calories"
               consumed={consumed.calories}
@@ -685,15 +711,15 @@ export default function MacroTrack() {
         </section>
 
         <section className="grid gap-7 lg:grid-cols-[1fr_1fr]">
-          <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
-            <div className="mb-6 flex items-center gap-3">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)] sm:p-6">
+            <div className="mb-5 flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white">
                 <Plus size={20} />
               </span>
               <h2 className="text-xl font-black text-slate-950">Add Food</h2>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <Field label="FOOD NAME *" className="md:col-span-2">
                 <input
                   value={foodName}
@@ -766,7 +792,7 @@ export default function MacroTrack() {
             </button>
           </div>
 
-          <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)] sm:p-6">
             <div className="mb-4 flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
                 <Utensils size={18} />
@@ -776,7 +802,7 @@ export default function MacroTrack() {
               </h2>
             </div>
 
-            <p className="mb-5 text-sm font-medium text-slate-500">
+            <p className="mb-5 text-sm font-medium leading-6 text-slate-500">
               Based on your remaining macros, here are smart MacroBox
               suggestions.
             </p>
@@ -790,7 +816,7 @@ export default function MacroTrack() {
                 suggestedMeals.map((meal) => (
                   <div
                     key={meal._id}
-                    className="flex items-center justify-between gap-4 rounded-[18px] border border-slate-200 p-4"
+                    className="flex flex-col gap-4 rounded-[18px] border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -801,7 +827,7 @@ export default function MacroTrack() {
                           High Protein
                         </span>
                       </div>
-                      <p className="mt-2 text-sm font-medium text-slate-500">
+                      <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
                         🔥 {numberOrZero(meal.calories)} kcal · 🥩{" "}
                         {numberOrZero(meal.protein)}g protein · 🌾{" "}
                         {numberOrZero(meal.carbs)}g carbs · 💧{" "}
@@ -825,7 +851,7 @@ export default function MacroTrack() {
           </div>
         </section>
 
-        <section className="mt-7 rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
+        <section className="mt-7 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)] sm:p-6">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50 text-green-700">
@@ -841,7 +867,7 @@ export default function MacroTrack() {
               </div>
             </div>
 
-            <p className="text-sm font-bold text-slate-500">
+            <p className="text-sm font-bold leading-6 text-slate-500">
               🔥 {consumed.calories} kcal &nbsp; 🥩 {consumed.protein}g P
               &nbsp; 🌾 {consumed.carbs}g C &nbsp; 💧 {consumed.fat}g F
             </p>
@@ -865,7 +891,7 @@ export default function MacroTrack() {
                       </span>
                       <p className="font-black text-slate-950">{item.name}</p>
                     </div>
-                    <p className="mt-2 text-sm font-medium text-slate-500">
+                    <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
                       🔥 {item.calories} kcal · 🥩 {item.protein} g · 🌾{" "}
                       {item.carbs} g · 💧 {item.fat} g
                     </p>
@@ -897,12 +923,12 @@ function Detail({
   value: string;
 }) {
   return (
-    <div>
-      <p className="mb-2 flex items-center gap-2 text-xs font-black text-slate-500">
+    <div className="rounded-[18px] border border-slate-100 bg-slate-50 p-3 sm:border-0 sm:bg-transparent sm:p-0">
+      <p className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">
         <span className="text-green-600">{icon}</span>
         {label}
       </p>
-      <p className="text-base font-black text-slate-950">{value}</p>
+      <p className="truncate text-base font-black text-slate-950">{value}</p>
     </div>
   );
 }
@@ -992,26 +1018,28 @@ function Stat({
       : "Daily caloric target";
 
   return (
-    <div className="min-h-[190px] rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
-      <div className="mb-10 flex items-start justify-between">
+    <div className="min-h-[150px] rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)] sm:min-h-[190px] sm:p-5">
+      <div className="mb-6 flex items-start justify-between sm:mb-10">
         <div
-          className={`flex h-11 w-11 items-center justify-center rounded-full ${colorClass}`}
+          className={`flex h-10 w-10 items-center justify-center rounded-full sm:h-11 sm:w-11 ${colorClass}`}
         >
           {icon}
         </div>
 
-        <p className="max-w-[100px] text-right text-xs font-black uppercase leading-4 text-slate-500">
+        <p className="max-w-[92px] text-right text-[10px] font-black uppercase leading-4 text-slate-500 sm:text-xs">
           {title}
         </p>
       </div>
 
-      <p className="whitespace-nowrap text-[32px] font-black leading-none tracking-[-0.06em] text-slate-950">
+      <p className="text-[24px] font-black leading-none tracking-[-0.06em] text-slate-950 sm:whitespace-nowrap sm:text-[32px]">
         {value}
       </p>
 
-      <p className={`mt-3 text-base font-black ${labelColor}`}>{label}</p>
+      <p className={`mt-2 text-sm font-black sm:mt-3 sm:text-base ${labelColor}`}>
+        {label}
+      </p>
 
-      <p className="mt-1 text-sm font-medium leading-5 text-slate-500">
+      <p className="mt-1 text-xs font-medium leading-5 text-slate-500 sm:text-sm">
         {description}
       </p>
     </div>
@@ -1055,48 +1083,51 @@ function MacroProgress({
       ? "bg-yellow-50 text-yellow-600"
       : "bg-blue-50 text-blue-600";
 
+  const textColor = light.split(" ").slice(-1)[0];
+
   return (
-    <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="mb-4 flex items-center justify-between sm:mb-5">
+        <div className="flex items-center gap-2 sm:gap-3">
           <span
-            className={`flex h-10 w-10 items-center justify-center rounded-full ${light}`}
+            className={`flex h-9 w-9 items-center justify-center rounded-full sm:h-10 sm:w-10 ${light}`}
           >
             {icon}
           </span>
           <div>
-            <p className="font-black text-slate-950">{title}</p>
-            <p className="text-xs font-medium text-slate-500">{unit}</p>
+            <p className="text-sm font-black text-slate-950 sm:text-base">
+              {title}
+            </p>
+            <p className="text-[11px] font-medium text-slate-500 sm:text-xs">
+              {unit}
+            </p>
           </div>
         </div>
 
-        <p className={`font-black ${light.split(" ").slice(-1)[0]}`}>
-          {round(percent)}%
-        </p>
+        <p className={`text-sm font-black ${textColor}`}>{round(percent)}%</p>
       </div>
 
-      <div className="mb-5 h-2.5 overflow-hidden rounded-full bg-slate-200">
+      <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200 sm:mb-5 sm:h-2.5">
         <div
           className={`h-full rounded-full ${fill}`}
           style={{ width: `${percent}%` }}
         />
       </div>
 
-      <div className="flex items-end justify-between">
-        <p className="text-2xl font-black text-slate-950">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <p className="text-xl font-black text-slate-950 sm:text-2xl">
           {consumed}
-          <span className="text-base font-bold text-slate-400">
+          <span className="text-sm font-bold text-slate-400 sm:text-base">
             {" "}
             / {goal || "—"} {unit}
           </span>
         </p>
 
-        <p className="text-right text-sm font-medium text-slate-500">
-          Remaining
-          <br />
-          <span className={`font-black ${light.split(" ").slice(-1)[0]}`}>
+        <p className="text-sm font-medium text-slate-500 sm:text-right">
+          <span className={`font-black ${textColor}`}>
             {remaining} {unit}
-          </span>
+          </span>{" "}
+          left
         </p>
       </div>
     </div>
