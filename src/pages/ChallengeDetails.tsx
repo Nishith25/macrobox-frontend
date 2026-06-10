@@ -12,7 +12,6 @@ import {
   ShoppingCart,
   Sparkles,
   Trophy,
-  Zap,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -66,6 +65,7 @@ export default function ChallengeDetails() {
   const [adding, setAdding] = useState(false);
 
   const displayTitle = challenge?.title || localChallenge?.title || "Challenge";
+
   const displayDescription =
     challenge?.description ||
     localChallenge?.description ||
@@ -80,29 +80,26 @@ export default function ChallengeDetails() {
     localChallenge?.startingPrice ||
     99;
 
-  const originalPrice =
-    challenge?.originalPrice || localChallenge?.originalPrice || null;
+  const originalPrice = challenge?.originalPrice || null;
 
   const durationDays =
     challenge?.durationDays || localChallenge?.duration || 7;
 
-  const perks =
-    challenge?.perks?.length
-      ? challenge.perks
-      : localChallenge?.highlights || [
-          "Goal-based meals",
-          "Macro-friendly options",
-          "Challenge reward access",
-          "Progress consistency support",
-        ];
+  const perks: string[] = challenge?.perks?.length
+    ? challenge.perks
+    : [
+        "Goal-based meals",
+        "Macro-friendly options",
+        "Challenge reward access",
+        "Progress consistency support",
+      ];
 
-  const rewards =
-    challenge?.rewards?.length
-      ? challenge.rewards
-      : [
-          "Complete the challenge and unlock rewards",
-          "Post stories and claim MacroBox coupons",
-        ];
+  const rewards: string[] = challenge?.rewards?.length
+    ? challenge.rewards
+    : [
+        "Complete the challenge and unlock rewards",
+        "Post stories and claim MacroBox coupons",
+      ];
 
   useEffect(() => {
     const loadChallenge = async () => {
@@ -115,9 +112,7 @@ export default function ChallengeDetails() {
         console.error(error);
 
         if (!localChallenge) {
-          toast.error(
-            error?.response?.data?.message || "Challenge not found"
-          );
+          toast.error(error?.response?.data?.message || "Challenge not found");
         }
       } finally {
         setLoading(false);
@@ -212,6 +207,7 @@ export default function ChallengeDetails() {
           <h1 className="text-3xl font-black text-slate-950">
             Challenge not found
           </h1>
+
           <button
             type="button"
             onClick={() => navigate("/challenges")}
@@ -251,8 +247,13 @@ export default function ChallengeDetails() {
             </p>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
-              <InfoCard label="Duration" value={`${durationDays} Day${durationDays > 1 ? "s" : ""}`} />
+              <InfoCard
+                label="Duration"
+                value={`${durationDays} Day${durationDays > 1 ? "s" : ""}`}
+              />
+
               <InfoCard label="Starting From" value={`₹${displayPrice}`} />
+
               <InfoCard label="Reward" value="Unlockable" />
             </div>
 
@@ -270,6 +271,7 @@ export default function ChallengeDetails() {
                 ) : (
                   <Trophy size={18} />
                 )}
+
                 {challenge?.isJoined ? "Already Joined" : "Join Challenge"}
               </button>
 
@@ -284,6 +286,7 @@ export default function ChallengeDetails() {
                 ) : (
                   <ShoppingCart size={18} />
                 )}
+
                 Add Challenge to Cart
                 <ArrowRight size={18} />
               </button>
@@ -321,7 +324,7 @@ export default function ChallengeDetails() {
               </h2>
 
               <div className="mt-4 space-y-3">
-                {perks.map((perk) => (
+                {perks.map((perk: string) => (
                   <div
                     key={perk}
                     className="flex items-start gap-3 rounded-[18px] border border-slate-100 bg-slate-50 p-4"
@@ -330,6 +333,7 @@ export default function ChallengeDetails() {
                       size={19}
                       className="mt-0.5 shrink-0 text-green-600"
                     />
+
                     <p className="text-sm font-bold leading-6 text-slate-700">
                       {perk}
                     </p>
@@ -348,7 +352,7 @@ export default function ChallengeDetails() {
             </h2>
 
             <div className="mt-4 space-y-3">
-              {rewards.map((reward) => (
+              {rewards.map((reward: string) => (
                 <div
                   key={reward}
                   className="rounded-[18px] border border-green-100 bg-green-50 p-4 text-sm font-bold leading-6 text-green-800"
@@ -384,6 +388,7 @@ function InfoCard({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
+
       <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
     </div>
   );
@@ -395,6 +400,7 @@ function Step({ number, text }: { number: string; text: string }) {
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-xs font-black text-white">
         {number}
       </span>
+
       <p className="text-sm font-bold text-slate-700">{text}</p>
     </div>
   );
