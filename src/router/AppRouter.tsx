@@ -23,6 +23,7 @@ import Challenges from "../pages/Challenges";
 import ChallengeDetails from "../pages/ChallengeDetails";
 import Rewards from "../pages/Rewards";
 import TransformationWall from "../pages/TransformationWall";
+import AdminChallenges from "../pages/AdminChallenges";
 
 // Auth Pages
 import Login from "../pages/Login";
@@ -349,6 +350,15 @@ export default function AppRouter() {
             </AdminRoute>
           }
         />
+
+        <Route
+  path="/admin/challenges"
+  element={
+    <AdminRoute>
+      <AdminChallenges />
+    </AdminRoute>
+  }
+/>
 
         {/* ================= CHEF + ADMIN KITCHEN ROUTE ================= */}
         <Route

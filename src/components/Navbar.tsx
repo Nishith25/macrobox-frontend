@@ -247,6 +247,11 @@ export default function Navbar() {
                     Admin Meals
                   </NavLink>
 
+                  <NavLink to="/admin/challenges" className={adminLinkClass}>
+  <Trophy size={14} />
+  Challenges
+</NavLink>
+
                   <NavLink to="/admin/users" className={adminLinkClass}>
                     <Users size={14} />
                     Users
@@ -504,6 +509,14 @@ export default function Navbar() {
                     >
                       Admin Meals <span>→</span>
                     </NavLink>
+
+                    <NavLink
+  to="/admin/challenges"
+  className={mobileLinkClass}
+  onClick={closeMenu}
+>
+  Challenges <span>→</span>
+</NavLink>
 
                     <NavLink
                       to="/admin/users"
