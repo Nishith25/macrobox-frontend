@@ -21,6 +21,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { Trophy } from "lucide-react";
 
 export default function Navbar() {
   const { isAuthenticated, isAdmin, logout, user } = useAuth();
@@ -114,6 +115,11 @@ export default function Navbar() {
                 <NavLink to="/smart-day-planner" className={navLinkClass}>
                   Smart Day Planner
                 </NavLink>
+
+                <NavLink to="/challenges" className={navLinkClass}>
+  <Trophy size={17} />
+  Challenges
+</NavLink>
 
                 <NavLink to="/orders" className={navLinkClass}>
                   Orders
@@ -409,6 +415,10 @@ export default function Navbar() {
                     >
                       Smart Day Planner <span>→</span>
                     </NavLink>
+
+                    <NavLink to="/challenges" className={mobileLinkClass} onClick={closeMenu}>
+  Challenges <span>→</span>
+</NavLink>
 
                     <NavLink
                       to="/orders"

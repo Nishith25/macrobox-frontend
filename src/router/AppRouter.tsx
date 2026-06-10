@@ -19,6 +19,10 @@ import Checkout from "../pages/Checkout";
 import Orders from "../pages/Orders";
 import TrackOrderPage from "../pages/TrackOrderPage";
 import SettingsPage from "../pages/SettingsPage";
+import Challenges from "../pages/Challenges";
+import ChallengeDetails from "../pages/ChallengeDetails";
+import Rewards from "../pages/Rewards";
+import TransformationWall from "../pages/TransformationWall";
 
 // Auth Pages
 import Login from "../pages/Login";
@@ -226,6 +230,11 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
+
+        <Route path="/challenges" element={<Challenges />} />
+<Route path="/challenges/:challengeId" element={<ChallengeDetails />} />
+<Route path="/rewards" element={<Rewards />} />
+<Route path="/transformation-wall" element={<TransformationWall />} />
 
         {/* ================= DELIVERY ROUTES ================= */}
         <Route

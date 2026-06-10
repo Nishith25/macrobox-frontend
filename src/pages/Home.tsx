@@ -5,8 +5,10 @@ import {
   ArrowRight,
   CalendarCheck,
   Flame,
+  Gift,
   ShieldCheck,
   Target,
+  Trophy,
   Zap,
 } from "lucide-react";
 
@@ -32,9 +34,10 @@ export default function Home() {
   return (
     <main className="min-h-[calc(100vh-76px)] overflow-x-hidden bg-gradient-to-br from-green-50 via-white to-green-50 text-slate-950">
       <section className="mx-auto flex max-w-[1240px] flex-col justify-center px-5 py-10 sm:px-6 lg:py-16">
+        {/* HERO */}
         <div className="grid items-center gap-10">
           <div>
-            <h1 className="max-w-3xl text-center text-[48px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-left sm:text-[64px]">
+            <h1 className="mx-auto max-w-3xl text-center text-[48px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:mx-0 sm:text-left sm:text-[64px]">
               Fuel Your Day
               <br />
               <span className="text-green-600">with MacroBox</span>
@@ -46,13 +49,22 @@ export default function Home() {
               fat tracking.
             </p>
 
-            <div className="mx-auto mt-8 flex w-full max-w-[370px] flex-col items-center gap-3 sm:mx-0 sm:max-w-none sm:items-start">
+            <div className="mx-auto mt-8 flex w-full max-w-[380px] flex-col items-center gap-3 sm:mx-0 sm:max-w-none sm:items-start">
               <Link
                 to="/meals"
                 className="inline-flex h-16 w-full items-center justify-center gap-3 rounded-[22px] bg-green-600 px-8 text-lg font-black text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700 sm:w-auto"
               >
                 Explore Meals
                 <ArrowRight size={22} />
+              </Link>
+
+              <Link
+                to="/challenges"
+                className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-[18px] border border-green-200 bg-white px-8 text-base font-black text-green-700 shadow-sm transition hover:bg-green-50 sm:w-auto"
+              >
+                <Trophy size={19} />
+                7-Day Challenge
+                <ArrowRight size={19} />
               </Link>
 
               <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap">
@@ -66,9 +78,9 @@ export default function Home() {
 
                 <Link
                   to="/smart-day-planner"
-                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
+                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 text-center text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
                 >
-                  <CalendarCheck size={20} className="text-green-600" />
+                  <CalendarCheck size={20} className="shrink-0 text-green-600" />
                   Smart Day Planner
                 </Link>
               </div>
@@ -76,6 +88,36 @@ export default function Home() {
           </div>
         </div>
 
+        {/* ₹99 TRIAL BOWL */}
+        <div className="mt-10 rounded-[26px] border border-green-200 bg-green-50 p-5 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-green-700">
+                <Gift size={16} />
+                Launch Offer
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+                Try MacroBox ₹99 Trial Bowl
+              </h2>
+
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                Choose your first goal-based protein bowl for Fat Loss, Muscle
+                Gain or Clean Eating.
+              </p>
+            </div>
+
+            <Link
+              to="/challenges/student-power-box"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[16px] bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 md:w-auto"
+            >
+              Claim ₹99 Bowl
+              <ArrowRight size={17} />
+            </Link>
+          </div>
+        </div>
+
+        {/* HOW IT WORKS */}
         <div className="mt-12 border-t border-green-100 pt-8">
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
@@ -89,7 +131,7 @@ export default function Home() {
             </div>
 
             <Link
-              to="/meals"
+              to="/challenges"
               className="hidden rounded-[18px] bg-green-600 px-6 py-3 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 md:inline-flex md:items-center md:gap-2"
             >
               Get Started
@@ -102,7 +144,7 @@ export default function Home() {
               icon={<Target size={20} />}
               number="01"
               title="Set Your Goal"
-              description="Tell us if you want to lose fat, build muscle, or maintain your body."
+              description="Choose fat loss, muscle gain, weight gain or clean eating."
             />
 
             <StepCard
@@ -113,17 +155,17 @@ export default function Home() {
             />
 
             <StepCard
-              icon={<Zap size={20} />}
+              icon={<Trophy size={20} />}
               number="03"
-              title="Track & Adjust"
-              description="Log meals and adjust your food choices based on your daily targets."
+              title="Join Challenge"
+              description="Start a 7-day MacroBox challenge and stay consistent."
             />
 
             <StepCard
               icon={<ShieldCheck size={20} />}
               number="04"
               title="Reach Your Target"
-              description="Stay consistent with goal-aligned meals and simple tracking."
+              description="Track your progress, complete the plan and unlock rewards."
             />
           </div>
         </div>
