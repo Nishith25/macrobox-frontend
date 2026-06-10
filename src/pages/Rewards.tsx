@@ -1,11 +1,15 @@
 // frontend/src/pages/Rewards.tsx (FRONTEND)
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
   CheckCircle2,
   Copy,
   Gift,
   Instagram,
+  Loader2,
+  Lock,
+  RefreshCw,
   Star,
   Trophy,
   Users,
@@ -13,91 +17,105 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-type Reward = {
-  id: string;
-  icon: React.ReactNode;
+import api from "../api/api";
+
+type BackendReward = {
+  _id: string;
+  rewardId: string;
   title: string;
-  reward: string;
-  couponCode: string;
   description: string;
-  requirement: string;
+  type: "free_item" | "discount" | "free_meal" | "challenge_box";
+  valueText: string;
+  requiredAction:
+    | "join_challenge"
+    | "post_3_stories"
+    | "complete_7_days"
+    | "refer_2_friends";
+  couponCode: string;
+  isActive: boolean;
+  unlocked: boolean;
+  claimed: boolean;
+  claimedAt?: string | null;
+  status?: "claimed" | "used" | null;
 };
 
-const rewards: Reward[] = [
-  {
-    id: "complete-3-days",
-    icon: <Zap size={22} />,
-    title: "Complete 3 Days",
-    reward: "Free protein brownie",
-    couponCode: "BROWNIE100",
-    requirement: "Complete any 3 challenge days",
-    description:
-      "Finish any 3 days of a MacroBox challenge and unlock a free protein brownie reward.",
-  },
-  {
-    id: "complete-7-days",
-    icon: <Trophy size={22} />,
-    title: "Complete 7 Days",
-    reward: "20% off next plan",
-    couponCode: "GLOWUP20",
-    requirement: "Complete full 7-day challenge",
-    description:
-      "Finish a full 7-day challenge and get 20% off your next MacroBox plan.",
-  },
-  {
-    id: "refer-2-friends",
-    icon: <Users size={22} />,
-    title: "Refer 2 Friends",
-    reward: "1 free meal",
-    couponCode: "FRIENDMEAL",
-    requirement: "Refer 2 friends",
-    description:
-      "Bring two friends to MacroBox and unlock one free meal coupon.",
-  },
-  {
-    id: "post-3-stories",
-    icon: <Instagram size={22} />,
-    title: "Post 3 Stories",
-    reward: "Story reward coupon",
-    couponCode: "STORY15",
-    requirement: "Post 3 Instagram stories",
-    description:
-      "Post your MacroBox challenge progress and tag MacroBox to unlock a reward coupon.",
-  },
-];
+const getRewardIcon = (reward: BackendReward) => {
+  if (reward.requiredAction === "post_3_stories") {
+    return <Instagram size={22} />;
+  }
+
+  if (reward.requiredAction === "refer_2_friends") {
+    return <Users size={22} />;
+  }
+
+  if (reward.requiredAction === "complete_7_days") {
+    return <Trophy size={22} />;
+  }
+
+  if (reward.requiredAction === "join_challenge") {
+    return <Zap size={22} />;
+  }
+
+  return <Gift size={22} />;
+};
+
+const formatRequirement = (action: BackendReward["requiredAction"]) => {
+  if (action === "join_challenge") return "Join any MacroBox challenge";
+  if (action === "post_3_stories") return "Post 3 MacroBox challenge stories";
+  if (action === "complete_7_days") return "Complete a full 7-day challenge";
+  if (action === "refer_2_friends") return "Refer 2 friends to MacroBox";
+
+  return "Complete reward requirement";
+};
 
 export default function Rewards() {
-  const [claimed, setClaimed] = useState<Record<string, boolean>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("macrobox_claimed_rewards") || "{}");
-    } catch {
-      return {};
-    }
-  });
+  const [rewards, setRewards] = useState<BackendReward[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
 
   const claimedCount = useMemo(
-    () => Object.values(claimed).filter(Boolean).length,
-    [claimed]
+    () => rewards.filter((reward) => reward.claimed).length,
+    [rewards]
   );
 
-  const claimReward = async (reward: Reward) => {
-    const next = {
-      ...claimed,
-      [reward.id]: true,
-    };
+  const unlockedCount = useMemo(
+    () => rewards.filter((reward) => reward.unlocked && !reward.claimed).length,
+    [rewards]
+  );
 
-    setClaimed(next);
-    localStorage.setItem("macrobox_claimed_rewards", JSON.stringify(next));
+  const bestCoupon = useMemo(() => {
+    const discountReward = rewards.find(
+      (reward) => reward.type === "discount" && reward.couponCode
+    );
 
+    return discountReward?.valueText || "20% OFF";
+  }, [rewards]);
+
+  const loadRewards = async () => {
     try {
-      await navigator.clipboard.writeText(reward.couponCode);
-      toast.success(`${reward.couponCode} copied`);
-    } catch {
-      toast.success(`${reward.couponCode} claimed`);
+      setLoading(true);
+
+      const res = await api.get("/rewards");
+
+      setRewards(Array.isArray(res.data) ? res.data : []);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to load rewards");
+    } finally {
+      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    loadRewards();
+  }, []);
+
   const copyCoupon = async (code: string) => {
+    if (!code) {
+      toast.error("Coupon code not available");
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(code);
       toast.success(`${code} copied`);
@@ -106,113 +124,237 @@ export default function Rewards() {
     }
   };
 
+  const claimReward = async (reward: BackendReward) => {
+    if (!reward.unlocked) {
+      toast.error("Complete the requirement first");
+      return;
+    }
+
+    try {
+      setClaimingId(reward.rewardId);
+
+      const res = await api.post(`/rewards/${reward.rewardId}/claim`);
+
+      const couponCode = res.data?.couponCode || reward.couponCode;
+
+      setRewards((prev) =>
+        prev.map((item) =>
+          item.rewardId === reward.rewardId
+            ? {
+                ...item,
+                claimed: true,
+                status: "claimed",
+                claimedAt: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+
+      if (couponCode) {
+        await copyCoupon(couponCode);
+      } else {
+        toast.success(res.data?.message || "Reward claimed successfully");
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to claim reward");
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-[1100px]">
         <section className="rounded-[30px] border border-slate-200 bg-gradient-to-br from-green-50 via-white to-green-50 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.06)] sm:p-10">
-          <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
-            <Gift size={15} />
-            MacroBox Rewards
-          </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
+                <Gift size={15} />
+                MacroBox Rewards
+              </p>
 
-          <h1 className="mt-5 text-[42px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px]">
-            Eat. Track.
-            <br />
-            <span className="text-green-600">Win rewards.</span>
-          </h1>
+              <h1 className="mt-5 text-[42px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px]">
+                Eat. Track.
+                <br />
+                <span className="text-green-600">Win rewards.</span>
+              </h1>
 
-          <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
-            Complete MacroBox challenges, refer friends, post your progress and
-            unlock free meals, brownies and coupons.
-          </p>
+              <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
+                Complete MacroBox challenges, refer friends, post your progress
+                and unlock free meals, brownies and coupons.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadRewards}
+              disabled={loading}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-[16px] border border-green-200 bg-white px-5 text-sm font-black text-green-700 shadow-sm transition hover:bg-green-50 disabled:opacity-60"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin" size={17} />
+              ) : (
+                <RefreshCw size={17} />
+              )}
+              Refresh
+            </button>
+          </div>
 
           <div className="mt-7 grid gap-3 sm:grid-cols-3">
             <HeroStat label="Rewards Claimed" value={`${claimedCount}`} />
-            <HeroStat label="Active Rewards" value={`${rewards.length}`} />
-            <HeroStat label="Best Coupon" value="20% OFF" />
+            <HeroStat label="Ready to Claim" value={`${unlockedCount}`} />
+            <HeroStat label="Best Coupon" value={bestCoupon} />
           </div>
         </section>
 
-        <section className="mt-8 grid gap-5 md:grid-cols-2">
-          {rewards.map((item) => {
-            const isClaimed = Boolean(claimed[item.id]);
+        {loading ? (
+          <section className="mt-8 flex min-h-[280px] items-center justify-center rounded-[28px] border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center gap-3 text-sm font-black text-slate-600">
+              <Loader2 className="animate-spin text-green-600" size={22} />
+              Loading rewards...
+            </div>
+          </section>
+        ) : rewards.length === 0 ? (
+          <section className="mt-8 rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <AlertCircle className="mx-auto text-slate-400" size={40} />
 
-            return (
-              <article
-                key={item.id}
-                className="rounded-[26px] border border-slate-200 bg-white p-6 shadow-[0_14px_35px_rgba(15,23,42,0.05)]"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-700">
-                    {item.icon}
+            <h2 className="mt-4 text-2xl font-black tracking-[-0.04em] text-slate-950">
+              No rewards found
+            </h2>
+
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+              Rewards will appear here after backend seed data is available.
+            </p>
+          </section>
+        ) : (
+          <section className="mt-8 grid gap-5 md:grid-cols-2">
+            {rewards.map((item) => {
+              const isClaimed = Boolean(item.claimed);
+              const isUnlocked = Boolean(item.unlocked);
+              const isClaiming = claimingId === item.rewardId;
+
+              return (
+                <article
+                  key={item.rewardId}
+                  className="rounded-[26px] border border-slate-200 bg-white p-6 shadow-[0_14px_35px_rgba(15,23,42,0.05)]"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div
+                      className={`flex h-14 w-14 items-center justify-center rounded-full ${
+                        isUnlocked
+                          ? "bg-green-50 text-green-700"
+                          : "bg-slate-100 text-slate-400"
+                      }`}
+                    >
+                      {getRewardIcon(item)}
+                    </div>
+
+                    {isClaimed ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                        <CheckCircle2 size={14} />
+                        Claimed
+                      </span>
+                    ) : isUnlocked ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                        <Gift size={14} />
+                        Ready
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
+                        <Lock size={14} />
+                        Locked
+                      </span>
+                    )}
                   </div>
 
-                  {isClaimed && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                      <CheckCircle2 size={14} />
-                      Claimed
-                    </span>
-                  )}
-                </div>
+                  <h2 className="mt-5 text-2xl font-black tracking-[-0.04em] text-slate-950">
+                    {item.title}
+                  </h2>
 
-                <h2 className="mt-5 text-2xl font-black tracking-[-0.04em] text-slate-950">
-                  {item.title}
-                </h2>
-
-                <p className="mt-2 inline-flex rounded-full bg-green-50 px-4 py-2 text-sm font-black text-green-700">
-                  {item.reward}
-                </p>
-
-                <p className="mt-4 text-sm font-medium leading-6 text-slate-500">
-                  {item.description}
-                </p>
-
-                <div className="mt-5 rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Requirement
-                  </p>
-                  <p className="mt-1 text-sm font-black text-slate-800">
-                    {item.requirement}
-                  </p>
-                </div>
-
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      isClaimed
-                        ? copyCoupon(item.couponCode)
-                        : claimReward(item)
-                    }
-                    className={`inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-[16px] text-sm font-black transition ${
-                      isClaimed
-                        ? "border border-green-200 bg-white text-green-700 hover:bg-green-50"
-                        : "bg-green-600 text-white hover:bg-green-700"
+                  <p
+                    className={`mt-2 inline-flex rounded-full px-4 py-2 text-sm font-black ${
+                      isUnlocked
+                        ? "bg-green-50 text-green-700"
+                        : "bg-slate-100 text-slate-500"
                     }`}
                   >
-                    {isClaimed ? <Copy size={17} /> : <Gift size={17} />}
-                    {isClaimed ? "Copy Coupon" : "Claim Reward"}
-                  </button>
+                    {item.valueText || "Reward"}
+                  </p>
 
-                  <div className="flex h-12 items-center justify-center rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-black text-slate-800">
-                    {item.couponCode}
+                  <p className="mt-4 text-sm font-medium leading-6 text-slate-500">
+                    {item.description}
+                  </p>
+
+                  <div className="mt-5 rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      Requirement
+                    </p>
+
+                    <p className="mt-1 text-sm font-black text-slate-800">
+                      {formatRequirement(item.requiredAction)}
+                    </p>
                   </div>
-                </div>
-              </article>
-            );
-          })}
-        </section>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      disabled={isClaiming || (!isUnlocked && !isClaimed)}
+                      onClick={() =>
+                        isClaimed
+                          ? copyCoupon(item.couponCode)
+                          : claimReward(item)
+                      }
+                      className={`inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-[16px] text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                        isClaimed
+                          ? "border border-green-200 bg-white text-green-700 hover:bg-green-50"
+                          : isUnlocked
+                          ? "bg-green-600 text-white hover:bg-green-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {isClaiming ? (
+                        <Loader2 className="animate-spin" size={17} />
+                      ) : isClaimed ? (
+                        <Copy size={17} />
+                      ) : isUnlocked ? (
+                        <Gift size={17} />
+                      ) : (
+                        <Lock size={17} />
+                      )}
+
+                      {isClaimed
+                        ? "Copy Coupon"
+                        : isUnlocked
+                        ? "Claim Reward"
+                        : "Locked"}
+                    </button>
+
+                    <div
+                      className={`flex h-12 items-center justify-center rounded-[16px] border px-4 text-sm font-black ${
+                        isClaimed
+                          ? "border-green-200 bg-green-50 text-green-700"
+                          : "border-slate-200 bg-white text-slate-400"
+                      }`}
+                    >
+                      {isClaimed ? item.couponCode || "CLAIMED" : "Hidden"}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
 
         <section className="mt-8 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
             <Star className="text-green-600" />
-            Backend Coming Next
+            How to unlock rewards
           </h2>
 
           <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-            Currently rewards are working using frontend localStorage. Next we
-            will connect rewards to backend, user account, challenge progress,
-            coupon generation and admin control.
+            Rewards are now connected to backend. Complete challenge actions
+            like joining a challenge, finishing 7 days, posting stories, or
+            referring friends to unlock and claim coupons.
           </p>
         </section>
       </div>
@@ -226,6 +368,7 @@ function HeroStat({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
+
       <p className="mt-1 text-2xl font-black tracking-[-0.05em] text-green-700">
         {value}
       </p>
