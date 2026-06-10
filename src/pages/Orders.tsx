@@ -235,13 +235,11 @@ export default function Orders() {
   }, []);
 
   const availableYears = useMemo(() => {
-    const years = orders
+    return orders
       .map((order) => getOrderYear(order))
       .filter(Boolean)
       .filter((year, index, arr) => arr.indexOf(year) === index)
       .sort((a, b) => Number(b) - Number(a));
-
-    return years;
   }, [orders]);
 
   const filteredOrders = useMemo(() => {
@@ -287,18 +285,11 @@ export default function Orders() {
     });
 
     filtered.sort((a, b) => {
-      if (sortType === "newest") {
-        return getOrderTime(b) - getOrderTime(a);
-      }
-
-      if (sortType === "oldest") {
-        return getOrderTime(a) - getOrderTime(b);
-      }
-
+      if (sortType === "newest") return getOrderTime(b) - getOrderTime(a);
+      if (sortType === "oldest") return getOrderTime(a) - getOrderTime(b);
       if (sortType === "amountHigh") {
         return (b.totals.payable || 0) - (a.totals.payable || 0);
       }
-
       if (sortType === "amountLow") {
         return (a.totals.payable || 0) - (b.totals.payable || 0);
       }
@@ -339,11 +330,11 @@ export default function Orders() {
       <div className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-[34px] font-black tracking-[-0.06em] text-slate-950 md:text-3xl">
+            <h1 className="text-[42px] font-black tracking-[-0.07em] text-slate-950 md:text-3xl">
               My Orders
             </h1>
 
-            <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+            <p className="mt-2 max-w-xl text-base font-semibold leading-7 text-slate-500">
               View order status, payment, delivery slot and live tracking.
             </p>
           </div>
@@ -354,23 +345,23 @@ export default function Orders() {
         </div>
 
         <section className="mb-5 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
-              <SlidersHorizontal size={18} />
+          <div className="mb-4 flex items-center gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+              <SlidersHorizontal size={20} />
             </span>
 
             <div>
-              <h2 className="text-base font-black text-slate-950">
+              <h2 className="text-xl font-black text-slate-950">
                 Filter Orders
               </h2>
-              <p className="text-xs font-semibold leading-5 text-slate-500">
+              <p className="text-sm font-semibold leading-6 text-slate-500">
                 Search by meal, order ID, payment, status or address.
               </p>
             </div>
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr_0.7fr_0.9fr_0.9fr]">
-            <div className="relative">
+            <div className="relative min-w-0">
               <Search
                 size={17}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -380,28 +371,28 @@ export default function Orders() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search orders..."
-                className="h-12 w-full rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+                className="h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
               />
             </div>
 
-            <div className="relative">
+            <div className="relative min-w-0 overflow-hidden rounded-[16px]">
               <CalendarDays
                 size={17}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
               />
 
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(event) => setSelectedDate(event.target.value)}
-                className="h-12 w-full rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+                className="h-12 w-full min-w-0 appearance-none rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-3 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
               />
             </div>
 
             <select
               value={selectedYear}
               onChange={(event) => setSelectedYear(event.target.value)}
-              className="h-12 w-full rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+              className="h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
             >
               <option value="all">All Years</option>
               {availableYears.map((year) => (
@@ -416,23 +407,23 @@ export default function Orders() {
               onChange={(event) =>
                 setRangeFilter(event.target.value as RangeFilter)
               }
-              className="h-12 w-full rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+              className="h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
             >
               <option value="all">All Time</option>
               <option value="30days">Last 30 Days</option>
               <option value="3months">Last 3 Months</option>
             </select>
 
-            <div className="relative">
+            <div className="relative min-w-0">
               <ArrowDownUp
                 size={17}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
               />
 
               <select
                 value={sortType}
                 onChange={(event) => setSortType(event.target.value as SortType)}
-                className="h-12 w-full rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+                className="h-12 w-full min-w-0 appearance-none rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
@@ -588,7 +579,7 @@ export default function Orders() {
                             </p>
                           </div>
 
-                          <p className="line-clamp-2 text-sm font-semibold text-slate-600">
+                          <p className="text-sm font-semibold leading-6 text-slate-600">
                             {formatAddress(order.delivery?.address)}
                           </p>
 
@@ -597,7 +588,7 @@ export default function Orders() {
                               href={mapsUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="mt-1 inline-block text-xs font-black text-green-600 hover:underline"
+                              className="mt-2 inline-block text-xs font-black text-green-600 hover:underline"
                             >
                               Open in Google Maps
                             </a>
@@ -693,7 +684,7 @@ function MiniStat({
 
 function InfoCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-[16px] border border-slate-200 bg-slate-50 p-3">
+    <div className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
       {children}
     </div>
   );

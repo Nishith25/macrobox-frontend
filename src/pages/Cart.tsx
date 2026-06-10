@@ -980,7 +980,7 @@ export default function Cart() {
   return (
     <main className="min-h-screen bg-[#f6f7f8] pb-32 text-slate-950 xl:pb-24">
       <section className="border-b border-slate-200 bg-white/80 px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mx-auto flex max-w-[1240px] flex-col justify-between gap-5 md:flex-row md:items-end">
+        <div className="mx-auto max-w-[1240px]">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
               <ShieldCheck size={14} />
@@ -996,14 +996,6 @@ export default function Cart() {
             </p>
           </div>
 
-          <div className="w-fit rounded-[22px] bg-green-700 px-6 py-4 text-white shadow-[0_16px_35px_rgba(22,101,52,0.25)] sm:px-7">
-            <p className="text-xs font-black uppercase tracking-wide text-green-100">
-              Total Payable
-            </p>
-            <p className="mt-1 text-3xl font-black tracking-[-0.05em]">
-              ₹{payable}
-            </p>
-          </div>
         </div>
       </section>
 
