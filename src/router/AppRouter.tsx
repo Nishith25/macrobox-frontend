@@ -59,7 +59,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import AdminRoute from "./AdminRoute";
 import DeliveryRoute from "./DeliveryRoute";
 
-/* 
+/*
   Public-only route:
   If user is already logged in and opens /login or /signup using browser back,
   redirect them to the correct page instead of showing auth page again.
@@ -187,6 +187,42 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/challenges"
+          element={
+            <ProtectedRoute>
+              <Challenges />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/challenges/:challengeId"
+          element={
+            <ProtectedRoute>
+              <ChallengeDetails />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/rewards"
+          element={
+            <ProtectedRoute>
+              <Rewards />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/transformation-wall"
+          element={
+            <ProtectedRoute>
+              <TransformationWall />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/cart"
           element={
             <ProtectedRoute>
@@ -230,11 +266,6 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
-
-        <Route path="/challenges" element={<Challenges />} />
-<Route path="/challenges/:challengeId" element={<ChallengeDetails />} />
-<Route path="/rewards" element={<Rewards />} />
-<Route path="/transformation-wall" element={<TransformationWall />} />
 
         {/* ================= DELIVERY ROUTES ================= */}
         <Route

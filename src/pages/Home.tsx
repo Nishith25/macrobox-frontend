@@ -1,6 +1,6 @@
 // frontend/src/pages/Home.tsx (FRONTEND)
 
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CalendarCheck,
@@ -11,6 +11,7 @@ import {
   Trophy,
   Zap,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 /* ================= TYPES ================= */
 
@@ -31,6 +32,18 @@ export type Meal = {
 /* ================= PAGE ================= */
 
 export default function Home() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  const goProtected = (path: string) => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+
+    navigate(path);
+  };
+
   return (
     <main className="min-h-[calc(100vh-76px)] overflow-x-hidden bg-gradient-to-br from-green-50 via-white to-green-50 text-slate-950">
       <section className="mx-auto flex max-w-[1240px] flex-col justify-center px-5 py-10 sm:px-6 lg:py-16">
@@ -50,39 +63,46 @@ export default function Home() {
             </p>
 
             <div className="mx-auto mt-8 flex w-full max-w-[380px] flex-col items-center gap-3 sm:mx-0 sm:max-w-none sm:items-start">
-              <Link
-                to="/meals"
+              <button
+                type="button"
+                onClick={() => navigate("/meals")}
                 className="inline-flex h-16 w-full items-center justify-center gap-3 rounded-[22px] bg-green-600 px-8 text-lg font-black text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700 sm:w-auto"
               >
                 Explore Meals
                 <ArrowRight size={22} />
-              </Link>
+              </button>
 
-              <Link
-                to="/challenges"
+              <button
+                type="button"
+                onClick={() => goProtected("/challenges")}
                 className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-[18px] border border-green-200 bg-white px-8 text-base font-black text-green-700 shadow-sm transition hover:bg-green-50 sm:w-auto"
               >
                 <Trophy size={19} />
                 7-Day Challenge
                 <ArrowRight size={19} />
-              </Link>
+              </button>
 
               <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap">
-                <Link
-                  to="/macrotrack"
+                <button
+                  type="button"
+                  onClick={() => goProtected("/macrotrack")}
                   className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
                 >
                   <Zap size={20} className="text-green-600" />
                   MacroTrack
-                </Link>
+                </button>
 
-                <Link
-                  to="/smart-day-planner"
+                <button
+                  type="button"
+                  onClick={() => goProtected("/smart-day-planner")}
                   className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 text-center text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
                 >
-                  <CalendarCheck size={20} className="shrink-0 text-green-600" />
+                  <CalendarCheck
+                    size={20}
+                    className="shrink-0 text-green-600"
+                  />
                   Smart Day Planner
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -107,13 +127,14 @@ export default function Home() {
               </p>
             </div>
 
-            <Link
-              to="/challenges/student-power-box"
+            <button
+              type="button"
+              onClick={() => goProtected("/challenges/student-power-box")}
               className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[16px] bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 md:w-auto"
             >
               Claim ₹99 Bowl
               <ArrowRight size={17} />
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -130,13 +151,14 @@ export default function Home() {
               </h2>
             </div>
 
-            <Link
-              to="/challenges"
+            <button
+              type="button"
+              onClick={() => goProtected("/challenges")}
               className="hidden rounded-[18px] bg-green-600 px-6 py-3 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 md:inline-flex md:items-center md:gap-2"
             >
               Get Started
               <ArrowRight size={17} />
-            </Link>
+            </button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">

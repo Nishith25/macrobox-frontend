@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import {
   ChefHat,
   ClipboardList,
+  Gift,
   LogIn,
   LogOut,
   MapPin,
@@ -16,12 +17,12 @@ import {
   Shield,
   ShoppingCart,
   TicketPercent,
+  Trophy,
   Truck,
   UserCircle,
   Users,
   X,
 } from "lucide-react";
-import { Trophy } from "lucide-react";
 
 export default function Navbar() {
   const { isAuthenticated, isAdmin, logout, user } = useAuth();
@@ -117,9 +118,14 @@ export default function Navbar() {
                 </NavLink>
 
                 <NavLink to="/challenges" className={navLinkClass}>
-  <Trophy size={17} />
-  Challenges
-</NavLink>
+                  <Trophy size={17} />
+                  Challenges
+                </NavLink>
+
+                <NavLink to="/rewards" className={navLinkClass}>
+                  <Gift size={17} />
+                  Rewards
+                </NavLink>
 
                 <NavLink to="/orders" className={navLinkClass}>
                   Orders
@@ -416,9 +422,21 @@ export default function Navbar() {
                       Smart Day Planner <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/challenges" className={mobileLinkClass} onClick={closeMenu}>
-  Challenges <span>→</span>
-</NavLink>
+                    <NavLink
+                      to="/challenges"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
+                      Challenges <span>→</span>
+                    </NavLink>
+
+                    <NavLink
+                      to="/rewards"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
+                      Rewards <span>→</span>
+                    </NavLink>
 
                     <NavLink
                       to="/orders"
@@ -433,7 +451,8 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Cart {cartCount > 0 ? `(${cartCount})` : ""} <span>→</span>
+                      Cart {cartCount > 0 ? `(${cartCount})` : ""}{" "}
+                      <span>→</span>
                     </NavLink>
 
                     <NavLink
