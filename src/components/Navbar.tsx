@@ -90,12 +90,12 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur">
+      <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[76px] max-w-[1500px] items-center justify-between gap-4 px-4 sm:px-6">
           <Link
             to="/"
             onClick={closeMenu}
-            className="shrink-0 text-2xl font-black tracking-[-0.04em] text-slate-950"
+            className="shrink-0 text-[31px] font-black tracking-[-0.07em] text-slate-950 sm:text-2xl"
           >
             MacroBox
           </Link>
@@ -154,11 +154,11 @@ export default function Navbar() {
             {isAuthenticated ? (
               <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
                 <div className="flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-black text-white">
-  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-green-700">
-    {user?.name?.charAt(0)?.toUpperCase() || "U"}
-  </span>
-  {user?.name?.split(" ")[0] || "User"}
-</div>
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-green-700">
+                    {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                  </span>
+                  {user?.name?.split(" ")[0] || "User"}
+                </div>
 
                 <button
                   type="button"
@@ -187,10 +187,10 @@ export default function Navbar() {
                   navigate("/cart");
                   setOpen(false);
                 }}
-                className="relative flex h-14 w-14 items-center justify-center rounded-[18px] border border-slate-200 text-slate-900"
+                className="relative flex h-14 w-14 items-center justify-center rounded-[22px] border border-slate-200 bg-white text-slate-950 shadow-sm"
                 aria-label="Cart"
               >
-                <ShoppingCart size={24} />
+                <ShoppingCart size={25} />
 
                 {cartCount > 0 && (
                   <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-green-600 px-1 text-xs font-black text-white">
@@ -204,7 +204,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navigate("/login")}
-                className="rounded-[14px] px-3 py-2 text-sm font-black text-slate-950"
+                className="rounded-[14px] px-3 py-2 text-[20px] font-medium text-slate-950"
               >
                 Login
               </button>
@@ -213,10 +213,10 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-slate-200 text-slate-900"
+              className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-slate-200 bg-white text-slate-950 shadow-sm"
               aria-label="Open menu"
             >
-              <Menu size={27} />
+              <Menu size={30} />
             </button>
           </div>
         </div>
@@ -386,32 +386,60 @@ export default function Navbar() {
 
                 {isAuthenticated && !isChef && (
                   <>
-                    <NavLink to="/meals" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/meals"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Meals <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/macrotrack" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/macrotrack"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       MacroTrack <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/smart-day-planner" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/smart-day-planner"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Smart Day Planner <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/orders" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/orders"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Orders <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/cart" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/cart"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Cart {cartCount > 0 ? `(${cartCount})` : ""} <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/settings" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/settings"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Settings <span>→</span>
                     </NavLink>
 
                     {user?.role === "delivery" && (
-                      <NavLink to="/delivery" className={mobileLinkClass} onClick={closeMenu}>
+                      <NavLink
+                        to="/delivery"
+                        className={mobileLinkClass}
+                        onClick={closeMenu}
+                      >
                         Delivery <span>→</span>
                       </NavLink>
                     )}
@@ -424,7 +452,11 @@ export default function Navbar() {
                       Chef
                     </p>
 
-                    <NavLink to="/orderslist" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/orderslist"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Kitchen Orders <span>→</span>
                     </NavLink>
                   </>
@@ -436,35 +468,67 @@ export default function Navbar() {
                       Admin
                     </p>
 
-                    <NavLink to="/admin/meals" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/meals"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Admin Meals <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/users" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/users"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Users <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/orders" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/orders"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Orders <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/coupons" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/coupons"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Coupons <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/delivery-agents" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/delivery-agents"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Delivery Agents <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/chefs" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/chefs"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Chef Management <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/orderslist" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/orderslist"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Kitchen Orders <span>→</span>
                     </NavLink>
 
-                    <NavLink to="/admin/delivery-pincodes" className={mobileLinkClass} onClick={closeMenu}>
+                    <NavLink
+                      to="/admin/delivery-pincodes"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
                       Delivery Pincodes <span>→</span>
                     </NavLink>
                   </>

@@ -1,3 +1,5 @@
+// frontend/src/pages/Meals.tsx (FRONTEND)
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/api";
@@ -35,10 +37,14 @@ const goalLabels: Record<GoalType, string> = {
 };
 
 const goalOptions: { key: GoalType; label: string; icon: React.ReactNode }[] = [
-  { key: "fat_loss", label: "Fat Loss", icon: <Flame size={14} /> },
-  { key: "muscle_gain", label: "Muscle Gain", icon: <SlidersHorizontal size={14} /> },
-  { key: "weight_gain", label: "Weight Gain", icon: <TrendingUp size={14} /> },
-  { key: "clean_eating", label: "Clean Eating", icon: <Leaf size={14} /> },
+  { key: "fat_loss", label: "Fat Loss", icon: <Flame size={13} /> },
+  {
+    key: "muscle_gain",
+    label: "Muscle Gain",
+    icon: <SlidersHorizontal size={13} />,
+  },
+  { key: "weight_gain", label: "Weight Gain", icon: <TrendingUp size={13} /> },
+  { key: "clean_eating", label: "Clean Eating", icon: <Leaf size={13} /> },
 ];
 
 const isValidGoal = (value: string | null | undefined): value is GoalType =>
@@ -109,7 +115,8 @@ export default function Meals() {
   );
 
   const cartTotal = useMemo(
-    () => cart.reduce((sum, item) => sum + (item.price || 0) * (item.qty || 0), 0),
+    () =>
+      cart.reduce((sum, item) => sum + (item.price || 0) * (item.qty || 0), 0),
     [cart]
   );
 
@@ -221,25 +228,26 @@ export default function Meals() {
       : "Non-Veg Only";
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] px-4 pb-32 pt-10 sm:px-6">
+    <main className="min-h-screen bg-[#f6f7f8] px-4 pb-32 pt-8 sm:px-6 sm:pt-10">
       <div className="mx-auto max-w-[1420px]">
-        <section className="mb-9 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <section className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-[34px] font-black tracking-[-0.04em] text-slate-950 sm:text-[40px]">
+            <h1 className="text-[42px] font-black tracking-[-0.07em] text-slate-950 sm:text-[40px]">
               {goal ? `${goalLabels[goal]} Meals` : "Meals"}
             </h1>
-            <p className="mt-2 text-[15px] font-medium text-slate-500 sm:text-base">
-              Choose meals with complete calories, protein, carbs and fat tracking.
+            <p className="mt-2 max-w-[560px] text-[17px] font-medium leading-7 text-slate-500 sm:text-base">
+              Choose meals with complete calories, protein, carbs and fat
+              tracking.
             </p>
           </div>
 
-          <div className="inline-flex w-fit rounded-[18px] border border-slate-200 bg-white p-1 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+          <div className="inline-flex w-full max-w-[330px] rounded-[20px] border border-slate-200 bg-white p-1 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:w-fit sm:max-w-none">
             {(["all", "veg", "nonveg"] as FilterType[]).map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => setFilter(type)}
-                className={`min-w-[76px] rounded-[14px] px-5 py-2.5 text-sm font-extrabold transition ${
+                className={`flex-1 rounded-[16px] px-4 py-3 text-base font-extrabold transition sm:min-w-[76px] sm:text-sm ${
                   filter === type
                     ? "bg-green-600 text-white shadow-sm"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-950"
@@ -251,18 +259,18 @@ export default function Meals() {
           </div>
         </section>
 
-        <section className="mb-8 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
-          <div className="grid gap-6 p-5 lg:grid-cols-[1fr_220px_230px] lg:items-center xl:grid-cols-[1fr_260px_260px]">
+        <section className="mb-7 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)] sm:rounded-[26px]">
+          <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_220px_230px] lg:items-center xl:grid-cols-[1fr_260px_260px]">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="mr-2 flex items-center gap-2 text-[15px] font-extrabold text-slate-500">
-                <Filter size={16} />
+              <div className="mr-1 flex items-center gap-2 text-sm font-extrabold text-slate-500 sm:text-[15px]">
+                <Filter size={15} />
                 Goals
               </div>
 
               <button
                 type="button"
                 onClick={() => changeGoal("")}
-                className={`rounded-full px-4 py-2.5 text-sm font-extrabold transition ${
+                className={`rounded-full px-4 py-2 text-sm font-extrabold transition ${
                   goal === ""
                     ? "bg-slate-950 text-white"
                     : "bg-slate-100 text-slate-500 hover:bg-slate-200"
@@ -276,7 +284,7 @@ export default function Meals() {
                   key={item.key}
                   type="button"
                   onClick={() => changeGoal(item.key)}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-extrabold transition ${
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-extrabold transition ${
                     goal === item.key
                       ? "bg-green-600 text-white"
                       : "bg-slate-100 text-slate-500 hover:bg-green-50 hover:text-green-700"
@@ -329,7 +337,7 @@ export default function Meals() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 bg-white px-5 py-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 bg-white px-4 py-3 text-xs sm:px-5">
             <span className="rounded-full bg-slate-100 px-3.5 py-1.5 font-extrabold text-slate-500">
               {goal ? goalLabels[goal] : "All Goals"}
             </span>
@@ -363,13 +371,15 @@ export default function Meals() {
           </div>
         ) : filteredMeals.length === 0 ? (
           <div className="rounded-[26px] border border-slate-200 bg-white p-12 text-center">
-            <p className="font-black text-slate-900">No meals available for this filter.</p>
+            <p className="font-black text-slate-900">
+              No meals available for this filter.
+            </p>
             <p className="mt-2 text-sm font-medium text-slate-500">
               Try resetting the filters or increasing calories.
             </p>
           </div>
         ) : (
-          <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {filteredMeals.map((meal, index) => {
               const qty = getCartQty(meal._id);
 
@@ -430,15 +440,23 @@ export default function Meals() {
                     </p>
 
                     <div className="mt-5 grid grid-cols-2 gap-3">
-                      <MacroBox label="Calories" value={`${meal.calories || 0} kcal`} />
-                      <MacroBox label="Protein" value={`${meal.protein || 0}g`} />
+                      <MacroBox
+                        label="Calories"
+                        value={`${meal.calories || 0} kcal`}
+                      />
+                      <MacroBox
+                        label="Protein"
+                        value={`${meal.protein || 0}g`}
+                      />
                       <MacroBox label="Carbs" value={`${meal.carbs || 0}g`} />
                       <MacroBox label="Fat" value={`${meal.fat || 0}g`} />
                     </div>
 
                     <div className="mt-5 flex items-end justify-between border-t border-slate-100 pt-4">
                       <div>
-                        <p className="text-sm font-semibold text-slate-400">Price</p>
+                        <p className="text-sm font-semibold text-slate-400">
+                          Price
+                        </p>
                         <p className="text-[25px] font-black tracking-[-0.04em] text-slate-950">
                           ₹{meal.price || 0}
                         </p>

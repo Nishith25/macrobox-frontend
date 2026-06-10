@@ -31,45 +31,47 @@ export type Meal = {
 export default function Home() {
   return (
     <main className="min-h-[calc(100vh-76px)] overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-50 text-slate-950">
-      <section className="mx-auto flex min-h-[calc(100vh-156px)] max-w-[1240px] flex-col justify-center px-4 py-8 sm:px-6">
+      <section className="mx-auto flex min-h-[calc(100vh-156px)] max-w-[1240px] flex-col justify-center px-5 py-8 sm:px-6">
         <div className="grid items-center gap-10">
           <div>
-            <h1 className="max-w-3xl text-[48px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px]">
+            <h1 className="max-w-3xl text-center text-[48px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-left sm:text-[64px]">
               Fuel Your Day
               <br />
               <span className="text-green-600">with MacroBox</span>
             </h1>
 
-            <p className="mt-5 max-w-2xl text-lg font-medium leading-8 text-slate-600">
+            <p className="mx-auto mt-5 max-w-2xl text-center text-[17px] font-medium leading-8 text-slate-600 sm:mx-0 sm:text-left sm:text-lg">
               Goal-based meals for fat loss, muscle gain, weight gain and
               everyday clean eating — with complete calories, protein, carbs and
               fat tracking.
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mx-auto mt-8 flex w-full max-w-[360px] flex-col items-center gap-3 sm:mx-0 sm:max-w-none sm:items-start">
               <Link
                 to="/meals"
-                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] bg-green-600 px-8 text-base font-black text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700"
+                className="inline-flex h-16 w-full items-center justify-center gap-3 rounded-[22px] bg-green-600 px-8 text-lg font-black text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700 sm:w-auto"
               >
                 Explore Meals
-                <ArrowRight size={20} />
+                <ArrowRight size={22} />
               </Link>
 
-              <Link
-                to="/macrotrack"
-                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-slate-200 bg-white px-8 text-base font-black text-slate-950 shadow-sm transition hover:bg-slate-50"
-              >
-                <Zap size={20} className="text-green-600" />
-                MacroTrack
-              </Link>
+              <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap">
+                <Link
+                  to="/macrotrack"
+                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
+                >
+                  <Zap size={20} className="text-green-600" />
+                  MacroTrack
+                </Link>
 
-              <Link
-                to="/smart-day-planner"
-                className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-slate-200 bg-white px-8 text-base font-black text-slate-950 shadow-sm transition hover:bg-slate-50"
-              >
-                <CalendarCheck size={20} className="text-green-600" />
-                Day Planner
-              </Link>
+                <Link
+                  to="/smart-day-planner"
+                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
+                >
+                  <CalendarCheck size={20} className="text-green-600" />
+                  Day Planner
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -95,7 +97,7 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
             <StepCard
               icon={<Target size={20} />}
               number="01"
@@ -144,7 +146,7 @@ function StepCard({
   description: string;
 }) {
   return (
-    <div className="min-h-[138px] rounded-[18px] border border-slate-100 bg-white p-5 shadow-sm">
+    <div className="min-h-[138px] rounded-[20px] border border-slate-100 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-3xl font-black tracking-[-0.06em] text-green-100">
           {number}
