@@ -30,8 +30,8 @@ export type Meal = {
 
 export default function Home() {
   return (
-    <main className="min-h-[calc(100vh-76px)] overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-50 text-slate-950">
-      <section className="mx-auto flex min-h-[calc(100vh-156px)] max-w-[1240px] flex-col justify-center px-5 py-8 sm:px-6">
+    <main className="min-h-[calc(100vh-76px)] overflow-x-hidden bg-gradient-to-br from-green-50 via-white to-green-50 text-slate-950">
+      <section className="mx-auto flex max-w-[1240px] flex-col justify-center px-5 py-10 sm:px-6 lg:py-16">
         <div className="grid items-center gap-10">
           <div>
             <h1 className="max-w-3xl text-center text-[48px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-left sm:text-[64px]">
@@ -46,7 +46,7 @@ export default function Home() {
               fat tracking.
             </p>
 
-            <div className="mx-auto mt-8 flex w-full max-w-[360px] flex-col items-center gap-3 sm:mx-0 sm:max-w-none sm:items-start">
+            <div className="mx-auto mt-8 flex w-full max-w-[370px] flex-col items-center gap-3 sm:mx-0 sm:max-w-none sm:items-start">
               <Link
                 to="/meals"
                 className="inline-flex h-16 w-full items-center justify-center gap-3 rounded-[22px] bg-green-600 px-8 text-lg font-black text-white shadow-[0_18px_35px_rgba(22,163,74,0.25)] transition hover:bg-green-700 sm:w-auto"
@@ -58,7 +58,7 @@ export default function Home() {
               <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap">
                 <Link
                   to="/macrotrack"
-                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
+                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
                 >
                   <Zap size={20} className="text-green-600" />
                   MacroTrack
@@ -66,17 +66,17 @@ export default function Home() {
 
                 <Link
                   to="/smart-day-planner"
-                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-4 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
+                  className="inline-flex h-16 items-center justify-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-slate-50 sm:px-8 sm:text-base"
                 >
                   <CalendarCheck size={20} className="text-green-600" />
-                  Day Planner
+                  Smart Day Planner
                 </Link>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-10 border-t border-green-100 pt-8">
+        <div className="mt-12 border-t border-green-100 pt-8">
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.18em] text-green-600">
