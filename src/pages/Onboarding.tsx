@@ -629,6 +629,25 @@ export default function Onboarding() {
     }
   };
 
+  const skipBodyDetails = async () => {
+    setSaving(true);
+
+    try {
+      await saveOnboardingProgress({
+        onboarding: {
+          goal: selectedGoal,
+          currentStep: 4,
+          completed: false,
+        },
+      });
+
+      setStep(4);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleBodyNext = async () => {
     const height = Number(body.height);
     const weight = Number(body.weight);
@@ -751,7 +770,6 @@ export default function Onboarding() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-[1240px]">
-        {/* TOP PROGRESS */}
         <div className="mb-7 rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.06)] backdrop-blur">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <button
@@ -938,9 +956,32 @@ export default function Onboarding() {
                   </div>
                 </div>
 
-                <PrimaryButton onClick={handleBodyNext} loading={saving}>
-                  Continue to Address
-                </PrimaryButton>
+                <div className="mt-8 grid gap-3 md:grid-cols-[0.35fr_1fr]">
+                  <button
+                    type="button"
+                    onClick={skipBodyDetails}
+                    disabled={saving}
+                    className="flex h-14 items-center justify-center rounded-[18px] border border-slate-200 bg-white px-6 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Skip
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleBodyNext}
+                    disabled={saving}
+                    className="flex h-14 items-center justify-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {saving ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <>
+                        Continue to Address
+                        <ArrowRight size={18} />
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1242,9 +1283,18 @@ export default function Onboarding() {
                           </p>
 
                           <div className="mt-4 grid grid-cols-2 gap-2">
-                            <MacroChip label="Calories" value={`${meal.calories} kcal`} />
-                            <MacroChip label="Protein" value={`${meal.protein}g`} />
-                            <MacroChip label="Carbs" value={`${meal.carbs || 0}g`} />
+                            <MacroChip
+                              label="Calories"
+                              value={`${meal.calories} kcal`}
+                            />
+                            <MacroChip
+                              label="Protein"
+                              value={`${meal.protein}g`}
+                            />
+                            <MacroChip
+                              label="Carbs"
+                              value={`${meal.carbs || 0}g`}
+                            />
                             <MacroChip label="Fat" value={`${meal.fat || 0}g`} />
                           </div>
 
