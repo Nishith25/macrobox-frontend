@@ -51,6 +51,7 @@ type BackendChallenge = {
 
 type ChallengeCartMeal = {
   _id: string;
+  challengeId?: string;
   title: string;
   price: number;
   protein: number;
@@ -242,17 +243,18 @@ export default function ChallengeDetails() {
       }
 
       meals.forEach((meal) => {
-        addToCart({
-          _id: meal._id,
-          title: meal.title,
-          price: meal.price,
-          protein: meal.protein,
-          calories: meal.calories,
-          carbs: meal.carbs,
-          fat: meal.fat,
-          imageUrl: meal.imageUrl,
-        });
-      });
+  addToCart({
+    _id: meal._id,
+    challengeId: challengeId || meal.challengeId || "",
+    title: meal.title,
+    price: meal.price,
+    protein: meal.protein,
+    calories: meal.calories,
+    carbs: meal.carbs,
+    fat: meal.fat,
+    imageUrl: meal.imageUrl,
+  });
+});
 
       toast.success(`${meals.length} challenge meals added to cart`);
       navigate("/cart");

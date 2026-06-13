@@ -866,15 +866,16 @@ export default function Cart() {
 
       const payload = {
         items: cart.map((item) => ({
-          mealId: item._id,
-          title: item.title,
-          price: item.price,
-          qty: item.qty,
-          protein: item.protein,
-          calories: item.calories,
-          carbs: item.carbs || 0,
-          fat: item.fat || 0,
-        })),
+  mealId: item._id,
+  challengeId: item.challengeId || "",
+  title: item.title,
+  price: item.price,
+  qty: item.qty,
+  protein: item.protein,
+  calories: item.calories,
+  carbs: item.carbs || 0,
+  fat: item.fat || 0,
+})),
 
         couponCode: finalCouponCode,
 
@@ -1026,13 +1027,19 @@ export default function Cart() {
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
                       <h3 className="line-clamp-2 text-base font-black text-slate-950">
-                        {item.title}
-                      </h3>
+  {item.title}
+</h3>
 
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <MacroPill color="green">
-                          🥩 {item.protein * item.qty}g
-                        </MacroPill>
+{item.challengeId && (
+  <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+    Challenge Order
+  </p>
+)}
+
+<div className="mt-2 flex flex-wrap gap-2">
+  <MacroPill color="green">
+    🥩 {item.protein * item.qty}g
+  </MacroPill>
                         <MacroPill color="orange">
                           🔥 {item.calories * item.qty} kcal
                         </MacroPill>
@@ -1059,7 +1066,7 @@ export default function Cart() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => decreaseQty(item._id)}
+                          onClick={() => decreaseQty(item._id, item.challengeId)}
                           className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
                         >
                           <Minus size={16} />
@@ -1071,7 +1078,7 @@ export default function Cart() {
 
                         <button
                           type="button"
-                          onClick={() => increaseQty(item._id)}
+                          onClick={() => increaseQty(item._id, item.challengeId)}
                           className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white transition hover:bg-green-700"
                         >
                           <Plus size={16} />
@@ -1080,7 +1087,7 @@ export default function Cart() {
 
                       <button
                         type="button"
-                        onClick={() => removeFromCart(item._id)}
+                        onClick={() => removeFromCart(item._id, item.challengeId)}
                         className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
                       >
                         <Trash2 size={17} />

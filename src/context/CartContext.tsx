@@ -1,8 +1,10 @@
 // frontend/src/context/CartContext.tsx (FRONTEND)
+
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 export type CartItem = {
   _id: string;
+  challengeId?: string;
   title: string;
   price: number;
   protein: number;
@@ -15,6 +17,7 @@ export type CartItem = {
 
 type AddToCartItem = {
   _id: string;
+  challengeId?: string;
   title: string;
   price: number;
   protein?: number;
@@ -28,16 +31,20 @@ type CartCtx = {
   cart: CartItem[];
   cartCount: number;
   addToCart: (item: AddToCartItem) => void;
-  removeFromCart: (id: string) => void;
-  increaseQty: (id: string) => void;
-  decreaseQty: (id: string) => void;
+  removeFromCart: (id: string, challengeId?: string) => void;
+  increaseQty: (id: string, challengeId?: string) => void;
+  decreaseQty: (id: string, challengeId?: string) => void;
   clearCart: () => void;
 };
 
 const CartContext = createContext<CartCtx>({} as CartCtx);
 
+const getCartKey = (item: { _id: string; challengeId?: string }) =>
+  `${item._id}__${item.challengeId || "normal"}`;
+
 const normalizeCartItem = (item: any): CartItem => ({
   _id: item._id,
+  challengeId: item.challengeId || "",
   title: item.title,
   price: Number(item.price || 0),
   protein: Number(item.protein || 0),
@@ -56,7 +63,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       if (!Array.isArray(parsed)) return [];
 
-      // ✅ Migrates old cart items that do not have carbs/fat
       return parsed.map(normalizeCartItem);
     } catch {
       return [];
@@ -68,21 +74,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [cart]);
 
   const cartCount = useMemo(
-    () => cart.reduce((sum, i) => sum + i.qty, 0),
+    () => cart.reduce((sum, item) => sum + item.qty, 0),
     [cart]
   );
 
   const addToCart = (meal: AddToCartItem) => {
     setCart((prev) => {
-      const idx = prev.findIndex((i) => i._id === meal._id);
+      const incomingKey = getCartKey(meal);
+
+      const idx = prev.findIndex((item) => getCartKey(item) === incomingKey);
 
       if (idx >= 0) {
         const copy = [...prev];
+
         copy[idx] = {
           ...copy[idx],
           qty: copy[idx].qty + 1,
-
-          // ✅ keep latest nutrition values if admin updated meal
+          challengeId: meal.challengeId || copy[idx].challengeId || "",
           price: Number(meal.price || copy[idx].price || 0),
           protein: Number(meal.protein || copy[idx].protein || 0),
           calories: Number(meal.calories || copy[idx].calories || 0),
@@ -90,6 +98,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           fat: Number(meal.fat || copy[idx].fat || 0),
           imageUrl: meal.imageUrl || copy[idx].imageUrl,
         };
+
         return copy;
       }
 
@@ -97,6 +106,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         {
           _id: meal._id,
+          challengeId: meal.challengeId || "",
           title: meal.title,
           price: Number(meal.price || 0),
           protein: Number(meal.protein || 0),
@@ -110,21 +120,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const removeFromCart = (id: string) => {
-    setCart((prev) => prev.filter((i) => i._id !== id));
-  };
-
-  const increaseQty = (id: string) => {
+  const removeFromCart = (id: string, challengeId?: string) => {
     setCart((prev) =>
-      prev.map((i) => (i._id === id ? { ...i, qty: i.qty + 1 } : i))
+      prev.filter(
+        (item) =>
+          getCartKey(item) !== getCartKey({ _id: id, challengeId })
+      )
     );
   };
 
-  const decreaseQty = (id: string) => {
+  const increaseQty = (id: string, challengeId?: string) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        getCartKey(item) === getCartKey({ _id: id, challengeId })
+          ? { ...item, qty: item.qty + 1 }
+          : item
+      )
+    );
+  };
+
+  const decreaseQty = (id: string, challengeId?: string) => {
     setCart((prev) =>
       prev
-        .map((i) => (i._id === id ? { ...i, qty: i.qty - 1 } : i))
-        .filter((i) => i.qty > 0)
+        .map((item) =>
+          getCartKey(item) === getCartKey({ _id: id, challengeId })
+            ? { ...item, qty: item.qty - 1 }
+            : item
+        )
+        .filter((item) => item.qty > 0)
     );
   };
 
