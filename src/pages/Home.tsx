@@ -62,7 +62,7 @@ export default function Home() {
               fat tracking.
             </p>
 
-            {/* MAIN ACTION BUTTONS - SINGLE LINE */}
+            {/* MAIN ACTION BUTTONS */}
             <div className="mx-auto mt-8 grid w-full max-w-[420px] grid-cols-1 gap-3 sm:mx-0 sm:max-w-none sm:grid-cols-2 lg:flex lg:flex-nowrap lg:items-center">
               <button
                 type="button"
@@ -125,7 +125,7 @@ export default function Home() {
 
             <button
               type="button"
-              onClick={() => goProtected("/challenges/student-power-box")}
+              onClick={() => goProtected("/meals")}
               className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[16px] bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 md:w-auto"
             >
               Claim ₹99 Bowl

@@ -138,9 +138,26 @@ export default function ChallengeDetails() {
         "Reward after consecutive order streak",
       ];
 
-  const rewards: string[] = challenge?.rewards?.length
+  const hiddenRewardTexts = [
+  "post 3 stories",
+  "free protein brownie",
+  "best transformation",
+  "best story",
+  "free 7-day box",
+  "free meal",
+];
+
+const rewards: string[] = (
+  challenge?.rewards?.length
     ? challenge.rewards
-    : ["Complete 7 consecutive paid challenge orders and unlock 20% off"];
+    : ["Complete 7 consecutive paid challenge orders and unlock 20% off"]
+).filter((reward) => {
+  const cleanReward = String(reward || "").toLowerCase();
+
+  return !hiddenRewardTexts.some((blockedText) =>
+    cleanReward.includes(blockedText)
+  );
+});
 
   const loadChallenge = async () => {
     try {
