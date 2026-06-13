@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  CalendarCheck,
   Flame,
   Gift,
+  History,
   Loader2,
   RefreshCw,
   Sparkles,
@@ -34,9 +36,38 @@ type BackendChallenge = {
   rewards?: string[];
   meals?: string[];
   isJoined?: boolean;
+  canStartAgain?: boolean;
   userStatus?: "joined" | "in_progress" | "completed" | "cancelled" | null;
+  currentAttemptNo?: number | null;
+  latestAttemptNo?: number | null;
+  completedAttemptsCount?: number;
+  latestCompletedAt?: string | null;
   completedDaysCount?: number;
   rewardUnlocked?: boolean;
+};
+
+type HistorySummary = {
+  challengeId: string;
+  title: string;
+  badge?: string;
+  goal?: string;
+  durationDays?: number;
+  completedTimes: number;
+  latestCompletedAt?: string | null;
+};
+
+type HistoryAttempt = {
+  _id: string;
+  challengeId: string;
+  title: string;
+  badge?: string;
+  goal?: string;
+  durationDays?: number;
+  attemptNo?: number;
+  completedDaysCount?: number;
+  rewardUnlocked?: boolean;
+  startedAt?: string;
+  completedAt?: string;
 };
 
 const goalIcon = (goal: string) => {
@@ -56,16 +87,42 @@ const goalLabel = (goal: string) => {
   return "MacroBox";
 };
 
+const formatDate = (value?: string | null) => {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 export default function Challenges() {
   const [challenges, setChallenges] = useState<BackendChallenge[]>([]);
+  const [historySummary, setHistorySummary] = useState<HistorySummary[]>([]);
+  const [historyAttempts, setHistoryAttempts] = useState<HistoryAttempt[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadChallenges = async () => {
     try {
       setLoading(true);
 
-      const res = await api.get("/challenges");
-      setChallenges(Array.isArray(res.data) ? res.data : []);
+      const [challengeRes, historyRes] = await Promise.all([
+        api.get("/challenges"),
+        api.get("/challenges/history/summary"),
+      ]);
+
+      setChallenges(Array.isArray(challengeRes.data) ? challengeRes.data : []);
+      setHistorySummary(
+        Array.isArray(historyRes.data?.summary) ? historyRes.data.summary : []
+      );
+      setHistoryAttempts(
+        Array.isArray(historyRes.data?.attempts) ? historyRes.data.attempts : []
+      );
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Failed to load challenges");
     } finally {
@@ -78,19 +135,17 @@ export default function Challenges() {
   }, []);
 
   const stats = useMemo(() => {
-    const joined = challenges.filter((item) => item.isJoined).length;
-    const completed = challenges.filter(
-      (item) => item.userStatus === "completed"
-    ).length;
-    const rewards = challenges.filter((item) => item.rewardUnlocked).length;
+    const active = challenges.filter((item) => item.isJoined).length;
+    const completedTimes = historyAttempts.length;
+    const rewards = historyAttempts.filter((item) => item.rewardUnlocked).length;
 
     return {
       total: challenges.length,
-      joined,
-      completed,
+      active,
+      completedTimes,
       rewards,
     };
-  }, [challenges]);
+  }, [challenges, historyAttempts]);
 
   return (
     <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 text-slate-950 sm:px-6">
@@ -110,14 +165,15 @@ export default function Challenges() {
               </h1>
 
               <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
-                Join a goal-based challenge, mark your daily progress and
-                unlock rewards after completing your plan.
+                Join a goal-based challenge. Daily progress updates
+                automatically after paid challenge orders. Complete 7
+                consecutive paid order days to unlock rewards.
               </p>
 
               <div className="mt-7 grid gap-3 sm:grid-cols-3">
                 <MiniFeature icon={<Target size={18} />} title="Goal Based" />
-                <MiniFeature icon={<Gift size={18} />} title="Rewards" />
-                <MiniFeature icon={<Sparkles size={18} />} title="Progress" />
+                <MiniFeature icon={<Gift size={18} />} title="Auto Rewards" />
+                <MiniFeature icon={<Sparkles size={18} />} title="Auto Progress" />
               </div>
             </div>
 
@@ -138,8 +194,8 @@ export default function Challenges() {
 
           <div className="mt-7 grid gap-3 sm:grid-cols-4">
             <HeroStat label="Challenges" value={`${stats.total}`} />
-            <HeroStat label="Joined" value={`${stats.joined}`} />
-            <HeroStat label="Completed" value={`${stats.completed}`} />
+            <HeroStat label="Active" value={`${stats.active}`} />
+            <HeroStat label="Completed Times" value={`${stats.completedTimes}`} />
             <HeroStat label="Rewards" value={`${stats.rewards}`} />
           </div>
         </section>
@@ -166,21 +222,9 @@ export default function Challenges() {
           </div>
 
           {loading ? (
-            <div className="flex min-h-[260px] items-center justify-center rounded-[28px] border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center gap-3 text-sm font-black text-slate-600">
-                <Loader2 className="animate-spin text-green-600" size={22} />
-                Loading challenges...
-              </div>
-            </div>
+            <LoadingCard />
           ) : challenges.length === 0 ? (
-            <div className="rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-sm">
-              <h2 className="text-2xl font-black text-slate-950">
-                No challenges found
-              </h2>
-              <p className="mt-2 text-sm font-semibold text-slate-500">
-                Add challenges from admin panel.
-              </p>
-            </div>
+            <EmptyCard title="No challenges found" text="Add challenges from admin panel." />
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {challenges.map((challenge) => {
@@ -191,8 +235,21 @@ export default function Challenges() {
                   Math.round((completed / duration) * 100)
                 );
 
-                const price =
-                  challenge.trialPrice || challenge.price || 99;
+                const price = challenge.trialPrice || challenge.price || 99;
+
+                const statusLabel = challenge.isJoined
+                  ? challenge.userStatus === "in_progress"
+                    ? "In Progress"
+                    : "Joined"
+                  : challenge.completedAttemptsCount
+                  ? "Completed Before"
+                  : "Not Joined";
+
+                const buttonLabel = challenge.isJoined
+                  ? "Continue"
+                  : challenge.canStartAgain || challenge.completedAttemptsCount
+                  ? "Start Again"
+                  : "Start";
 
                 return (
                   <article
@@ -215,29 +272,27 @@ export default function Challenges() {
 
                     <p className="mt-2 min-h-[72px] text-sm font-medium leading-6 text-slate-500">
                       {challenge.description ||
-                        "Start your MacroBox challenge and complete daily progress."}
+                        "Start your MacroBox challenge and complete progress through paid orders."}
                     </p>
 
                     <div className="mt-5 grid grid-cols-2 gap-3">
                       <InfoBox label="Duration" value={`${duration} Days`} />
-                      <InfoBox label="Completed" value={`${completed}/${duration}`} />
+                      <InfoBox label="Progress" value={`${completed}/${duration}`} />
                       <InfoBox label="Goal" value={goalLabel(challenge.goal)} />
-                      <InfoBox
-                        label="Status"
-                        value={
-                          challenge.userStatus === "completed"
-                            ? "Completed"
-                            : challenge.isJoined
-                            ? "Joined"
-                            : "Not Joined"
-                        }
-                      />
+                      <InfoBox label="Status" value={statusLabel} />
                     </div>
 
-                    {challenge.isJoined && (
+                    {challenge.completedAttemptsCount ? (
+                      <div className="mt-4 rounded-[16px] border border-green-100 bg-green-50 p-3 text-sm font-black text-green-700">
+                        Completed {challenge.completedAttemptsCount} time
+                        {challenge.completedAttemptsCount > 1 ? "s" : ""}
+                      </div>
+                    ) : null}
+
+                    {(challenge.isJoined || completed > 0) && (
                       <div className="mt-5">
                         <div className="mb-2 flex items-center justify-between text-xs font-black text-slate-500">
-                          <span>Progress</span>
+                          <span>Current Progress</span>
                           <span>{progress}%</span>
                         </div>
 
@@ -270,7 +325,7 @@ export default function Challenges() {
                         to={`/challenges/${challenge.challengeId}`}
                         className="inline-flex h-12 items-center gap-2 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
                       >
-                        {challenge.isJoined ? "Continue" : "Start"}
+                        {buttonLabel}
                         <ArrowRight size={17} />
                       </Link>
                     </div>
@@ -280,8 +335,126 @@ export default function Challenges() {
             </div>
           )}
         </section>
+
+        <section className="mt-10">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-50 text-green-700">
+              <History size={21} />
+            </span>
+
+            <div>
+              <h2 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
+                Challenge History
+              </h2>
+              <p className="text-sm font-semibold text-slate-500">
+                Completed challenges and number of times you finished each type.
+              </p>
+            </div>
+          </div>
+
+          {loading ? (
+            <LoadingCard />
+          ) : historySummary.length === 0 ? (
+            <EmptyCard
+              title="No completed challenges yet"
+              text="Complete 7 consecutive paid challenge order days to see history here."
+            />
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="mb-4 flex items-center gap-2 text-xl font-black text-slate-950">
+                  <Trophy className="text-green-600" size={20} />
+                  Completed Types
+                </h3>
+
+                <div className="space-y-3">
+                  {historySummary.map((item) => (
+                    <div
+                      key={item.challengeId}
+                      className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-base font-black text-slate-950">
+                            {item.title}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-slate-500">
+                            {item.badge || goalLabel(item.goal || "")} • Latest:{" "}
+                            {formatDate(item.latestCompletedAt)}
+                          </p>
+                        </div>
+
+                        <span className="rounded-full bg-green-600 px-3 py-1 text-xs font-black text-white">
+                          × {item.completedTimes}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="mb-4 flex items-center gap-2 text-xl font-black text-slate-950">
+                  <CalendarCheck className="text-green-600" size={20} />
+                  Recent Completed Attempts
+                </h3>
+
+                <div className="space-y-3">
+                  {historyAttempts.slice(0, 8).map((attempt) => (
+                    <div
+                      key={attempt._id}
+                      className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-black text-slate-950">
+                            {attempt.title}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-slate-500">
+                            Attempt {attempt.attemptNo || 1} •{" "}
+                            {attempt.completedDaysCount || 0}/
+                            {attempt.durationDays || 7} days
+                          </p>
+                        </div>
+
+                        <div className="text-left sm:text-right">
+                          <p className="text-xs font-black text-green-700">
+                            {attempt.rewardUnlocked ? "Reward unlocked" : "Completed"}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-slate-500">
+                            {formatDate(attempt.completedAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </main>
+  );
+}
+
+function LoadingCard() {
+  return (
+    <div className="flex min-h-[260px] items-center justify-center rounded-[28px] border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center gap-3 text-sm font-black text-slate-600">
+        <Loader2 className="animate-spin text-green-600" size={22} />
+        Loading challenges...
+      </div>
+    </div>
+  );
+}
+
+function EmptyCard({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <h2 className="text-2xl font-black text-slate-950">{title}</h2>
+      <p className="mt-2 text-sm font-semibold text-slate-500">{text}</p>
+    </div>
   );
 }
 

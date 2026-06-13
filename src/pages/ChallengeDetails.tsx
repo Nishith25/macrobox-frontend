@@ -22,6 +22,7 @@ import { challenges } from "../data/challenges";
 type CompletedDay = {
   day: number;
   completedAt?: string;
+  orderDate?: string;
 };
 
 type BackendChallenge = {
@@ -40,10 +41,14 @@ type BackendChallenge = {
   rewards?: string[];
   meals?: string[];
   isJoined?: boolean;
+  canStartAgain?: boolean;
+  completedAttemptsCount?: number;
   userChallenge?: {
     _id: string;
+    attemptNo?: number;
     status: "joined" | "in_progress" | "completed" | "cancelled";
     completedDays?: CompletedDay[];
+    completedOrderDates?: string[];
     rewardUnlocked?: boolean;
     completedAt?: string;
   } | null;
@@ -61,6 +66,19 @@ type ChallengeCartMeal = {
   imageUrl?: string;
 };
 
+const formatDate = (value?: string | null) => {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
+};
+
 export default function ChallengeDetails() {
   const { challengeId } = useParams();
   const navigate = useNavigate();
@@ -75,7 +93,6 @@ export default function ChallengeDetails() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [completingDay, setCompletingDay] = useState<number | null>(null);
 
   const displayTitle = challenge?.title || localChallenge?.title || "Challenge";
 
@@ -98,12 +115,6 @@ export default function ChallengeDetails() {
   const durationDays = challenge?.durationDays || localChallenge?.duration || 7;
 
   const completedDays = challenge?.userChallenge?.completedDays || [];
-
-  const completedDayNumbers = useMemo(
-    () => new Set(completedDays.map((item) => Number(item.day))),
-    [completedDays]
-  );
-
   const completedCount = completedDays.length;
 
   const progress = Math.min(
@@ -112,6 +123,9 @@ export default function ChallengeDetails() {
   );
 
   const isCompleted = challenge?.userChallenge?.status === "completed";
+  const isActiveAttempt =
+    challenge?.isJoined &&
+    ["joined", "in_progress"].includes(challenge.userChallenge?.status || "");
 
   const rewardUnlocked = Boolean(challenge?.userChallenge?.rewardUnlocked);
 
@@ -120,16 +134,13 @@ export default function ChallengeDetails() {
     : [
         "Goal-based meals",
         "Macro-friendly options",
-        "Challenge reward access",
-        "Progress consistency support",
+        "Automatic progress from paid orders",
+        "Reward after consecutive order streak",
       ];
 
   const rewards: string[] = challenge?.rewards?.length
     ? challenge.rewards
-    : [
-        "Complete the challenge and unlock rewards",
-        "Post stories and claim MacroBox coupons",
-      ];
+    : ["Complete 7 consecutive paid challenge orders and unlock 20% off"];
 
   const loadChallenge = async () => {
     try {
@@ -165,51 +176,17 @@ export default function ChallengeDetails() {
           ? {
               ...prev,
               isJoined: true,
+              canStartAgain: false,
               userChallenge: res.data.userChallenge,
             }
           : prev
       );
 
-      toast.success(res.data.message || "Challenge joined successfully");
+      toast.success(res.data.message || "Challenge started successfully");
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to join challenge");
+      toast.error(error?.response?.data?.message || "Failed to start challenge");
     } finally {
       setJoining(false);
-    }
-  };
-
-  const completeDay = async (day: number) => {
-    if (!challenge?.isJoined && !challenge?.userChallenge) {
-      toast.error("Join this challenge first");
-      return;
-    }
-
-    try {
-      setCompletingDay(day);
-
-      const res = await api.patch(`/challenges/${challengeId}/day/${day}`);
-
-      setChallenge((prev) =>
-        prev
-          ? {
-              ...prev,
-              isJoined: true,
-              userChallenge: res.data.userChallenge,
-            }
-          : prev
-      );
-
-      toast.success(res.data.message || `Day ${day} completed`);
-
-      if (res.data.userChallenge?.rewardUnlocked) {
-        toast.success("Reward unlocked! Check Rewards page 🎉");
-      }
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message || "Failed to update challenge day"
-      );
-    } finally {
-      setCompletingDay(null);
     }
   };
 
@@ -227,6 +204,7 @@ export default function ChallengeDetails() {
             ? {
                 ...prev,
                 isJoined: true,
+                canStartAgain: false,
                 userChallenge: joinRes.data.userChallenge,
               }
             : prev
@@ -243,18 +221,18 @@ export default function ChallengeDetails() {
       }
 
       meals.forEach((meal) => {
-  addToCart({
-    _id: meal._id,
-    challengeId: challengeId || meal.challengeId || "",
-    title: meal.title,
-    price: meal.price,
-    protein: meal.protein,
-    calories: meal.calories,
-    carbs: meal.carbs,
-    fat: meal.fat,
-    imageUrl: meal.imageUrl,
-  });
-});
+        addToCart({
+          _id: meal._id,
+          challengeId: challengeId || meal.challengeId || "",
+          title: meal.title,
+          price: meal.price,
+          protein: meal.protein,
+          calories: meal.calories,
+          carbs: meal.carbs,
+          fat: meal.fat,
+          imageUrl: meal.imageUrl,
+        });
+      });
 
       toast.success(`${meals.length} challenge meals added to cart`);
       navigate("/cart");
@@ -298,6 +276,12 @@ export default function ChallengeDetails() {
     );
   }
 
+  const startButtonText = isActiveAttempt
+    ? "Already Joined"
+    : challenge?.canStartAgain || isCompleted
+    ? "Start Again"
+    : "Join Challenge";
+
   return (
     <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-[1180px]">
@@ -338,10 +322,12 @@ export default function ChallengeDetails() {
               />
             </div>
 
-            {challenge?.isJoined && (
+            {(challenge?.isJoined || challenge?.userChallenge) && (
               <div className="mt-7 rounded-[22px] border border-green-100 bg-white p-5 shadow-sm">
                 <div className="mb-2 flex items-center justify-between text-xs font-black text-slate-500">
-                  <span>Challenge Progress</span>
+                  <span>
+                    Attempt {challenge?.userChallenge?.attemptNo || 1} Progress
+                  </span>
                   <span>{progress}%</span>
                 </div>
 
@@ -352,9 +338,14 @@ export default function ChallengeDetails() {
                   />
                 </div>
 
-                {isCompleted && (
+                {isCompleted ? (
                   <p className="mt-3 rounded-[16px] bg-green-50 px-4 py-3 text-sm font-black text-green-700">
-                    🎉 Challenge completed. Reward unlocked!
+                    🎉 Challenge completed. You can start this challenge again.
+                  </p>
+                ) : (
+                  <p className="mt-3 rounded-[16px] bg-blue-50 px-4 py-3 text-sm font-black text-blue-700">
+                    Progress updates automatically after each paid challenge
+                    order.
                   </p>
                 )}
               </div>
@@ -364,18 +355,18 @@ export default function ChallengeDetails() {
               <button
                 type="button"
                 onClick={joinChallenge}
-                disabled={joining || challenge?.isJoined}
+                disabled={joining || Boolean(isActiveAttempt)}
                 className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-[18px] border border-green-200 bg-white px-6 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:opacity-60"
               >
                 {joining ? (
                   <Loader2 className="animate-spin" size={18} />
-                ) : challenge?.isJoined ? (
+                ) : isActiveAttempt ? (
                   <CheckCircle2 size={18} />
                 ) : (
                   <Trophy size={18} />
                 )}
 
-                {challenge?.isJoined ? "Already Joined" : "Join Challenge"}
+                {startButtonText}
               </button>
 
               <button
@@ -415,7 +406,7 @@ export default function ChallengeDetails() {
               </div>
 
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">
-                Complete each challenge day to unlock rewards.
+                Order challenge meals on consecutive days to unlock rewards.
               </p>
             </div>
 
@@ -453,39 +444,31 @@ export default function ChallengeDetails() {
           </h2>
 
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-            Mark each day complete after following your MacroBox meal plan.
+            Daily progress is automatic. It updates only after successful paid
+            challenge orders.
           </p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: durationDays }).map((_, index) => {
               const day = index + 1;
-              const done = completedDayNumbers.has(day);
+              const completedDay = completedDays.find(
+                (item) => Number(item.day) === day
+              );
+              const done = Boolean(completedDay);
 
               return (
-                <button
+                <div
                   key={day}
-                  type="button"
-                  onClick={() => completeDay(day)}
-                  disabled={
-                    !challenge?.isJoined ||
-                    done ||
-                    completingDay === day ||
-                    isCompleted
-                  }
-                  className={`rounded-[18px] border p-4 text-left transition disabled:cursor-not-allowed ${
+                  className={`rounded-[18px] border p-4 text-left ${
                     done
                       ? "border-green-200 bg-green-50 text-green-700"
-                      : challenge?.isJoined
-                      ? "border-slate-200 bg-white text-slate-800 hover:border-green-200 hover:bg-green-50"
-                      : "border-slate-200 bg-slate-50 text-slate-400"
+                      : "border-slate-200 bg-white text-slate-500"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-black">Day {day}</p>
 
-                    {completingDay === day ? (
-                      <Loader2 className="animate-spin" size={18} />
-                    ) : done ? (
+                    {done ? (
                       <CheckCircle2 size={18} />
                     ) : (
                       <span className="h-4 w-4 rounded-full border-2 border-current" />
@@ -494,12 +477,14 @@ export default function ChallengeDetails() {
 
                   <p className="mt-2 text-xs font-bold opacity-70">
                     {done
-                      ? "Completed"
-                      : challenge?.isJoined
-                      ? "Mark complete"
-                      : "Join first"}
+                      ? `Completed ${
+                          completedDay?.orderDate
+                            ? `• ${formatDate(completedDay.orderDate)}`
+                            : ""
+                        }`
+                      : "Waiting for paid order"}
                   </p>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -533,8 +518,8 @@ export default function ChallengeDetails() {
             <div className="mt-4 space-y-3">
               <Step number="01" text="Join the challenge." />
               <Step number="02" text="Add challenge meals to cart." />
-              <Step number="03" text="Mark each day complete." />
-              <Step number="04" text="Complete the plan and unlock rewards." />
+              <Step number="03" text="Place paid orders on consecutive dates." />
+              <Step number="04" text="Complete the streak and get auto reward." />
             </div>
           </div>
         </section>
