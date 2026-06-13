@@ -252,6 +252,11 @@ export default function Navbar() {
   Challenges
 </NavLink>
 
+<NavLink to="/admin/rewards" className={adminLinkClass}>
+  <Gift size={14} />
+  Rewards
+</NavLink>
+
                   <NavLink to="/admin/users" className={adminLinkClass}>
                     <Users size={14} />
                     Users
@@ -516,6 +521,14 @@ export default function Navbar() {
   onClick={closeMenu}
 >
   Challenges <span>→</span>
+</NavLink>
+
+<NavLink
+  to="/admin/rewards"
+  className={mobileLinkClass}
+  onClick={closeMenu}
+>
+  Rewards <span>→</span>
 </NavLink>
 
                     <NavLink

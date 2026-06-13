@@ -24,6 +24,7 @@ import ChallengeDetails from "../pages/ChallengeDetails";
 import Rewards from "../pages/Rewards";
 import TransformationWall from "../pages/TransformationWall";
 import AdminChallenges from "../pages/AdminChallenges";
+import AdminRewards from "../pages/AdminRewards";
 
 // Auth Pages
 import Login from "../pages/Login";
@@ -356,6 +357,15 @@ export default function AppRouter() {
   element={
     <AdminRoute>
       <AdminChallenges />
+    </AdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/rewards"
+  element={
+    <AdminRoute>
+      <AdminRewards />
     </AdminRoute>
   }
 />
