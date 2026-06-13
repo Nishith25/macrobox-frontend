@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookmarkPlus,
-  CheckCircle2,
   Clock,
   LocateFixed,
   MapPin,
@@ -118,14 +117,13 @@ const prettyDate = (iso?: string | null) => {
 
   if (Number.isNaN(date.getTime())) return null;
 
-  return date.toLocaleDateString();
+  return date.toLocaleDateString("en-IN");
 };
 
 const formatCouponLabel = (coupon: AvailableCoupon) => {
-  if (coupon.type === "flat") return `₹${coupon.value} OFF`;
+  if (coupon.type === "flat") return `₹${coupon.value} OFF on plan`;
 
-  const cap = coupon.maxDiscount > 0 ? ` • Max ₹${coupon.maxDiscount}` : "";
-  return `${coupon.value}% OFF${cap}`;
+  return `${coupon.value}% OFF on next challenge plan`;
 };
 
 const getAddressComponent = (
@@ -263,6 +261,22 @@ export default function Cart() {
     [cart]
   );
 
+  const planSubtotal = useMemo(
+    () =>
+      cart
+        .filter((item: any) => Boolean(item.challengeId))
+        .reduce((sum, item) => sum + item.price * item.qty, 0),
+    [cart]
+  );
+
+  const normalMealsSubtotal = useMemo(
+    () =>
+      cart
+        .filter((item: any) => !item.challengeId)
+        .reduce((sum, item) => sum + item.price * item.qty, 0),
+    [cart]
+  );
+
   const totalProtein = useMemo(
     () => cart.reduce((sum, item) => sum + item.protein * item.qty, 0),
     [cart]
@@ -292,7 +306,7 @@ export default function Cart() {
     try {
       setLoadingCoupons(true);
 
-      const res = await api.get(`/coupons/available?cartTotal=${subtotal}`);
+      const res = await api.get(`/coupons/available?cartTotal=${planSubtotal}`);
 
       setAvailableCoupons(res.data || []);
     } catch {
@@ -323,23 +337,27 @@ export default function Cart() {
   useEffect(() => {
     if (cart.length > 0) fetchAvailableCoupons();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotal, cart.length]);
+  }, [planSubtotal, cart.length]);
+
+  const removeCoupon = () => {
+    setCoupon("");
+    setDiscount(0);
+    setCouponMsg("Coupon removed.");
+    setCouponMsgType("success");
+  };
 
   useEffect(() => {
     if (!coupon.trim()) return;
 
-    const applied = coupon.trim().toUpperCase();
-    const stillEligible = availableCoupons.some((item) => item.code === applied);
-
-    if (!stillEligible && discount > 0) {
+    if (discount > 0 && planSubtotal <= 0) {
       setCoupon("");
       setDiscount(0);
-      setCouponMsg("Coupon removed because it is not eligible anymore.");
+      setCouponMsg("Coupon removed because it is applicable only on challenge plans.");
       setCouponMsgType("error");
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableCoupons]);
+  }, [planSubtotal]);
 
   useEffect(() => {
     const styleId = "macrobox-google-places-premium-style";
@@ -616,10 +634,13 @@ export default function Cart() {
     const codeToApply = (codeOverride ?? coupon).trim().toUpperCase();
 
     if (!codeToApply) {
-      setCoupon("");
-      setDiscount(0);
-      setCouponMsg(null);
-      setCouponMsgType(null);
+      removeCoupon();
+      return;
+    }
+
+    if (planSubtotal <= 0) {
+      setCouponMsg("Reward coupon is applicable only on challenge plans.");
+      setCouponMsgType("error");
       return;
     }
 
@@ -630,12 +651,15 @@ export default function Cart() {
     try {
       const res = await api.post("/coupons/apply", {
         code: codeToApply,
-        cartTotal: subtotal,
+        cartTotal: planSubtotal,
+        planSubtotal,
+        normalMealsSubtotal,
+        applyOn: "challenge_plan",
       });
 
       setCoupon(codeToApply);
       setDiscount(res.data.discount || 0);
-      setCouponMsg(`Coupon applied! You saved ₹${res.data.discount}`);
+      setCouponMsg(`Coupon applied on challenge plan. You saved ₹${res.data.discount}`);
       setCouponMsgType("success");
 
       fetchAvailableCoupons();
@@ -865,19 +889,20 @@ export default function Cart() {
         discount > 0 && coupon.trim() ? coupon.trim().toUpperCase() : null;
 
       const payload = {
-        items: cart.map((item) => ({
-  mealId: item._id,
-  challengeId: item.challengeId || "",
-  title: item.title,
-  price: item.price,
-  qty: item.qty,
-  protein: item.protein,
-  calories: item.calories,
-  carbs: item.carbs || 0,
-  fat: item.fat || 0,
-})),
+        items: cart.map((item: any) => ({
+          mealId: item._id,
+          challengeId: item.challengeId || "",
+          title: item.title,
+          price: item.price,
+          qty: item.qty,
+          protein: item.protein,
+          calories: item.calories,
+          carbs: item.carbs || 0,
+          fat: item.fat || 0,
+        })),
 
         couponCode: finalCouponCode,
+        couponApplyOn: "challenge_plan",
 
         address: {
           ...address,
@@ -996,7 +1021,6 @@ export default function Cart() {
               Review meals, choose delivery location, and complete payment.
             </p>
           </div>
-
         </div>
       </section>
 
@@ -1019,35 +1043,35 @@ export default function Cart() {
             </div>
 
             <div className="space-y-3 sm:space-y-4">
-              {cart.map((item) => (
+              {cart.map((item: any) => (
                 <div
-                  key={item._id}
+                  key={`${item._id}-${item.challengeId || "meal"}`}
                   className="rounded-[22px] border border-slate-200 bg-white p-4"
                 >
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
                       <h3 className="line-clamp-2 text-base font-black text-slate-950">
-  {item.title}
-</h3>
+                        {item.title}
+                      </h3>
 
-{item.challengeId && (
-  <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-    Challenge Order
-  </p>
-)}
+                      {item.challengeId && (
+                        <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                          Challenge Plan Item
+                        </p>
+                      )}
 
-<div className="mt-2 flex flex-wrap gap-2">
-  <MacroPill color="green">
-    🥩 {item.protein * item.qty}g
-  </MacroPill>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <MacroPill color="green">
+                          Protein {item.protein * item.qty}g
+                        </MacroPill>
                         <MacroPill color="orange">
-                          🔥 {item.calories * item.qty} kcal
+                          Calories {item.calories * item.qty} kcal
                         </MacroPill>
                         <MacroPill color="yellow">
-                          🌾 {(item.carbs || 0) * item.qty}g
+                          Carbs {(item.carbs || 0) * item.qty}g
                         </MacroPill>
                         <MacroPill color="blue">
-                          💧 {(item.fat || 0) * item.qty}g
+                          Fat {(item.fat || 0) * item.qty}g
                         </MacroPill>
                       </div>
 
@@ -1248,43 +1272,11 @@ export default function Cart() {
                 <div className="mt-5 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
                   <div className="relative h-[300px] w-full sm:h-[380px]">
                     <div ref={googleMapRef} className="h-full w-full" />
-
-                    <div className="absolute left-3 top-3 z-10 rounded-[16px] bg-white/95 px-3 py-2 shadow-lg sm:left-4 sm:top-4 sm:px-4 sm:py-3">
-                      <p className="text-[10px] font-black uppercase tracking-wide text-green-700 sm:text-xs">
-                        Exact Delivery Pin
-                      </p>
-
-                      <p className="mt-1 text-[11px] font-medium text-slate-500 sm:text-xs">
-                        Drag pin or tap map.
-                      </p>
-                    </div>
-
-                    <div className="absolute bottom-3 left-1/2 z-10 w-[92%] max-w-xl -translate-x-1/2 rounded-[18px] bg-white px-4 py-3 shadow-xl sm:bottom-4">
-                      <div className="mb-2 flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-green-600" />
-
-                        <p className="text-xs font-black uppercase tracking-wide text-green-700">
-                          Delivering To
-                        </p>
-                      </div>
-
-                      <p className="line-clamp-2 text-sm font-bold leading-5 text-slate-900">
-                        {address.formattedAddress || address.locationText}
-                      </p>
-
-                      {address.pincode && (
-                        <p className="mt-2 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                          Pincode: {address.pincode}
-                        </p>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}
 
-              {locationMsg && (
-                <MessageBox type="error" message={locationMsg} />
-              )}
+              {locationMsg && <MessageBox type="error" message={locationMsg} />}
             </div>
 
             <div className="mt-5 rounded-[22px] border border-slate-200 bg-white p-4">
@@ -1298,10 +1290,7 @@ export default function Cart() {
                   className={inputClass}
                   value={address.fullName}
                   onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      fullName: event.target.value,
-                    })
+                    setAddress({ ...address, fullName: event.target.value })
                   }
                 />
 
@@ -1310,10 +1299,7 @@ export default function Cart() {
                   className={inputClass}
                   value={address.phone}
                   onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      phone: event.target.value,
-                    })
+                    setAddress({ ...address, phone: event.target.value })
                   }
                 />
 
@@ -1322,10 +1308,7 @@ export default function Cart() {
                   className={inputClass}
                   value={address.flatNo}
                   onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      flatNo: event.target.value,
-                    })
+                    setAddress({ ...address, flatNo: event.target.value })
                   }
                 />
 
@@ -1334,10 +1317,7 @@ export default function Cart() {
                   className={inputClass}
                   value={address.floor}
                   onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      floor: event.target.value,
-                    })
+                    setAddress({ ...address, floor: event.target.value })
                   }
                 />
 
@@ -1358,10 +1338,7 @@ export default function Cart() {
                   className={inputClass}
                   value={address.area}
                   onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      area: event.target.value,
-                    })
+                    setAddress({ ...address, area: event.target.value })
                   }
                 />
 
@@ -1370,10 +1347,7 @@ export default function Cart() {
                   className={inputClass}
                   value={address.landmark}
                   onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      landmark: event.target.value,
-                    })
+                    setAddress({ ...address, landmark: event.target.value })
                   }
                 />
 
@@ -1382,10 +1356,7 @@ export default function Cart() {
                   className={inputClass}
                   value={address.city}
                   onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      city: event.target.value,
-                    })
+                    setAddress({ ...address, city: event.target.value })
                   }
                 />
 
@@ -1394,10 +1365,7 @@ export default function Cart() {
                   className={inputClass}
                   value={address.state}
                   onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      state: event.target.value,
-                    })
+                    setAddress({ ...address, state: event.target.value })
                   }
                 />
 
@@ -1491,12 +1459,19 @@ export default function Cart() {
 
             <div className="space-y-3 text-sm">
               <p className="flex justify-between">
-                <span className="font-medium text-slate-500">Subtotal</span>
-                <b className="text-slate-950">₹{subtotal}</b>
+                <span className="font-medium text-slate-500">Meals Subtotal</span>
+                <b className="text-slate-950">₹{normalMealsSubtotal}</b>
               </p>
 
               <p className="flex justify-between">
-                <span className="font-medium text-slate-500">Discount</span>
+                <span className="font-medium text-slate-500">Challenge Plan</span>
+                <b className="text-slate-950">₹{planSubtotal}</b>
+              </p>
+
+              <p className="flex justify-between">
+                <span className="font-medium text-slate-500">
+                  Plan Discount
+                </span>
                 <b className="text-slate-500">-₹{discount}</b>
               </p>
 
@@ -1531,14 +1506,25 @@ export default function Cart() {
               className={inputClass}
             />
 
-            <button
-              type="button"
-              onClick={() => applyCoupon()}
-              disabled={applying}
-              className="mt-3 h-12 w-full rounded-[16px] bg-green-600 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
-            >
-              {applying ? "Applying..." : "Apply Coupon"}
-            </button>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => applyCoupon()}
+                disabled={applying}
+                className="h-12 rounded-[16px] bg-green-600 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
+              >
+                {applying ? "Applying..." : "Apply Coupon"}
+              </button>
+
+              <button
+                type="button"
+                onClick={removeCoupon}
+                disabled={!coupon && discount === 0}
+                className="h-12 rounded-[16px] border border-red-100 bg-red-50 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Remove Coupon
+              </button>
+            </div>
 
             {couponMsg && (
               <MessageBox
@@ -1558,7 +1544,7 @@ export default function Cart() {
                 </p>
               ) : availableCoupons.length === 0 ? (
                 <p className="rounded-[16px] border border-slate-200 bg-white p-3 text-center text-sm font-medium text-slate-500">
-                  No coupons available for your cart.
+                  No coupons available for your challenge plan.
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -1579,7 +1565,7 @@ export default function Cart() {
                         </p>
 
                         <p className="mt-1 text-xs font-bold text-slate-500">
-                          {formatCouponLabel(item)} • Min ₹{item.minCartTotal}
+                          {formatCouponLabel(item)}
                         </p>
 
                         {(from || to) && (
