@@ -90,13 +90,12 @@ const makeIncludedItem = (item: any): PlanIncludedItem => ({
 });
 
 const buildPlanDescription = (items: PlanIncludedItem[]) => {
-  if (!items.length) return "Includes selected MacroBox challenge meals.";
+  if (!items.length) return "Selected MacroBox challenge plan.";
 
-  return `Includes ${items.length} item${items.length > 1 ? "s" : ""}: ${items
-    .map((item) => `${item.title} × ${item.qty}`)
-    .join(", ")}`;
+  return `Includes ${items.length} selected challenge item${
+    items.length > 1 ? "s" : ""
+  }.`;
 };
-
 const buildPlanFromItems = (
   challengeId: string,
   items: PlanIncludedItem[],

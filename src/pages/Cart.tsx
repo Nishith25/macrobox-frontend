@@ -1042,8 +1042,10 @@ export default function Cart() {
                   <ShoppingBag size={20} />
                 </IconCircle>
                 <h2 className="text-xl font-black text-slate-950">
-                  Meals in Cart
-                </h2>
+  {cart.some((item: any) => item.itemType === "challenge_plan")
+    ? "Plans in Cart"
+    : "Meals in Cart"}
+</h2>
               </div>
 
               <span className="rounded-full bg-green-50 px-4 py-1.5 text-sm font-black text-green-700">
@@ -1066,12 +1068,6 @@ export default function Cart() {
 {(item.itemType === "challenge_plan" || item.challengeId) && (
   <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
     Challenge Plan
-  </p>
-)}
-
-{item.description && (
-  <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-    {item.description}
   </p>
 )}
 
