@@ -28,6 +28,32 @@ type DeliveryAgent = {
   };
 };
 
+type PlanIncludedItem = {
+  _id?: string;
+  title?: string;
+  price?: number;
+  protein?: number;
+  calories?: number;
+  carbs?: number;
+  fat?: number;
+  qty?: number;
+};
+
+type OrderItem = {
+  meal?: string;
+  itemType?: "meal" | "challenge_plan";
+  challengeId?: string;
+  title?: string;
+  description?: string;
+  price?: number;
+  protein?: number;
+  calories?: number;
+  carbs?: number;
+  fat?: number;
+  qty?: number;
+  planItems?: PlanIncludedItem[];
+};
+
 type Order = {
   _id: string;
   createdAt: string;
@@ -47,17 +73,7 @@ type Order = {
     discount?: number;
     redeemed?: boolean;
   };
-  items?: Array<{
-    meal?: string;
-    challengeId?: string;
-    title?: string;
-    price?: number;
-    protein?: number;
-    calories?: number;
-    carbs?: number;
-    fat?: number;
-    qty?: number;
-  }>;
+  items?: OrderItem[];
   delivery: {
     address: {
       fullName?: string;
@@ -189,6 +205,10 @@ const deliveryBadgeClass = (status?: string) => {
   }
 };
 
+const isChallengePlanItem = (item?: OrderItem) => {
+  return item?.itemType === "challenge_plan" || Boolean(item?.challengeId);
+};
+
 const getOrderTime = (order: Order) => {
   const time = new Date(order.createdAt).getTime();
   return Number.isNaN(time) ? 0 : time;
@@ -217,7 +237,7 @@ const getOrderSplitTotals = (order: Order) => {
   const items = order.items || [];
 
   const fallbackChallengePlanSubtotal = items
-    .filter((item) => Boolean(item.challengeId))
+    .filter((item) => isChallengePlanItem(item))
     .reduce(
       (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
       0
@@ -301,7 +321,13 @@ export default function Orders() {
       const deliveryStatus = readableStatus(order.delivery?.status);
       const paymentStatus = order.payment?.status || "";
       const itemTitles =
-        order.items?.map((item) => item.title || "Meal").join(" ") || "";
+        order.items
+          ?.map((item) => {
+            const planItems =
+              item.planItems?.map((p) => p.title || "").join(" ") || "";
+            return `${item.title || "Meal"} ${planItems}`;
+          })
+          .join(" ") || "";
 
       const splitTotals = getOrderSplitTotals(order);
 
@@ -715,19 +741,12 @@ export default function Orders() {
                             </p>
                           </div>
 
-                          <div className="flex flex-wrap gap-2">
+                          <div className="grid gap-3">
                             {order.items.map((item, index) => (
-                              <span
+                              <OrderItemCard
                                 key={`${order._id}-${index}`}
-                                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                                  item.challengeId
-                                    ? "border-green-200 bg-green-50 text-green-700"
-                                    : "border-slate-200 bg-white text-slate-700"
-                                }`}
-                              >
-                                {item.title || "Meal"} × {item.qty || 1}
-                                {item.challengeId ? " • Challenge Plan" : ""}
-                              </span>
+                                item={item}
+                              />
                             ))}
                           </div>
                         </InfoCard>
@@ -750,6 +769,60 @@ export default function Orders() {
         )}
       </div>
     </main>
+  );
+}
+
+function OrderItemCard({ item }: { item: OrderItem }) {
+  const isPlan = isChallengePlanItem(item);
+  const planItems = item.planItems || [];
+
+  return (
+    <div
+      className={`rounded-[16px] border p-3 ${
+        isPlan
+          ? "border-green-200 bg-green-50"
+          : "border-slate-200 bg-white"
+      }`}
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-black text-slate-950">
+              {item.title || "Meal"} × {item.qty || 1}
+            </p>
+
+            {isPlan && (
+              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-green-700">
+                Challenge Plan
+              </span>
+            )}
+          </div>
+
+          {isPlan && planItems.length > 0 && (
+            <div className="mt-3 rounded-[14px] border border-green-100 bg-white p-3">
+              <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-green-700">
+                Plan Includes
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {planItems.map((planItem, index) => (
+                  <span
+                    key={`${planItem._id || index}`}
+                    className="rounded-full bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700"
+                  >
+                    {planItem.title || "Meal Item"} × {planItem.qty || 1}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <p className="text-sm font-black text-slate-950">
+          ₹{Number(item.price || 0) * Number(item.qty || 1)}
+        </p>
+      </div>
+    </div>
   );
 }
 
