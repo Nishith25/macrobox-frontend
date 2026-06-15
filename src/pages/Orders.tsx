@@ -35,13 +35,21 @@ type Order = {
     subtotal: number;
     discount: number;
     payable: number;
+    challengePlanSubtotal?: number;
+    normalMealsSubtotal?: number;
     totalProtein: number;
     totalCalories: number;
     totalCarbs?: number;
     totalFat?: number;
   };
+  coupon?: {
+    code?: string;
+    discount?: number;
+    redeemed?: boolean;
+  };
   items?: Array<{
     meal?: string;
+    challengeId?: string;
     title?: string;
     price?: number;
     protein?: number;
@@ -205,6 +213,43 @@ const isSameInputDate = (order: Order, selectedDate: string) => {
   return `${yyyy}-${mm}-${dd}` === selectedDate;
 };
 
+const getOrderSplitTotals = (order: Order) => {
+  const items = order.items || [];
+
+  const fallbackChallengePlanSubtotal = items
+    .filter((item) => Boolean(item.challengeId))
+    .reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
+      0
+    );
+
+  const savedChallengePlanSubtotal = Number(
+    order.totals.challengePlanSubtotal || 0
+  );
+
+  const challengePlanSubtotal =
+    savedChallengePlanSubtotal > 0
+      ? savedChallengePlanSubtotal
+      : fallbackChallengePlanSubtotal;
+
+  const subtotal = Number(order.totals.subtotal || 0);
+
+  const savedNormalMealsSubtotal = Number(order.totals.normalMealsSubtotal || 0);
+
+  const normalMealsSubtotal =
+    savedNormalMealsSubtotal > 0
+      ? savedNormalMealsSubtotal
+      : Math.max(subtotal - challengePlanSubtotal, 0);
+
+  return {
+    subtotal,
+    normalMealsSubtotal,
+    challengePlanSubtotal,
+    discount: Number(order.totals.discount || 0),
+    payable: Number(order.totals.payable || 0),
+  };
+};
+
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -258,6 +303,8 @@ export default function Orders() {
       const itemTitles =
         order.items?.map((item) => item.title || "Meal").join(" ") || "";
 
+      const splitTotals = getOrderSplitTotals(order);
+
       const searchableText = [
         order._id,
         formatDateTime(order.createdAt),
@@ -265,7 +312,11 @@ export default function Orders() {
         deliveryStatus,
         paymentStatus,
         itemTitles,
-        String(order.totals.payable || ""),
+        order.coupon?.code || "",
+        String(splitTotals.payable || ""),
+        String(splitTotals.discount || ""),
+        String(splitTotals.challengePlanSubtotal || ""),
+        String(splitTotals.normalMealsSubtotal || ""),
         String(order.totals.totalCalories || ""),
         String(order.totals.totalProtein || ""),
       ]
@@ -494,6 +545,8 @@ export default function Orders() {
               const totalCarbs = order.totals.totalCarbs || 0;
               const totalFat = order.totals.totalFat || 0;
 
+              const splitTotals = getOrderSplitTotals(order);
+
               return (
                 <article
                   key={order._id}
@@ -512,6 +565,12 @@ export default function Orders() {
                       <p className="mt-1 break-all text-xs font-semibold text-slate-500">
                         Order ID: {order._id}
                       </p>
+
+                      {order.coupon?.code && (
+                        <p className="mt-2 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                          Coupon: {order.coupon.code}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -535,21 +594,64 @@ export default function Orders() {
 
                   <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
                     <div className="space-y-4 sm:space-y-5">
-                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 md:grid-cols-6">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6">
                         <MiniStat label="Calories" value={`${totalCalories}`} />
                         <MiniStat label="Protein" value={`${totalProtein}g`} />
                         <MiniStat label="Carbs" value={`${totalCarbs}g`} />
                         <MiniStat label="Fat" value={`${totalFat}g`} />
                         <MiniStat
-                          label="Discount"
-                          value={`₹${order.totals.discount || 0}`}
+                          label="Plan Discount"
+                          value={`₹${splitTotals.discount}`}
                         />
                         <MiniStat
                           label="Payable"
-                          value={`₹${order.totals.payable || 0}`}
+                          value={`₹${splitTotals.payable}`}
                           highlight
                         />
                       </div>
+
+                      <InfoCard>
+                        <div className="mb-3 flex items-center gap-2">
+                          <ReceiptText size={16} className="text-green-600" />
+
+                          <p className="text-sm font-black text-slate-950">
+                            Billing Breakdown
+                          </p>
+                        </div>
+
+                        <div className="space-y-2 text-sm font-semibold text-slate-600">
+                          <BillingRow
+                            label="Meals Subtotal"
+                            value={`₹${splitTotals.normalMealsSubtotal}`}
+                          />
+
+                          <BillingRow
+                            label="Challenge Plan Subtotal"
+                            value={`₹${splitTotals.challengePlanSubtotal}`}
+                          />
+
+                          <BillingRow
+                            label="Plan Discount"
+                            value={`-₹${splitTotals.discount}`}
+                            discount
+                          />
+
+                          <div className="border-t border-slate-200 pt-2">
+                            <BillingRow
+                              label="Total Payable"
+                              value={`₹${splitTotals.payable}`}
+                              highlight
+                            />
+                          </div>
+                        </div>
+
+                        {splitTotals.discount > 0 && (
+                          <p className="mt-3 rounded-[14px] bg-green-50 px-3 py-2 text-xs font-bold leading-5 text-green-700">
+                            Reward coupon discount was applied only on challenge
+                            plan items. Normal meals were charged at full price.
+                          </p>
+                        )}
+                      </InfoCard>
 
                       <div className="grid gap-3 md:grid-cols-2">
                         <InfoCard>
@@ -617,9 +719,14 @@ export default function Orders() {
                             {order.items.map((item, index) => (
                               <span
                                 key={`${order._id}-${index}`}
-                                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700"
+                                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                                  item.challengeId
+                                    ? "border-green-200 bg-green-50 text-green-700"
+                                    : "border-slate-200 bg-white text-slate-700"
+                                }`}
                               >
                                 {item.title || "Meal"} × {item.qty || 1}
+                                {item.challengeId ? " • Challenge Plan" : ""}
                               </span>
                             ))}
                           </div>
@@ -679,6 +786,42 @@ function MiniStat({
         {value}
       </p>
     </div>
+  );
+}
+
+function BillingRow({
+  label,
+  value,
+  highlight,
+  discount,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  discount?: boolean;
+}) {
+  return (
+    <p className="flex items-center justify-between gap-3">
+      <span
+        className={`${
+          highlight ? "font-black text-slate-950" : "text-slate-500"
+        }`}
+      >
+        {label}
+      </span>
+
+      <span
+        className={`font-black ${
+          highlight
+            ? "text-green-700"
+            : discount
+            ? "text-green-700"
+            : "text-slate-950"
+        }`}
+      >
+        {value}
+      </span>
+    </p>
   );
 }
 
