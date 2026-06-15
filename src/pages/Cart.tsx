@@ -262,20 +262,20 @@ export default function Cart() {
   );
 
   const planSubtotal = useMemo(
-    () =>
-      cart
-        .filter((item: any) => Boolean(item.challengeId))
-        .reduce((sum, item) => sum + item.price * item.qty, 0),
-    [cart]
-  );
+  () =>
+    cart
+      .filter((item: any) => item.itemType === "challenge_plan" || Boolean(item.challengeId))
+      .reduce((sum, item) => sum + item.price * item.qty, 0),
+  [cart]
+);
 
   const normalMealsSubtotal = useMemo(
-    () =>
-      cart
-        .filter((item: any) => !item.challengeId)
-        .reduce((sum, item) => sum + item.price * item.qty, 0),
-    [cart]
-  );
+  () =>
+    cart
+      .filter((item: any) => item.itemType !== "challenge_plan" && !item.challengeId)
+      .reduce((sum, item) => sum + item.price * item.qty, 0),
+  [cart]
+);
 
   const totalProtein = useMemo(
     () => cart.reduce((sum, item) => sum + item.protein * item.qty, 0),
@@ -303,18 +303,20 @@ export default function Cart() {
     "h-12 w-full rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100";
 
   const fetchAvailableCoupons = async () => {
-    try {
-      setLoadingCoupons(true);
+  try {
+    setLoadingCoupons(true);
 
-      const res = await api.get(`/coupons/available?cartTotal=${planSubtotal}`);
+    const res = await api.get(
+      `/coupons/available?cartTotal=${subtotal}&planSubtotal=${planSubtotal}`
+    );
 
-      setAvailableCoupons(res.data || []);
-    } catch {
-      setAvailableCoupons([]);
-    } finally {
-      setLoadingCoupons(false);
-    }
-  };
+    setAvailableCoupons(res.data || []);
+  } catch {
+    setAvailableCoupons([]);
+  } finally {
+    setLoadingCoupons(false);
+  }
+};
 
   const fetchSavedAddresses = async () => {
     try {
@@ -650,12 +652,12 @@ export default function Cart() {
 
     try {
       const res = await api.post("/coupons/apply", {
-        code: codeToApply,
-        cartTotal: planSubtotal,
-        planSubtotal,
-        normalMealsSubtotal,
-        applyOn: "challenge_plan",
-      });
+  code: codeToApply,
+  cartTotal: subtotal,
+  planSubtotal,
+  normalMealsSubtotal,
+  applyOn: "challenge_plan",
+});
 
       setCoupon(codeToApply);
       setDiscount(res.data.discount || 0);
@@ -890,16 +892,23 @@ export default function Cart() {
 
       const payload = {
         items: cart.map((item: any) => ({
-          mealId: item._id,
-          challengeId: item.challengeId || "",
-          title: item.title,
-          price: item.price,
-          qty: item.qty,
-          protein: item.protein,
-          calories: item.calories,
-          carbs: item.carbs || 0,
-          fat: item.fat || 0,
-        })),
+  mealId:
+    item.itemType === "challenge_plan"
+      ? item.planItems?.[0]?._id || item._id
+      : item._id,
+
+  itemType: item.itemType || "meal",
+  challengeId: item.challengeId || "",
+  title: item.title,
+  description: item.description || "",
+  price: item.price,
+  qty: item.qty,
+  protein: item.protein,
+  calories: item.calories,
+  carbs: item.carbs || 0,
+  fat: item.fat || 0,
+  planItems: item.planItems || [],
+})),
 
         couponCode: finalCouponCode,
         couponApplyOn: "challenge_plan",
@@ -1051,14 +1060,39 @@ export default function Cart() {
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
                       <h3 className="line-clamp-2 text-base font-black text-slate-950">
-                        {item.title}
-                      </h3>
+  {item.title}
+</h3>
 
-                      {item.challengeId && (
-                        <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                          Challenge Plan Item
-                        </p>
-                      )}
+{(item.itemType === "challenge_plan" || item.challengeId) && (
+  <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+    Challenge Plan
+  </p>
+)}
+
+{item.description && (
+  <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+    {item.description}
+  </p>
+)}
+
+{item.planItems?.length > 0 && (
+  <div className="mt-3 rounded-[16px] border border-green-100 bg-green-50 p-3">
+    <p className="mb-2 text-xs font-black uppercase tracking-wide text-green-700">
+      Plan Includes
+    </p>
+
+    <div className="flex flex-wrap gap-2">
+      {item.planItems.map((planItem: any) => (
+        <span
+          key={planItem._id}
+          className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-700"
+        >
+          {planItem.title} × {planItem.qty}
+        </span>
+      ))}
+    </div>
+  </div>
+)}
 
                       <div className="mt-2 flex flex-wrap gap-2">
                         <MacroPill color="green">
