@@ -13,6 +13,22 @@ export type PlanIncludedItem = {
   qty: number;
 };
 
+export type PlanDay = {
+  day: number;
+  date: string;
+  slot: string;
+  preference: "veg" | "nonveg" | "mixed";
+  selectedMeal: string;
+  selectedMealTitle: string;
+  selectedMealPrice: number;
+  selectedMealProtein: number;
+  selectedMealCalories: number;
+  selectedMealCarbs: number;
+  selectedMealFat: number;
+  alternativeMeal: string;
+  alternativeMealTitle: string;
+};
+
 export type CartItemType = "meal" | "challenge_plan";
 
 export type CartItem = {
@@ -29,6 +45,7 @@ export type CartItem = {
   imageUrl?: string;
   qty: number;
   planItems?: PlanIncludedItem[];
+  planDays?: PlanDay[];
 };
 
 type AddToCartItem = {
@@ -45,6 +62,7 @@ type AddToCartItem = {
   imageUrl?: string;
   qty?: number;
   planItems?: PlanIncludedItem[];
+  planDays?: PlanDay[];
 };
 
 type CartCtx = {
@@ -89,20 +107,54 @@ const makeIncludedItem = (item: any): PlanIncludedItem => ({
   qty: Number(item.qty || 1),
 });
 
-const buildPlanDescription = (items: PlanIncludedItem[]) => {
-  if (!items.length) return "Selected MacroBox challenge plan.";
+const makePlanDay = (day: any): PlanDay => ({
+  day: Number(day.day || 1),
+  date: String(day.date || ""),
+  slot: String(day.slot || ""),
+  preference: day.preference || "mixed",
+  selectedMeal: String(day.selectedMeal || ""),
+  selectedMealTitle: String(day.selectedMealTitle || "Meal"),
+  selectedMealPrice: cleanNumber(day.selectedMealPrice),
+  selectedMealProtein: cleanNumber(day.selectedMealProtein),
+  selectedMealCalories: cleanNumber(day.selectedMealCalories),
+  selectedMealCarbs: cleanNumber(day.selectedMealCarbs),
+  selectedMealFat: cleanNumber(day.selectedMealFat),
+  alternativeMeal: String(day.alternativeMeal || ""),
+  alternativeMealTitle: String(day.alternativeMealTitle || ""),
+});
 
-  return `Includes ${items.length} selected challenge item${
-    items.length > 1 ? "s" : ""
+const buildPlanDescription = (planDays: PlanDay[], fallbackCount: number) => {
+  if (planDays.length > 0) {
+    return `Daily delivery plan. Includes ${planDays.length} meals delivered across ${planDays.length} days.`;
+  }
+
+  return `Includes ${fallbackCount} selected challenge item${
+    fallbackCount > 1 ? "s" : ""
   }.`;
 };
-const buildPlanFromItems = (
-  challengeId: string,
-  items: PlanIncludedItem[],
-  title?: string,
-  imageUrl?: string
-): CartItem => {
-  const price = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+
+const buildPlanFromItems = ({
+  challengeId,
+  items,
+  title,
+  imageUrl,
+  priceOverride,
+  description,
+  planDays,
+}: {
+  challengeId: string;
+  items: PlanIncludedItem[];
+  title?: string;
+  imageUrl?: string;
+  priceOverride?: number;
+  description?: string;
+  planDays?: PlanDay[];
+}): CartItem => {
+  const computedPrice = items.reduce(
+    (sum, item) => sum + item.price * item.qty,
+    0
+  );
+
   const protein = items.reduce((sum, item) => sum + item.protein * item.qty, 0);
   const calories = items.reduce(
     (sum, item) => sum + item.calories * item.qty,
@@ -111,13 +163,18 @@ const buildPlanFromItems = (
   const carbs = items.reduce((sum, item) => sum + item.carbs * item.qty, 0);
   const fat = items.reduce((sum, item) => sum + item.fat * item.qty, 0);
 
+  const finalPlanDays = Array.isArray(planDays)
+    ? planDays.map(makePlanDay)
+    : [];
+
   return {
     _id: `plan-${challengeId}`,
     itemType: "challenge_plan",
     challengeId,
     title: title || getPlanTitle(challengeId),
-    description: buildPlanDescription(items),
-    price,
+    description:
+      description || buildPlanDescription(finalPlanDays, items.length),
+    price: cleanNumber(priceOverride || computedPrice),
     protein,
     calories,
     carbs,
@@ -125,6 +182,7 @@ const buildPlanFromItems = (
     imageUrl,
     qty: 1,
     planItems: items,
+    planDays: finalPlanDays,
   };
 };
 
@@ -141,7 +199,12 @@ const normalizeNormalItem = (item: any): CartItem => ({
   fat: cleanNumber(item.fat),
   imageUrl: item.imageUrl,
   qty: Number(item.qty || 1),
-  planItems: Array.isArray(item.planItems) ? item.planItems : undefined,
+  planItems: Array.isArray(item.planItems)
+    ? item.planItems.map(makeIncludedItem)
+    : undefined,
+  planDays: Array.isArray(item.planDays)
+    ? item.planDays.map(makePlanDay)
+    : undefined,
 });
 
 const normalizeCart = (items: any[]): CartItem[] => {
@@ -172,12 +235,15 @@ const normalizeCart = (items: any[]): CartItem[] => {
         planItems.length > 0 ? planItems : [makeIncludedItem(item)];
 
       normalItems.push(
-        buildPlanFromItems(
+        buildPlanFromItems({
           challengeId,
-          finalPlanItems,
-          item.title || getPlanTitle(challengeId),
-          item.imageUrl
-        )
+          items: finalPlanItems,
+          title: item.title || getPlanTitle(challengeId),
+          imageUrl: item.imageUrl,
+          priceOverride: item.price,
+          description: item.description,
+          planDays: item.planDays,
+        })
       );
 
       continue;
@@ -205,7 +271,12 @@ const normalizeCart = (items: any[]): CartItem[] => {
 
   const groupedPlans = Array.from(challengeGroups.entries()).map(
     ([challengeId, group]) =>
-      buildPlanFromItems(challengeId, group.items, group.title, group.imageUrl)
+      buildPlanFromItems({
+        challengeId,
+        items: group.items,
+        title: group.title,
+        imageUrl: group.imageUrl,
+      })
   );
 
   return [...normalItems, ...groupedPlans];
@@ -238,14 +309,43 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCart((prev) => {
       const cleanPrev = normalizeCart(prev);
 
-      if (item.challengeId) {
+      if (item.itemType === "challenge_plan" && item.challengeId) {
         const challengeId = String(item.challengeId);
         const planKey = getPlanCartKey(challengeId);
 
-        const incomingPlanItems =
-          item.itemType === "challenge_plan" && Array.isArray(item.planItems)
-            ? item.planItems.map(makeIncludedItem)
-            : [makeIncludedItem(item)];
+        const incomingPlanItems = Array.isArray(item.planItems)
+          ? item.planItems.map(makeIncludedItem)
+          : [makeIncludedItem(item)];
+
+        const newPlan = buildPlanFromItems({
+          challengeId,
+          items: incomingPlanItems,
+          title: item.title || getPlanTitle(challengeId),
+          imageUrl: item.imageUrl,
+          priceOverride: item.price,
+          description: item.description,
+          planDays: item.planDays,
+        });
+
+        const existingIndex = cleanPrev.findIndex(
+          (cartItem) =>
+            cartItem.itemType === "challenge_plan" &&
+            getCartKey(cartItem) === planKey
+        );
+
+        if (existingIndex >= 0) {
+          const copy = [...cleanPrev];
+          copy[existingIndex] = newPlan;
+          return copy;
+        }
+
+        return [...cleanPrev, newPlan];
+      }
+
+      if (item.challengeId) {
+        const challengeId = String(item.challengeId);
+        const planKey = getPlanCartKey(challengeId);
+        const incomingPlanItems = [makeIncludedItem(item)];
 
         const existingIndex = cleanPrev.findIndex(
           (cartItem) =>
@@ -274,26 +374,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          copy[existingIndex] = buildPlanFromItems(
+          copy[existingIndex] = buildPlanFromItems({
             challengeId,
-            mergedItems,
-            existingPlan.title || item.title || getPlanTitle(challengeId),
-            item.imageUrl || existingPlan.imageUrl
-          );
+            items: mergedItems,
+            title: existingPlan.title || item.title || getPlanTitle(challengeId),
+            imageUrl: item.imageUrl || existingPlan.imageUrl,
+            priceOverride: existingPlan.price,
+            description: existingPlan.description,
+            planDays: existingPlan.planDays,
+          });
 
           return copy;
         }
 
         return [
           ...cleanPrev,
-          buildPlanFromItems(
+          buildPlanFromItems({
             challengeId,
-            incomingPlanItems,
-            item.itemType === "challenge_plan"
-              ? item.title
-              : getPlanTitle(challengeId),
-            item.imageUrl
-          ),
+            items: incomingPlanItems,
+            title: getPlanTitle(challengeId),
+            imageUrl: item.imageUrl,
+          }),
         ];
       }
 

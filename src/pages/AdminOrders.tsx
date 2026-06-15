@@ -10,6 +10,45 @@ type Agent = {
   phone?: string;
 };
 
+type PlanIncludedItem = {
+  _id?: string;
+  title?: string;
+  price?: number;
+  protein?: number;
+  calories?: number;
+  carbs?: number;
+  fat?: number;
+  qty?: number;
+};
+
+type PlanDay = {
+  day?: number;
+  date?: string;
+  slot?: string;
+  preference?: "veg" | "nonveg" | "mixed";
+  selectedMeal?: string;
+  selectedMealTitle?: string;
+  selectedMealPrice?: number;
+  selectedMealProtein?: number;
+  selectedMealCalories?: number;
+  selectedMealCarbs?: number;
+  selectedMealFat?: number;
+  alternativeMeal?: string;
+  alternativeMealTitle?: string;
+  deliveryStatus?: string;
+  kitchenStatus?: string;
+};
+
+type OrderItem = {
+  title?: string;
+  price?: number;
+  qty?: number;
+  itemType?: "meal" | "challenge_plan";
+  challengeId?: string;
+  planItems?: PlanIncludedItem[];
+  planDays?: PlanDay[];
+};
+
 type Order = {
   _id: string;
   user?: {
@@ -17,12 +56,7 @@ type Order = {
     email?: string;
     phone?: string;
   };
-  items?: Array<{
-    title?: string;
-    price?: number;
-    qty?: number;
-    challengeId?: string;
-  }>;
+  items?: OrderItem[];
   totals?: {
     subtotal?: number;
     discount?: number;
@@ -93,12 +127,55 @@ const formatDateTime = (value?: string) => {
   return date.toLocaleString("en-IN");
 };
 
+const formatDateOnly = (value?: string) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatSlot = (slot?: string) => {
+  if (!slot) return "-";
+
+  const hour = Number(slot.split(":")[0]);
+
+  if (!Number.isFinite(hour)) return slot;
+
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+
+  return `${displayHour}:00 ${period}`;
+};
+
 const readableStatus = (value?: string) => {
   if (!value) return "Unassigned";
 
   return value
     .replaceAll("_", " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const isPlanItem = (item?: OrderItem) => {
+  return item?.itemType === "challenge_plan" || Boolean(item?.challengeId);
+};
+
+const getTodayPlanDay = (item: OrderItem) => {
+  const planDays = item.planDays || [];
+  const today = todayISO();
+
+  return (
+    planDays.find((day) => day.date === today) ||
+    planDays.find((day) => day.deliveryStatus !== "delivered") ||
+    planDays[0] ||
+    null
+  );
 };
 
 const getAddressText = (order: Order) => {
@@ -126,7 +203,7 @@ const getSplitTotals = (order: Order) => {
   const items = order.items || [];
 
   const fallbackChallengePlanSubtotal = items
-    .filter((item) => Boolean(item.challengeId))
+    .filter((item) => isPlanItem(item))
     .reduce(
       (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
       0
@@ -237,6 +314,14 @@ export default function AdminOrders() {
   const exportCSV = () => {
     const rows = orders.map((order) => {
       const splitTotals = getSplitTotals(order);
+      const schedule = (order.items || [])
+        .flatMap((item) =>
+          (item.planDays || []).map(
+            (day) =>
+              `Day ${day.day}: ${day.selectedMealTitle} (${day.date} ${day.slot})`
+          )
+        )
+        .join(" | ");
 
       return {
         orderId: order._id,
@@ -252,6 +337,7 @@ export default function AdminOrders() {
         planDiscount: splitTotals.discount,
         totalPayable: splitTotals.payable,
         coupon: order.coupon?.code || "",
+        challengeSchedule: schedule,
         date: order.createdAt || "",
       };
     });
@@ -297,7 +383,7 @@ export default function AdminOrders() {
 
           <p className="mt-1 text-gray-600">
             View daily orders, payments, delivery status, agents, revenue, and
-            coupon breakdown.
+            challenge schedules.
           </p>
 
           <p className="mt-2 text-sm font-medium text-green-700">
@@ -396,7 +482,7 @@ export default function AdminOrders() {
       </div>
 
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-        <table className="w-full min-w-[1250px] text-sm">
+        <table className="w-full min-w-[1450px] text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
               <th className="p-4">Order</th>
@@ -405,7 +491,7 @@ export default function AdminOrders() {
               <th className="p-4">Delivery</th>
               <th className="p-4">Agent</th>
               <th className="p-4">Billing</th>
-              <th className="p-4">Items</th>
+              <th className="p-4">Items / Challenge Schedule</th>
               <th className="p-4">Coupon</th>
               <th className="p-4">Date</th>
               <th className="p-4 text-right">Actions</th>
@@ -518,27 +604,14 @@ export default function AdminOrders() {
                       </div>
                     </td>
 
-                    <td className="min-w-[220px] p-4">
-                      <div className="flex max-w-[260px] flex-wrap gap-2">
-                        {(order.items || []).slice(0, 5).map((item, index) => (
-                          <span
+                    <td className="min-w-[360px] p-4">
+                      <div className="grid max-w-[420px] gap-3">
+                        {(order.items || []).map((item, index) => (
+                          <AdminOrderItem
                             key={`${order._id}-${index}`}
-                            className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
-                              item.challengeId
-                                ? "border-green-200 bg-green-50 text-green-700"
-                                : "border-gray-200 bg-white text-gray-700"
-                            }`}
-                          >
-                            {item.title || "Meal"} × {item.qty || 1}
-                            {item.challengeId ? " • Plan" : ""}
-                          </span>
+                            item={item}
+                          />
                         ))}
-
-                        {(order.items || []).length > 5 && (
-                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
-                            +{(order.items || []).length - 5} more
-                          </span>
-                        )}
                       </div>
                     </td>
 
@@ -584,6 +657,114 @@ export default function AdminOrders() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function AdminOrderItem({ item }: { item: OrderItem }) {
+  const isPlan = isPlanItem(item);
+  const todayPlanDay = isPlan ? getTodayPlanDay(item) : null;
+
+  return (
+    <div
+      className={`rounded-xl border p-3 ${
+        isPlan
+          ? "border-green-200 bg-green-50"
+          : "border-gray-200 bg-white"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-bold text-gray-900">
+            {item.title || "Meal"} × {item.qty || 1}
+          </p>
+
+          {isPlan && (
+            <p className="mt-1 w-fit rounded-full bg-white px-2 py-1 text-[10px] font-bold text-green-700">
+              Challenge Plan
+            </p>
+          )}
+        </div>
+
+        <p className="font-bold text-gray-900">
+          ₹{Number(item.price || 0) * Number(item.qty || 1)}
+        </p>
+      </div>
+
+      {isPlan && todayPlanDay && (
+        <div className="mt-3 rounded-lg border border-orange-100 bg-orange-50 p-2">
+          <p className="text-[11px] font-black uppercase text-orange-700">
+            Next Scheduled Meal
+          </p>
+
+          <p className="mt-1 text-xs font-bold text-gray-900">
+            Day {todayPlanDay.day}: {todayPlanDay.selectedMealTitle || "Meal"}
+          </p>
+
+          <p className="mt-1 text-xs font-semibold text-gray-500">
+            {formatDateOnly(todayPlanDay.date)} • {formatSlot(todayPlanDay.slot)}
+          </p>
+
+          {todayPlanDay.alternativeMealTitle && (
+            <p className="mt-1 text-xs font-semibold text-gray-500">
+              Alternative: {todayPlanDay.alternativeMealTitle}
+            </p>
+          )}
+        </div>
+      )}
+
+      {isPlan && item.planDays && item.planDays.length > 0 && (
+        <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-2">
+          <p className="mb-2 text-[11px] font-black uppercase text-blue-700">
+            Full Day-wise Schedule
+          </p>
+
+          <div className="grid gap-2">
+            {item.planDays.map((day, index) => (
+              <div
+                key={`${day.day || index}-${day.date || ""}`}
+                className="rounded-lg bg-white px-2 py-2"
+              >
+                <p className="text-xs font-bold text-gray-900">
+                  Day {day.day}: {day.selectedMealTitle || "Meal"}
+                </p>
+
+                <p className="mt-1 text-xs font-semibold text-gray-500">
+                  {formatDateOnly(day.date)} • {formatSlot(day.slot)} •{" "}
+                  {day.preference || "mixed"}
+                </p>
+
+                <p className="mt-1 text-xs font-semibold text-gray-500">
+                  Delivery: {readableStatus(day.deliveryStatus || "scheduled")}{" "}
+                  | Kitchen: {readableStatus(day.kitchenStatus || "pending")}
+                </p>
+
+                {day.alternativeMealTitle && (
+                  <p className="mt-1 text-xs font-semibold text-gray-500">
+                    Alternative: {day.alternativeMealTitle}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isPlan &&
+        (!item.planDays || item.planDays.length === 0) &&
+        item.planItems &&
+        item.planItems.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {item.planItems.map((planItem, index) => (
+              <span
+                key={`${planItem._id || index}`}
+                className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-gray-700"
+              >
+                {planItem.title || "Meal"} × {planItem.qty || 1}
+              </span>
+            ))}
+          </div>
+        )}
     </div>
   );
 }

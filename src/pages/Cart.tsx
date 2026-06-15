@@ -894,7 +894,7 @@ export default function Cart() {
         items: cart.map((item: any) => ({
   mealId:
     item.itemType === "challenge_plan"
-      ? item.planItems?.[0]?._id || item._id
+      ? item.planItems?.[0]?._id || item.planDays?.[0]?.selectedMeal || item._id
       : item._id,
 
   itemType: item.itemType || "meal",
@@ -908,8 +908,8 @@ export default function Cart() {
   carbs: item.carbs || 0,
   fat: item.fat || 0,
   planItems: item.planItems || [],
+  planDays: item.planDays || [],
 })),
-
         couponCode: finalCouponCode,
         couponApplyOn: "challenge_plan",
 
@@ -1090,10 +1090,57 @@ export default function Cart() {
   </div>
 )}
 
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <MacroPill color="green">
-                          Protein {item.protein * item.qty}g
-                        </MacroPill>
+{item.planItems?.length > 0 && (
+  <div className="mt-3 rounded-[16px] border border-green-100 bg-green-50 p-3">
+    <p className="mb-2 text-xs font-black uppercase tracking-wide text-green-700">
+      Plan Includes
+    </p>
+
+    <div className="flex flex-wrap gap-2">
+      {item.planItems.map((planItem: any) => (
+        <span
+          key={planItem._id}
+          className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-700"
+        >
+          {planItem.title} × {planItem.qty}
+        </span>
+      ))}
+    </div>
+  </div>
+)}
+
+{item.planDays?.length > 0 && (
+  <div className="mt-3 rounded-[16px] border border-blue-100 bg-blue-50 p-3">
+    <p className="mb-2 text-xs font-black uppercase tracking-wide text-blue-700">
+      Day-wise Delivery Schedule
+    </p>
+
+    <div className="grid gap-2">
+      {item.planDays.map((day: any) => (
+        <div
+          key={`${item._id}-day-${day.day}`}
+          className="rounded-[12px] bg-white px-3 py-2 text-xs font-bold text-slate-700"
+        >
+          <p className="text-slate-950">
+            Day {day.day}: {day.selectedMealTitle}
+          </p>
+
+          <p className="mt-1 text-slate-500">
+            {day.date} • {day.slot} • Alternative:{" "}
+            {day.alternativeMealTitle || "N/A"}
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+<div className="mt-2 flex flex-wrap gap-2">
+  <MacroPill color="green">
+    Protein {item.protein * item.qty}g
+  </MacroPill>
+
+                      
                         <MacroPill color="orange">
                           Calories {item.calories * item.qty} kcal
                         </MacroPill>

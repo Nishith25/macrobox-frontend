@@ -15,8 +15,38 @@ import {
 
 type KitchenStatus = "pending" | "started_preparing" | "prepared";
 
+type PlanDay = {
+  day?: number;
+  date?: string;
+  slot?: string;
+  preference?: "veg" | "nonveg" | "mixed";
+  selectedMeal?: string;
+  selectedMealTitle?: string;
+  selectedMealPrice?: number;
+  selectedMealProtein?: number;
+  selectedMealCalories?: number;
+  selectedMealCarbs?: number;
+  selectedMealFat?: number;
+  alternativeMeal?: string;
+  alternativeMealTitle?: string;
+  deliveryStatus?: string;
+  kitchenStatus?: KitchenStatus;
+};
+
+type PlanIncludedItem = {
+  _id?: string;
+  title?: string;
+  price?: number;
+  protein?: number;
+  calories?: number;
+  carbs?: number;
+  fat?: number;
+  qty?: number;
+};
+
 type OrderItem = {
   _id?: string;
+  itemType?: "meal" | "challenge_plan";
   title?: string;
   qty?: number;
   quantity?: number;
@@ -26,6 +56,8 @@ type OrderItem = {
   carbs?: number;
   fat?: number;
   challengeId?: string;
+  planItems?: PlanIncludedItem[];
+  planDays?: PlanDay[];
   meal?: {
     _id?: string;
     title?: string;
@@ -108,15 +140,69 @@ const kitchenStatuses: {
   },
 ];
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
 const formatCurrency = (value?: number) => `₹${Number(value || 0).toFixed(0)}`;
+
+const readableStatus = (value?: string) => {
+  if (!value) return "N/A";
+
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const formatDateOnly = (value?: string) => {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatSlot = (slot?: string) => {
+  if (!slot) return "N/A";
+
+  const hour = Number(slot.split(":")[0]);
+
+  if (!Number.isFinite(hour)) return slot;
+
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+
+  return `${displayHour}:00 ${period}`;
+};
+
+const isPlanItem = (item?: OrderItem) => {
+  return item?.itemType === "challenge_plan" || Boolean(item?.challengeId);
+};
+
+const getTodayPlanDay = (item: OrderItem) => {
+  const planDays = item.planDays || [];
+  const today = todayISO();
+
+  return (
+    planDays.find((day) => day.date === today) ||
+    planDays.find((day) => day.deliveryStatus !== "delivered") ||
+    planDays[0] ||
+    null
+  );
+};
 
 const getSplitTotals = (order: Order) => {
   const items = order.items || [];
 
   const fallbackChallengePlanSubtotal = items
-    .filter((item) => Boolean(item.challengeId))
+    .filter((item) => isPlanItem(item))
     .reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || item.quantity || 1),
+      (sum, item) =>
+        sum + Number(item.price || 0) * Number(item.qty || item.quantity || 1),
       0
     );
 
@@ -185,8 +271,26 @@ export default function OrdersList() {
         const email = order.user?.email || "";
         const id = order._id || "";
         const coupon = order.coupon?.code || "";
+
         const itemTitles =
-          order.items?.map((item) => item.title || item.meal?.title || item.meal?.name || "").join(" ") || "";
+          order.items
+            ?.map((item) => {
+              const title =
+                item.title || item.meal?.title || item.meal?.name || "";
+
+              const planDays =
+                item.planDays
+                  ?.map(
+                    (day) =>
+                      `${day.selectedMealTitle || ""} ${
+                        day.alternativeMealTitle || ""
+                      } ${day.date || ""} ${day.slot || ""}`
+                  )
+                  .join(" ") || "";
+
+              return `${title} ${planDays}`;
+            })
+            .join(" ") || "";
 
         return (
           customerName.toLowerCase().includes(query) ||
@@ -308,8 +412,8 @@ export default function OrdersList() {
               </h1>
 
               <p className="mt-2 text-sm text-gray-500">
-                Chef and admin can view all orders and update preparation
-                status.
+                Chef and admin can view today&apos;s meals and update
+                preparation status.
               </p>
             </div>
 
@@ -403,7 +507,7 @@ export default function OrdersList() {
 
                         {order.delivery?.status && (
                           <span className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
-                            Delivery: {order.delivery.status}
+                            Delivery: {readableStatus(order.delivery.status)}
                           </span>
                         )}
 
@@ -438,7 +542,7 @@ export default function OrdersList() {
 
                         <p>
                           <span className="font-semibold text-gray-900">
-                            Slot:
+                            Main Slot:
                           </span>{" "}
                           {order.delivery?.slot?.date || "N/A"}{" "}
                           {order.delivery?.slot?.time || ""}
@@ -501,50 +605,15 @@ export default function OrdersList() {
 
                   <div className="mt-5 rounded-2xl border bg-gray-50 p-4">
                     <h3 className="mb-3 font-bold text-gray-900">
-                      Ordered Items
+                      Today&apos;s Kitchen Items
                     </h3>
 
                     {items.length === 0 ? (
                       <p className="text-sm text-gray-500">No items found.</p>
                     ) : (
-                      <div className="grid gap-2">
+                      <div className="grid gap-3">
                         {items.map((item, index) => (
-                          <div
-                            key={item._id || index}
-                            className="flex flex-col gap-2 rounded-xl bg-white px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
-                          >
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-bold text-gray-800">
-                                  {item.title ||
-                                    item.meal?.title ||
-                                    item.meal?.name ||
-                                    "Meal Item"}
-                                </p>
-
-                                {item.challengeId && (
-                                  <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-bold text-green-700">
-                                    Challenge Plan
-                                  </span>
-                                )}
-                              </div>
-
-                              <p className="mt-1 text-xs text-gray-500">
-                                Qty: {item.qty || item.quantity || 1}
-                              </p>
-                            </div>
-
-                            <div className="text-left md:text-right">
-                              <p className="font-bold text-gray-900">
-                                ₹{Number(item.price || 0).toFixed(2)}
-                              </p>
-
-                              <p className="text-xs text-gray-500">
-                                {item.calories || 0} kcal | {item.protein || 0}g
-                                protein
-                              </p>
-                            </div>
-                          </div>
+                          <KitchenItemCard key={item._id || index} item={item} />
                         ))}
                       </div>
                     )}
@@ -586,6 +655,94 @@ export default function OrdersList() {
             })}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function KitchenItemCard({ item }: { item: OrderItem }) {
+  const isPlan = isPlanItem(item);
+  const todayPlanDay = isPlan ? getTodayPlanDay(item) : null;
+
+  if (isPlan && todayPlanDay) {
+    return (
+      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-bold text-gray-900">
+                Day {todayPlanDay.day}:{" "}
+                {todayPlanDay.selectedMealTitle || "Challenge Meal"}
+              </p>
+
+              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-green-700">
+                Challenge Plan
+              </span>
+
+              <span className="rounded-full bg-orange-50 px-3 py-1 text-[11px] font-bold text-orange-700">
+                {readableStatus(todayPlanDay.kitchenStatus || "pending")}
+              </span>
+            </div>
+
+            <p className="mt-1 text-xs font-semibold text-gray-500">
+              Delivery: {formatDateOnly(todayPlanDay.date)} •{" "}
+              {formatSlot(todayPlanDay.slot)}
+            </p>
+
+            <p className="mt-1 text-xs font-semibold text-gray-500">
+              Preference: {todayPlanDay.preference || "mixed"}
+            </p>
+
+            {todayPlanDay.alternativeMealTitle && (
+              <p className="mt-1 text-xs font-semibold text-gray-500">
+                Alternative: {todayPlanDay.alternativeMealTitle}
+              </p>
+            )}
+          </div>
+
+          <div className="text-left md:text-right">
+            <p className="font-bold text-gray-900">
+              {formatCurrency(todayPlanDay.selectedMealPrice)}
+            </p>
+
+            <p className="text-xs text-gray-500">
+              {todayPlanDay.selectedMealCalories || 0} kcal |{" "}
+              {todayPlanDay.selectedMealProtein || 0}g protein
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-white px-4 py-3 text-sm md:flex-row md:items-center md:justify-between">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-bold text-gray-800">
+            {item.title || item.meal?.title || item.meal?.name || "Meal Item"}
+          </p>
+
+          {isPlan && (
+            <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-bold text-green-700">
+              Challenge Plan
+            </span>
+          )}
+        </div>
+
+        <p className="mt-1 text-xs text-gray-500">
+          Qty: {item.qty || item.quantity || 1}
+        </p>
+      </div>
+
+      <div className="text-left md:text-right">
+        <p className="font-bold text-gray-900">
+          ₹{Number(item.price || 0).toFixed(2)}
+        </p>
+
+        <p className="text-xs text-gray-500">
+          {item.calories || 0} kcal | {item.protein || 0}g protein
+        </p>
       </div>
     </div>
   );

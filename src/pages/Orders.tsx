@@ -39,6 +39,24 @@ type PlanIncludedItem = {
   qty?: number;
 };
 
+type PlanDay = {
+  day?: number;
+  date?: string;
+  slot?: string;
+  preference?: "veg" | "nonveg" | "mixed";
+  selectedMeal?: string;
+  selectedMealTitle?: string;
+  selectedMealPrice?: number;
+  selectedMealProtein?: number;
+  selectedMealCalories?: number;
+  selectedMealCarbs?: number;
+  selectedMealFat?: number;
+  alternativeMeal?: string;
+  alternativeMealTitle?: string;
+  deliveryStatus?: string;
+  kitchenStatus?: string;
+};
+
 type OrderItem = {
   meal?: string;
   itemType?: "meal" | "challenge_plan";
@@ -52,6 +70,7 @@ type OrderItem = {
   fat?: number;
   qty?: number;
   planItems?: PlanIncludedItem[];
+  planDays?: PlanDay[];
 };
 
 type Order = {
@@ -121,6 +140,8 @@ type Order = {
 type RangeFilter = "all" | "30days" | "3months";
 type SortType = "newest" | "oldest" | "amountHigh" | "amountLow";
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
 const mapsLinkFromAddress = (addr?: Order["delivery"]["address"]) => {
   if (!addr) return null;
   if (addr.mapsUrl) return addr.mapsUrl;
@@ -157,6 +178,33 @@ const formatDateTime = (value?: string | null) => {
     dateStyle: "medium",
     timeStyle: "short",
   });
+};
+
+const formatDateOnly = (value?: string | null) => {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatSlot = (slot?: string) => {
+  if (!slot) return "N/A";
+
+  const hour = Number(slot.split(":")[0]);
+
+  if (!Number.isFinite(hour)) return slot;
+
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+
+  return `${displayHour}:00 ${period}`;
 };
 
 const formatAddress = (addr?: Order["delivery"]["address"]) => {
@@ -270,6 +318,18 @@ const getOrderSplitTotals = (order: Order) => {
   };
 };
 
+const getTodayPlanDay = (item: OrderItem) => {
+  const planDays = item.planDays || [];
+  const today = todayISO();
+
+  return (
+    planDays.find((day) => day.date === today) ||
+    planDays.find((day) => day.deliveryStatus !== "delivered") ||
+    planDays[0] ||
+    null
+  );
+};
+
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -325,7 +385,17 @@ export default function Orders() {
           ?.map((item) => {
             const planItems =
               item.planItems?.map((p) => p.title || "").join(" ") || "";
-            return `${item.title || "Meal"} ${planItems}`;
+            const planDays =
+              item.planDays
+                ?.map(
+                  (day) =>
+                    `${day.selectedMealTitle || ""} ${
+                      day.alternativeMealTitle || ""
+                    } ${day.date || ""} ${day.slot || ""}`
+                )
+                .join(" ") || "";
+
+            return `${item.title || "Meal"} ${planItems} ${planDays}`;
           })
           .join(" ") || "";
 
@@ -775,6 +845,8 @@ export default function Orders() {
 function OrderItemCard({ item }: { item: OrderItem }) {
   const isPlan = isChallengePlanItem(item);
   const planItems = item.planItems || [];
+  const planDays = item.planDays || [];
+  const todayPlanDay = isPlan ? getTodayPlanDay(item) : null;
 
   return (
     <div
@@ -785,7 +857,7 @@ function OrderItemCard({ item }: { item: OrderItem }) {
       }`}
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-black text-slate-950">
               {item.title || "Meal"} × {item.qty || 1}
@@ -798,7 +870,69 @@ function OrderItemCard({ item }: { item: OrderItem }) {
             )}
           </div>
 
-          {isPlan && planItems.length > 0 && (
+          {isPlan && todayPlanDay && (
+            <div className="mt-3 rounded-[14px] border border-orange-100 bg-orange-50 p-3">
+              <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-orange-700">
+                Next Scheduled Delivery
+              </p>
+
+              <p className="text-sm font-black text-slate-950">
+                Day {todayPlanDay.day}: {todayPlanDay.selectedMealTitle}
+              </p>
+
+              <p className="mt-1 text-xs font-bold text-slate-500">
+                {formatDateOnly(todayPlanDay.date)} •{" "}
+                {formatSlot(todayPlanDay.slot)} •{" "}
+                {readableStatus(todayPlanDay.deliveryStatus || "scheduled")}
+              </p>
+
+              {todayPlanDay.alternativeMealTitle && (
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  Alternative: {todayPlanDay.alternativeMealTitle}
+                </p>
+              )}
+            </div>
+          )}
+
+          {isPlan && planDays.length > 0 && (
+            <div className="mt-3 rounded-[14px] border border-blue-100 bg-blue-50 p-3">
+              <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-blue-700">
+                Day-wise Delivery Schedule
+              </p>
+
+              <div className="grid gap-2">
+                {planDays.map((day, index) => (
+                  <div
+                    key={`${day.day || index}-${day.date || ""}`}
+                    className="rounded-[12px] bg-white px-3 py-2"
+                  >
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs font-black text-slate-950">
+                        Day {day.day}: {day.selectedMealTitle || "Meal"}
+                      </p>
+
+                      <span className="w-fit rounded-full bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-600">
+                        {readableStatus(day.deliveryStatus || "scheduled")}
+                      </span>
+                    </div>
+
+                    <p className="mt-1 text-xs font-bold text-slate-500">
+                      {formatDateOnly(day.date)} • {formatSlot(day.slot)} •{" "}
+                      {day.preference || "mixed"}
+                    </p>
+
+                    {day.alternativeMealTitle && (
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        Alternative: {day.alternativeMealTitle}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isPlan && planDays.length === 0 && planItems.length > 0 && (
             <div className="mt-3 rounded-[14px] border border-green-100 bg-white p-3">
               <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-green-700">
                 Plan Includes

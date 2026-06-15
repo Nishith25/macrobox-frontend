@@ -15,8 +15,38 @@ import {
   User,
 } from "lucide-react";
 
+type PlanDay = {
+  day?: number;
+  date?: string;
+  slot?: string;
+  preference?: "veg" | "nonveg" | "mixed";
+  selectedMeal?: string;
+  selectedMealTitle?: string;
+  selectedMealPrice?: number;
+  selectedMealProtein?: number;
+  selectedMealCalories?: number;
+  selectedMealCarbs?: number;
+  selectedMealFat?: number;
+  alternativeMeal?: string;
+  alternativeMealTitle?: string;
+  deliveryStatus?: string;
+  kitchenStatus?: string;
+};
+
+type PlanIncludedItem = {
+  _id?: string;
+  title?: string;
+  price?: number;
+  protein?: number;
+  calories?: number;
+  carbs?: number;
+  fat?: number;
+  qty?: number;
+};
+
 type OrderItem = {
   meal?: string;
+  itemType?: "meal" | "challenge_plan";
   title?: string;
   price?: number;
   protein?: number;
@@ -25,6 +55,8 @@ type OrderItem = {
   fat?: number;
   qty?: number;
   challengeId?: string;
+  planItems?: PlanIncludedItem[];
+  planDays?: PlanDay[];
 };
 
 type OrderUser = {
@@ -131,6 +163,8 @@ const STATUS_OPTIONS = [
 
 const LOCATION_SEND_THROTTLE_MS = 10000;
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
 function formatCurrency(amount?: number) {
   return `₹${Number(amount || 0).toFixed(0)}`;
 }
@@ -145,6 +179,32 @@ function formatDateTime(value?: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+function formatDateOnly(value?: string) {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatSlot(slot?: string) {
+  if (!slot) return "N/A";
+
+  const hour = Number(slot.split(":")[0]);
+
+  if (!Number.isFinite(hour)) return slot;
+
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+
+  return `${displayHour}:00 ${period}`;
 }
 
 function readableStatus(status?: string) {
@@ -215,11 +275,27 @@ function getMapsUrl(address?: DeliveryAddress) {
   )}`;
 }
 
+function isPlanItem(item?: OrderItem) {
+  return item?.itemType === "challenge_plan" || Boolean(item?.challengeId);
+}
+
+function getTodayPlanDay(item: OrderItem) {
+  const planDays = item.planDays || [];
+  const today = todayISO();
+
+  return (
+    planDays.find((day) => day.date === today) ||
+    planDays.find((day) => day.deliveryStatus !== "delivered") ||
+    planDays[0] ||
+    null
+  );
+}
+
 function getSplitTotals(order: Order) {
   const items = order.items || [];
 
   const fallbackChallengePlanSubtotal = items
-    .filter((item) => Boolean(item.challengeId))
+    .filter((item) => isPlanItem(item))
     .reduce(
       (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
       0
@@ -251,7 +327,24 @@ function matchesSearch(order: Order, query: string) {
   if (!q) return true;
 
   const address = formatAddress(order.delivery?.address);
-  const items = order.items?.map((item) => item.title || "").join(" ") || "";
+
+  const items =
+    order.items
+      ?.map((item) => {
+        const title = item.title || "";
+        const planDays =
+          item.planDays
+            ?.map(
+              (day) =>
+                `${day.selectedMealTitle || ""} ${
+                  day.alternativeMealTitle || ""
+                } ${day.date || ""} ${day.slot || ""}`
+            )
+            .join(" ") || "";
+
+        return `${title} ${planDays}`;
+      })
+      .join(" ") || "";
 
   const haystack = [
     order._id,
@@ -390,9 +483,7 @@ export default function DeliveryDashboard() {
           const now = Date.now();
           const lastSentAt = lastSentRef.current[orderId] || 0;
 
-          if (now - lastSentAt < LOCATION_SEND_THROTTLE_MS) {
-            return;
-          }
+          if (now - lastSentAt < LOCATION_SEND_THROTTLE_MS) return;
 
           lastSentRef.current[orderId] = now;
 
@@ -467,6 +558,7 @@ export default function DeliveryDashboard() {
           <h1 className="text-3xl font-bold text-gray-900">
             Delivery Dashboard
           </h1>
+
           <p className="mt-2 text-gray-600">
             Accept orders, manage assigned deliveries and update live tracking.
           </p>
@@ -597,37 +689,6 @@ export default function DeliveryDashboard() {
   );
 }
 
-function SectionHeader({
-  title,
-  subtitle,
-  count,
-}: {
-  title: string;
-  subtitle: string;
-  count: string;
-}) {
-  return (
-    <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-        <p className="text-sm text-gray-500">{subtitle}</p>
-      </div>
-
-      <span className="w-fit rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
-        {count}
-      </span>
-    </div>
-  );
-}
-
-function EmptyCard({ text }: { text: string }) {
-  return (
-    <div className="rounded-2xl border bg-white p-6 text-gray-600 shadow-sm">
-      {text}
-    </div>
-  );
-}
-
 function AvailableOrderCard({
   order,
   busy,
@@ -645,28 +706,7 @@ function AvailableOrderCard({
     <div className="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
       <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
         <div className="space-y-3">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-xs font-medium text-gray-500">Order ID</p>
-              <p className="break-all text-sm font-bold text-gray-900">
-                {order._id}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Badge
-                className={getPaymentBadgeClass(order.payment?.status)}
-                text={(order.payment?.status || "created").toUpperCase()}
-              />
-
-              {splitTotals.discount > 0 && (
-                <Badge
-                  className="border-green-100 bg-green-50 text-green-700"
-                  text={`Plan Discount -₹${splitTotals.discount}`}
-                />
-              )}
-            </div>
-          </div>
+          <OrderHeader order={order} />
 
           <div className="grid gap-3 md:grid-cols-4">
             <InfoBlock
@@ -678,7 +718,7 @@ function AvailableOrderCard({
 
             <InfoBlock
               icon={<CalendarClock size={15} />}
-              label="Slot"
+              label="Main Slot"
               value={`${order.delivery?.slot?.date || "N/A"} | ${
                 order.delivery?.slot?.time || "N/A"
               }`}
@@ -697,34 +737,14 @@ function AvailableOrderCard({
               icon={<PackageCheck size={15} />}
               label="Items"
               value={`${order.items?.length || 0} item(s)`}
-              subValue={`Meals: ${formatCurrency(splitTotals.normalMealsSubtotal)}`}
+              subValue={`Meals: ${formatCurrency(
+                splitTotals.normalMealsSubtotal
+              )}`}
             />
           </div>
 
           <BillingBreakdown order={order} />
-
-          <div className="rounded-xl bg-gray-50 p-3">
-            <div className="mb-1 flex items-center gap-2">
-              <MapPin size={15} className="text-green-700" />
-              <p className="text-sm font-bold text-gray-900">Address</p>
-            </div>
-
-            <p className="line-clamp-2 text-sm text-gray-700">
-              {formatAddress(address)}
-            </p>
-
-            {mapsUrl && (
-              <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 inline-block text-xs font-semibold text-green-700 underline"
-              >
-                Open in Google Maps
-              </a>
-            )}
-          </div>
-
+          <AddressBox address={address} mapsUrl={mapsUrl} />
           <ItemChips order={order} />
         </div>
 
@@ -804,7 +824,7 @@ function MyDeliveryOrderCard({
 
             <InfoBlock
               icon={<CalendarClock size={15} />}
-              label="Slot"
+              label="Main Slot"
               value={`${order.delivery?.slot?.date || "N/A"} | ${
                 order.delivery?.slot?.time || "N/A"
               }`}
@@ -846,28 +866,7 @@ function MyDeliveryOrderCard({
             />
           </div>
 
-          <div className="rounded-xl bg-gray-50 p-3">
-            <div className="mb-1 flex items-center gap-2">
-              <MapPin size={15} className="text-green-700" />
-              <p className="text-sm font-bold text-gray-900">Address</p>
-            </div>
-
-            <p className="line-clamp-2 text-sm text-gray-700">
-              {formatAddress(address)}
-            </p>
-
-            {mapsUrl && (
-              <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 inline-block text-xs font-semibold text-green-700 underline"
-              >
-                Open in Google Maps
-              </a>
-            )}
-          </div>
-
+          <AddressBox address={address} mapsUrl={mapsUrl} />
           <ItemChips order={order} />
 
           <div className="grid gap-2 text-xs md:grid-cols-4">
@@ -952,6 +951,35 @@ function MyDeliveryOrderCard({
   );
 }
 
+function OrderHeader({ order }: { order: Order }) {
+  const splitTotals = getSplitTotals(order);
+
+  return (
+    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+      <div>
+        <p className="text-xs font-medium text-gray-500">Order ID</p>
+        <p className="break-all text-sm font-bold text-gray-900">
+          {order._id}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Badge
+          className={getPaymentBadgeClass(order.payment?.status)}
+          text={(order.payment?.status || "created").toUpperCase()}
+        />
+
+        {splitTotals.discount > 0 && (
+          <Badge
+            className="border-green-100 bg-green-50 text-green-700"
+            text={`Plan Discount -₹${splitTotals.discount}`}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function BillingBreakdown({ order }: { order: Order }) {
   const splitTotals = getSplitTotals(order);
 
@@ -960,7 +988,10 @@ function BillingBreakdown({ order }: { order: Order }) {
       <p className="mb-2 text-sm font-bold text-gray-900">Billing Breakdown</p>
 
       <div className="grid gap-2 text-xs sm:grid-cols-4">
-        <BillingTile label="Meals" value={formatCurrency(splitTotals.normalMealsSubtotal)} />
+        <BillingTile
+          label="Meals"
+          value={formatCurrency(splitTotals.normalMealsSubtotal)}
+        />
         <BillingTile
           label="Challenge Plan"
           value={formatCurrency(splitTotals.challengePlanSubtotal)}
@@ -980,6 +1011,131 @@ function BillingBreakdown({ order }: { order: Order }) {
   );
 }
 
+function AddressBox({
+  address,
+  mapsUrl,
+}: {
+  address?: DeliveryAddress;
+  mapsUrl: string;
+}) {
+  return (
+    <div className="rounded-xl bg-gray-50 p-3">
+      <div className="mb-1 flex items-center gap-2">
+        <MapPin size={15} className="text-green-700" />
+        <p className="text-sm font-bold text-gray-900">Address</p>
+      </div>
+
+      <p className="line-clamp-2 text-sm text-gray-700">
+        {formatAddress(address)}
+      </p>
+
+      {mapsUrl && (
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-block text-xs font-semibold text-green-700 underline"
+        >
+          Open in Google Maps
+        </a>
+      )}
+    </div>
+  );
+}
+
+function ItemChips({ order }: { order: Order }) {
+  return (
+    <div>
+      <p className="mb-1 text-sm font-bold text-gray-900">
+        Delivery Items
+      </p>
+
+      <div className="grid gap-2">
+        {order.items?.map((item, index) => (
+          <DeliveryItemCard
+            key={`${order._id}-${index}`}
+            item={item}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DeliveryItemCard({ item }: { item: OrderItem }) {
+  const isPlan = isPlanItem(item);
+  const todayPlanDay = isPlan ? getTodayPlanDay(item) : null;
+
+  if (isPlan && todayPlanDay) {
+    return (
+      <div className="rounded-xl border border-green-100 bg-green-50 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-black text-gray-900">
+                Day {todayPlanDay.day}:{" "}
+                {todayPlanDay.selectedMealTitle || "Challenge Meal"}
+              </p>
+
+              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-green-700">
+                Challenge Plan
+              </span>
+            </div>
+
+            <p className="mt-1 text-xs font-semibold text-gray-500">
+              Delivery: {formatDateOnly(todayPlanDay.date)} •{" "}
+              {formatSlot(todayPlanDay.slot)}
+            </p>
+
+            <p className="mt-1 text-xs font-semibold text-gray-500">
+              Preference: {todayPlanDay.preference || "mixed"} • Status:{" "}
+              {readableStatus(todayPlanDay.deliveryStatus || "scheduled")}
+            </p>
+
+            {todayPlanDay.alternativeMealTitle && (
+              <p className="mt-1 text-xs font-semibold text-gray-500">
+                Alternative: {todayPlanDay.alternativeMealTitle}
+              </p>
+            )}
+          </div>
+
+          <div className="text-left sm:text-right">
+            <p className="text-sm font-black text-gray-900">
+              {formatCurrency(todayPlanDay.selectedMealPrice)}
+            </p>
+
+            <p className="text-xs font-semibold text-gray-500">
+              {todayPlanDay.selectedMealCalories || 0} kcal |{" "}
+              {todayPlanDay.selectedMealProtein || 0}g protein
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`rounded-xl border px-3 py-2 ${
+        isPlan
+          ? "border-green-100 bg-green-50"
+          : "border-gray-100 bg-gray-50"
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-bold text-gray-800">
+          {item.title || "Meal"} × {item.qty || 1}
+          {isPlan ? " • Challenge Plan" : ""}
+        </span>
+
+        <span className="text-sm font-bold text-gray-900">
+          {formatCurrency(Number(item.price || 0) * Number(item.qty || 1))}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function BillingTile({
   label,
   value,
@@ -994,6 +1150,7 @@ function BillingTile({
   return (
     <div className="rounded-lg bg-white px-3 py-2">
       <p className="text-[11px] font-medium text-gray-500">{label}</p>
+
       <p
         className={`mt-1 text-sm ${
           bold ? "font-black" : "font-bold"
@@ -1032,7 +1189,9 @@ function InfoBlock({
         {icon}
         <p className="text-xs font-medium">{label}</p>
       </div>
+
       <p className="truncate text-sm font-bold text-gray-900">{value}</p>
+
       {subValue && <p className="truncate text-xs text-gray-500">{subValue}</p>}
     </div>
   );
@@ -1071,26 +1230,33 @@ function TimeBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ItemChips({ order }: { order: Order }) {
+function SectionHeader({
+  title,
+  subtitle,
+  count,
+}: {
+  title: string;
+  subtitle: string;
+  count: string;
+}) {
   return (
-    <div>
-      <p className="mb-1 text-sm font-bold text-gray-900">Items</p>
-
-      <div className="flex flex-wrap gap-2">
-        {order.items?.map((item, index) => (
-          <span
-            key={`${order._id}-${index}`}
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              item.challengeId
-                ? "bg-green-50 text-green-700 border border-green-100"
-                : "bg-gray-100 text-gray-700 border border-gray-100"
-            }`}
-          >
-            {item.title || "Meal"} × {item.qty || 1}
-            {item.challengeId ? " • Challenge Plan" : ""}
-          </span>
-        ))}
+    <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+        <p className="text-sm text-gray-500">{subtitle}</p>
       </div>
+
+      <span className="w-fit rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
+        {count}
+      </span>
+    </div>
+  );
+}
+
+function EmptyCard({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border bg-white p-6 text-gray-600 shadow-sm">
+      {text}
     </div>
   );
 }
