@@ -25,6 +25,7 @@ type OrderItem = {
   calories?: number;
   carbs?: number;
   fat?: number;
+  challengeId?: string;
   meal?: {
     _id?: string;
     title?: string;
@@ -44,10 +45,17 @@ type Order = {
     subtotal?: number;
     discount?: number;
     payable?: number;
+    challengePlanSubtotal?: number;
+    normalMealsSubtotal?: number;
     totalProtein?: number;
     totalCalories?: number;
     totalCarbs?: number;
     totalFat?: number;
+  };
+  coupon?: {
+    code?: string;
+    discount?: number;
+    redeemed?: boolean;
   };
   kitchenStatus?: KitchenStatus;
   payment?: {
@@ -100,6 +108,39 @@ const kitchenStatuses: {
   },
 ];
 
+const formatCurrency = (value?: number) => `₹${Number(value || 0).toFixed(0)}`;
+
+const getSplitTotals = (order: Order) => {
+  const items = order.items || [];
+
+  const fallbackChallengePlanSubtotal = items
+    .filter((item) => Boolean(item.challengeId))
+    .reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || item.quantity || 1),
+      0
+    );
+
+  const subtotal = Number(order.totals?.subtotal || 0);
+
+  const challengePlanSubtotal =
+    Number(order.totals?.challengePlanSubtotal || 0) > 0
+      ? Number(order.totals?.challengePlanSubtotal || 0)
+      : Math.round(fallbackChallengePlanSubtotal);
+
+  const normalMealsSubtotal =
+    Number(order.totals?.normalMealsSubtotal || 0) > 0
+      ? Number(order.totals?.normalMealsSubtotal || 0)
+      : Math.max(subtotal - challengePlanSubtotal, 0);
+
+  return {
+    subtotal,
+    normalMealsSubtotal,
+    challengePlanSubtotal,
+    discount: Number(order.totals?.discount || 0),
+    payable: Number(order.totals?.payable || 0),
+  };
+};
+
 export default function OrdersList() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
@@ -135,7 +176,7 @@ export default function OrdersList() {
     let list = [...orders];
 
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const query = search.toLowerCase();
 
       list = list.filter((order) => {
         const customerName = order.user?.name || "";
@@ -143,12 +184,17 @@ export default function OrdersList() {
           order.user?.phone || order.delivery?.address?.phone || "";
         const email = order.user?.email || "";
         const id = order._id || "";
+        const coupon = order.coupon?.code || "";
+        const itemTitles =
+          order.items?.map((item) => item.title || item.meal?.title || item.meal?.name || "").join(" ") || "";
 
         return (
-          customerName.toLowerCase().includes(q) ||
-          phone.toLowerCase().includes(q) ||
-          email.toLowerCase().includes(q) ||
-          id.toLowerCase().includes(q)
+          customerName.toLowerCase().includes(query) ||
+          phone.toLowerCase().includes(query) ||
+          email.toLowerCase().includes(query) ||
+          id.toLowerCase().includes(query) ||
+          coupon.toLowerCase().includes(query) ||
+          itemTitles.toLowerCase().includes(query)
         );
       });
     }
@@ -285,15 +331,15 @@ export default function OrdersList() {
 
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by customer, phone, email or order ID"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search by customer, phone, email, coupon, item or order ID"
                 className="h-12 w-full rounded-xl border bg-white pl-11 pr-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
               />
             </div>
 
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(event) => setStatusFilter(event.target.value)}
               className="h-12 rounded-xl border bg-white px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
             >
               <option value="all">All statuses</option>
@@ -321,9 +367,11 @@ export default function OrdersList() {
             {filteredOrders.map((order) => {
               const currentKitchenStatus = order.kitchenStatus || "pending";
               const items = order.items || [];
-              const total = order.totals?.payable || 0;
+              const splitTotals = getSplitTotals(order);
               const customerName =
-                order.user?.name || order.delivery?.address?.fullName || "Customer";
+                order.user?.name ||
+                order.delivery?.address?.fullName ||
+                "Customer";
               const phone =
                 order.user?.phone || order.delivery?.address?.phone || "No phone";
 
@@ -356,6 +404,12 @@ export default function OrdersList() {
                         {order.delivery?.status && (
                           <span className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
                             Delivery: {order.delivery.status}
+                          </span>
+                        )}
+
+                        {order.coupon?.code && (
+                          <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+                            Coupon: {order.coupon.code}
                           </span>
                         )}
                       </div>
@@ -403,12 +457,45 @@ export default function OrdersList() {
 
                     <div className="rounded-2xl bg-green-50 px-5 py-4 text-right">
                       <p className="text-xs font-semibold text-gray-500">
-                        Total Amount
+                        Total Payable
                       </p>
 
                       <p className="text-2xl font-extrabold text-green-700">
-                        ₹{Number(total).toFixed(2)}
+                        {formatCurrency(splitTotals.payable)}
                       </p>
+
+                      {splitTotals.discount > 0 && (
+                        <p className="mt-1 text-xs font-bold text-green-700">
+                          Plan discount -₹{splitTotals.discount}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border bg-gray-50 p-4">
+                    <h3 className="mb-3 font-bold text-gray-900">
+                      Billing Breakdown
+                    </h3>
+
+                    <div className="grid gap-3 md:grid-cols-4">
+                      <BillingBox
+                        label="Meals"
+                        value={formatCurrency(splitTotals.normalMealsSubtotal)}
+                      />
+                      <BillingBox
+                        label="Challenge Plan"
+                        value={formatCurrency(splitTotals.challengePlanSubtotal)}
+                      />
+                      <BillingBox
+                        label="Plan Discount"
+                        value={`-₹${splitTotals.discount}`}
+                        green
+                      />
+                      <BillingBox
+                        label="Payable"
+                        value={formatCurrency(splitTotals.payable)}
+                        bold
+                      />
                     </div>
                   </div>
 
@@ -427,14 +514,22 @@ export default function OrdersList() {
                             className="flex flex-col gap-2 rounded-xl bg-white px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
                           >
                             <div>
-                              <p className="font-bold text-gray-800">
-                                {item.title ||
-                                  item.meal?.title ||
-                                  item.meal?.name ||
-                                  "Meal Item"}
-                              </p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-bold text-gray-800">
+                                  {item.title ||
+                                    item.meal?.title ||
+                                    item.meal?.name ||
+                                    "Meal Item"}
+                                </p>
 
-                              <p className="text-xs text-gray-500">
+                                {item.challengeId && (
+                                  <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-bold text-green-700">
+                                    Challenge Plan
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="mt-1 text-xs text-gray-500">
                                 Qty: {item.qty || item.quantity || 1}
                               </p>
                             </div>
@@ -492,6 +587,31 @@ export default function OrdersList() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function BillingBox({
+  label,
+  value,
+  green,
+  bold,
+}: {
+  label: string;
+  value: string;
+  green?: boolean;
+  bold?: boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-white p-3">
+      <p className="text-xs font-medium text-gray-500">{label}</p>
+      <p
+        className={`mt-1 text-base ${
+          bold ? "font-extrabold" : "font-bold"
+        } ${green ? "text-green-700" : "text-gray-900"}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
