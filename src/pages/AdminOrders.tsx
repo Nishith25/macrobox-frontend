@@ -1,3 +1,5 @@
+// frontend/src/pages/AdminOrders.tsx (FRONTEND)
+
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 
@@ -15,24 +17,44 @@ type Order = {
     email?: string;
     phone?: string;
   };
+  items?: Array<{
+    title?: string;
+    price?: number;
+    qty?: number;
+    challengeId?: string;
+  }>;
   totals?: {
     subtotal?: number;
     discount?: number;
     payable?: number;
+    challengePlanSubtotal?: number;
+    normalMealsSubtotal?: number;
+    totalProtein?: number;
+    totalCalories?: number;
+    totalCarbs?: number;
+    totalFat?: number;
   };
   coupon?: {
     code?: string;
     discount?: number;
+    redeemed?: boolean;
   };
   delivery?: {
     address?: {
       fullName?: string;
       phone?: string;
+      flatNo?: string;
+      floor?: string;
+      buildingName?: string;
+      area?: string;
+      landmark?: string;
       line1?: string;
       line2?: string;
       city?: string;
       state?: string;
       pincode?: string;
+      formattedAddress?: string;
+      mapsUrl?: string;
     };
     slot?: {
       date?: string;
@@ -61,6 +83,76 @@ type Summary = {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+const formatDateTime = (value?: string) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString("en-IN");
+};
+
+const readableStatus = (value?: string) => {
+  if (!value) return "Unassigned";
+
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const getAddressText = (order: Order) => {
+  const address = order.delivery?.address;
+
+  if (!address) return "N/A";
+
+  if (address.formattedAddress) return address.formattedAddress;
+
+  const parts = [
+    address.flatNo || address.line1,
+    address.floor,
+    address.buildingName || address.line2,
+    address.area,
+    address.landmark,
+    address.city,
+    address.state,
+    address.pincode,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(", ") : "N/A";
+};
+
+const getSplitTotals = (order: Order) => {
+  const items = order.items || [];
+
+  const fallbackChallengePlanSubtotal = items
+    .filter((item) => Boolean(item.challengeId))
+    .reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
+      0
+    );
+
+  const subtotal = Number(order.totals?.subtotal || 0);
+
+  const challengePlanSubtotal =
+    Number(order.totals?.challengePlanSubtotal || 0) > 0
+      ? Number(order.totals?.challengePlanSubtotal || 0)
+      : Math.round(fallbackChallengePlanSubtotal);
+
+  const normalMealsSubtotal =
+    Number(order.totals?.normalMealsSubtotal || 0) > 0
+      ? Number(order.totals?.normalMealsSubtotal || 0)
+      : Math.max(subtotal - challengePlanSubtotal, 0);
+
+  return {
+    subtotal,
+    normalMealsSubtotal,
+    challengePlanSubtotal,
+    discount: Number(order.totals?.discount || 0),
+    payable: Number(order.totals?.payable || 0),
+  };
+};
+
 export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -75,6 +167,7 @@ export default function AdminOrders() {
 
   const fetchOrders = async (customFrom = from, customTo = to) => {
     setLoading(true);
+
     try {
       const res = await api.get("/admin/orders", {
         params: {
@@ -85,6 +178,7 @@ export default function AdminOrders() {
           to: customTo,
         },
       });
+
       setOrders(res.data.orders || []);
       setSummary(res.data.summary || null);
     } catch {
@@ -95,8 +189,12 @@ export default function AdminOrders() {
   };
 
   const fetchAgents = async () => {
-    const res = await api.get("/admin/orders/delivery-agents");
-    setAgents(res.data || []);
+    try {
+      const res = await api.get("/admin/orders/delivery-agents");
+      setAgents(res.data || []);
+    } catch {
+      setAgents([]);
+    }
   };
 
   useEffect(() => {
@@ -107,6 +205,7 @@ export default function AdminOrders() {
 
   const setTodayFilter = () => {
     const today = todayISO();
+
     setFrom(today);
     setTo(today);
     fetchOrders(today, today);
@@ -120,37 +219,56 @@ export default function AdminOrders() {
 
   const assignAgent = async (orderId: string, agentId: string) => {
     if (!agentId) return;
-    await api.patch(`/admin/orders/${orderId}/assign-agent`, { agentId });
+
+    await api.patch(`/admin/orders/${orderId}/assign-agent`, {
+      agentId,
+    });
+
     fetchOrders();
   };
 
   const cancelOrder = async (orderId: string) => {
     if (!confirm("Cancel this order?")) return;
+
     await api.patch(`/admin/orders/${orderId}/cancel`);
     fetchOrders();
   };
 
   const exportCSV = () => {
-    const rows = orders.map((o) => ({
-      orderId: o._id,
-      customer: o.user?.name || "",
-      email: o.user?.email || "",
-      phone: o.user?.phone || o.delivery?.address?.phone || "",
-      paymentStatus: o.payment?.status || "",
-      razorpayPaymentId: o.payment?.razorpayPaymentId || "",
-      deliveryStatus: o.delivery?.status || "",
-      deliveryAgent: o.delivery?.agent?.name || "",
-      total: o.totals?.payable || 0,
-      coupon: o.coupon?.code || "",
-      date: o.createdAt || "",
-    }));
+    const rows = orders.map((order) => {
+      const splitTotals = getSplitTotals(order);
+
+      return {
+        orderId: order._id,
+        customer: order.user?.name || "",
+        email: order.user?.email || "",
+        phone: order.user?.phone || order.delivery?.address?.phone || "",
+        paymentStatus: order.payment?.status || "",
+        razorpayPaymentId: order.payment?.razorpayPaymentId || "",
+        deliveryStatus: order.delivery?.status || "",
+        deliveryAgent: order.delivery?.agent?.name || "",
+        mealsSubtotal: splitTotals.normalMealsSubtotal,
+        challengePlanSubtotal: splitTotals.challengePlanSubtotal,
+        planDiscount: splitTotals.discount,
+        totalPayable: splitTotals.payable,
+        coupon: order.coupon?.code || "",
+        date: order.createdAt || "",
+      };
+    });
 
     const csv = [
       Object.keys(rows[0] || {}).join(","),
-      ...rows.map((r) => Object.values(r).map((v) => `"${v}"`).join(",")),
+      ...rows.map((row) =>
+        Object.values(row)
+          .map((value) => `"${String(value).replaceAll('"', '""')}"`)
+          .join(",")
+      ),
     ].join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], {
+      type: "text/csv",
+    });
+
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
@@ -172,19 +290,23 @@ export default function AdminOrders() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
-      <div className="flex justify-between gap-4 mb-6">
+    <div className="mx-auto max-w-7xl px-4 py-10">
+      <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
           <h1 className="text-3xl font-bold">Admin Orders</h1>
-          <p className="text-gray-600 mt-1">
-            View daily orders, payments, delivery status, agents, and revenue.
+
+          <p className="mt-1 text-gray-600">
+            View daily orders, payments, delivery status, agents, revenue, and
+            coupon breakdown.
           </p>
-          <p className="text-sm text-green-700 mt-2 font-medium">
+
+          <p className="mt-2 text-sm font-medium text-green-700">
             Showing: {from || "All"} → {to || "All"}
           </p>
         </div>
 
         <button
+          type="button"
           onClick={exportCSV}
           className="h-fit rounded-lg bg-green-600 px-4 py-2 font-semibold text-white"
         >
@@ -192,26 +314,26 @@ export default function AdminOrders() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
         {cards.map(([label, value]) => (
           <div key={label} className="rounded-xl border bg-white p-5 shadow-sm">
             <p className="text-sm text-gray-500">{label}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
+            <p className="mt-1 text-2xl font-bold">{value}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-xl border bg-white p-5 mb-4 grid grid-cols-1 md:grid-cols-6 gap-4">
+      <div className="mb-4 grid grid-cols-1 gap-4 rounded-xl border bg-white p-5 md:grid-cols-6">
         <input
           placeholder="Search email / phone / order ID"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(event) => setSearch(event.target.value)}
           className="rounded-lg border px-3 py-2 md:col-span-2"
         />
 
         <select
           value={paymentStatus}
-          onChange={(e) => setPaymentStatus(e.target.value)}
+          onChange={(event) => setPaymentStatus(event.target.value)}
           className="rounded-lg border px-3 py-2"
         >
           <option value="all">All Payments</option>
@@ -222,7 +344,7 @@ export default function AdminOrders() {
 
         <select
           value={deliveryStatus}
-          onChange={(e) => setDeliveryStatus(e.target.value)}
+          onChange={(event) => setDeliveryStatus(event.target.value)}
           className="rounded-lg border px-3 py-2"
         >
           <option value="all">All Delivery Status</option>
@@ -237,18 +359,19 @@ export default function AdminOrders() {
         <input
           type="date"
           value={from}
-          onChange={(e) => setFrom(e.target.value)}
+          onChange={(event) => setFrom(event.target.value)}
           className="rounded-lg border px-3 py-2"
         />
 
         <input
           type="date"
           value={to}
-          onChange={(e) => setTo(e.target.value)}
+          onChange={(event) => setTo(event.target.value)}
           className="rounded-lg border px-3 py-2"
         />
 
         <button
+          type="button"
           onClick={() => fetchOrders()}
           className="rounded-lg bg-black px-4 py-2 font-semibold text-white md:col-span-2"
         >
@@ -256,6 +379,7 @@ export default function AdminOrders() {
         </button>
 
         <button
+          type="button"
           onClick={setTodayFilter}
           className="rounded-lg border px-4 py-2 font-semibold hover:bg-gray-50"
         >
@@ -263,6 +387,7 @@ export default function AdminOrders() {
         </button>
 
         <button
+          type="button"
           onClick={clearDateFilter}
           className="rounded-lg border px-4 py-2 font-semibold hover:bg-gray-50"
         >
@@ -271,7 +396,7 @@ export default function AdminOrders() {
       </div>
 
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[1250px] text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
               <th className="p-4">Order</th>
@@ -279,7 +404,8 @@ export default function AdminOrders() {
               <th className="p-4">Payment</th>
               <th className="p-4">Delivery</th>
               <th className="p-4">Agent</th>
-              <th className="p-4">Total</th>
+              <th className="p-4">Billing</th>
+              <th className="p-4">Items</th>
               <th className="p-4">Coupon</th>
               <th className="p-4">Date</th>
               <th className="p-4 text-right">Actions</th>
@@ -289,103 +415,203 @@ export default function AdminOrders() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="p-6 text-center">
+                <td colSpan={10} className="p-6 text-center">
                   Loading orders...
                 </td>
               </tr>
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-6 text-center text-gray-500">
+                <td colSpan={10} className="p-6 text-center text-gray-500">
                   No orders found.
                 </td>
               </tr>
             ) : (
-              orders.map((order) => (
-                <tr key={order._id} className="border-t align-top">
-                  <td className="p-4 font-semibold break-all">{order._id}</td>
+              orders.map((order) => {
+                const splitTotals = getSplitTotals(order);
 
-                  <td className="p-4">
-                    <p className="font-semibold">{order.user?.name || "N/A"}</p>
-                    <p>{order.user?.email || "N/A"}</p>
-                    <p>
-                      {order.user?.phone ||
-                        order.delivery?.address?.phone ||
-                        "N/A"}
-                    </p>
-                  </td>
+                return (
+                  <tr key={order._id} className="border-t align-top">
+                    <td className="max-w-[190px] break-all p-4 font-semibold">
+                      {order._id}
+                    </td>
 
-                  <td className="p-4">
-                    <p className="capitalize font-semibold">
-                      {order.payment?.status}
-                    </p>
-                    <p className="break-all text-xs text-gray-500">
-                      {order.payment?.razorpayPaymentId || "No payment ID"}
-                    </p>
-                  </td>
-
-                  <td className="p-4">
-                    <p className="capitalize font-semibold">
-                      {(order.delivery?.status || "").replaceAll("_", " ")}
-                    </p>
-                    <p>
-                      {order.delivery?.slot?.date} |{" "}
-                      {order.delivery?.slot?.time}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {order.delivery?.address?.line1},{" "}
-                      {order.delivery?.address?.city}
-                    </p>
-                  </td>
-
-                  <td className="p-4">
-                    <select
-                      value={order.delivery?.agent?._id || ""}
-                      onChange={(e) => assignAgent(order._id, e.target.value)}
-                      className="rounded border px-2 py-2"
-                    >
-                      <option value="">Assign Agent</option>
-                      {agents.map((a) => (
-                        <option key={a._id} value={a._id}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-
-                  <td className="p-4 font-bold">
-                    ₹{order.totals?.payable || 0}
-                  </td>
-
-                  <td className="p-4">
-                    {order.coupon?.code || "-"}
-                    {order.coupon?.discount ? (
-                      <p className="text-green-600">
-                        -₹{order.coupon.discount}
+                    <td className="p-4">
+                      <p className="font-semibold">
+                        {order.user?.name || "N/A"}
                       </p>
-                    ) : null}
-                  </td>
+                      <p>{order.user?.email || "N/A"}</p>
+                      <p>
+                        {order.user?.phone ||
+                          order.delivery?.address?.phone ||
+                          "N/A"}
+                      </p>
+                    </td>
 
-                  <td className="p-4">
-                    {order.createdAt
-                      ? new Date(order.createdAt).toLocaleString("en-IN")
-                      : "-"}
-                  </td>
+                    <td className="p-4">
+                      <p className="font-semibold capitalize">
+                        {order.payment?.status || "created"}
+                      </p>
 
-                  <td className="p-4 text-right">
-                    <button
-                      onClick={() => cancelOrder(order._id)}
-                      disabled={order.delivery?.status === "delivered"}
-                      className="rounded-lg bg-red-600 px-3 py-2 text-white disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                  </td>
-                </tr>
-              ))
+                      <p className="break-all text-xs text-gray-500">
+                        {order.payment?.razorpayPaymentId || "No payment ID"}
+                      </p>
+                    </td>
+
+                    <td className="max-w-[260px] p-4">
+                      <p className="font-semibold capitalize">
+                        {readableStatus(order.delivery?.status)}
+                      </p>
+
+                      <p>
+                        {order.delivery?.slot?.date || "-"} |{" "}
+                        {order.delivery?.slot?.time || "-"}
+                      </p>
+
+                      <p className="mt-1 line-clamp-2 text-xs text-gray-500">
+                        {getAddressText(order)}
+                      </p>
+                    </td>
+
+                    <td className="p-4">
+                      <select
+                        value={order.delivery?.agent?._id || ""}
+                        onChange={(event) =>
+                          assignAgent(order._id, event.target.value)
+                        }
+                        className="rounded border px-2 py-2"
+                      >
+                        <option value="">Assign Agent</option>
+
+                        {agents.map((agent) => (
+                          <option key={agent._id} value={agent._id}>
+                            {agent.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    <td className="min-w-[190px] p-4">
+                      <div className="space-y-1 rounded-lg bg-gray-50 p-3">
+                        <BillingLine
+                          label="Meals"
+                          value={`₹${splitTotals.normalMealsSubtotal}`}
+                        />
+
+                        <BillingLine
+                          label="Challenge Plan"
+                          value={`₹${splitTotals.challengePlanSubtotal}`}
+                        />
+
+                        <BillingLine
+                          label="Plan Discount"
+                          value={`-₹${splitTotals.discount}`}
+                          green
+                        />
+
+                        <div className="border-t pt-1">
+                          <BillingLine
+                            label="Payable"
+                            value={`₹${splitTotals.payable}`}
+                            bold
+                          />
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="min-w-[220px] p-4">
+                      <div className="flex max-w-[260px] flex-wrap gap-2">
+                        {(order.items || []).slice(0, 5).map((item, index) => (
+                          <span
+                            key={`${order._id}-${index}`}
+                            className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                              item.challengeId
+                                ? "border-green-200 bg-green-50 text-green-700"
+                                : "border-gray-200 bg-white text-gray-700"
+                            }`}
+                          >
+                            {item.title || "Meal"} × {item.qty || 1}
+                            {item.challengeId ? " • Plan" : ""}
+                          </span>
+                        ))}
+
+                        {(order.items || []).length > 5 && (
+                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                            +{(order.items || []).length - 5} more
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    <td className="p-4">
+                      {order.coupon?.code ? (
+                        <div>
+                          <p className="font-semibold text-green-700">
+                            {order.coupon.code}
+                          </p>
+
+                          <p className="text-green-600">
+                            -₹
+                            {order.coupon.discount ||
+                              order.totals?.discount ||
+                              0}
+                          </p>
+
+                          <p className="text-xs text-gray-500">
+                            {order.coupon.redeemed ? "Redeemed" : "Not redeemed"}
+                          </p>
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+
+                    <td className="p-4">{formatDateTime(order.createdAt)}</td>
+
+                    <td className="p-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => cancelOrder(order._id)}
+                        disabled={order.delivery?.status === "delivered"}
+                        className="rounded-lg bg-red-600 px-3 py-2 text-white disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function BillingLine({
+  label,
+  value,
+  green,
+  bold,
+}: {
+  label: string;
+  value: string;
+  green?: boolean;
+  bold?: boolean;
+}) {
+  return (
+    <p className="flex items-center justify-between gap-3 text-xs">
+      <span className={bold ? "font-bold text-gray-900" : "text-gray-500"}>
+        {label}
+      </span>
+
+      <span
+        className={`${
+          bold ? "font-bold" : "font-semibold"
+        } ${green ? "text-green-600" : "text-gray-900"}`}
+      >
+        {value}
+      </span>
+    </p>
   );
 }
