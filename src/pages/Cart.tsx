@@ -91,7 +91,6 @@ const addDaysToISO = (isoDate: string, daysToAdd: number) => {
   if (!isoDate) return "";
 
   const [year, month, day] = isoDate.split("-").map(Number);
-
   if (!year || !month || !day) return "";
 
   const date = new Date(year, month - 1, day);
@@ -102,6 +101,21 @@ const addDaysToISO = (isoDate: string, daysToAdd: number) => {
   const dd = String(date.getDate()).padStart(2, "0");
 
   return `${yyyy}-${mm}-${dd}`;
+};
+
+const formatDateForDisplay = (isoDate: string) => {
+  if (!isoDate) return "Select date";
+
+  const [year, month, day] = isoDate.split("-").map(Number);
+  if (!year || !month || !day) return "Select date";
+
+  const date = new Date(year, month - 1, day);
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 const format12hFromHour = (hour24: number) => {
@@ -144,7 +158,7 @@ const isSlotAllowed = (selectedDateISO: string, slotHHmm: string) => {
 };
 
 const optionLabel = (label: string, allowed: boolean) =>
-  allowed ? label : `${label} — Time slot not available`;
+  allowed ? label : `${label} — Not available`;
 
 const makeMapsUrl = (lat: number, lng: number) =>
   `https://www.google.com/maps?q=${lat},${lng}`;
@@ -161,7 +175,6 @@ const prettyDate = (iso?: string | null) => {
 
 const formatCouponLabel = (coupon: AvailableCoupon) => {
   if (coupon.type === "flat") return `₹${coupon.value} OFF on plan`;
-
   return `${coupon.value}% OFF on next challenge plan`;
 };
 
@@ -421,6 +434,9 @@ export default function Cart() {
   const inputClass =
     "h-12 w-full rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100";
 
+  const scheduleInputClass =
+    "h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-white px-4 text-left text-sm font-black text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
+
   const updateChallengeScheduleDay = (
     cartKey: string,
     dayNo: number,
@@ -443,17 +459,20 @@ export default function Cart() {
       if (Number(dayNo) === 1 && patch.date !== undefined) {
         return {
           ...prev,
-          [cartKey]: nextSchedule.map((day) => ({
-            ...day,
-            date: patch.date ? addDaysToISO(patch.date, Number(day.day) - 1) : "",
-            slot:
-              patch.date && isSlotAllowed(
-                addDaysToISO(patch.date, Number(day.day) - 1),
-                day.slot
-              )
-                ? day.slot
-                : "",
-          })),
+          [cartKey]: nextSchedule.map((day) => {
+            const date = patch.date
+              ? addDaysToISO(patch.date, Number(day.day) - 1)
+              : "";
+
+            return {
+              ...day,
+              date,
+              slot:
+                date && isSlotAllowed(date, day.slot || "")
+                  ? day.slot
+                  : "",
+            };
+          }),
         };
       }
 
@@ -1038,9 +1057,7 @@ export default function Cart() {
 
       for (const day of schedule) {
         if (!day.date || !day.slot) {
-          setSlotMsg(
-            `Please select Day 1 date and slot. Other dates will be selected automatically.`
-          );
+          setSlotMsg("Please select date and slot for all challenge days.");
           return false;
         }
 
@@ -1350,21 +1367,20 @@ export default function Cart() {
                         {isPlan && schedule.length > 0 && (
                           <div className="mt-3 w-full rounded-[18px] border border-blue-100 bg-blue-50 p-3 sm:p-4">
                             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-  <p className="flex items-center gap-2 text-[11px] font-black uppercase leading-5 tracking-wide text-blue-700 sm:text-xs">
-    <CalendarClock size={14} className="shrink-0" />
-    <span>Day-wise Delivery Schedule</span>
-  </p>
+                              <p className="flex items-center gap-2 text-[11px] font-black uppercase leading-5 tracking-wide text-blue-700 sm:text-xs">
+                                <CalendarClock size={14} className="shrink-0" />
+                                <span>Day-wise Delivery Schedule</span>
+                              </p>
 
-  <button
-    type="button"
-    onClick={() => applyDayOneSlotToAllDays(cartKey)}
-    disabled={!dayOne?.date || !dayOne?.slot}
-    className="h-9 w-fit rounded-full bg-blue-600 px-4 text-[11px] font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-  >
-    Apply to all
-  </button>
-</div>
-                            
+                              <button
+                                type="button"
+                                onClick={() => applyDayOneSlotToAllDays(cartKey)}
+                                disabled={!dayOne?.date || !dayOne?.slot}
+                                className="h-8 w-fit rounded-full bg-blue-600 px-3 text-[11px] font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Apply to all
+                              </button>
+                            </div>
 
                             <div className="grid gap-3">
                               {schedule.map((day) => (
@@ -1372,47 +1388,41 @@ export default function Cart() {
                                   key={`${cartKey}-day-${day.day}`}
                                   className="w-full rounded-[16px] bg-white p-3 sm:p-4"
                                 >
-                                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                      <p className="text-sm font-black text-slate-950">
-                                        Day {day.day}: {day.selectedMealTitle}
+                                  <div className="flex flex-col gap-1">
+                                    <p className="break-words text-sm font-black leading-5 text-slate-950 sm:text-base">
+                                      Day {day.day}: {day.selectedMealTitle}
+                                    </p>
+
+                                    {day.day !== 1 && (
+                                      <p className="text-xs font-bold text-slate-400">
+                                        Date auto-selected from Day 1
                                       </p>
-
-                                      {day.day !== 1 && (
-                                        <p className="mt-1 text-xs font-bold text-slate-400">
-                                          Date auto-selected from Day 1
-                                        </p>
-                                      )}
-                                    </div>
-
-                                    {day.date && (
-                                      <span className="w-fit rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black text-blue-700">
-                                        {day.date}
-                                      </span>
                                     )}
                                   </div>
 
                                   <div className="mt-3 grid w-full grid-cols-1 gap-3 md:grid-cols-2">
-                                    <input
-                                      type="date"
-                                      min={todayISO()}
-                                      value={day.date}
-                                      disabled={day.day !== 1}
-                                      onChange={(event) =>
-                                        updateChallengeScheduleDay(
-                                          cartKey,
-                                          day.day,
-                                          {
-                                            date: event.target.value,
-                                          }
-                                        )
-                                      }
-                                      className={`h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-green-500 focus:ring-4 focus:ring-green-100 ${
-  day.day !== 1
-    ? "cursor-not-allowed bg-slate-100 text-slate-500"
-    : ""
-}`}
-                                    />
+                                    <label className="relative block w-full">
+                                      <span className={scheduleInputClass}>
+                                        {formatDateForDisplay(day.date)}
+                                      </span>
+
+                                      <input
+                                        type="date"
+                                        min={todayISO()}
+                                        value={day.date}
+                                        disabled={day.day !== 1}
+                                        onChange={(event) =>
+                                          updateChallengeScheduleDay(
+                                            cartKey,
+                                            day.day,
+                                            {
+                                              date: event.target.value,
+                                            }
+                                          )
+                                        }
+                                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                                      />
+                                    </label>
 
                                     <select
                                       value={day.slot}
@@ -1425,11 +1435,9 @@ export default function Cart() {
                                           }
                                         )
                                       }
-                                      className="h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                                      className={scheduleInputClass}
                                     >
-                                      <option value="">
-                                        Select delivery slot
-                                      </option>
+                                      <option value="">Select delivery slot</option>
 
                                       {slots.map((slot) => {
                                         const allowed = isSlotAllowed(
@@ -1453,8 +1461,11 @@ export default function Cart() {
                                     </select>
                                   </div>
 
-                                  <p className="mt-2 text-xs font-bold text-slate-500">
-                                    {day.date || "Date not selected"} •{" "}
+                                  <p className="mt-2 break-words text-xs font-bold text-slate-500">
+                                    {day.date
+                                      ? formatDateForDisplay(day.date)
+                                      : "Date not selected"}{" "}
+                                    •{" "}
                                     {day.slot
                                       ? format12hFromSlot(day.slot)
                                       : "Slot not selected"}
@@ -2099,7 +2110,10 @@ export default function Cart() {
                 </h2>
               </div>
 
-            
+              <p className="rounded-[16px] border border-blue-100 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-700">
+                Select date and slot inside the plan card for each challenge
+                day.
+              </p>
 
               <p className="mt-3 rounded-[16px] border border-yellow-200 bg-yellow-50 p-3 text-xs font-medium leading-5 text-yellow-800">
                 Every challenge day must be scheduled at least <b>3 hours</b>{" "}
