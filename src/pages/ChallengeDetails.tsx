@@ -274,10 +274,7 @@ export default function ChallengeDetails() {
 
   const selectedTotals = useMemo(() => sumMeals(selectedMeals), [selectedMeals]);
 
-  const selectedMealPreview = useMemo(() => {
-    return selectedMeals.slice(0, 4).map((meal) => meal.title);
-  }, [selectedMeals]);
-
+  
   const perks: string[] = challenge?.perks?.length
     ? challenge.perks
     : [
@@ -613,24 +610,67 @@ export default function ChallengeDetails() {
                 </div>
               </div>
 
-              {selectedMealPreview.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedMealPreview.map((mealTitle, index) => (
-                    <span
-                      key={`${mealTitle}-${index}`}
-                      className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700"
-                    >
-                      {mealTitle}
-                    </span>
-                  ))}
+              {selectedMeals.length > 0 && (
+  <div className="mt-4 rounded-[18px] border border-green-100 bg-green-50 p-4">
+    <p className="mb-3 text-xs font-black uppercase tracking-wide text-green-700">
+      Meals Included in This Plan
+    </p>
 
-                  {selectedMeals.length > selectedMealPreview.length && (
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
-                      +{selectedMeals.length - selectedMealPreview.length} more
-                    </span>
-                  )}
-                </div>
-              )}
+    <div className="grid gap-2 md:grid-cols-2">
+      {selectedMeals.map((meal, index) => (
+        <div
+          key={`${meal._id}-${index}`}
+          className="rounded-[14px] border border-green-100 bg-white p-3"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-slate-950">
+                Day {index + 1}: {meal.title}
+              </p>
+
+              <p className="mt-1 text-xs font-bold capitalize text-slate-500">
+                {getMealDietType(meal)} meal
+              </p>
+            </div>
+
+            <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-black text-green-700">
+              ₹{meal.price}
+            </span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
+              <p className="text-[10px] font-black uppercase text-slate-400">
+                Protein
+              </p>
+              <p className="text-xs font-black text-slate-900">
+                {meal.protein}g
+              </p>
+            </div>
+
+            <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
+              <p className="text-[10px] font-black uppercase text-slate-400">
+                Calories
+              </p>
+              <p className="text-xs font-black text-slate-900">
+                {meal.calories}
+              </p>
+            </div>
+
+            <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
+              <p className="text-[10px] font-black uppercase text-slate-400">
+                Carbs
+              </p>
+              <p className="text-xs font-black text-slate-900">
+                {meal.carbs}g
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
             </div>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
