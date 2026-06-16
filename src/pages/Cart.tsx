@@ -1071,7 +1071,7 @@ export default function Cart() {
   </p>
 )}
 
-{item.planItems?.length > 0 && (
+{item.planItems?.length > 0 && !item.planDays?.length && (
   <div className="mt-3 rounded-[16px] border border-green-100 bg-green-50 p-3">
     <p className="mb-2 text-xs font-black uppercase tracking-wide text-green-700">
       Plan Includes
@@ -1090,7 +1090,7 @@ export default function Cart() {
   </div>
 )}
 
-{item.planItems?.length > 0 && (
+{item.planItems?.length > 0 && !item.planDays?.length && (
   <div className="mt-3 rounded-[16px] border border-green-100 bg-green-50 p-3">
     <p className="mb-2 text-xs font-black uppercase tracking-wide text-green-700">
       Plan Includes
