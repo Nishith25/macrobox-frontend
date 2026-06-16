@@ -1356,20 +1356,16 @@ export default function Cart() {
                               </p>
 
                               <button
-                                type="button"
-                                onClick={() => applyDayOneSlotToAllDays(cartKey)}
-                                disabled={!dayOne?.date || !dayOne?.slot}
-                                className="w-fit rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                Apply Day 1 slot to all days
-                              </button>
+  type="button"
+  onClick={() => applyDayOneSlotToAllDays(cartKey)}
+  disabled={!dayOne?.date || !dayOne?.slot}
+  className="w-fit rounded-full bg-blue-600 px-3 py-1.5 text-[11px] font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+>
+  Apply to all
+</button>
                             </div>
 
-                            <p className="mb-3 rounded-[14px] border border-blue-100 bg-white px-3 py-2 text-xs font-bold leading-5 text-blue-700">
-                              Select <b>Day 1 date</b>. Day 2 to Day 7 dates
-                              will be selected automatically for the next
-                              consecutive days and cannot be changed.
-                            </p>
+                            
 
                             <div className="grid gap-3">
                               {schedule.map((day) => (
