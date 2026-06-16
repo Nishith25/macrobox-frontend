@@ -85,6 +85,25 @@ type ChallengeScheduleDay = {
 
 const pad2 = (num: number) => String(num).padStart(2, "0");
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+const addDaysToISO = (isoDate: string, daysToAdd: number) => {
+  if (!isoDate) return "";
+
+  const [year, month, day] = isoDate.split("-").map(Number);
+
+  if (!year || !month || !day) return "";
+
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + daysToAdd);
+
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const format12hFromHour = (hour24: number) => {
   const period = hour24 >= 12 ? "PM" : "AM";
   const hour = hour24 % 12 === 0 ? 12 : hour24 % 12;
@@ -223,7 +242,7 @@ const buildScheduleFromCartItem = (item: any): ChallengeScheduleDay[] => {
       day: Number(day.day || index + 1),
       date: "",
       slot: "",
-      preference: day.preference || "mixed",
+      preference: day.preference || item.preference || "mixed",
       selectedMeal: String(day.selectedMeal || day.selectedMealId || ""),
       selectedMealTitle: day.selectedMealTitle || `Day ${index + 1} Meal`,
       selectedMealPrice: Number(day.selectedMealPrice || 0),
@@ -407,11 +426,71 @@ export default function Cart() {
     dayNo: number,
     patch: Partial<ChallengeScheduleDay>
   ) => {
+    setChallengeSchedules((prev) => {
+      const currentSchedule = prev[cartKey] || [];
+
+      const nextSchedule = currentSchedule.map((day) => {
+        if (Number(day.day) === Number(dayNo)) {
+          return {
+            ...day,
+            ...patch,
+          };
+        }
+
+        return day;
+      });
+
+      if (Number(dayNo) === 1 && patch.date !== undefined) {
+        return {
+          ...prev,
+          [cartKey]: nextSchedule.map((day) => ({
+            ...day,
+            date: patch.date ? addDaysToISO(patch.date, Number(day.day) - 1) : "",
+            slot:
+              patch.date && isSlotAllowed(
+                addDaysToISO(patch.date, Number(day.day) - 1),
+                day.slot
+              )
+                ? day.slot
+                : "",
+          })),
+        };
+      }
+
+      return {
+        ...prev,
+        [cartKey]: nextSchedule,
+      };
+    });
+
+    setSlotMsg(null);
+  };
+
+  const applyDayOneSlotToAllDays = (cartKey: string) => {
+    const schedule = challengeSchedules[cartKey] || [];
+    const firstDay = schedule.find((day) => Number(day.day) === 1);
+
+    if (!firstDay?.date) {
+      setSlotMsg("Please select Day 1 date first.");
+      return;
+    }
+
+    if (!firstDay?.slot) {
+      setSlotMsg("Please select Day 1 slot first.");
+      return;
+    }
+
     setChallengeSchedules((prev) => ({
       ...prev,
-      [cartKey]: (prev[cartKey] || []).map((day) =>
-        Number(day.day) === Number(dayNo) ? { ...day, ...patch } : day
-      ),
+      [cartKey]: (prev[cartKey] || []).map((day) => {
+        const date = addDaysToISO(firstDay.date, Number(day.day) - 1);
+
+        return {
+          ...day,
+          date,
+          slot: isSlotAllowed(date, firstDay.slot) ? firstDay.slot : "",
+        };
+      }),
     }));
 
     setSlotMsg(null);
@@ -960,7 +1039,7 @@ export default function Cart() {
       for (const day of schedule) {
         if (!day.date || !day.slot) {
           setSlotMsg(
-            `Please select delivery date and slot for Day ${day.day} in ${item.title}.`
+            `Please select Day 1 date and slot. Other dates will be selected automatically.`
           );
           return false;
         }
@@ -1249,6 +1328,7 @@ export default function Cart() {
                 const cartKey = getCartKey(item);
                 const isPlan = isChallengePlan(item);
                 const schedule = challengeSchedules[cartKey] || [];
+                const dayOne = schedule.find((day) => Number(day.day) === 1);
 
                 return (
                   <div
@@ -1269,9 +1349,26 @@ export default function Cart() {
 
                         {isPlan && schedule.length > 0 && (
                           <div className="mt-3 rounded-[16px] border border-blue-100 bg-blue-50 p-3">
-                            <p className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-blue-700">
-                              <CalendarClock size={14} />
-                              Select Day-wise Delivery Schedule
+                            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-blue-700">
+                                <CalendarClock size={14} />
+                                Select Day-wise Delivery Schedule
+                              </p>
+
+                              <button
+                                type="button"
+                                onClick={() => applyDayOneSlotToAllDays(cartKey)}
+                                disabled={!dayOne?.date || !dayOne?.slot}
+                                className="w-fit rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Apply Day 1 slot to all days
+                              </button>
+                            </div>
+
+                            <p className="mb-3 rounded-[14px] border border-blue-100 bg-white px-3 py-2 text-xs font-bold leading-5 text-blue-700">
+                              Select <b>Day 1 date</b>. Day 2 to Day 7 dates
+                              will be selected automatically for the next
+                              consecutive days and cannot be changed.
                             </p>
 
                             <div className="grid gap-3">
@@ -1280,33 +1377,46 @@ export default function Cart() {
                                   key={`${cartKey}-day-${day.day}`}
                                   className="rounded-[14px] bg-white p-3"
                                 >
-                                  <p className="text-sm font-black text-slate-950">
-                                    Day {day.day}: {day.selectedMealTitle}
-                                  </p>
+                                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                      <p className="text-sm font-black text-slate-950">
+                                        Day {day.day}: {day.selectedMealTitle}
+                                      </p>
+
+                                      {day.day !== 1 && (
+                                        <p className="mt-1 text-xs font-bold text-slate-400">
+                                          Date auto-selected from Day 1
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {day.date && (
+                                      <span className="w-fit rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black text-blue-700">
+                                        {day.date}
+                                      </span>
+                                    )}
+                                  </div>
 
                                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                                     <input
                                       type="date"
-                                      min={new Date()
-                                        .toISOString()
-                                        .slice(0, 10)}
+                                      min={todayISO()}
                                       value={day.date}
+                                      disabled={day.day !== 1}
                                       onChange={(event) =>
                                         updateChallengeScheduleDay(
                                           cartKey,
                                           day.day,
                                           {
                                             date: event.target.value,
-                                            slot: isSlotAllowed(
-                                              event.target.value,
-                                              day.slot
-                                            )
-                                              ? day.slot
-                                              : "",
                                           }
                                         )
                                       }
-                                      className={inputClass}
+                                      className={`${inputClass} ${
+                                        day.day !== 1
+                                          ? "cursor-not-allowed bg-slate-100 text-slate-500"
+                                          : ""
+                                      }`}
                                     />
 
                                     <select
@@ -1932,7 +2042,7 @@ export default function Cart() {
                     setSlotTime("");
                   }
                 }}
-                min={new Date().toISOString().slice(0, 10)}
+                min={todayISO()}
               />
 
               <select
@@ -1995,8 +2105,8 @@ export default function Cart() {
               </div>
 
               <p className="rounded-[16px] border border-blue-100 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-700">
-                Select delivery date and slot separately for each challenge day
-                inside the plan card.
+                Select Day 1 date and slot inside the plan card. Day 2 to Day 7
+                dates will be selected automatically.
               </p>
 
               <p className="mt-3 rounded-[16px] border border-yellow-200 bg-yellow-50 p-3 text-xs font-medium leading-5 text-yellow-800">
