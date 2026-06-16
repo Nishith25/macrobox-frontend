@@ -1335,7 +1335,7 @@ export default function Cart() {
                     key={cartKey}
                     className="rounded-[22px] border border-slate-200 bg-white p-4"
                   >
-                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0 flex-1">
                         <h3 className="line-clamp-2 text-base font-black text-slate-950">
                           {item.title}
@@ -1348,30 +1348,29 @@ export default function Cart() {
                         )}
 
                         {isPlan && schedule.length > 0 && (
-                          <div className="mt-3 rounded-[16px] border border-blue-100 bg-blue-50 p-3">
-                            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-blue-700">
-                                <CalendarClock size={14} />
-                                Select Day-wise Delivery Schedule
-                              </p>
+                          <div className="mt-3 w-full rounded-[18px] border border-blue-100 bg-blue-50 p-3 sm:p-4">
+                            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <p className="flex items-center gap-2 text-[11px] font-black uppercase leading-5 tracking-wide text-blue-700 sm:text-xs">
+    <CalendarClock size={14} className="shrink-0" />
+    <span>Day-wise Delivery Schedule</span>
+  </p>
 
-                              <button
-  type="button"
-  onClick={() => applyDayOneSlotToAllDays(cartKey)}
-  disabled={!dayOne?.date || !dayOne?.slot}
-  className="w-fit rounded-full bg-blue-600 px-3 py-1.5 text-[11px] font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
->
-  Apply to all
-</button>
-                            </div>
-
+  <button
+    type="button"
+    onClick={() => applyDayOneSlotToAllDays(cartKey)}
+    disabled={!dayOne?.date || !dayOne?.slot}
+    className="h-9 w-fit rounded-full bg-blue-600 px-4 text-[11px] font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    Apply to all
+  </button>
+</div>
                             
 
                             <div className="grid gap-3">
                               {schedule.map((day) => (
                                 <div
                                   key={`${cartKey}-day-${day.day}`}
-                                  className="rounded-[14px] bg-white p-3"
+                                  className="w-full rounded-[16px] bg-white p-3 sm:p-4"
                                 >
                                   <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
@@ -1393,7 +1392,7 @@ export default function Cart() {
                                     )}
                                   </div>
 
-                                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                  <div className="mt-3 grid w-full grid-cols-1 gap-3 md:grid-cols-2">
                                     <input
                                       type="date"
                                       min={todayISO()}
@@ -1408,11 +1407,11 @@ export default function Cart() {
                                           }
                                         )
                                       }
-                                      className={`${inputClass} ${
-                                        day.day !== 1
-                                          ? "cursor-not-allowed bg-slate-100 text-slate-500"
-                                          : ""
-                                      }`}
+                                      className={`h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-green-500 focus:ring-4 focus:ring-green-100 ${
+  day.day !== 1
+    ? "cursor-not-allowed bg-slate-100 text-slate-500"
+    : ""
+}`}
                                     />
 
                                     <select
@@ -1426,7 +1425,7 @@ export default function Cart() {
                                           }
                                         )
                                       }
-                                      className={inputClass}
+                                      className="h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-green-500 focus:ring-4 focus:ring-green-100"
                                     >
                                       <option value="">
                                         Select delivery slot
@@ -1501,7 +1500,7 @@ export default function Cart() {
                         </p>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 md:justify-end">
+                      <div className="flex items-center justify-between gap-2 lg:justify-end">
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -2100,10 +2099,7 @@ export default function Cart() {
                 </h2>
               </div>
 
-              <p className="rounded-[16px] border border-blue-100 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-700">
-                Select Day 1 date and slot inside the plan card. Day 2 to Day 7
-                dates will be selected automatically.
-              </p>
+            
 
               <p className="mt-3 rounded-[16px] border border-yellow-200 bg-yellow-50 p-3 text-xs font-medium leading-5 text-yellow-800">
                 Every challenge day must be scheduled at least <b>3 hours</b>{" "}
