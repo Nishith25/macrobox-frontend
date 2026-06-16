@@ -1,6 +1,6 @@
 // frontend/src/router/AppRouter.tsx (FRONTEND)
 
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -61,15 +61,10 @@ import ProtectedRoute from "./ProtectedRoute";
 import AdminRoute from "./AdminRoute";
 import DeliveryRoute from "./DeliveryRoute";
 
-/*
-  Public-only route:
-  If user is already logged in and opens /login or /signup using browser back,
-  redirect them to the correct page instead of showing auth page again.
-*/
 function AuthRedirectRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isAdmin, user } = useAuth();
 
-  if (!isAuthenticated) return children;
+  if (!isAuthenticated) return <>{children}</>;
 
   if (isAdmin) {
     return <Navigate to="/admin/meals" replace />;
@@ -88,6 +83,52 @@ function AuthRedirectRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <Navigate to="/meals" replace />;
+}
+
+function ChefRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return (
+      <Navigate
+        to="/cheflogin"
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/cheflogin" replace />;
+  }
+
+  if (user.role === "admin") {
+    return <>{children}</>;
+  }
+
+  if (user.role !== "chef") {
+    if (user.role === "delivery") {
+      return <Navigate to="/delivery" replace />;
+    }
+
+    return <Navigate to="/macrotrack" replace />;
+  }
+
+  const approvalStatus = user.chefProfile?.approvalStatus;
+  const isActive = user.chefProfile?.isActive;
+
+  if (approvalStatus !== "approved" || isActive === false) {
+    return <Navigate to="/cheflogin" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function ChallengeDetailsRedirect() {
+  const { challengeId } = useParams();
+
+  return <Navigate to={`/plans/${challengeId || ""}`} replace />;
 }
 
 export default function AppRouter() {
@@ -129,6 +170,7 @@ export default function AppRouter() {
 
         {/* ================= DELIVERY AUTH ROUTES ================= */}
         <Route path="/deliverylogin" element={<DeliveryLogin />} />
+        <Route path="/deliverysignin" element={<Navigate to="/deliverylogin" replace />} />
         <Route path="/deliverysignup" element={<DeliverySignup />} />
 
         {/* ================= CHEF AUTH ROUTES ================= */}
@@ -208,11 +250,7 @@ export default function AppRouter() {
 
         {/* Old challenge URLs redirect to new plans URLs */}
         <Route path="/challenges" element={<Navigate to="/plans" replace />} />
-
-        <Route
-          path="/challenges/:challengeId"
-          element={<Navigate to="/plans" replace />}
-        />
+        <Route path="/challenges/:challengeId" element={<ChallengeDetailsRedirect />} />
 
         <Route
           path="/rewards"
@@ -388,9 +426,9 @@ export default function AppRouter() {
         <Route
           path="/orderslist"
           element={
-            <ProtectedRoute>
+            <ChefRoute>
               <OrdersList />
-            </ProtectedRoute>
+            </ChefRoute>
           }
         />
 
