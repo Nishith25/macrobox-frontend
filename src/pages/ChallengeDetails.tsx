@@ -95,39 +95,9 @@ type CartMealsResponse = {
 
 type PlanDaySelection = {
   day: number;
-  date: string;
-  slot: string;
   selectedMealId: string;
-  alternativeMealId: string;
   preference: UserPreference;
 };
-
-const SLOT_START_HOUR = 7;
-const SLOT_END_HOUR = 19;
-
-const pad2 = (num: number) => String(num).padStart(2, "0");
-
-const buildSlots = () => {
-  const slots: string[] = [];
-
-  for (let hour = SLOT_START_HOUR; hour <= SLOT_END_HOUR; hour++) {
-    slots.push(`${pad2(hour)}:00`);
-  }
-
-  return slots;
-};
-
-const format12h = (slot: string) => {
-  if (!slot) return "Select slot";
-
-  const hour24 = Number(slot.split(":")[0]);
-  const period = hour24 >= 12 ? "PM" : "AM";
-  const hour = hour24 % 12 === 0 ? 12 : hour24 % 12;
-
-  return `${hour}:00 ${period}`;
-};
-
-const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const formatDate = (value?: string | null) => {
   if (!value) return "";
@@ -202,6 +172,36 @@ const getMealsByPreference = (
   return meals;
 };
 
+const pickMealForDay = (
+  day: ChallengeDay,
+  preference: UserPreference,
+  mealMode: MealMode
+) => {
+  const availableMeals = day.availableMeals || [];
+
+  if (mealMode === "veg" || preference === "veg") {
+    return (
+      day.vegAlternative ||
+      availableMeals.find((meal) => getMealDietType(meal) === "veg") ||
+      day.defaultMeal ||
+      availableMeals[0] ||
+      null
+    );
+  }
+
+  if (mealMode === "nonveg" || preference === "nonveg") {
+    return (
+      day.nonVegAlternative ||
+      availableMeals.find((meal) => getMealDietType(meal) === "nonveg") ||
+      day.defaultMeal ||
+      availableMeals[0] ||
+      null
+    );
+  }
+
+  return day.defaultMeal || availableMeals[0] || null;
+};
+
 const sumMeals = (meals: MealCard[]) => {
   return meals.reduce(
     (acc, meal) => {
@@ -245,8 +245,6 @@ export default function ChallengeDetails() {
   const [preference, setPreference] = useState<UserPreference>("mixed");
   const [planDays, setPlanDays] = useState<PlanDaySelection[]>([]);
 
-  const slots = useMemo(() => buildSlots(), []);
-
   const displayTitle = challenge?.title || localChallenge?.title || "Challenge";
 
   const displayDescription =
@@ -282,7 +280,8 @@ export default function ChallengeDetails() {
 
   const rewardUnlocked = Boolean(challenge?.userChallenge?.rewardUnlocked);
 
-  const mealMode = challenge?.mealMode || cartMealsData?.challenge?.mealMode || "both";
+  const mealMode =
+    challenge?.mealMode || cartMealsData?.challenge?.mealMode || "both";
 
   const availablePreferenceOptions = useMemo(() => {
     if (mealMode === "veg") return ["veg"] as UserPreference[];
@@ -305,7 +304,7 @@ export default function ChallengeDetails() {
     : [
         "Goal-based meals delivered across the plan",
         "Choose veg, non-veg, or mixed plan",
-        "Select meal and slot for each day",
+        "Delivery date and slot will be selected in cart",
         "Reward after consecutive paid order streak",
       ];
 
@@ -347,6 +346,23 @@ export default function ChallengeDetails() {
     }
   };
 
+  const buildInitialPlanDays = (
+    data: CartMealsResponse,
+    selectedPreference: UserPreference
+  ) => {
+    const mode = data.challenge?.mealMode || "both";
+
+    return (data.days || []).map((day) => {
+      const selectedMeal = pickMealForDay(day, selectedPreference, mode);
+
+      return {
+        day: day.day,
+        selectedMealId: String(selectedMeal?._id || ""),
+        preference: selectedPreference,
+      };
+    });
+  };
+
   const loadCartMeals = async () => {
     try {
       setLoadingMeals(true);
@@ -362,19 +378,7 @@ export default function ChallengeDetails() {
         mode === "veg" ? "veg" : mode === "nonveg" ? "nonveg" : "mixed";
 
       setPreference(defaultPreference);
-
-      const initialDays = (data.days || []).map((day) => {
-        return {
-          day: day.day,
-          date: "",
-          slot: "",
-          selectedMealId: "",
-          alternativeMealId: "",
-          preference: defaultPreference,
-        };
-      });
-
-      setPlanDays(initialDays);
+      setPlanDays(buildInitialPlanDays(data, defaultPreference));
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message || "Failed to load challenge meals"
@@ -395,14 +399,8 @@ export default function ChallengeDetails() {
   useEffect(() => {
     if (!cartMealsData?.days?.length) return;
 
-    setPlanDays((prev) =>
-      prev.map((daySelection) => ({
-        ...daySelection,
-        preference,
-        selectedMealId: "",
-        alternativeMealId: "",
-      }))
-    );
+    setPlanDays(buildInitialPlanDays(cartMealsData, preference));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preference, cartMealsData]);
 
   const joinChallenge = async () => {
@@ -430,13 +428,13 @@ export default function ChallengeDetails() {
     }
   };
 
-  const updatePlanDay = (dayNo: number, patch: Partial<PlanDaySelection>) => {
+  const updatePlanDayMeal = (dayNo: number, selectedMealId: string) => {
     setPlanDays((prev) =>
       prev.map((day) =>
         Number(day.day) === Number(dayNo)
           ? {
               ...day,
-              ...patch,
+              selectedMealId,
             }
           : day
       )
@@ -454,36 +452,12 @@ export default function ChallengeDetails() {
 
       const invalidDay = planDays.find((day) => {
         const selectedMeal = getMealById(allMeals, day.selectedMealId);
-        const alternativeMeal = getMealById(allMeals, day.alternativeMealId);
 
-        return (
-          !day.date ||
-          !day.slot ||
-          !day.selectedMealId ||
-          !day.alternativeMealId ||
-          !selectedMeal ||
-          !alternativeMeal
-        );
+        return !day.selectedMealId || !selectedMeal;
       });
 
       if (invalidDay) {
-        toast.error(
-          `Please select date, slot, main meal and alternative meal for Day ${invalidDay.day}.`
-        );
-        return;
-      }
-
-      const sameMealDay = planDays.find(
-        (day) =>
-          day.selectedMealId &&
-          day.alternativeMealId &&
-          String(day.selectedMealId) === String(day.alternativeMealId)
-      );
-
-      if (sameMealDay) {
-        toast.error(
-          `Main meal and alternative meal cannot be same for Day ${sameMealDay.day}.`
-        );
+        toast.error(`Please select meal for Day ${invalidDay.day}.`);
         return;
       }
 
@@ -512,12 +486,11 @@ export default function ChallengeDetails() {
 
       const finalPlanDays = planDays.map((day) => {
         const selectedMeal = getMealById(allMeals, day.selectedMealId);
-        const alternativeMeal = getMealById(allMeals, day.alternativeMealId);
 
         return {
           day: day.day,
-          date: day.date,
-          slot: day.slot,
+          date: "",
+          slot: "",
           preference: day.preference,
           selectedMeal: selectedMeal?._id || "",
           selectedMealTitle: selectedMeal?.title || "Meal",
@@ -526,8 +499,8 @@ export default function ChallengeDetails() {
           selectedMealCalories: selectedMeal?.calories || 0,
           selectedMealCarbs: selectedMeal?.carbs || 0,
           selectedMealFat: selectedMeal?.fat || 0,
-          alternativeMeal: alternativeMeal?._id || "",
-          alternativeMealTitle: alternativeMeal?.title || "",
+          alternativeMeal: null,
+          alternativeMealTitle: "",
         };
       });
 
@@ -543,6 +516,7 @@ export default function ChallengeDetails() {
         carbs: totals.carbs,
         fat: totals.fat,
         qty: 1,
+        preference,
         planItems: selectedMealsForPlan.map((meal, index) => ({
           _id: String(meal._id),
           title: `Day ${index + 1}: ${meal.title}`,
@@ -722,7 +696,8 @@ export default function ChallengeDetails() {
               </div>
 
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">
-                Select date, slot, main meal and alternative meal for every day.
+                Choose Veg, Nonveg or Mixed. Delivery date and slot will be
+                selected in cart for each day.
               </p>
             </div>
 
@@ -758,12 +733,13 @@ export default function ChallengeDetails() {
             <div>
               <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em]">
                 <CalendarClock className="text-green-600" />
-                Customize Your 7-Day Plan
+                Choose Your Challenge Meals
               </h2>
 
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                Select date, delivery slot, main meal and alternative meal for
-                every day before adding the plan to cart.
+                Select Veg, Nonveg or Mixed. Meals will be selected according to
+                your choice. Delivery date and time will be selected later in
+                cart for each day.
               </p>
             </div>
 
@@ -808,18 +784,9 @@ export default function ChallengeDetails() {
                   mealMode
                 );
 
-                const alternativeMeals = dayMeals.filter(
-                  (meal) => String(meal._id) !== String(daySelection.selectedMealId)
-                );
-
                 const selectedMeal = getMealById(
                   allMeals,
                   daySelection.selectedMealId
-                );
-
-                const alternativeMeal = getMealById(
-                  allMeals,
-                  daySelection.alternativeMealId
                 );
 
                 return (
@@ -832,11 +799,9 @@ export default function ChallengeDetails() {
                         <p className="text-lg font-black text-slate-950">
                           Day {daySelection.day}
                         </p>
+
                         <p className="text-xs font-bold text-slate-500">
-                          {selectedMeal?.title || "Main meal not selected"}
-                          {alternativeMeal?.title
-                            ? ` • Alternative: ${alternativeMeal.title}`
-                            : " • Alternative not selected"}
+                          {selectedMeal?.title || "Meal not selected"}
                         </p>
                       </div>
 
@@ -845,65 +810,24 @@ export default function ChallengeDetails() {
                       </span>
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-4">
+                    <div className="grid gap-3 md:grid-cols-[1fr_0.55fr_0.55fr_0.55fr]">
                       <div>
                         <label className="mb-1 block text-xs font-black uppercase text-slate-400">
-                          Delivery Date
+                          Meal
                         </label>
-                        <input
-                          type="date"
-                          min={todayISO()}
-                          value={daySelection.date}
-                          onChange={(event) =>
-                            updatePlanDay(daySelection.day, {
-                              date: event.target.value,
-                            })
-                          }
-                          className="h-11 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-green-500"
-                        />
-                      </div>
 
-                      <div>
-                        <label className="mb-1 block text-xs font-black uppercase text-slate-400">
-                          Slot
-                        </label>
-                        <select
-                          value={daySelection.slot}
-                          onChange={(event) =>
-                            updatePlanDay(daySelection.day, {
-                              slot: event.target.value,
-                            })
-                          }
-                          className="h-11 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-green-500"
-                        >
-                          <option value="">Select delivery slot</option>
-                          {slots.map((slot) => (
-                            <option key={slot} value={slot}>
-                              {format12h(slot)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-xs font-black uppercase text-slate-400">
-                          Main Meal
-                        </label>
                         <select
                           value={daySelection.selectedMealId}
                           onChange={(event) =>
-                            updatePlanDay(daySelection.day, {
-                              selectedMealId: event.target.value,
-                              alternativeMealId:
-                                event.target.value ===
-                                daySelection.alternativeMealId
-                                  ? ""
-                                  : daySelection.alternativeMealId,
-                            })
+                            updatePlanDayMeal(
+                              daySelection.day,
+                              event.target.value
+                            )
                           }
                           className="h-11 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-green-500"
                         >
-                          <option value="">Select main meal</option>
+                          <option value="">Select meal</option>
+
                           {availableMeals.map((meal) => (
                             <option key={meal._id} value={meal._id}>
                               {meal.title} • {getMealDietType(meal)}
@@ -912,27 +836,20 @@ export default function ChallengeDetails() {
                         </select>
                       </div>
 
-                      <div>
-                        <label className="mb-1 block text-xs font-black uppercase text-slate-400">
-                          Alternative
-                        </label>
-                        <select
-                          value={daySelection.alternativeMealId}
-                          onChange={(event) =>
-                            updatePlanDay(daySelection.day, {
-                              alternativeMealId: event.target.value,
-                            })
-                          }
-                          className="h-11 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-green-500"
-                        >
-                          <option value="">Select alternative meal</option>
-                          {alternativeMeals.map((meal) => (
-                            <option key={meal._id} value={meal._id}>
-                              {meal.title} • {getMealDietType(meal)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <MealMiniStat
+                        label="Protein"
+                        value={`${selectedMeal?.protein || 0}g`}
+                      />
+
+                      <MealMiniStat
+                        label="Calories"
+                        value={`${selectedMeal?.calories || 0} kcal`}
+                      />
+
+                      <MealMiniStat
+                        label="Price"
+                        value={`₹${selectedMeal?.price || 0}`}
+                      />
                     </div>
                   </div>
                 );
@@ -942,6 +859,7 @@ export default function ChallengeDetails() {
                 <p className="text-sm font-black text-green-800">
                   Plan Total: ₹{displayPrice}
                 </p>
+
                 <p className="mt-1 text-xs font-bold text-green-700">
                   Selected meals total macros: Protein {selectedTotals.protein}g
                   • Calories {selectedTotals.calories} kcal • Carbs{" "}
@@ -1032,9 +950,9 @@ export default function ChallengeDetails() {
 
             <div className="mt-4 space-y-3">
               <Step number="01" text="Join the challenge." />
-              <Step number="02" text="Select meals and slots for each day." />
-              <Step number="03" text="Pay once for the challenge plan." />
-              <Step number="04" text="Get one meal delivered daily." />
+              <Step number="02" text="Choose Veg, Nonveg or Mixed meals." />
+              <Step number="03" text="Add plan to cart and select daily slots." />
+              <Step number="04" text="Pay once and get one meal delivered daily." />
             </div>
           </div>
         </section>
@@ -1051,6 +969,18 @@ function InfoCard({ label, value }: { label: string; value: string }) {
       </p>
 
       <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function MealMiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[14px] border border-slate-200 bg-white px-3 py-2">
+      <p className="text-[11px] font-black uppercase text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 text-sm font-black text-slate-900">{value}</p>
     </div>
   );
 }

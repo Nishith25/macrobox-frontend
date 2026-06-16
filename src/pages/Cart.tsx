@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookmarkPlus,
+  CalendarClock,
   Clock,
   LocateFixed,
   MapPin,
@@ -68,12 +69,31 @@ type AvailableCoupon = {
   validTo?: string | null;
 };
 
+type ChallengeScheduleDay = {
+  day: number;
+  date: string;
+  slot: string;
+  preference: "veg" | "nonveg" | "mixed";
+  selectedMeal: string;
+  selectedMealTitle: string;
+  selectedMealPrice: number;
+  selectedMealProtein: number;
+  selectedMealCalories: number;
+  selectedMealCarbs: number;
+  selectedMealFat: number;
+};
+
 const pad2 = (num: number) => String(num).padStart(2, "0");
 
-const format12h = (hour24: number) => {
+const format12hFromHour = (hour24: number) => {
   const period = hour24 >= 12 ? "PM" : "AM";
   const hour = hour24 % 12 === 0 ? 12 : hour24 % 12;
   return `${hour}:00 ${period}`;
+};
+
+const format12hFromSlot = (slotHHmm: string) => {
+  if (!slotHHmm) return "Select slot";
+  return format12hFromHour(Number(slotHHmm.split(":")[0]));
 };
 
 const buildSlots = () => {
@@ -190,6 +210,52 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
   });
 };
 
+const isChallengePlan = (item: any) =>
+  item?.itemType === "challenge_plan" || Boolean(item?.challengeId);
+
+const getCartKey = (item: any) => `${item._id}-${item.challengeId || "meal"}`;
+
+const buildScheduleFromCartItem = (item: any): ChallengeScheduleDay[] => {
+  if (!isChallengePlan(item)) return [];
+
+  if (Array.isArray(item.planDays) && item.planDays.length > 0) {
+    return item.planDays.map((day: any, index: number) => ({
+      day: Number(day.day || index + 1),
+      date: "",
+      slot: "",
+      preference: day.preference || "mixed",
+      selectedMeal: String(day.selectedMeal || day.selectedMealId || ""),
+      selectedMealTitle: day.selectedMealTitle || `Day ${index + 1} Meal`,
+      selectedMealPrice: Number(day.selectedMealPrice || 0),
+      selectedMealProtein: Number(day.selectedMealProtein || 0),
+      selectedMealCalories: Number(day.selectedMealCalories || 0),
+      selectedMealCarbs: Number(day.selectedMealCarbs || 0),
+      selectedMealFat: Number(day.selectedMealFat || 0),
+    }));
+  }
+
+  if (Array.isArray(item.planItems) && item.planItems.length > 0) {
+    return item.planItems.map((meal: any, index: number) => ({
+      day: index + 1,
+      date: "",
+      slot: "",
+      preference: item.preference || "mixed",
+      selectedMeal: String(meal._id || ""),
+      selectedMealTitle: String(meal.title || `Day ${index + 1} Meal`).replace(
+        /^Day\s+\d+:\s*/i,
+        ""
+      ),
+      selectedMealPrice: Number(meal.price || 0),
+      selectedMealProtein: Number(meal.protein || 0),
+      selectedMealCalories: Number(meal.calories || 0),
+      selectedMealCarbs: Number(meal.carbs || 0),
+      selectedMealFat: Number(meal.fat || 0),
+    }));
+  }
+
+  return [];
+};
+
 export default function Cart() {
   const navigate = useNavigate();
   const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } =
@@ -244,17 +310,51 @@ export default function Cart() {
   const [loadingSavedAddresses, setLoadingSavedAddresses] = useState(false);
   const [saveAddressForFuture, setSaveAddressForFuture] = useState(true);
 
-  const [slotDate, setSlotDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
-
   const slots = useMemo(() => buildSlots(), []);
-  const [slotTime, setSlotTime] = useState(slots[0]);
+
+  const [slotDate, setSlotDate] = useState("");
+  const [slotTime, setSlotTime] = useState("");
+
+  const [challengeSchedules, setChallengeSchedules] = useState<
+    Record<string, ChallengeScheduleDay[]>
+  >({});
 
   const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>(
     []
   );
   const [loadingCoupons, setLoadingCoupons] = useState(false);
+
+  const hasChallengePlans = useMemo(
+    () => cart.some((item: any) => isChallengePlan(item)),
+    [cart]
+  );
+
+  const hasNormalMeals = useMemo(
+    () => cart.some((item: any) => !isChallengePlan(item)),
+    [cart]
+  );
+
+  const onlyChallengePlans = hasChallengePlans && !hasNormalMeals;
+
+  useEffect(() => {
+    setChallengeSchedules((prev) => {
+      const next: Record<string, ChallengeScheduleDay[]> = {};
+
+      cart.forEach((item: any) => {
+        if (!isChallengePlan(item)) return;
+
+        const key = getCartKey(item);
+
+        if (prev[key]?.length) {
+          next[key] = prev[key];
+        } else {
+          next[key] = buildScheduleFromCartItem(item);
+        }
+      });
+
+      return next;
+    });
+  }, [cart]);
 
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.qty, 0),
@@ -262,20 +362,20 @@ export default function Cart() {
   );
 
   const planSubtotal = useMemo(
-  () =>
-    cart
-      .filter((item: any) => item.itemType === "challenge_plan" || Boolean(item.challengeId))
-      .reduce((sum, item) => sum + item.price * item.qty, 0),
-  [cart]
-);
+    () =>
+      cart
+        .filter((item: any) => isChallengePlan(item))
+        .reduce((sum, item) => sum + item.price * item.qty, 0),
+    [cart]
+  );
 
   const normalMealsSubtotal = useMemo(
-  () =>
-    cart
-      .filter((item: any) => item.itemType !== "challenge_plan" && !item.challengeId)
-      .reduce((sum, item) => sum + item.price * item.qty, 0),
-  [cart]
-);
+    () =>
+      cart
+        .filter((item: any) => !isChallengePlan(item))
+        .reduce((sum, item) => sum + item.price * item.qty, 0),
+    [cart]
+  );
 
   const totalProtein = useMemo(
     () => cart.reduce((sum, item) => sum + item.protein * item.qty, 0),
@@ -302,21 +402,36 @@ export default function Cart() {
   const inputClass =
     "h-12 w-full rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100";
 
+  const updateChallengeScheduleDay = (
+    cartKey: string,
+    dayNo: number,
+    patch: Partial<ChallengeScheduleDay>
+  ) => {
+    setChallengeSchedules((prev) => ({
+      ...prev,
+      [cartKey]: (prev[cartKey] || []).map((day) =>
+        Number(day.day) === Number(dayNo) ? { ...day, ...patch } : day
+      ),
+    }));
+
+    setSlotMsg(null);
+  };
+
   const fetchAvailableCoupons = async () => {
-  try {
-    setLoadingCoupons(true);
+    try {
+      setLoadingCoupons(true);
 
-    const res = await api.get(
-      `/coupons/available?cartTotal=${subtotal}&planSubtotal=${planSubtotal}`
-    );
+      const res = await api.get(
+        `/coupons/available?cartTotal=${subtotal}&planSubtotal=${planSubtotal}`
+      );
 
-    setAvailableCoupons(res.data || []);
-  } catch {
-    setAvailableCoupons([]);
-  } finally {
-    setLoadingCoupons(false);
-  }
-};
+      setAvailableCoupons(res.data || []);
+    } catch {
+      setAvailableCoupons([]);
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
 
   const fetchSavedAddresses = async () => {
     try {
@@ -354,7 +469,9 @@ export default function Cart() {
     if (discount > 0 && planSubtotal <= 0) {
       setCoupon("");
       setDiscount(0);
-      setCouponMsg("Coupon removed because it is applicable only on challenge plans.");
+      setCouponMsg(
+        "Coupon removed because it is applicable only on challenge plans."
+      );
       setCouponMsgType("error");
     }
 
@@ -455,9 +572,7 @@ export default function Cart() {
   };
 
   const reverseGeocodeLatLng = async (lat: number, lng: number) => {
-    if (!window.google?.maps) {
-      return null;
-    }
+    if (!window.google?.maps) return null;
 
     return new Promise<{
       formattedAddress: string;
@@ -652,22 +767,26 @@ export default function Cart() {
 
     try {
       const res = await api.post("/coupons/apply", {
-  code: codeToApply,
-  cartTotal: subtotal,
-  planSubtotal,
-  normalMealsSubtotal,
-  applyOn: "challenge_plan",
-});
+        code: codeToApply,
+        cartTotal: subtotal,
+        planSubtotal,
+        normalMealsSubtotal,
+        applyOn: "challenge_plan",
+      });
 
       setCoupon(codeToApply);
       setDiscount(res.data.discount || 0);
-      setCouponMsg(`Coupon applied on challenge plan. You saved ₹${res.data.discount}`);
+      setCouponMsg(
+        `Coupon applied on challenge plan. You saved ₹${res.data.discount}`
+      );
       setCouponMsgType("success");
 
       fetchAvailableCoupons();
     } catch (error: any) {
       setDiscount(0);
-      setCouponMsg(error?.response?.data?.message || "Invalid or expired coupon");
+      setCouponMsg(
+        error?.response?.data?.message || "Invalid or expired coupon"
+      );
       setCouponMsgType("error");
       fetchAvailableCoupons();
     } finally {
@@ -826,6 +945,38 @@ export default function Cart() {
       document.body.appendChild(script);
     });
 
+  const validateChallengeSchedules = () => {
+    for (const item of cart as any[]) {
+      if (!isChallengePlan(item)) continue;
+
+      const key = getCartKey(item);
+      const schedule = challengeSchedules[key] || [];
+
+      if (!schedule.length) {
+        setSlotMsg(`Please select challenge schedule for ${item.title}.`);
+        return false;
+      }
+
+      for (const day of schedule) {
+        if (!day.date || !day.slot) {
+          setSlotMsg(
+            `Please select delivery date and slot for Day ${day.day} in ${item.title}.`
+          );
+          return false;
+        }
+
+        if (!isSlotAllowed(day.date, day.slot)) {
+          setSlotMsg(
+            `Day ${day.day} slot is not available. Choose a slot at least 3 hours later.`
+          );
+          return false;
+        }
+      }
+    }
+
+    return true;
+  };
+
   const validateCheckout = () => {
     setAddressMsg(null);
     setSlotMsg(null);
@@ -849,17 +1000,43 @@ export default function Cart() {
       return false;
     }
 
-    if (!slotDate || !slotTime) {
-      setSlotMsg("Please select delivery time.");
-      return false;
-    }
+    if (!validateChallengeSchedules()) return false;
 
-    if (!isSlotAllowed(slotDate, slotTime)) {
-      setSlotMsg("Time slot is not available.");
-      return false;
+    if (hasNormalMeals) {
+      if (!slotDate || !slotTime) {
+        setSlotMsg("Please select delivery time for normal meals.");
+        return false;
+      }
+
+      if (!isSlotAllowed(slotDate, slotTime)) {
+        setSlotMsg("Normal meal time slot is not available.");
+        return false;
+      }
     }
 
     return true;
+  };
+
+  const getFinalPlanDays = (item: any) => {
+    const key = getCartKey(item);
+
+    return (challengeSchedules[key] || []).map((day) => ({
+      day: day.day,
+      date: day.date,
+      slot: day.slot,
+      preference: day.preference,
+      selectedMeal: day.selectedMeal,
+      selectedMealTitle: day.selectedMealTitle,
+      selectedMealPrice: day.selectedMealPrice,
+      selectedMealProtein: day.selectedMealProtein,
+      selectedMealCalories: day.selectedMealCalories,
+      selectedMealCarbs: day.selectedMealCarbs,
+      selectedMealFat: day.selectedMealFat,
+      alternativeMeal: null,
+      alternativeMealTitle: "",
+      deliveryStatus: "scheduled",
+      kitchenStatus: "pending",
+    }));
   };
 
   const checkout = async () => {
@@ -890,26 +1067,38 @@ export default function Cart() {
       const finalCouponCode =
         discount > 0 && coupon.trim() ? coupon.trim().toUpperCase() : null;
 
-      const payload = {
-        items: cart.map((item: any) => ({
-  mealId:
-    item.itemType === "challenge_plan"
-      ? item.planItems?.[0]?._id || item.planDays?.[0]?.selectedMeal || item._id
-      : item._id,
+      const firstChallengeDay = cart
+        .filter((item: any) => isChallengePlan(item))
+        .flatMap((item: any) => getFinalPlanDays(item))[0];
 
-  itemType: item.itemType || "meal",
-  challengeId: item.challengeId || "",
-  title: item.title,
-  description: item.description || "",
-  price: item.price,
-  qty: item.qty,
-  protein: item.protein,
-  calories: item.calories,
-  carbs: item.carbs || 0,
-  fat: item.fat || 0,
-  planItems: item.planItems || [],
-  planDays: item.planDays || [],
-})),
+      const payload = {
+        items: cart.map((item: any) => {
+          const finalPlanDays = isChallengePlan(item)
+            ? getFinalPlanDays(item)
+            : [];
+
+          return {
+            mealId:
+              item.itemType === "challenge_plan"
+                ? item.planItems?.[0]?._id ||
+                  finalPlanDays?.[0]?.selectedMeal ||
+                  item._id
+                : item._id,
+
+            itemType: item.itemType || "meal",
+            challengeId: item.challengeId || "",
+            title: item.title,
+            description: item.description || "",
+            price: item.price,
+            qty: item.qty,
+            protein: item.protein,
+            calories: item.calories,
+            carbs: item.carbs || 0,
+            fat: item.fat || 0,
+            planItems: item.planItems || [],
+            planDays: finalPlanDays,
+          };
+        }),
         couponCode: finalCouponCode,
         couponApplyOn: "challenge_plan",
 
@@ -923,10 +1112,15 @@ export default function Cart() {
           formattedAddress: address.formattedAddress || `${lat}, ${lng}`,
         },
 
-        deliverySlot: {
-          date: slotDate,
-          time: slotTime,
-        },
+        deliverySlot: hasNormalMeals
+          ? {
+              date: slotDate,
+              time: slotTime,
+            }
+          : {
+              date: firstChallengeDay?.date || "",
+              time: firstChallengeDay?.slot || "",
+            },
       };
 
       if (saveAddressForFuture) {
@@ -1016,20 +1210,18 @@ export default function Cart() {
     <main className="min-h-screen bg-[#f6f7f8] pb-32 text-slate-950 xl:pb-24">
       <section className="border-b border-slate-200 bg-white/80 px-4 py-6 sm:px-6 sm:py-8">
         <div className="mx-auto max-w-[1240px]">
-          <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
-              <ShieldCheck size={14} />
-              Secure Checkout
-            </p>
+          <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
+            <ShieldCheck size={14} />
+            Secure Checkout
+          </p>
 
-            <h1 className="mt-4 text-[38px] font-black tracking-[-0.07em] text-slate-950 sm:text-[34px]">
-              Your Cart
-            </h1>
+          <h1 className="mt-4 text-[38px] font-black tracking-[-0.07em] text-slate-950 sm:text-[34px]">
+            Your Cart
+          </h1>
 
-            <p className="mt-1 max-w-xl text-base font-medium leading-7 text-slate-500">
-              Review meals, choose delivery location, and complete payment.
-            </p>
-          </div>
+          <p className="mt-1 max-w-xl text-base font-medium leading-7 text-slate-500">
+            Review meals, choose delivery location, and complete payment.
+          </p>
         </div>
       </section>
 
@@ -1041,11 +1233,10 @@ export default function Cart() {
                 <IconCircle>
                   <ShoppingBag size={20} />
                 </IconCircle>
+
                 <h2 className="text-xl font-black text-slate-950">
-  {cart.some((item: any) => item.itemType === "challenge_plan")
-    ? "Plans in Cart"
-    : "Meals in Cart"}
-</h2>
+                  {hasChallengePlans ? "Plans in Cart" : "Meals in Cart"}
+                </h2>
               </div>
 
               <span className="rounded-full bg-green-50 px-4 py-1.5 text-sm font-black text-green-700">
@@ -1054,149 +1245,199 @@ export default function Cart() {
             </div>
 
             <div className="space-y-3 sm:space-y-4">
-              {cart.map((item: any) => (
-                <div
-                  key={`${item._id}-${item.challengeId || "meal"}`}
-                  className="rounded-[22px] border border-slate-200 bg-white p-4"
-                >
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div className="min-w-0">
-                      <h3 className="line-clamp-2 text-base font-black text-slate-950">
-  {item.title}
-</h3>
+              {cart.map((item: any) => {
+                const cartKey = getCartKey(item);
+                const isPlan = isChallengePlan(item);
+                const schedule = challengeSchedules[cartKey] || [];
 
-{(item.itemType === "challenge_plan" || item.challengeId) && (
-  <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-    Challenge Plan
-  </p>
-)}
+                return (
+                  <div
+                    key={cartKey}
+                    className="rounded-[22px] border border-slate-200 bg-white p-4"
+                  >
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="line-clamp-2 text-base font-black text-slate-950">
+                          {item.title}
+                        </h3>
 
-{item.planItems?.length > 0 && !item.planDays?.length && (
-  <div className="mt-3 rounded-[16px] border border-green-100 bg-green-50 p-3">
-    <p className="mb-2 text-xs font-black uppercase tracking-wide text-green-700">
-      Plan Includes
-    </p>
+                        {isPlan && (
+                          <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                            Challenge Plan
+                          </p>
+                        )}
 
-    <div className="flex flex-wrap gap-2">
-      {item.planItems.map((planItem: any) => (
-        <span
-          key={planItem._id}
-          className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-700"
-        >
-          {planItem.title} × {planItem.qty}
-        </span>
-      ))}
-    </div>
-  </div>
-)}
+                        {isPlan && schedule.length > 0 && (
+                          <div className="mt-3 rounded-[16px] border border-blue-100 bg-blue-50 p-3">
+                            <p className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-blue-700">
+                              <CalendarClock size={14} />
+                              Select Day-wise Delivery Schedule
+                            </p>
 
-{item.planItems?.length > 0 && !item.planDays?.length && (
-  <div className="mt-3 rounded-[16px] border border-green-100 bg-green-50 p-3">
-    <p className="mb-2 text-xs font-black uppercase tracking-wide text-green-700">
-      Plan Includes
-    </p>
+                            <div className="grid gap-3">
+                              {schedule.map((day) => (
+                                <div
+                                  key={`${cartKey}-day-${day.day}`}
+                                  className="rounded-[14px] bg-white p-3"
+                                >
+                                  <p className="text-sm font-black text-slate-950">
+                                    Day {day.day}: {day.selectedMealTitle}
+                                  </p>
 
-    <div className="flex flex-wrap gap-2">
-      {item.planItems.map((planItem: any) => (
-        <span
-          key={planItem._id}
-          className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-700"
-        >
-          {planItem.title} × {planItem.qty}
-        </span>
-      ))}
-    </div>
-  </div>
-)}
+                                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                    <input
+                                      type="date"
+                                      min={new Date()
+                                        .toISOString()
+                                        .slice(0, 10)}
+                                      value={day.date}
+                                      onChange={(event) =>
+                                        updateChallengeScheduleDay(
+                                          cartKey,
+                                          day.day,
+                                          {
+                                            date: event.target.value,
+                                            slot: isSlotAllowed(
+                                              event.target.value,
+                                              day.slot
+                                            )
+                                              ? day.slot
+                                              : "",
+                                          }
+                                        )
+                                      }
+                                      className={inputClass}
+                                    />
 
-{item.planDays?.length > 0 && (
-  <div className="mt-3 rounded-[16px] border border-blue-100 bg-blue-50 p-3">
-    <p className="mb-2 text-xs font-black uppercase tracking-wide text-blue-700">
-      Day-wise Delivery Schedule
-    </p>
+                                    <select
+                                      value={day.slot}
+                                      onChange={(event) =>
+                                        updateChallengeScheduleDay(
+                                          cartKey,
+                                          day.day,
+                                          {
+                                            slot: event.target.value,
+                                          }
+                                        )
+                                      }
+                                      className={inputClass}
+                                    >
+                                      <option value="">
+                                        Select delivery slot
+                                      </option>
 
-    <div className="grid gap-2">
-      {item.planDays.map((day: any) => (
-        <div
-          key={`${item._id}-day-${day.day}`}
-          className="rounded-[12px] bg-white px-3 py-2 text-xs font-bold text-slate-700"
-        >
-          <p className="text-slate-950">
-            Day {day.day}: {day.selectedMealTitle}
-          </p>
+                                      {slots.map((slot) => {
+                                        const allowed = isSlotAllowed(
+                                          day.date,
+                                          slot
+                                        );
 
-          <p className="mt-1 text-slate-500">
-            {day.date} • {day.slot} • Alternative:{" "}
-            {day.alternativeMealTitle || "N/A"}
-          </p>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+                                        return (
+                                          <option
+                                            key={slot}
+                                            value={slot}
+                                            disabled={!allowed}
+                                          >
+                                            {optionLabel(
+                                              format12hFromSlot(slot),
+                                              allowed
+                                            )}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
+                                  </div>
 
-<div className="mt-2 flex flex-wrap gap-2">
-  <MacroPill color="green">
-    Protein {item.protein * item.qty}g
-  </MacroPill>
+                                  <p className="mt-2 text-xs font-bold text-slate-500">
+                                    {day.date || "Date not selected"} •{" "}
+                                    {day.slot
+                                      ? format12hFromSlot(day.slot)
+                                      : "Slot not selected"}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-                      
-                        <MacroPill color="orange">
-                          Calories {item.calories * item.qty} kcal
-                        </MacroPill>
-                        <MacroPill color="yellow">
-                          Carbs {(item.carbs || 0) * item.qty}g
-                        </MacroPill>
-                        <MacroPill color="blue">
-                          Fat {(item.fat || 0) * item.qty}g
-                        </MacroPill>
+                        {!isPlan && (
+                          <p className="mt-2 text-sm font-semibold text-slate-500">
+                            Normal meal delivery uses the common delivery time.
+                          </p>
+                        )}
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <MacroPill color="green">
+                            Protein {item.protein * item.qty}g
+                          </MacroPill>
+
+                          <MacroPill color="orange">
+                            Calories {item.calories * item.qty} kcal
+                          </MacroPill>
+
+                          <MacroPill color="yellow">
+                            Carbs {(item.carbs || 0) * item.qty}g
+                          </MacroPill>
+
+                          <MacroPill color="blue">
+                            Fat {(item.fat || 0) * item.qty}g
+                          </MacroPill>
+                        </div>
+
+                        <p className="mt-3 text-sm font-black text-slate-900">
+                          ₹{item.price}{" "}
+                          <span className="font-bold text-slate-400">
+                            × {item.qty}
+                          </span>{" "}
+                          <span className="text-green-700">
+                            = ₹{item.price * item.qty}
+                          </span>
+                        </p>
                       </div>
 
-                      <p className="mt-3 text-sm font-black text-slate-900">
-                        ₹{item.price}{" "}
-                        <span className="font-bold text-slate-400">
-                          × {item.qty}
-                        </span>{" "}
-                        <span className="text-green-700">
-                          = ₹{item.price * item.qty}
-                        </span>
-                      </p>
-                    </div>
+                      <div className="flex items-center justify-between gap-2 md:justify-end">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              decreaseQty(item._id, item.challengeId)
+                            }
+                            disabled={isPlan}
+                            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <Minus size={16} />
+                          </button>
 
-                    <div className="flex items-center justify-between gap-2 md:justify-end">
-                      <div className="flex items-center gap-2">
+                          <span className="flex min-w-8 justify-center text-base font-black text-slate-950">
+                            {item.qty}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              increaseQty(item._id, item.challengeId)
+                            }
+                            disabled={isPlan}
+                            className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+
                         <button
                           type="button"
-                          onClick={() => decreaseQty(item._id, item.challengeId)}
-                          className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                          onClick={() =>
+                            removeFromCart(item._id, item.challengeId)
+                          }
+                          className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
                         >
-                          <Minus size={16} />
-                        </button>
-
-                        <span className="flex min-w-8 justify-center text-base font-black text-slate-950">
-                          {item.qty}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => increaseQty(item._id, item.challengeId)}
-                          className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white transition hover:bg-green-700"
-                        >
-                          <Plus size={16} />
+                          <Trash2 size={17} />
                         </button>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item._id, item.challengeId)}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
-                      >
-                        <Trash2 size={17} />
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </SectionCard>
 
@@ -1206,6 +1447,7 @@ export default function Cart() {
                 <IconCircle>
                   <MapPin size={20} />
                 </IconCircle>
+
                 <h2 className="text-xl font-black text-slate-950">
                   Delivery Address
                 </h2>
@@ -1500,6 +1742,7 @@ export default function Cart() {
               <IconCircle>
                 <ShieldCheck size={19} />
               </IconCircle>
+
               <h2 className="text-xl font-black text-slate-950">
                 Order Summary
               </h2>
@@ -1536,12 +1779,16 @@ export default function Cart() {
 
             <div className="space-y-3 text-sm">
               <p className="flex justify-between">
-                <span className="font-medium text-slate-500">Meals Subtotal</span>
+                <span className="font-medium text-slate-500">
+                  Meals Subtotal
+                </span>
                 <b className="text-slate-950">₹{normalMealsSubtotal}</b>
               </p>
 
               <p className="flex justify-between">
-                <span className="font-medium text-slate-500">Challenge Plan</span>
+                <span className="font-medium text-slate-500">
+                  Challenge Plan
+                </span>
                 <b className="text-slate-950">₹{planSubtotal}</b>
               </p>
 
@@ -1566,6 +1813,7 @@ export default function Cart() {
               <IconCircle>
                 <Tag size={18} />
               </IconCircle>
+
               <h2 className="text-xl font-black text-slate-950">
                 Apply Coupon
               </h2>
@@ -1658,80 +1906,123 @@ export default function Cart() {
             </div>
           </SectionCard>
 
-          <SectionCard>
-            <div className="mb-5 flex items-center gap-3">
-              <IconCircle>
-                <Clock size={18} />
-              </IconCircle>
-              <h2 className="text-xl font-black text-slate-950">
-                Delivery Time
-              </h2>
-            </div>
+          {hasNormalMeals && (
+            <SectionCard>
+              <div className="mb-5 flex items-center gap-3">
+                <IconCircle>
+                  <Clock size={18} />
+                </IconCircle>
 
-            <input
-              type="date"
-              className={inputClass}
-              value={slotDate}
-              onChange={(event) => {
-                const newDate = event.target.value;
+                <h2 className="text-xl font-black text-slate-950">
+                  Normal Meal Delivery Time
+                </h2>
+              </div>
 
-                setSlotDate(newDate);
-                setSlotMsg(null);
+              <input
+                type="date"
+                className={inputClass}
+                value={slotDate}
+                onChange={(event) => {
+                  const newDate = event.target.value;
 
-                if (!isSlotAllowed(newDate, slotTime)) {
-                  const firstAllowed = slots.find((slot) =>
-                    isSlotAllowed(newDate, slot)
+                  setSlotDate(newDate);
+                  setSlotMsg(null);
+
+                  if (!isSlotAllowed(newDate, slotTime)) {
+                    setSlotTime("");
+                  }
+                }}
+                min={new Date().toISOString().slice(0, 10)}
+              />
+
+              <select
+                className={`${inputClass} mt-3`}
+                value={slotTime}
+                onChange={(event) => {
+                  setSlotTime(event.target.value);
+                  setSlotMsg(null);
+                }}
+              >
+                <option value="">Select delivery slot</option>
+
+                {slots.map((slot) => {
+                  const allowed = isSlotAllowed(slotDate, slot);
+                  const label = format12hFromSlot(slot);
+
+                  return (
+                    <option key={slot} value={slot} disabled={!allowed}>
+                      {optionLabel(label, allowed)}
+                    </option>
                   );
+                })}
+              </select>
 
-                  if (firstAllowed) setSlotTime(firstAllowed);
-                }
-              }}
-              min={new Date().toISOString().slice(0, 10)}
-            />
+              <p className="mt-3 rounded-[16px] border border-yellow-200 bg-yellow-50 p-3 text-xs font-medium leading-5 text-yellow-800">
+                Normal meals must be placed at least <b>3 hours</b> before your
+                selected delivery slot.
+              </p>
 
-            <select
-              className={`${inputClass} mt-3`}
-              value={slotTime}
-              onChange={(event) => {
-                setSlotTime(event.target.value);
-                setSlotMsg(null);
-              }}
-            >
-              {slots.map((slot) => {
-                const allowed = isSlotAllowed(slotDate, slot);
-                const label = format12h(getHourFromSlot(slot));
+              {slotMsg && <MessageBox type="error" message={slotMsg} />}
 
-                return (
-                  <option key={slot} value={slot} disabled={!allowed}>
-                    {optionLabel(label, allowed)}
-                  </option>
-                );
-              })}
-            </select>
+              <button
+                type="button"
+                onClick={checkout}
+                disabled={checkingOut}
+                className="mt-5 hidden h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60 xl:flex"
+              >
+                <LocateFixed size={18} />
+                {checkingOut ? "Processing..." : "Checkout & Pay"}
+              </button>
 
-            <p className="mt-3 rounded-[16px] border border-yellow-200 bg-yellow-50 p-3 text-xs font-medium leading-5 text-yellow-800">
-              Orders must be placed at least <b>3 hours</b> before your selected
-              delivery slot.
-            </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-slate-500">
+                <span>○ Secure Payment</span>
+                <span>⚡ Fast Delivery</span>
+                <span>○ Fresh Meals</span>
+              </div>
+            </SectionCard>
+          )}
 
-            {slotMsg && <MessageBox type="error" message={slotMsg} />}
+          {onlyChallengePlans && (
+            <SectionCard>
+              <div className="mb-5 flex items-center gap-3">
+                <IconCircle>
+                  <Clock size={18} />
+                </IconCircle>
 
-            <button
-              type="button"
-              onClick={checkout}
-              disabled={checkingOut}
-              className="mt-5 hidden h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60 xl:flex"
-            >
-              <LocateFixed size={18} />
-              {checkingOut ? "Processing..." : "Checkout & Pay"}
-            </button>
+                <h2 className="text-xl font-black text-slate-950">
+                  Challenge Delivery Time
+                </h2>
+              </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-slate-500">
-              <span>○ Secure Payment</span>
-              <span>⚡ Fast Delivery</span>
-              <span>○ Fresh Meals</span>
-            </div>
-          </SectionCard>
+              <p className="rounded-[16px] border border-blue-100 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-700">
+                Select delivery date and slot separately for each challenge day
+                inside the plan card.
+              </p>
+
+              <p className="mt-3 rounded-[16px] border border-yellow-200 bg-yellow-50 p-3 text-xs font-medium leading-5 text-yellow-800">
+                Every challenge day must be scheduled at least <b>3 hours</b>{" "}
+                before the selected delivery slot.
+              </p>
+
+              {slotMsg && <MessageBox type="error" message={slotMsg} />}
+
+              <button
+                type="button"
+                onClick={checkout}
+                disabled={checkingOut}
+                className="mt-5 hidden h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60 xl:flex"
+              >
+                <LocateFixed size={18} />
+                {checkingOut ? "Processing..." : "Checkout & Pay"}
+              </button>
+
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-slate-500">
+                <span>○ Secure Payment</span>
+                <span>⚡ Daily Delivery</span>
+                <span>○ Fresh Meals</span>
+              </div>
+            </SectionCard>
+          )}
         </aside>
       </div>
 
