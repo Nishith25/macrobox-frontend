@@ -1711,97 +1711,104 @@ export default function Cart() {
                             </button>
                           </div>
 
-                          <div className="grid gap-3">
-                            {schedule.map((day) => (
-                              <div
-                                key={`${cartKey}-day-${day.day}`}
-                                className="rounded-[16px] bg-white p-3 sm:p-4"
-                              >
-                                <div className="flex flex-col gap-1">
-                                  <p className="break-words text-sm font-black leading-5 text-slate-950 sm:text-base">
-                                    Day {day.day}: {day.selectedMealTitle}
-                                  </p>
+                          {(() => {
+  const dayOne = schedule.find((day) => Number(day.day) === 1);
+  const otherDays = schedule.filter((day) => Number(day.day) !== 1);
 
-                                  {day.day !== 1 && (
-                                    <p className="text-xs font-bold text-slate-400">
-                                      Date auto-selected from Day 1
-                                    </p>
-                                  )}
-                                </div>
+  return (
+    <div className="space-y-3">
+      <div className="rounded-[16px] bg-white p-3 sm:p-4">
+        <p className="break-words text-sm font-black leading-5 text-slate-950 sm:text-base">
+          Day 1: {dayOne?.selectedMealTitle || "Meal"}
+        </p>
 
-                                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                                  <label className="relative block w-full">
-                                    <span className={scheduleInputClass}>
-                                      {formatDateForDisplay(day.date)}
-                                    </span>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <input
+            type="date"
+            min={todayISO()}
+            value={dayOne?.date || ""}
+            onChange={(event) =>
+              updateChallengeScheduleDay(cartKey, 1, {
+                date: event.target.value,
+              })
+            }
+            className={scheduleInputClass}
+          />
 
-                                    <input
-                                      type="date"
-                                      min={todayISO()}
-                                      value={day.date}
-                                      disabled={day.day !== 1}
-                                      onChange={(event) =>
-                                        updateChallengeScheduleDay(
-                                          cartKey,
-                                          day.day,
-                                          {
-                                            date: event.target.value,
-                                          }
-                                        )
-                                      }
-                                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-                                    />
-                                  </label>
+          <select
+            value={dayOne?.slot || ""}
+            onChange={(event) =>
+              updateChallengeScheduleDay(cartKey, 1, {
+                slot: event.target.value,
+              })
+            }
+            className={scheduleInputClass}
+          >
+            <option value="">Select delivery slot</option>
 
-                                  <select
-                                    value={day.slot}
-                                    onChange={(event) =>
-                                      updateChallengeScheduleDay(
-                                        cartKey,
-                                        day.day,
-                                        {
-                                          slot: event.target.value,
-                                        }
-                                      )
-                                    }
-                                    className={scheduleInputClass}
-                                  >
-                                    <option value="">Select delivery slot</option>
+            {slots.map((slot) => {
+              const allowed = isSlotAllowed(dayOne?.date || "", slot);
 
-                                    {slots.map((slot) => {
-                                      const allowed = isSlotAllowed(
-                                        day.date,
-                                        slot
-                                      );
+              return (
+                <option key={slot} value={slot} disabled={!allowed}>
+                  {optionLabel(format12hFromSlot(slot), allowed)}
+                </option>
+              );
+            })}
+          </select>
+        </div>
 
-                                      return (
-                                        <option
-                                          key={slot}
-                                          value={slot}
-                                          disabled={!allowed}
-                                        >
-                                          {optionLabel(
-                                            format12hFromSlot(slot),
-                                            allowed
-                                          )}
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
-                                </div>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-bold text-slate-500">
+            {dayOne?.date
+              ? formatDateForDisplay(dayOne.date)
+              : "Date not selected"}{" "}
+            •{" "}
+            {dayOne?.slot
+              ? format12hFromSlot(dayOne.slot)
+              : "Slot not selected"}
+          </p>
 
-                                <p className="mt-2 text-xs font-bold text-slate-500">
-                                  {day.date
-                                    ? formatDateForDisplay(day.date)
-                                    : "Date not selected"}{" "}
-                                  •{" "}
-                                  {day.slot
-                                    ? format12hFromSlot(day.slot)
-                                    : "Slot not selected"}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
+          <button
+            type="button"
+            onClick={() => applyDayOneSlotToAllDays(cartKey)}
+            disabled={!dayOne?.date || !dayOne?.slot}
+            className="h-8 w-fit rounded-full bg-blue-600 px-3 text-[11px] font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Apply to all
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        {otherDays.map((day) => (
+          <div
+            key={`${cartKey}-day-${day.day}`}
+            className="rounded-[14px] border border-slate-100 bg-white px-3 py-3"
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="break-words text-sm font-black leading-5 text-slate-950">
+                  Day {day.day}: {day.selectedMealTitle}
+                </p>
+
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  {day.date
+                    ? formatDateForDisplay(day.date)
+                    : "Date auto from Day 1"}
+                </p>
+              </div>
+
+              <p className="w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                {day.slot ? format12hFromSlot(day.slot) : "Slot not applied"}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+})()}
                         </div>
                       );
                     })}
@@ -1911,6 +1918,17 @@ export default function Cart() {
             payable={payable}
           />
 
+          <button
+  type="button"
+  onClick={step === "payment" ? checkout : goNext}
+  disabled={checkingOut}
+  className="hidden h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:opacity-60 lg:flex"
+>
+  <LocateFixed size={18} />
+  {primaryButtonText}
+  {step !== "payment" && <ChevronRight size={18} />}
+</button>
+
           <section className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-4 flex items-center gap-3">
               <IconCircle>
@@ -2008,17 +2026,6 @@ export default function Cart() {
               )}
             </div>
           </section>
-
-          <button
-            type="button"
-            onClick={step === "payment" ? checkout : goNext}
-            disabled={checkingOut}
-            className="hidden h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:opacity-60 lg:flex"
-          >
-            <LocateFixed size={18} />
-            {primaryButtonText}
-            {step !== "payment" && <ChevronRight size={18} />}
-          </button>
         </aside>
       </div>
 
