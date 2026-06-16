@@ -5,7 +5,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
-  CalendarClock,
   CheckCircle2,
   Flame,
   Gift,
@@ -148,30 +147,6 @@ const getMealById = (meals: MealCard[], id: string) => {
   return meals.find((meal) => String(meal._id) === String(id)) || null;
 };
 
-const getMealsByPreference = (
-  meals: MealCard[],
-  preference: UserPreference,
-  mealMode: MealMode
-) => {
-  if (mealMode === "veg") {
-    return meals.filter((meal) => getMealDietType(meal) === "veg");
-  }
-
-  if (mealMode === "nonveg") {
-    return meals.filter((meal) => getMealDietType(meal) === "nonveg");
-  }
-
-  if (preference === "veg") {
-    return meals.filter((meal) => getMealDietType(meal) === "veg");
-  }
-
-  if (preference === "nonveg") {
-    return meals.filter((meal) => getMealDietType(meal) === "nonveg");
-  }
-
-  return meals;
-};
-
 const pickMealForDay = (
   day: ChallengeDay,
   preference: UserPreference,
@@ -299,6 +274,10 @@ export default function ChallengeDetails() {
 
   const selectedTotals = useMemo(() => sumMeals(selectedMeals), [selectedMeals]);
 
+  const selectedMealPreview = useMemo(() => {
+    return selectedMeals.slice(0, 4).map((meal) => meal.title);
+  }, [selectedMeals]);
+
   const perks: string[] = challenge?.perks?.length
     ? challenge.perks
     : [
@@ -329,23 +308,6 @@ export default function ChallengeDetails() {
     );
   });
 
-  const loadChallenge = async () => {
-    try {
-      setLoading(true);
-
-      const res = await api.get(`/challenges/${challengeId}`);
-      setChallenge(res.data);
-    } catch (error: any) {
-      console.error(error);
-
-      if (!localChallenge) {
-        toast.error(error?.response?.data?.message || "Challenge not found");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const buildInitialPlanDays = (
     data: CartMealsResponse,
     selectedPreference: UserPreference
@@ -361,6 +323,23 @@ export default function ChallengeDetails() {
         preference: selectedPreference,
       };
     });
+  };
+
+  const loadChallenge = async () => {
+    try {
+      setLoading(true);
+
+      const res = await api.get(`/challenges/${challengeId}`);
+      setChallenge(res.data);
+    } catch (error: any) {
+      console.error(error);
+
+      if (!localChallenge) {
+        toast.error(error?.response?.data?.message || "Challenge not found");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadCartMeals = async () => {
@@ -428,19 +407,6 @@ export default function ChallengeDetails() {
     }
   };
 
-  const updatePlanDayMeal = (dayNo: number, selectedMealId: string) => {
-    setPlanDays((prev) =>
-      prev.map((day) =>
-        Number(day.day) === Number(dayNo)
-          ? {
-              ...day,
-              selectedMealId,
-            }
-          : day
-      )
-    );
-  };
-
   const addChallengeToCart = async () => {
     try {
       setAdding(true);
@@ -457,7 +423,7 @@ export default function ChallengeDetails() {
       });
 
       if (invalidDay) {
-        toast.error(`Please select meal for Day ${invalidDay.day}.`);
+        toast.error(`Meal not available for Day ${invalidDay.day}.`);
         return;
       }
 
@@ -589,10 +555,32 @@ export default function ChallengeDetails() {
 
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="rounded-[32px] border border-green-100 bg-gradient-to-br from-green-50 via-white to-white p-6 shadow-[0_18px_55px_rgba(15,23,42,0.06)] sm:p-10">
-            <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
-              <Trophy size={15} />
-              {displayBadge}
-            </p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <p className="inline-flex w-fit items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
+                <Trophy size={15} />
+                {displayBadge}
+              </p>
+
+              <div className="rounded-[18px] bg-green-50 p-2">
+                <div className="flex flex-wrap gap-2">
+                  {availablePreferenceOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setPreference(option)}
+                      disabled={loadingMeals}
+                      className={`rounded-[14px] px-4 py-2 text-xs font-black capitalize transition disabled:opacity-60 ${
+                        preference === option
+                          ? "bg-green-600 text-white"
+                          : "bg-white text-green-700"
+                      }`}
+                    >
+                      {option === "mixed" ? "Mixed" : option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             <h1 className="mt-5 text-[42px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px]">
               {displayTitle}
@@ -601,6 +589,49 @@ export default function ChallengeDetails() {
             <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
               {displayDescription}
             </p>
+
+            <div className="mt-5 rounded-[20px] border border-green-100 bg-white p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                    Selected Plan Type
+                  </p>
+                  <p className="mt-1 text-lg font-black capitalize text-green-700">
+                    {preference === "mixed" ? "Mixed" : preference}
+                  </p>
+                </div>
+
+                <div className="text-left sm:text-right">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                    Selected Meals
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-slate-700">
+                    {loadingMeals
+                      ? "Loading meals..."
+                      : `${selectedMeals.length}/${durationDays} meals ready`}
+                  </p>
+                </div>
+              </div>
+
+              {selectedMealPreview.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedMealPreview.map((mealTitle, index) => (
+                    <span
+                      key={`${mealTitle}-${index}`}
+                      className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700"
+                    >
+                      {mealTitle}
+                    </span>
+                  ))}
+
+                  {selectedMeals.length > selectedMealPreview.length && (
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
+                      +{selectedMeals.length - selectedMealPreview.length} more
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
               <InfoCard
@@ -699,6 +730,13 @@ export default function ChallengeDetails() {
                 Choose Veg, Nonveg or Mixed. Delivery date and slot will be
                 selected in cart for each day.
               </p>
+
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <MiniDarkStat label="Protein" value={`${selectedTotals.protein}g`} />
+                <MiniDarkStat label="Calories" value={`${selectedTotals.calories}`} />
+                <MiniDarkStat label="Carbs" value={`${selectedTotals.carbs}g`} />
+                <MiniDarkStat label="Fat" value={`${selectedTotals.fat}g`} />
+              </div>
             </div>
 
             <div className="mt-6">
@@ -726,148 +764,6 @@ export default function ChallengeDetails() {
               </div>
             </div>
           </aside>
-        </section>
-
-        <section className="mt-7 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em]">
-                <CalendarClock className="text-green-600" />
-                Choose Your Challenge Meals
-              </h2>
-
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                Select Veg, Nonveg or Mixed. Meals will be selected according to
-                your choice. Delivery date and time will be selected later in
-                cart for each day.
-              </p>
-            </div>
-
-            <div className="rounded-[18px] bg-green-50 p-2">
-              <div className="flex flex-wrap gap-2">
-                {availablePreferenceOptions.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setPreference(option)}
-                    className={`rounded-[14px] px-4 py-2 text-xs font-black capitalize transition ${
-                      preference === option
-                        ? "bg-green-600 text-white"
-                        : "bg-white text-green-700"
-                    }`}
-                  >
-                    {option === "mixed" ? "Mixed" : option}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {loadingMeals ? (
-            <div className="mt-5 rounded-[20px] border border-slate-200 bg-slate-50 p-5 text-sm font-bold text-slate-500">
-              Loading meal options...
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-4">
-              {planDays.map((daySelection) => {
-                const dayConfig = cartMealsData?.days?.find(
-                  (item) => Number(item.day) === Number(daySelection.day)
-                );
-
-                const dayMeals = dayConfig?.availableMeals?.length
-                  ? dayConfig.availableMeals
-                  : allMeals;
-
-                const availableMeals = getMealsByPreference(
-                  dayMeals,
-                  daySelection.preference,
-                  mealMode
-                );
-
-                const selectedMeal = getMealById(
-                  allMeals,
-                  daySelection.selectedMealId
-                );
-
-                return (
-                  <div
-                    key={daySelection.day}
-                    className="rounded-[22px] border border-slate-200 bg-slate-50 p-4"
-                  >
-                    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-lg font-black text-slate-950">
-                          Day {daySelection.day}
-                        </p>
-
-                        <p className="text-xs font-bold text-slate-500">
-                          {selectedMeal?.title || "Meal not selected"}
-                        </p>
-                      </div>
-
-                      <span className="w-fit rounded-full bg-white px-3 py-1 text-xs font-black capitalize text-green-700">
-                        {daySelection.preference}
-                      </span>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-[1fr_0.55fr_0.55fr_0.55fr]">
-                      <div>
-                        <label className="mb-1 block text-xs font-black uppercase text-slate-400">
-                          Meal
-                        </label>
-
-                        <select
-                          value={daySelection.selectedMealId}
-                          onChange={(event) =>
-                            updatePlanDayMeal(
-                              daySelection.day,
-                              event.target.value
-                            )
-                          }
-                          className="h-11 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-green-500"
-                        >
-                          <option value="">Select meal</option>
-
-                          {availableMeals.map((meal) => (
-                            <option key={meal._id} value={meal._id}>
-                              {meal.title} • {getMealDietType(meal)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <MealMiniStat
-                        label="Protein"
-                        value={`${selectedMeal?.protein || 0}g`}
-                      />
-
-                      <MealMiniStat
-                        label="Calories"
-                        value={`${selectedMeal?.calories || 0} kcal`}
-                      />
-
-                      <MealMiniStat
-                        label="Price"
-                        value={`₹${selectedMeal?.price || 0}`}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-
-              <div className="rounded-[20px] border border-green-100 bg-green-50 p-4">
-                <p className="text-sm font-black text-green-800">
-                  Plan Total: ₹{displayPrice}
-                </p>
-
-                <p className="mt-1 text-xs font-bold text-green-700">
-                  Selected meals total macros: Protein {selectedTotals.protein}g
-                  • Calories {selectedTotals.calories} kcal • Carbs{" "}
-                  {selectedTotals.carbs}g • Fat {selectedTotals.fat}g
-                </p>
-              </div>
-            </div>
-          )}
         </section>
 
         <section className="mt-7 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
@@ -950,7 +846,7 @@ export default function ChallengeDetails() {
 
             <div className="mt-4 space-y-3">
               <Step number="01" text="Join the challenge." />
-              <Step number="02" text="Choose Veg, Nonveg or Mixed meals." />
+              <Step number="02" text="Choose Veg, Nonveg or Mixed." />
               <Step number="03" text="Add plan to cart and select daily slots." />
               <Step number="04" text="Pay once and get one meal delivered daily." />
             </div>
@@ -973,14 +869,14 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MealMiniStat({ label, value }: { label: string; value: string }) {
+function MiniDarkStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[14px] border border-slate-200 bg-white px-3 py-2">
-      <p className="text-[11px] font-black uppercase text-slate-400">
+    <div className="rounded-[14px] bg-white/10 px-3 py-2">
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
 
-      <p className="mt-1 text-sm font-black text-slate-900">{value}</p>
+      <p className="mt-1 text-sm font-black text-white">{value}</p>
     </div>
   );
 }
