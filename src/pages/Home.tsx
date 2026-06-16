@@ -8,7 +8,7 @@ import {
   Gift,
   ShieldCheck,
   Target,
-  Trophy,
+  ClipboardList,
   Zap,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -57,9 +57,9 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-5 max-w-2xl text-center text-[17px] font-medium leading-8 text-slate-600 sm:mx-0 sm:text-left sm:text-lg">
-              Goal-based meals for fat loss, muscle gain, weight gain and
-              everyday clean eating — with complete calories, protein, carbs and
-              fat tracking.
+              Goal-based meals and 7-day meal plans for fat loss, muscle gain,
+              weight gain and everyday clean eating — with complete calories,
+              protein, carbs and fat tracking.
             </p>
 
             {/* MAIN ACTION BUTTONS */}
@@ -75,11 +75,11 @@ export default function Home() {
 
               <button
                 type="button"
-                onClick={() => goProtected("/challenges")}
+                onClick={() => goProtected("/plans")}
                 className="inline-flex h-14 items-center justify-center gap-3 rounded-[18px] border border-green-200 bg-white px-7 text-sm font-black text-green-700 shadow-sm transition hover:bg-green-50 lg:w-auto"
               >
-                <Trophy size={18} />
-                7-Day Challenge
+                <ClipboardList size={18} />
+                7-Day Meal Plans
                 <ArrowRight size={18} />
               </button>
 
@@ -149,7 +149,7 @@ export default function Home() {
 
             <button
               type="button"
-              onClick={() => goProtected("/challenges")}
+              onClick={() => goProtected("/plans")}
               className="hidden rounded-[18px] bg-green-600 px-6 py-3 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 md:inline-flex md:items-center md:gap-2"
             >
               Get Started
@@ -173,17 +173,17 @@ export default function Home() {
             />
 
             <StepCard
-              icon={<Trophy size={20} />}
+              icon={<ClipboardList size={20} />}
               number="03"
-              title="Join Challenge"
-              description="Start a 7-day MacroBox challenge and stay consistent."
+              title="Choose a Plan"
+              description="Buy a 7-day MacroBox meal plan with scheduled daily meals."
             />
 
             <StepCard
               icon={<ShieldCheck size={20} />}
               number="04"
-              title="Reach Your Target"
-              description="Track your progress, complete the plan and unlock rewards."
+              title="Save on Next Plan"
+              description="After payment, unlock 10% OFF your next eligible plan."
             />
           </div>
         </div>
