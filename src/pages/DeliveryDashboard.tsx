@@ -46,7 +46,7 @@ type PlanIncludedItem = {
 
 type OrderItem = {
   meal?: string;
-  itemType?: "meal" | "challenge_plan";
+  itemType?: "meal" | "plan" | "challenge_plan";
   title?: string;
   price?: number;
   protein?: number;
@@ -54,7 +54,10 @@ type OrderItem = {
   carbs?: number;
   fat?: number;
   qty?: number;
+  planId?: string;
   challengeId?: string;
+  preference?: "veg" | "nonveg" | "mixed" | "";
+  rewardEligible?: boolean;
   planItems?: PlanIncludedItem[];
   planDays?: PlanDay[];
 };
@@ -116,6 +119,7 @@ type Order = {
     subtotal?: number;
     discount?: number;
     payable?: number;
+    planSubtotal?: number;
     challengePlanSubtotal?: number;
     normalMealsSubtotal?: number;
     totalProtein?: number;
@@ -127,6 +131,7 @@ type Order = {
     code?: string;
     discount?: number;
     redeemed?: boolean;
+    applyOn?: "cart" | "plan" | "challenge_plan";
   };
   delivery?: {
     address?: DeliveryAddress;
@@ -183,6 +188,17 @@ function formatDateTime(value?: string | null) {
 
 function formatDateOnly(value?: string) {
   if (!value) return "N/A";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -276,15 +292,26 @@ function getMapsUrl(address?: DeliveryAddress) {
 }
 
 function isPlanItem(item?: OrderItem) {
-  return item?.itemType === "challenge_plan" || Boolean(item?.challengeId);
+  return (
+    item?.itemType === "plan" ||
+    item?.itemType === "challenge_plan" ||
+    Boolean(item?.planId) ||
+    Boolean(item?.challengeId)
+  );
 }
 
-function getTodayPlanDay(item: OrderItem) {
+function getPlanId(item?: OrderItem) {
+  return String(item?.planId || item?.challengeId || "").trim();
+}
+
+function getNextPlanDay(item: OrderItem) {
   const planDays = item.planDays || [];
   const today = todayISO();
 
   return (
-    planDays.find((day) => day.date === today) ||
+    planDays.find(
+      (day) => day.date === today && day.deliveryStatus !== "delivered"
+    ) ||
     planDays.find((day) => day.deliveryStatus !== "delivered") ||
     planDays[0] ||
     null
@@ -294,7 +321,7 @@ function getTodayPlanDay(item: OrderItem) {
 function getSplitTotals(order: Order) {
   const items = order.items || [];
 
-  const fallbackChallengePlanSubtotal = items
+  const fallbackPlanSubtotal = items
     .filter((item) => isPlanItem(item))
     .reduce(
       (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
@@ -303,20 +330,23 @@ function getSplitTotals(order: Order) {
 
   const subtotal = Number(order.totals?.subtotal || 0);
 
-  const challengePlanSubtotal =
-    Number(order.totals?.challengePlanSubtotal || 0) > 0
-      ? Number(order.totals?.challengePlanSubtotal || 0)
-      : Math.round(fallbackChallengePlanSubtotal);
+  const planSubtotal =
+    Number(order.totals?.planSubtotal || order.totals?.challengePlanSubtotal || 0) >
+    0
+      ? Number(
+          order.totals?.planSubtotal || order.totals?.challengePlanSubtotal || 0
+        )
+      : Math.round(fallbackPlanSubtotal);
 
   const normalMealsSubtotal =
     Number(order.totals?.normalMealsSubtotal || 0) > 0
       ? Number(order.totals?.normalMealsSubtotal || 0)
-      : Math.max(subtotal - challengePlanSubtotal, 0);
+      : Math.max(subtotal - planSubtotal, 0);
 
   return {
     subtotal,
     normalMealsSubtotal,
-    challengePlanSubtotal,
+    planSubtotal,
     discount: Number(order.totals?.discount || 0),
     payable: Number(order.totals?.payable || 0),
   };
@@ -332,6 +362,11 @@ function matchesSearch(order: Order, query: string) {
     order.items
       ?.map((item) => {
         const title = item.title || "";
+        const planId = getPlanId(item);
+        const planItems =
+          item.planItems?.map((planItem) => planItem.title || "").join(" ") ||
+          "";
+
         const planDays =
           item.planDays
             ?.map(
@@ -342,7 +377,7 @@ function matchesSearch(order: Order, query: string) {
             )
             .join(" ") || "";
 
-        return `${title} ${planDays}`;
+        return `${title} ${planId} ${planItems} ${planDays}`;
       })
       .join(" ") || "";
 
@@ -450,9 +485,7 @@ export default function DeliveryDashboard() {
           delete lastSentRef.current[orderId];
         }
 
-        setTrackingOrderId((current) =>
-          current === orderId ? null : current
-        );
+        setTrackingOrderId((current) => (current === orderId ? null : current));
       }
 
       await fetchOrders();
@@ -515,9 +548,7 @@ export default function DeliveryDashboard() {
         }
 
         delete lastSentRef.current[orderId];
-        setTrackingOrderId((current) =>
-          current === orderId ? null : current
-        );
+        setTrackingOrderId((current) => (current === orderId ? null : current));
       },
       {
         enableHighAccuracy: true,
@@ -610,7 +641,7 @@ export default function DeliveryDashboard() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search order ID, customer, email, address, item..."
+              placeholder="Search order ID, customer, email, address, item, plan..."
               className="h-11 w-full rounded-xl border bg-white pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
             />
           </div>
@@ -728,9 +759,7 @@ function AvailableOrderCard({
               icon={<IndianRupee size={15} />}
               label="Payable"
               value={formatCurrency(order.totals?.payable)}
-              subValue={`Plan: ${formatCurrency(
-                splitTotals.challengePlanSubtotal
-              )}`}
+              subValue={`Plans: ${formatCurrency(splitTotals.planSubtotal)}`}
             />
 
             <InfoBlock
@@ -874,14 +903,17 @@ function MyDeliveryOrderCard({
               label="Accepted"
               value={formatDateTime(order.delivery?.acceptedAt)}
             />
+
             <TimeBlock
               label="Picked Up"
               value={formatDateTime(order.delivery?.pickedUpAt)}
             />
+
             <TimeBlock
               label="Out for Delivery"
               value={formatDateTime(order.delivery?.outForDeliveryAt)}
             />
+
             <TimeBlock
               label="Delivered"
               value={formatDateTime(order.delivery?.deliveredAt)}
@@ -992,15 +1024,18 @@ function BillingBreakdown({ order }: { order: Order }) {
           label="Meals"
           value={formatCurrency(splitTotals.normalMealsSubtotal)}
         />
+
         <BillingTile
-          label="Challenge Plan"
-          value={formatCurrency(splitTotals.challengePlanSubtotal)}
+          label="Plans"
+          value={formatCurrency(splitTotals.planSubtotal)}
         />
+
         <BillingTile
           label="Plan Discount"
           value={`-₹${splitTotals.discount}`}
           green
         />
+
         <BillingTile
           label="Payable"
           value={formatCurrency(splitTotals.payable)}
@@ -1046,16 +1081,11 @@ function AddressBox({
 function ItemChips({ order }: { order: Order }) {
   return (
     <div>
-      <p className="mb-1 text-sm font-bold text-gray-900">
-        Delivery Items
-      </p>
+      <p className="mb-1 text-sm font-bold text-gray-900">Delivery Items</p>
 
       <div className="grid gap-2">
         {order.items?.map((item, index) => (
-          <DeliveryItemCard
-            key={`${order._id}-${index}`}
-            item={item}
-          />
+          <DeliveryItemCard key={`${order._id}-${index}`} item={item} />
         ))}
       </div>
     </div>
@@ -1064,49 +1094,56 @@ function ItemChips({ order }: { order: Order }) {
 
 function DeliveryItemCard({ item }: { item: OrderItem }) {
   const isPlan = isPlanItem(item);
-  const todayPlanDay = isPlan ? getTodayPlanDay(item) : null;
+  const nextPlanDay = isPlan ? getNextPlanDay(item) : null;
+  const planId = getPlanId(item);
 
-  if (isPlan && todayPlanDay) {
+  if (isPlan && nextPlanDay) {
     return (
       <div className="rounded-xl border border-green-100 bg-green-50 p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-black text-gray-900">
-                Day {todayPlanDay.day}:{" "}
-                {todayPlanDay.selectedMealTitle || "Challenge Meal"}
+                Day {nextPlanDay.day}:{" "}
+                {nextPlanDay.selectedMealTitle || "Plan Meal"}
               </p>
 
               <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-green-700">
-                Challenge Plan
+                Meal Plan
               </span>
+
+              {planId && (
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">
+                  {planId}
+                </span>
+              )}
             </div>
 
             <p className="mt-1 text-xs font-semibold text-gray-500">
-              Delivery: {formatDateOnly(todayPlanDay.date)} •{" "}
-              {formatSlot(todayPlanDay.slot)}
+              Delivery: {formatDateOnly(nextPlanDay.date)} •{" "}
+              {formatSlot(nextPlanDay.slot)}
             </p>
 
             <p className="mt-1 text-xs font-semibold text-gray-500">
-              Preference: {todayPlanDay.preference || "mixed"} • Status:{" "}
-              {readableStatus(todayPlanDay.deliveryStatus || "scheduled")}
+              Preference: {nextPlanDay.preference || "mixed"} • Status:{" "}
+              {readableStatus(nextPlanDay.deliveryStatus || "scheduled")}
             </p>
 
-            {todayPlanDay.alternativeMealTitle && (
+            {nextPlanDay.alternativeMealTitle && (
               <p className="mt-1 text-xs font-semibold text-gray-500">
-                Alternative: {todayPlanDay.alternativeMealTitle}
+                Alternative: {nextPlanDay.alternativeMealTitle}
               </p>
             )}
           </div>
 
           <div className="text-left sm:text-right">
             <p className="text-sm font-black text-gray-900">
-              {formatCurrency(todayPlanDay.selectedMealPrice)}
+              {formatCurrency(nextPlanDay.selectedMealPrice)}
             </p>
 
             <p className="text-xs font-semibold text-gray-500">
-              {todayPlanDay.selectedMealCalories || 0} kcal |{" "}
-              {todayPlanDay.selectedMealProtein || 0}g protein
+              {nextPlanDay.selectedMealCalories || 0} kcal |{" "}
+              {nextPlanDay.selectedMealProtein || 0}g protein
             </p>
           </div>
         </div>
@@ -1117,15 +1154,14 @@ function DeliveryItemCard({ item }: { item: OrderItem }) {
   return (
     <div
       className={`rounded-xl border px-3 py-2 ${
-        isPlan
-          ? "border-green-100 bg-green-50"
-          : "border-gray-100 bg-gray-50"
+        isPlan ? "border-green-100 bg-green-50" : "border-gray-100 bg-gray-50"
       }`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-bold text-gray-800">
           {item.title || "Meal"} × {item.qty || 1}
-          {isPlan ? " • Challenge Plan" : ""}
+          {isPlan ? " • Meal Plan" : ""}
+          {isPlan && planId ? ` • ${planId}` : ""}
         </span>
 
         <span className="text-sm font-bold text-gray-900">

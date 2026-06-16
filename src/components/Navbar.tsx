@@ -17,7 +17,6 @@ import {
   Shield,
   ShoppingCart,
   TicketPercent,
-  Trophy,
   Truck,
   UserCircle,
   Users,
@@ -117,14 +116,14 @@ export default function Navbar() {
                   Smart Day Planner
                 </NavLink>
 
-                <NavLink to="/challenges" className={navLinkClass}>
-                  <Trophy size={17} />
-                  Challenges
+                <NavLink to="/plans" className={navLinkClass}>
+                  <ClipboardList size={17} />
+                  Plans
                 </NavLink>
 
                 <NavLink to="/rewards" className={navLinkClass}>
                   <Gift size={17} />
-                  Rewards
+                  Plan Rewards
                 </NavLink>
 
                 <NavLink to="/orders" className={navLinkClass}>
@@ -247,15 +246,15 @@ export default function Navbar() {
                     Admin Meals
                   </NavLink>
 
-                  <NavLink to="/admin/challenges" className={adminLinkClass}>
-  <Trophy size={14} />
-  Challenges
-</NavLink>
+                  <NavLink to="/admin/plans" className={adminLinkClass}>
+                    <ClipboardList size={14} />
+                    Plans
+                  </NavLink>
 
-<NavLink to="/admin/rewards" className={adminLinkClass}>
-  <Gift size={14} />
-  Rewards
-</NavLink>
+                  <NavLink to="/admin/rewards" className={adminLinkClass}>
+                    <Gift size={14} />
+                    Plan Rewards
+                  </NavLink>
 
                   <NavLink to="/admin/users" className={adminLinkClass}>
                     <Users size={14} />
@@ -433,11 +432,11 @@ export default function Navbar() {
                     </NavLink>
 
                     <NavLink
-                      to="/challenges"
+                      to="/plans"
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Challenges <span>→</span>
+                      Plans <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -445,7 +444,7 @@ export default function Navbar() {
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Rewards <span>→</span>
+                      Plan Rewards <span>→</span>
                     </NavLink>
 
                     <NavLink
@@ -516,20 +515,20 @@ export default function Navbar() {
                     </NavLink>
 
                     <NavLink
-  to="/admin/challenges"
-  className={mobileLinkClass}
-  onClick={closeMenu}
->
-  Challenges <span>→</span>
-</NavLink>
+                      to="/admin/plans"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
+                      Plans <span>→</span>
+                    </NavLink>
 
-<NavLink
-  to="/admin/rewards"
-  className={mobileLinkClass}
-  onClick={closeMenu}
->
-  Rewards <span>→</span>
-</NavLink>
+                    <NavLink
+                      to="/admin/rewards"
+                      className={mobileLinkClass}
+                      onClick={closeMenu}
+                    >
+                      Plan Rewards <span>→</span>
+                    </NavLink>
 
                     <NavLink
                       to="/admin/users"

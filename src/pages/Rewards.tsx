@@ -6,14 +6,11 @@ import {
   CheckCircle2,
   Copy,
   Gift,
-  Instagram,
   Loader2,
   Lock,
   RefreshCw,
   Star,
   Trophy,
-  Users,
-  Zap,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -24,15 +21,15 @@ type BackendReward = {
   rewardId: string;
   title: string;
   description: string;
-  type: "free_item" | "discount" | "free_meal" | "challenge_box";
+  type: "free_item" | "discount" | "free_meal" | "challenge_box" | "plan_discount";
   valueText: string;
-  requiredAction:
-    | "join_challenge"
-    | "post_3_stories"
-    | "complete_7_days"
-    | "refer_2_friends";
+
+  // New preferred actions
+  requiredAction?: "buy_plan" | "buy_7_day_plan" | "next_plan_reward";
+
+  // Old actions kept for backend compatibility
   baseCouponCode?: string;
-  couponCode: string;
+  couponCode?: string;
   couponExpiresAt?: string | null;
   couponUsed?: boolean;
   isActive: boolean;
@@ -42,33 +39,8 @@ type BackendReward = {
   status?: "claimed" | "used" | null;
 };
 
-const getRewardIcon = (reward: BackendReward) => {
-  if (reward.requiredAction === "post_3_stories") {
-    return <Instagram size={22} />;
-  }
-
-  if (reward.requiredAction === "refer_2_friends") {
-    return <Users size={22} />;
-  }
-
-  if (reward.requiredAction === "complete_7_days") {
-    return <Trophy size={22} />;
-  }
-
-  if (reward.requiredAction === "join_challenge") {
-    return <Zap size={22} />;
-  }
-
-  return <Gift size={22} />;
-};
-
-const formatRequirement = (action: BackendReward["requiredAction"]) => {
-  if (action === "join_challenge") return "Join any MacroBox challenge";
-  if (action === "post_3_stories") return "Post 3 MacroBox challenge stories";
-  if (action === "complete_7_days") return "Complete 7 paid challenge orders";
-  if (action === "refer_2_friends") return "Refer 2 friends to MacroBox";
-
-  return "Complete reward requirement";
+const formatRequirement = () => {
+  return "Buy any eligible 7-day MacroBox plan";
 };
 
 const formatDate = (value?: string | null) => {
@@ -95,27 +67,50 @@ const isExpired = (value?: string | null) => {
   return Date.now() > date.getTime();
 };
 
+const getRewardStatus = (reward: BackendReward) => {
+  const expired = isExpired(reward.couponExpiresAt);
+
+  if (reward.couponUsed || reward.status === "used") return "used";
+  if (reward.claimed && expired) return "expired";
+  if (reward.claimed) return "active";
+  if (reward.unlocked) return "unlocked";
+
+  return "locked";
+};
+
 export default function Rewards() {
   const [rewards, setRewards] = useState<BackendReward[]>([]);
   const [loading, setLoading] = useState(true);
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
-  const claimedCount = useMemo(
-    () => rewards.filter((reward) => reward.claimed).length,
+  const activeRewardsCount = useMemo(
+    () =>
+      rewards.filter((reward) => {
+        const status = getRewardStatus(reward);
+        return status === "active" || status === "unlocked";
+      }).length,
     [rewards]
   );
 
-  const unlockedCount = useMemo(
-    () => rewards.filter((reward) => reward.unlocked && !reward.claimed).length,
+  const usedRewardsCount = useMemo(
+    () => rewards.filter((reward) => getRewardStatus(reward) === "used").length,
+    [rewards]
+  );
+
+  const expiredRewardsCount = useMemo(
+    () =>
+      rewards.filter((reward) => getRewardStatus(reward) === "expired").length,
     [rewards]
   );
 
   const bestCoupon = useMemo(() => {
     const discountReward = rewards.find(
-      (reward) => reward.type === "discount" && reward.couponCode
+      (reward) =>
+        (reward.type === "discount" || reward.type === "plan_discount") &&
+        reward.couponCode
     );
 
-    return discountReward?.valueText || "20% OFF";
+    return discountReward?.valueText || "10% OFF";
   }, [rewards]);
 
   const loadRewards = async () => {
@@ -137,9 +132,14 @@ export default function Rewards() {
     loadRewards();
   }, []);
 
-  const copyCoupon = async (code: string, expired?: boolean) => {
+  const copyCoupon = async (code?: string, expired?: boolean, used?: boolean) => {
     if (!code) {
       toast.error("Coupon code not available");
+      return;
+    }
+
+    if (used) {
+      toast.error("This reward coupon is already used");
       return;
     }
 
@@ -158,7 +158,7 @@ export default function Rewards() {
 
   const claimReward = async (reward: BackendReward) => {
     if (!reward.unlocked) {
-      toast.error("Complete the requirement first");
+      toast.error("Buy an eligible plan first");
       return;
     }
 
@@ -187,7 +187,7 @@ export default function Rewards() {
       );
 
       if (couponCode) {
-        await copyCoupon(couponCode, isExpired(couponExpiresAt));
+        await copyCoupon(couponCode, isExpired(couponExpiresAt), false);
       } else {
         toast.success(res.data?.message || "Reward claimed successfully");
       }
@@ -206,18 +206,19 @@ export default function Rewards() {
             <div>
               <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
                 <Gift size={15} />
-                MacroBox Rewards
+                MacroBox Plan Rewards
               </p>
 
               <h1 className="mt-5 text-[42px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px]">
-                Eat. Track.
+                Buy a plan.
                 <br />
-                <span className="text-green-600">Win rewards.</span>
+                <span className="text-green-600">Save on the next.</span>
               </h1>
 
               <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
-                Complete MacroBox paid challenge orders and unlock user-specific
-                reward coupons. Rewards expire within 7 days.
+                Buy any eligible 7-day MacroBox plan and unlock a user-specific
+                10% OFF coupon for your next plan. Rewards are one-time use and
+                expire within 7 days.
               </p>
             </div>
 
@@ -236,9 +237,10 @@ export default function Rewards() {
             </button>
           </div>
 
-          <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            <HeroStat label="Rewards Claimed" value={`${claimedCount}`} />
-            <HeroStat label="Ready to Claim" value={`${unlockedCount}`} />
+          <div className="mt-7 grid gap-3 sm:grid-cols-4">
+            <HeroStat label="Active Rewards" value={`${activeRewardsCount}`} />
+            <HeroStat label="Used" value={`${usedRewardsCount}`} />
+            <HeroStat label="Expired" value={`${expiredRewardsCount}`} />
             <HeroStat label="Best Coupon" value={bestCoupon} />
           </div>
         </section>
@@ -247,7 +249,7 @@ export default function Rewards() {
           <section className="mt-8 flex min-h-[280px] items-center justify-center rounded-[28px] border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center gap-3 text-sm font-black text-slate-600">
               <Loader2 className="animate-spin text-green-600" size={22} />
-              Loading rewards...
+              Loading plan rewards...
             </div>
           </section>
         ) : rewards.length === 0 ? (
@@ -255,21 +257,31 @@ export default function Rewards() {
             <AlertCircle className="mx-auto text-slate-400" size={40} />
 
             <h2 className="mt-4 text-2xl font-black tracking-[-0.04em] text-slate-950">
-              No rewards found
+              No plan rewards found
             </h2>
 
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              Rewards will appear here after admin creates active rewards.
+              Buy an eligible 7-day MacroBox plan to unlock your next-plan
+              reward coupon.
             </p>
           </section>
         ) : (
           <section className="mt-8 grid gap-5 md:grid-cols-2">
             {rewards.map((item) => {
+              const status = getRewardStatus(item);
               const isClaimed = Boolean(item.claimed);
               const isUnlocked = Boolean(item.unlocked);
               const isClaiming = claimingId === item.rewardId;
-              const expired = isExpired(item.couponExpiresAt);
+              const expired = status === "expired";
+              const used = status === "used";
+              const active = status === "active";
               const expireDate = formatDate(item.couponExpiresAt);
+
+              const title = item.title || "10% OFF Next Plan";
+              const valueText = item.valueText || "10% OFF";
+              const description =
+                item.description ||
+                "Use this coupon on your next eligible MacroBox plan.";
 
               return (
                 <article
@@ -279,27 +291,31 @@ export default function Rewards() {
                   <div className="flex items-start justify-between gap-4">
                     <div
                       className={`flex h-14 w-14 items-center justify-center rounded-full ${
-                        isUnlocked
+                        isUnlocked || isClaimed
                           ? "bg-green-50 text-green-700"
                           : "bg-slate-100 text-slate-400"
                       }`}
                     >
-                      {getRewardIcon(item)}
+                      <Trophy size={22} />
                     </div>
 
-                    {isClaimed && expired ? (
+                    {used ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
+                        Used
+                      </span>
+                    ) : expired ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
                         Expired
                       </span>
-                    ) : isClaimed ? (
+                    ) : active ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
                         <CheckCircle2 size={14} />
-                        Claimed
+                        Active
                       </span>
                     ) : isUnlocked ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
                         <Gift size={14} />
-                        Auto Ready
+                        Ready
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
@@ -310,45 +326,49 @@ export default function Rewards() {
                   </div>
 
                   <h2 className="mt-5 text-2xl font-black tracking-[-0.04em] text-slate-950">
-                    {item.title}
+                    {title}
                   </h2>
 
                   <p
                     className={`mt-2 inline-flex rounded-full px-4 py-2 text-sm font-black ${
-                      isUnlocked
+                      isUnlocked || isClaimed
                         ? "bg-green-50 text-green-700"
                         : "bg-slate-100 text-slate-500"
                     }`}
                   >
-                    {item.valueText || "Reward"}
+                    {valueText}
                   </p>
 
                   <p className="mt-4 text-sm font-medium leading-6 text-slate-500">
-                    {item.description}
+                    {description}
                   </p>
 
                   <div className="mt-5 rounded-[18px] border border-slate-200 bg-slate-50 p-4">
                     <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                      Requirement
+                      Unlock Requirement
                     </p>
 
                     <p className="mt-1 text-sm font-black text-slate-800">
-                      {formatRequirement(item.requiredAction)}
+                      {formatRequirement()}
                     </p>
 
-                    {isClaimed && expireDate && (
+                    {(isClaimed || active || expired || used) && expireDate ? (
                       <p
                         className={`mt-3 rounded-full px-3 py-1 text-xs font-black ${
-                          expired
+                          used
+                            ? "bg-slate-100 text-slate-500"
+                            : expired
                             ? "bg-red-50 text-red-600"
                             : "bg-yellow-50 text-yellow-700"
                         }`}
                       >
-                        {expired
+                        {used
+                          ? "Already used"
+                          : expired
                           ? `Expired on ${expireDate}`
                           : `Expires on ${expireDate}`}
                       </p>
-                    )}
+                    ) : null}
                   </div>
 
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -357,15 +377,16 @@ export default function Rewards() {
                       disabled={
                         isClaiming ||
                         expired ||
+                        used ||
                         (!isUnlocked && !isClaimed)
                       }
                       onClick={() =>
                         isClaimed
-                          ? copyCoupon(item.couponCode, expired)
+                          ? copyCoupon(item.couponCode, expired, used)
                           : claimReward(item)
                       }
                       className={`inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-[16px] text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                        isClaimed && !expired
+                        isClaimed && !expired && !used
                           ? "border border-green-200 bg-white text-green-700 hover:bg-green-50"
                           : isUnlocked
                           ? "bg-green-600 text-white hover:bg-green-700"
@@ -382,18 +403,20 @@ export default function Rewards() {
                         <Lock size={17} />
                       )}
 
-                      {isClaimed
-                        ? expired
-                          ? "Expired"
-                          : "Copy Coupon"
+                      {used
+                        ? "Used"
+                        : expired
+                        ? "Expired"
+                        : isClaimed
+                        ? "Copy Coupon"
                         : isUnlocked
-                        ? "Get Reward"
+                        ? "Get Coupon"
                         : "Locked"}
                     </button>
 
                     <div
                       className={`flex h-12 items-center justify-center rounded-[16px] border px-4 text-sm font-black ${
-                        isClaimed && !expired
+                        isClaimed && !expired && !used
                           ? "border-green-200 bg-green-50 text-green-700"
                           : "border-slate-200 bg-white text-slate-400"
                       }`}
@@ -410,13 +433,13 @@ export default function Rewards() {
         <section className="mt-8 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
             <Star className="text-green-600" />
-            How to unlock rewards
+            How plan rewards work
           </h2>
 
           <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-            Complete paid challenge orders to unlock rewards. Once unlocked, the
-            reward coupon is automatically assigned only to your account and
-            expires within 7 days.
+            After a successful payment for an eligible 7-day MacroBox plan, a
+            user-specific 10% OFF coupon is unlocked for your next plan. The
+            coupon is one-time use and expires within 7 days.
           </p>
         </section>
       </div>

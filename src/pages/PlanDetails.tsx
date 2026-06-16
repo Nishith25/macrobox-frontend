@@ -1,4 +1,4 @@
-// frontend/src/pages/ChallengeDetails.tsx (FRONTEND)
+// frontend/src/pages/PlanDetails.tsx (FRONTEND)
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -17,20 +17,13 @@ import toast from "react-hot-toast";
 
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
-import { challenges } from "../data/challenges";
-
-type CompletedDay = {
-  day: number;
-  completedAt?: string;
-  orderDate?: string;
-};
 
 type MealMode = "veg" | "nonveg" | "both";
 type UserPreference = "veg" | "nonveg" | "mixed";
 
 type MealCard = {
   _id: string;
-  challengeId?: string;
+  planId?: string;
   title: string;
   price: number;
   protein: number;
@@ -44,18 +37,16 @@ type MealCard = {
   isNonVeg?: boolean;
 };
 
-type ChallengeDay = {
+type PlanDay = {
   day: number;
   title?: string;
   defaultMeal?: MealCard | null;
-  vegAlternative?: MealCard | null;
-  nonVegAlternative?: MealCard | null;
   availableMeals?: MealCard[];
 };
 
-type BackendChallenge = {
+type BackendPlan = {
   _id: string;
-  challengeId: string;
+  planId: string;
   title: string;
   subtitle?: string;
   description?: string;
@@ -69,24 +60,14 @@ type BackendChallenge = {
   perks?: string[];
   rewards?: string[];
   meals?: string[];
-  days?: ChallengeDay[];
-  isJoined?: boolean;
-  canStartAgain?: boolean;
-  completedAttemptsCount?: number;
-  userChallenge?: {
-    _id: string;
-    attemptNo?: number;
-    status: "joined" | "in_progress" | "completed" | "cancelled";
-    completedDays?: CompletedDay[];
-    completedOrderDates?: string[];
-    rewardUnlocked?: boolean;
-    completedAt?: string;
-  } | null;
+  days?: PlanDay[];
+  rewardEligible?: boolean;
+  rewardUnlocked?: boolean;
 };
 
 type CartMealsResponse = {
-  challenge: BackendChallenge;
-  days: ChallengeDay[];
+  plan: BackendPlan;
+  days: PlanDay[];
   meals: MealCard[];
   vegMeals: MealCard[];
   nonVegMeals: MealCard[];
@@ -96,19 +77,6 @@ type PlanDaySelection = {
   day: number;
   selectedMealId: string;
   preference: UserPreference;
-};
-
-const formatDate = (value?: string | null) => {
-  if (!value) return "";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "";
-
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-  });
 };
 
 const getMealDietType = (meal?: MealCard | null) => {
@@ -148,7 +116,7 @@ const getMealById = (meals: MealCard[], id: string) => {
 };
 
 const pickMealForDay = (
-  day: ChallengeDay,
+  day: PlanDay,
   preference: UserPreference,
   mealMode: MealMode
 ) => {
@@ -156,7 +124,6 @@ const pickMealForDay = (
 
   if (mealMode === "veg" || preference === "veg") {
     return (
-      day.vegAlternative ||
       availableMeals.find((meal) => getMealDietType(meal) === "veg") ||
       day.defaultMeal ||
       availableMeals[0] ||
@@ -166,7 +133,6 @@ const pickMealForDay = (
 
   if (mealMode === "nonveg" || preference === "nonveg") {
     return (
-      day.nonVegAlternative ||
       availableMeals.find((meal) => getMealDietType(meal) === "nonveg") ||
       day.defaultMeal ||
       availableMeals[0] ||
@@ -197,66 +163,40 @@ const sumMeals = (meals: MealCard[]) => {
   );
 };
 
-export default function ChallengeDetails() {
-  const { challengeId } = useParams();
+export default function PlanDetails() {
+  const { planId } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
-  const localChallenge = useMemo(
-    () => challenges.find((item) => item.id === challengeId),
-    [challengeId]
-  );
-
-  const [challenge, setChallenge] = useState<BackendChallenge | null>(null);
+  const [plan, setPlan] = useState<BackendPlan | null>(null);
   const [cartMealsData, setCartMealsData] = useState<CartMealsResponse | null>(
     null
   );
 
   const [loading, setLoading] = useState(true);
-  const [joining, setJoining] = useState(false);
   const [adding, setAdding] = useState(false);
   const [loadingMeals, setLoadingMeals] = useState(false);
 
   const [preference, setPreference] = useState<UserPreference>("mixed");
   const [planDays, setPlanDays] = useState<PlanDaySelection[]>([]);
 
-  const displayTitle = challenge?.title || localChallenge?.title || "Challenge";
+  const displayTitle = plan?.title || "MacroBox Meal Plan";
 
   const displayDescription =
-    challenge?.description ||
-    localChallenge?.description ||
-    "Start your MacroBox challenge and stay consistent with goal-based meals.";
+    plan?.description ||
+    "Choose your MacroBox meal plan, schedule your daily deliveries, and enjoy goal-based healthy meals.";
 
-  const displayBadge =
-    challenge?.badge || localChallenge?.badge || "MacroBox Challenge";
+  const displayBadge = plan?.badge || "MacroBox Plan";
 
-  const displayPrice =
-    challenge?.trialPrice ||
-    challenge?.price ||
-    localChallenge?.startingPrice ||
-    99;
+  const displayPrice = plan?.trialPrice || plan?.price || 99;
 
-  const originalPrice = challenge?.originalPrice || null;
+  const originalPrice = plan?.originalPrice || null;
 
-  const durationDays = challenge?.durationDays || localChallenge?.duration || 7;
+  const durationDays = plan?.durationDays || 7;
 
-  const completedDays = challenge?.userChallenge?.completedDays || [];
-  const completedCount = completedDays.length;
+  const rewardEligible = plan?.rewardEligible !== false;
 
-  const progress = Math.min(
-    100,
-    Math.round((completedCount / durationDays) * 100)
-  );
-
-  const isCompleted = challenge?.userChallenge?.status === "completed";
-  const isActiveAttempt =
-    challenge?.isJoined &&
-    ["joined", "in_progress"].includes(challenge.userChallenge?.status || "");
-
-  const rewardUnlocked = Boolean(challenge?.userChallenge?.rewardUnlocked);
-
-  const mealMode =
-    challenge?.mealMode || cartMealsData?.challenge?.mealMode || "both";
+  const mealMode = plan?.mealMode || cartMealsData?.plan?.mealMode || "both";
 
   const availablePreferenceOptions = useMemo(() => {
     if (mealMode === "veg") return ["veg"] as UserPreference[];
@@ -274,42 +214,26 @@ export default function ChallengeDetails() {
 
   const selectedTotals = useMemo(() => sumMeals(selectedMeals), [selectedMeals]);
 
-  
-  const perks: string[] = challenge?.perks?.length
-    ? challenge.perks
+  const perks: string[] = plan?.perks?.length
+    ? plan.perks
     : [
         "Goal-based meals delivered across the plan",
-        "Choose veg, non-veg, or mixed plan",
+        "Choose Veg, Nonveg, or Mixed plan",
         "Delivery date and slot will be selected in cart",
-        "Reward after consecutive paid order streak",
+        "Pay once and get meals scheduled for every plan day",
       ];
 
-  const hiddenRewardTexts = [
-    "post 3 stories",
-    "free protein brownie",
-    "best transformation",
-    "best story",
-    "free 7-day box",
-    "free meal",
-  ];
-
-  const rewards: string[] = (
-    challenge?.rewards?.length
-      ? challenge.rewards
-      : ["Complete 7 consecutive paid challenge orders and unlock 10% off"]
-  ).filter((reward) => {
-    const cleanReward = String(reward || "").toLowerCase();
-
-    return !hiddenRewardTexts.some((blockedText) =>
-      cleanReward.includes(blockedText)
-    );
-  });
+  const rewards: string[] = plan?.rewards?.length
+    ? plan.rewards
+    : rewardEligible
+    ? ["Buy this 7-day MacroBox plan and get 10% OFF your next eligible plan."]
+    : ["This plan is not eligible for next-plan reward."];
 
   const buildInitialPlanDays = (
     data: CartMealsResponse,
     selectedPreference: UserPreference
   ) => {
-    const mode = data.challenge?.mealMode || "both";
+    const mode = data.plan?.mealMode || "both";
 
     return (data.days || []).map((day) => {
       const selectedMeal = pickMealForDay(day, selectedPreference, mode);
@@ -322,18 +246,15 @@ export default function ChallengeDetails() {
     });
   };
 
-  const loadChallenge = async () => {
+  const loadPlan = async () => {
     try {
       setLoading(true);
 
-      const res = await api.get(`/challenges/${challengeId}`);
-      setChallenge(res.data);
+      const res = await api.get(`/plans/${planId}`);
+      setPlan(res.data);
     } catch (error: any) {
       console.error(error);
-
-      if (!localChallenge) {
-        toast.error(error?.response?.data?.message || "Challenge not found");
-      }
+      toast.error(error?.response?.data?.message || "Plan not found");
     } finally {
       setLoading(false);
     }
@@ -343,12 +264,12 @@ export default function ChallengeDetails() {
     try {
       setLoadingMeals(true);
 
-      const res = await api.get(`/challenges/${challengeId}/cart-meals`);
+      const res = await api.get(`/plans/${planId}/cart-meals`);
       const data: CartMealsResponse = res.data;
 
       setCartMealsData(data);
 
-      const mode = data.challenge?.mealMode || "both";
+      const mode = data.plan?.mealMode || "both";
 
       const defaultPreference: UserPreference =
         mode === "veg" ? "veg" : mode === "nonveg" ? "nonveg" : "mixed";
@@ -356,21 +277,19 @@ export default function ChallengeDetails() {
       setPreference(defaultPreference);
       setPlanDays(buildInitialPlanDays(data, defaultPreference));
     } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message || "Failed to load challenge meals"
-      );
+      toast.error(error?.response?.data?.message || "Failed to load plan meals");
     } finally {
       setLoadingMeals(false);
     }
   };
 
   useEffect(() => {
-    if (challengeId) {
-      loadChallenge();
+    if (planId) {
+      loadPlan();
       loadCartMeals();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [challengeId]);
+  }, [planId]);
 
   useEffect(() => {
     if (!cartMealsData?.days?.length) return;
@@ -379,37 +298,12 @@ export default function ChallengeDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preference, cartMealsData]);
 
-  const joinChallenge = async () => {
-    try {
-      setJoining(true);
-
-      const res = await api.post(`/challenges/${challengeId}/join`);
-
-      setChallenge((prev) =>
-        prev
-          ? {
-              ...prev,
-              isJoined: true,
-              canStartAgain: false,
-              userChallenge: res.data.userChallenge,
-            }
-          : prev
-      );
-
-      toast.success(res.data.message || "Challenge started successfully");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to start challenge");
-    } finally {
-      setJoining(false);
-    }
-  };
-
-  const addChallengeToCart = async () => {
+  const addPlanToCart = async () => {
     try {
       setAdding(true);
 
       if (!cartMealsData || !planDays.length) {
-        toast.error("Please wait. Challenge meals are still loading.");
+        toast.error("Please wait. Plan meals are still loading.");
         return;
       }
 
@@ -422,23 +316,6 @@ export default function ChallengeDetails() {
       if (invalidDay) {
         toast.error(`Meal not available for Day ${invalidDay.day}.`);
         return;
-      }
-
-      const joinRes = await api.post(`/challenges/${challengeId}/join`).catch(
-        () => null
-      );
-
-      if (joinRes?.data?.userChallenge) {
-        setChallenge((prev) =>
-          prev
-            ? {
-                ...prev,
-                isJoined: true,
-                canStartAgain: false,
-                userChallenge: joinRes.data.userChallenge,
-              }
-            : prev
-        );
       }
 
       const selectedMealsForPlan = planDays
@@ -462,17 +339,15 @@ export default function ChallengeDetails() {
           selectedMealCalories: selectedMeal?.calories || 0,
           selectedMealCarbs: selectedMeal?.carbs || 0,
           selectedMealFat: selectedMeal?.fat || 0,
-          alternativeMeal: null,
-          alternativeMealTitle: "",
         };
       });
 
       addToCart({
-        _id: `plan-${challengeId}`,
-        itemType: "challenge_plan",
-        challengeId: challengeId || "",
-        title: `${displayTitle} Challenge Plan`,
-        description: `Daily delivery plan. Includes ${durationDays} meals delivered across ${durationDays} days.`,
+        _id: `plan-${planId}`,
+        itemType: "plan",
+        planId: planId || "",
+        title: `${displayTitle}`,
+        description: `Includes ${durationDays} meals delivered across ${durationDays} days.`,
         price: Number(displayPrice || totals.price || 0),
         protein: totals.protein,
         calories: totals.calories,
@@ -480,6 +355,7 @@ export default function ChallengeDetails() {
         fat: totals.fat,
         qty: 1,
         preference,
+        rewardEligible,
         planItems: selectedMealsForPlan.map((meal, index) => ({
           _id: String(meal._id),
           title: `Day ${index + 1}: ${meal.title}`,
@@ -493,61 +369,55 @@ export default function ChallengeDetails() {
         planDays: finalPlanDays,
       } as any);
 
-      toast.success("Challenge plan added to cart");
+      toast.success("Plan added to cart");
       navigate("/cart");
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to add challenge");
+      toast.error(error?.response?.data?.message || "Failed to add plan");
     } finally {
       setAdding(false);
     }
   };
 
-  if (loading && !localChallenge) {
+  if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f6f7f8]">
         <div className="flex items-center gap-3 rounded-[20px] bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
           <Loader2 className="animate-spin text-green-600" size={20} />
-          Loading challenge...
+          Loading plan...
         </div>
       </main>
     );
   }
 
-  if (!localChallenge && !challenge) {
+  if (!plan) {
     return (
       <main className="min-h-screen bg-[#f6f7f8] px-4 py-10">
         <div className="mx-auto max-w-[900px] rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-3xl font-black text-slate-950">
-            Challenge not found
+            Plan not found
           </h1>
 
           <button
             type="button"
-            onClick={() => navigate("/challenges")}
+            onClick={() => navigate("/plans")}
             className="mt-5 rounded-[16px] bg-green-600 px-6 py-3 text-sm font-black text-white"
           >
-            Back to Challenges
+            Back to Plans
           </button>
         </div>
       </main>
     );
   }
 
-  const startButtonText = isActiveAttempt
-    ? "Already Joined"
-    : challenge?.canStartAgain || isCompleted
-    ? "Start Again"
-    : "Join Challenge";
-
   return (
     <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-[1180px]">
         <Link
-          to="/challenges"
+          to="/plans"
           className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 shadow-sm transition hover:bg-slate-50"
         >
           <ArrowLeft size={17} />
-          Back to Challenges
+          Back to Plans
         </Link>
 
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -611,66 +481,66 @@ export default function ChallengeDetails() {
               </div>
 
               {selectedMeals.length > 0 && (
-  <div className="mt-4 rounded-[18px] border border-green-100 bg-green-50 p-4">
-    <p className="mb-3 text-xs font-black uppercase tracking-wide text-green-700">
-      Meals Included in This Plan
-    </p>
+                <div className="mt-4 rounded-[18px] border border-green-100 bg-green-50 p-4">
+                  <p className="mb-3 text-xs font-black uppercase tracking-wide text-green-700">
+                    Meals Included in This Plan
+                  </p>
 
-    <div className="grid gap-2 md:grid-cols-2">
-      {selectedMeals.map((meal, index) => (
-        <div
-          key={`${meal._id}-${index}`}
-          className="rounded-[14px] border border-green-100 bg-white p-3"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-black text-slate-950">
-                Day {index + 1}: {meal.title}
-              </p>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {selectedMeals.map((meal, index) => (
+                      <div
+                        key={`${meal._id}-${index}`}
+                        className="rounded-[14px] border border-green-100 bg-white p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black text-slate-950">
+                              Day {index + 1}: {meal.title}
+                            </p>
 
-              <p className="mt-1 text-xs font-bold capitalize text-slate-500">
-                {getMealDietType(meal)} meal
-              </p>
-            </div>
+                            <p className="mt-1 text-xs font-bold capitalize text-slate-500">
+                              {getMealDietType(meal)} meal
+                            </p>
+                          </div>
 
-            <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-black text-green-700">
-              ₹{meal.price}
-            </span>
-          </div>
+                          <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-black text-green-700">
+                            ₹{meal.price}
+                          </span>
+                        </div>
 
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
-              <p className="text-[10px] font-black uppercase text-slate-400">
-                Protein
-              </p>
-              <p className="text-xs font-black text-slate-900">
-                {meal.protein}g
-              </p>
-            </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
+                            <p className="text-[10px] font-black uppercase text-slate-400">
+                              Protein
+                            </p>
+                            <p className="text-xs font-black text-slate-900">
+                              {meal.protein}g
+                            </p>
+                          </div>
 
-            <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
-              <p className="text-[10px] font-black uppercase text-slate-400">
-                Calories
-              </p>
-              <p className="text-xs font-black text-slate-900">
-                {meal.calories}
-              </p>
-            </div>
+                          <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
+                            <p className="text-[10px] font-black uppercase text-slate-400">
+                              Calories
+                            </p>
+                            <p className="text-xs font-black text-slate-900">
+                              {meal.calories}
+                            </p>
+                          </div>
 
-            <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
-              <p className="text-[10px] font-black uppercase text-slate-400">
-                Carbs
-              </p>
-              <p className="text-xs font-black text-slate-900">
-                {meal.carbs}g
-              </p>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+                          <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
+                            <p className="text-[10px] font-black uppercase text-slate-400">
+                              Carbs
+                            </p>
+                            <p className="text-xs font-black text-slate-900">
+                              {meal.carbs}g
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
@@ -679,62 +549,20 @@ export default function ChallengeDetails() {
                 value={`${durationDays} Day${durationDays > 1 ? "s" : ""}`}
               />
 
-              <InfoCard
-                label="Progress"
-                value={`${completedCount}/${durationDays}`}
-              />
+              <InfoCard label="Meals" value={`${selectedMeals.length}`} />
 
               <InfoCard
                 label="Reward"
-                value={rewardUnlocked ? "Unlocked" : "Locked"}
+                value={rewardEligible ? "10% Next Plan" : "Not Eligible"}
               />
             </div>
 
-            {(challenge?.isJoined || challenge?.userChallenge) && (
-              <div className="mt-7 rounded-[22px] border border-green-100 bg-white p-5 shadow-sm">
-                <div className="mb-2 flex items-center justify-between text-xs font-black text-slate-500">
-                  <span>
-                    Attempt {challenge?.userChallenge?.attemptNo || 1} Progress
-                  </span>
-                  <span>{progress}%</span>
-                </div>
-
-                <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-green-600 transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-
-                <p className="mt-3 rounded-[16px] bg-blue-50 px-4 py-3 text-sm font-black text-blue-700">
-                  Progress updates automatically after each paid challenge day.
-                </p>
-              </div>
-            )}
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8">
               <button
                 type="button"
-                onClick={joinChallenge}
-                disabled={joining || Boolean(isActiveAttempt)}
-                className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-[18px] border border-green-200 bg-white px-6 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:opacity-60"
-              >
-                {joining ? (
-                  <Loader2 className="animate-spin" size={18} />
-                ) : isActiveAttempt ? (
-                  <CheckCircle2 size={18} />
-                ) : (
-                  <Trophy size={18} />
-                )}
-
-                {startButtonText}
-              </button>
-
-              <button
-                type="button"
-                onClick={addChallengeToCart}
+                onClick={addPlanToCart}
                 disabled={adding || loadingMeals}
-                className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
+                className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
               >
                 {adding || loadingMeals ? (
                   <Loader2 className="animate-spin" size={18} />
@@ -768,12 +596,18 @@ export default function ChallengeDetails() {
 
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">
                 Choose Veg, Nonveg or Mixed. Delivery date and slot will be
-                selected in cart for each day.
+                selected in cart for each plan day.
               </p>
 
               <div className="mt-5 grid grid-cols-2 gap-2">
-                <MiniDarkStat label="Protein" value={`${selectedTotals.protein}g`} />
-                <MiniDarkStat label="Calories" value={`${selectedTotals.calories}`} />
+                <MiniDarkStat
+                  label="Protein"
+                  value={`${selectedTotals.protein}g`}
+                />
+                <MiniDarkStat
+                  label="Calories"
+                  value={`${selectedTotals.calories}`}
+                />
                 <MiniDarkStat label="Carbs" value={`${selectedTotals.carbs}g`} />
                 <MiniDarkStat label="Fat" value={`${selectedTotals.fat}g`} />
               </div>
@@ -806,64 +640,11 @@ export default function ChallengeDetails() {
           </aside>
         </section>
 
-        <section className="mt-7 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em]">
-            <CheckCircle2 className="text-green-600" />
-            Daily Progress
-          </h2>
-
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-            Daily progress is automatic. It updates only after successful paid
-            challenge orders.
-          </p>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: durationDays }).map((_, index) => {
-              const day = index + 1;
-              const completedDay = completedDays.find(
-                (item) => Number(item.day) === day
-              );
-              const done = Boolean(completedDay);
-
-              return (
-                <div
-                  key={day}
-                  className={`rounded-[18px] border p-4 text-left ${
-                    done
-                      ? "border-green-200 bg-green-50 text-green-700"
-                      : "border-slate-200 bg-white text-slate-500"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-black">Day {day}</p>
-
-                    {done ? (
-                      <CheckCircle2 size={18} />
-                    ) : (
-                      <span className="h-4 w-4 rounded-full border-2 border-current" />
-                    )}
-                  </div>
-
-                  <p className="mt-2 text-xs font-bold opacity-70">
-                    {done
-                      ? `Completed ${
-                          completedDay?.orderDate
-                            ? `• ${formatDate(completedDay.orderDate)}`
-                            : ""
-                        }`
-                      : "Waiting for paid order"}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
         <section className="mt-7 grid gap-5 md:grid-cols-2">
           <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em]">
               <Flame className="text-green-600" />
-              Challenge Rewards
+              Plan Reward
             </h2>
 
             <div className="mt-4 space-y-3">
@@ -885,10 +666,10 @@ export default function ChallengeDetails() {
             </h2>
 
             <div className="mt-4 space-y-3">
-              <Step number="01" text="Join the challenge." />
-              <Step number="02" text="Choose Veg, Nonveg or Mixed." />
-              <Step number="03" text="Add plan to cart and select daily slots." />
-              <Step number="04" text="Pay once and get one meal delivered daily." />
+              <Step number="01" text="Choose Veg, Nonveg or Mixed." />
+              <Step number="02" text="Add the plan to cart." />
+              <Step number="03" text="Select Day 1 date and daily delivery slots." />
+              <Step number="04" text="Pay once and unlock 10% OFF your next eligible plan." />
             </div>
           </div>
         </section>

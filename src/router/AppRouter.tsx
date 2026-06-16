@@ -19,11 +19,11 @@ import Checkout from "../pages/Checkout";
 import Orders from "../pages/Orders";
 import TrackOrderPage from "../pages/TrackOrderPage";
 import SettingsPage from "../pages/SettingsPage";
-import Challenges from "../pages/Challenges";
-import ChallengeDetails from "../pages/ChallengeDetails";
+import Plans from "../pages/Plans";
+import PlanDetails from "../pages/PlanDetails";
 import Rewards from "../pages/Rewards";
 import TransformationWall from "../pages/TransformationWall";
-import AdminChallenges from "../pages/AdminChallenges";
+import AdminPlans from "../pages/AdminPlans";
 import AdminRewards from "../pages/AdminRewards";
 
 // Auth Pages
@@ -189,21 +189,29 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/challenges"
+          path="/plans"
           element={
             <ProtectedRoute>
-              <Challenges />
+              <Plans />
             </ProtectedRoute>
           }
         />
 
         <Route
-          path="/challenges/:challengeId"
+          path="/plans/:planId"
           element={
             <ProtectedRoute>
-              <ChallengeDetails />
+              <PlanDetails />
             </ProtectedRoute>
           }
+        />
+
+        {/* Old challenge URLs redirect to new plans URLs */}
+        <Route path="/challenges" element={<Navigate to="/plans" replace />} />
+
+        <Route
+          path="/challenges/:challengeId"
+          element={<Navigate to="/plans" replace />}
         />
 
         <Route
@@ -353,22 +361,28 @@ export default function AppRouter() {
         />
 
         <Route
-  path="/admin/challenges"
-  element={
-    <AdminRoute>
-      <AdminChallenges />
-    </AdminRoute>
-  }
-/>
+          path="/admin/plans"
+          element={
+            <AdminRoute>
+              <AdminPlans />
+            </AdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/rewards"
-  element={
-    <AdminRoute>
-      <AdminRewards />
-    </AdminRoute>
-  }
-/>
+        {/* Old admin challenge URL redirects to new admin plans URL */}
+        <Route
+          path="/admin/challenges"
+          element={<Navigate to="/admin/plans" replace />}
+        />
+
+        <Route
+          path="/admin/rewards"
+          element={
+            <AdminRoute>
+              <AdminRewards />
+            </AdminRoute>
+          }
+        />
 
         {/* ================= CHEF + ADMIN KITCHEN ROUTE ================= */}
         <Route

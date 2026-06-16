@@ -59,7 +59,8 @@ type PlanDay = {
 
 type OrderItem = {
   meal?: string;
-  itemType?: "meal" | "challenge_plan";
+  itemType?: "meal" | "plan" | "challenge_plan";
+  planId?: string;
   challengeId?: string;
   title?: string;
   description?: string;
@@ -69,6 +70,8 @@ type OrderItem = {
   carbs?: number;
   fat?: number;
   qty?: number;
+  preference?: "veg" | "nonveg" | "mixed" | "";
+  rewardEligible?: boolean;
   planItems?: PlanIncludedItem[];
   planDays?: PlanDay[];
 };
@@ -80,6 +83,7 @@ type Order = {
     subtotal: number;
     discount: number;
     payable: number;
+    planSubtotal?: number;
     challengePlanSubtotal?: number;
     normalMealsSubtotal?: number;
     totalProtein: number;
@@ -91,6 +95,7 @@ type Order = {
     code?: string;
     discount?: number;
     redeemed?: boolean;
+    applyOn?: "cart" | "plan" | "challenge_plan";
   };
   items?: OrderItem[];
   delivery: {
@@ -183,9 +188,22 @@ const formatDateTime = (value?: string | null) => {
 const formatDateOnly = (value?: string | null) => {
   if (!value) return "N/A";
 
-  const date = new Date(value);
+  const text = String(value);
 
-  if (Number.isNaN(date.getTime())) return value;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const [year, month, day] = text.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  const date = new Date(text);
+
+  if (Number.isNaN(date.getTime())) return text;
 
   return date.toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -253,8 +271,17 @@ const deliveryBadgeClass = (status?: string) => {
   }
 };
 
-const isChallengePlanItem = (item?: OrderItem) => {
-  return item?.itemType === "challenge_plan" || Boolean(item?.challengeId);
+const isPlanItem = (item?: OrderItem) => {
+  return (
+    item?.itemType === "plan" ||
+    item?.itemType === "challenge_plan" ||
+    Boolean(item?.planId) ||
+    Boolean(item?.challengeId)
+  );
+};
+
+const getPlanId = (item?: OrderItem) => {
+  return String(item?.planId || item?.challengeId || "").trim();
 };
 
 const getOrderTime = (order: Order) => {
@@ -284,21 +311,19 @@ const isSameInputDate = (order: Order, selectedDate: string) => {
 const getOrderSplitTotals = (order: Order) => {
   const items = order.items || [];
 
-  const fallbackChallengePlanSubtotal = items
-    .filter((item) => isChallengePlanItem(item))
+  const fallbackPlanSubtotal = items
+    .filter((item) => isPlanItem(item))
     .reduce(
       (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
       0
     );
 
-  const savedChallengePlanSubtotal = Number(
-    order.totals.challengePlanSubtotal || 0
+  const savedPlanSubtotal = Number(
+    order.totals.planSubtotal || order.totals.challengePlanSubtotal || 0
   );
 
-  const challengePlanSubtotal =
-    savedChallengePlanSubtotal > 0
-      ? savedChallengePlanSubtotal
-      : fallbackChallengePlanSubtotal;
+  const planSubtotal =
+    savedPlanSubtotal > 0 ? savedPlanSubtotal : fallbackPlanSubtotal;
 
   const subtotal = Number(order.totals.subtotal || 0);
 
@@ -307,23 +332,23 @@ const getOrderSplitTotals = (order: Order) => {
   const normalMealsSubtotal =
     savedNormalMealsSubtotal > 0
       ? savedNormalMealsSubtotal
-      : Math.max(subtotal - challengePlanSubtotal, 0);
+      : Math.max(subtotal - planSubtotal, 0);
 
   return {
     subtotal,
     normalMealsSubtotal,
-    challengePlanSubtotal,
+    planSubtotal,
     discount: Number(order.totals.discount || 0),
     payable: Number(order.totals.payable || 0),
   };
 };
 
-const getTodayPlanDay = (item: OrderItem) => {
+const getNextPlanDay = (item: OrderItem) => {
   const planDays = item.planDays || [];
   const today = todayISO();
 
   return (
-    planDays.find((day) => day.date === today) ||
+    planDays.find((day) => day.date === today && day.deliveryStatus !== "delivered") ||
     planDays.find((day) => day.deliveryStatus !== "delivered") ||
     planDays[0] ||
     null
@@ -380,11 +405,13 @@ export default function Orders() {
       const address = formatAddress(order.delivery?.address);
       const deliveryStatus = readableStatus(order.delivery?.status);
       const paymentStatus = order.payment?.status || "";
+
       const itemTitles =
         order.items
           ?.map((item) => {
             const planItems =
               item.planItems?.map((p) => p.title || "").join(" ") || "";
+
             const planDays =
               item.planDays
                 ?.map(
@@ -395,7 +422,7 @@ export default function Orders() {
                 )
                 .join(" ") || "";
 
-            return `${item.title || "Meal"} ${planItems} ${planDays}`;
+            return `${item.title || "Meal"} ${getPlanId(item)} ${planItems} ${planDays}`;
           })
           .join(" ") || "";
 
@@ -411,7 +438,7 @@ export default function Orders() {
         order.coupon?.code || "",
         String(splitTotals.payable || ""),
         String(splitTotals.discount || ""),
-        String(splitTotals.challengePlanSubtotal || ""),
+        String(splitTotals.planSubtotal || ""),
         String(splitTotals.normalMealsSubtotal || ""),
         String(order.totals.totalCalories || ""),
         String(order.totals.totalProtein || ""),
@@ -482,7 +509,8 @@ export default function Orders() {
             </h1>
 
             <p className="mt-2 max-w-xl text-base font-semibold leading-7 text-slate-500">
-              View order status, payment, delivery slot and live tracking.
+              View meal orders, plan schedules, payment status and live delivery
+              tracking.
             </p>
           </div>
 
@@ -502,7 +530,7 @@ export default function Orders() {
                 Filter Orders
               </h2>
               <p className="text-sm font-semibold leading-6 text-slate-500">
-                Search by meal, order ID, payment, status or address.
+                Search by meal, plan, order ID, payment, status or address.
               </p>
             </div>
           </div>
@@ -620,7 +648,7 @@ export default function Orders() {
         {orders.length === 0 ? (
           <EmptyState
             title="No orders yet."
-            description="Your paid orders and live tracking details will appear here."
+            description="Your paid meals, plans and live tracking details will appear here."
           />
         ) : filteredOrders.length === 0 ? (
           <EmptyState
@@ -643,6 +671,10 @@ export default function Orders() {
 
               const splitTotals = getOrderSplitTotals(order);
 
+              const hasPlan = (order.items || []).some((item) =>
+                isPlanItem(item)
+              );
+
               return (
                 <article
                   key={order._id}
@@ -662,11 +694,19 @@ export default function Orders() {
                         Order ID: {order._id}
                       </p>
 
-                      {order.coupon?.code && (
-                        <p className="mt-2 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                          Coupon: {order.coupon.code}
-                        </p>
-                      )}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {hasPlan && (
+                          <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                            Plan Order
+                          </span>
+                        )}
+
+                        {order.coupon?.code && (
+                          <span className="inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                            Coupon: {order.coupon.code}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -722,8 +762,8 @@ export default function Orders() {
                           />
 
                           <BillingRow
-                            label="Challenge Plan Subtotal"
-                            value={`₹${splitTotals.challengePlanSubtotal}`}
+                            label="Plans Subtotal"
+                            value={`₹${splitTotals.planSubtotal}`}
                           />
 
                           <BillingRow
@@ -743,8 +783,15 @@ export default function Orders() {
 
                         {splitTotals.discount > 0 && (
                           <p className="mt-3 rounded-[14px] bg-green-50 px-3 py-2 text-xs font-bold leading-5 text-green-700">
-                            Reward coupon discount was applied only on challenge
-                            plan items. Normal meals were charged at full price.
+                            Plan reward coupon discount was applied on eligible
+                            plan items.
+                          </p>
+                        )}
+
+                        {hasPlan && order.payment?.status === "paid" && (
+                          <p className="mt-3 rounded-[14px] bg-blue-50 px-3 py-2 text-xs font-bold leading-5 text-blue-700">
+                            Plan payment completed. Your next-plan reward coupon
+                            will be visible in Plan Rewards.
                           </p>
                         )}
                       </InfoCard>
@@ -758,13 +805,13 @@ export default function Orders() {
                             />
 
                             <p className="text-sm font-black text-slate-950">
-                              Delivery Slot
+                              Main Delivery Slot
                             </p>
                           </div>
 
                           <p className="text-sm font-semibold text-slate-600">
-                            {order.delivery?.slot?.date || "N/A"} •{" "}
-                            {order.delivery?.slot?.time || "N/A"}
+                            {formatDateOnly(order.delivery?.slot?.date)} •{" "}
+                            {formatSlot(order.delivery?.slot?.time)}
                           </p>
                         </InfoCard>
 
@@ -843,17 +890,16 @@ export default function Orders() {
 }
 
 function OrderItemCard({ item }: { item: OrderItem }) {
-  const isPlan = isChallengePlanItem(item);
+  const isPlan = isPlanItem(item);
   const planItems = item.planItems || [];
   const planDays = item.planDays || [];
-  const todayPlanDay = isPlan ? getTodayPlanDay(item) : null;
+  const nextPlanDay = isPlan ? getNextPlanDay(item) : null;
+  const planId = getPlanId(item);
 
   return (
     <div
       className={`rounded-[16px] border p-3 ${
-        isPlan
-          ? "border-green-200 bg-green-50"
-          : "border-slate-200 bg-white"
+        isPlan ? "border-green-200 bg-green-50" : "border-slate-200 bg-white"
       }`}
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -865,30 +911,36 @@ function OrderItemCard({ item }: { item: OrderItem }) {
 
             {isPlan && (
               <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-green-700">
-                Challenge Plan
+                Meal Plan
+              </span>
+            )}
+
+            {isPlan && planId && (
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black text-blue-700">
+                {planId}
               </span>
             )}
           </div>
 
-          {isPlan && todayPlanDay && (
+          {isPlan && nextPlanDay && (
             <div className="mt-3 rounded-[14px] border border-orange-100 bg-orange-50 p-3">
               <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-orange-700">
                 Next Scheduled Delivery
               </p>
 
               <p className="text-sm font-black text-slate-950">
-                Day {todayPlanDay.day}: {todayPlanDay.selectedMealTitle}
+                Day {nextPlanDay.day}: {nextPlanDay.selectedMealTitle}
               </p>
 
               <p className="mt-1 text-xs font-bold text-slate-500">
-                {formatDateOnly(todayPlanDay.date)} •{" "}
-                {formatSlot(todayPlanDay.slot)} •{" "}
-                {readableStatus(todayPlanDay.deliveryStatus || "scheduled")}
+                {formatDateOnly(nextPlanDay.date)} •{" "}
+                {formatSlot(nextPlanDay.slot)} •{" "}
+                {readableStatus(nextPlanDay.deliveryStatus || "scheduled")}
               </p>
 
-              {todayPlanDay.alternativeMealTitle && (
+              {nextPlanDay.alternativeMealTitle && (
                 <p className="mt-1 text-xs font-bold text-slate-500">
-                  Alternative: {todayPlanDay.alternativeMealTitle}
+                  Alternative: {nextPlanDay.alternativeMealTitle}
                 </p>
               )}
             </div>
@@ -897,7 +949,7 @@ function OrderItemCard({ item }: { item: OrderItem }) {
           {isPlan && planDays.length > 0 && (
             <div className="mt-3 rounded-[14px] border border-blue-100 bg-blue-50 p-3">
               <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-blue-700">
-                Day-wise Delivery Schedule
+                Day-wise Plan Schedule
               </p>
 
               <div className="grid gap-2">

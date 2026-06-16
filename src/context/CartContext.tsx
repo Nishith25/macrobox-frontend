@@ -25,16 +25,22 @@ export type PlanDay = {
   selectedMealCalories: number;
   selectedMealCarbs: number;
   selectedMealFat: number;
-  alternativeMeal: string;
-  alternativeMealTitle: string;
+  alternativeMeal?: string;
+  alternativeMealTitle?: string;
 };
 
-export type CartItemType = "meal" | "challenge_plan";
+export type CartItemType = "meal" | "plan" | "challenge_plan";
 
 export type CartItem = {
   _id: string;
   itemType?: CartItemType;
+
+  // New plan ID
+  planId?: string;
+
+  // Old compatibility ID
   challengeId?: string;
+
   title: string;
   description?: string;
   price: number;
@@ -44,6 +50,8 @@ export type CartItem = {
   fat: number;
   imageUrl?: string;
   qty: number;
+  preference?: "veg" | "nonveg" | "mixed" | "";
+  rewardEligible?: boolean;
   planItems?: PlanIncludedItem[];
   planDays?: PlanDay[];
 };
@@ -51,6 +59,7 @@ export type CartItem = {
 type AddToCartItem = {
   _id: string;
   itemType?: CartItemType;
+  planId?: string;
   challengeId?: string;
   title: string;
   description?: string;
@@ -61,6 +70,8 @@ type AddToCartItem = {
   fat?: number;
   imageUrl?: string;
   qty?: number;
+  preference?: "veg" | "nonveg" | "mixed" | "";
+  rewardEligible?: boolean;
   planItems?: PlanIncludedItem[];
   planDays?: PlanDay[];
 };
@@ -69,9 +80,10 @@ type CartCtx = {
   cart: CartItem[];
   cartCount: number;
   addToCart: (item: AddToCartItem) => void;
-  removeFromCart: (id: string, challengeId?: string) => void;
-  increaseQty: (id: string, challengeId?: string) => void;
-  decreaseQty: (id: string, challengeId?: string) => void;
+  removeFromCart: (id: string, planId?: string) => void;
+  increaseQty: (id: string, planId?: string) => void;
+  decreaseQty: (id: string, planId?: string) => void;
+  updatePlanDays: (id: string, planId: string, planDays: PlanDay[]) => void;
   clearCart: () => void;
 };
 
@@ -79,25 +91,56 @@ const CartContext = createContext<CartCtx>({} as CartCtx);
 
 const cleanNumber = (value: any) => Number(value || 0);
 
-const getPlanTitle = (challengeId?: string) => {
-  if (!challengeId) return "MacroBox Challenge Plan";
+const safeRandomId = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
 
-  const pretty = String(challengeId)
+  return `item-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const isPlanItem = (item: any) => {
+  return (
+    item?.itemType === "plan" ||
+    item?.itemType === "challenge_plan" ||
+    Boolean(item?.planId) ||
+    Boolean(item?.challengeId)
+  );
+};
+
+const getFinalPlanId = (item: { planId?: string; challengeId?: string; _id?: string }) => {
+  const raw = String(item.planId || item.challengeId || item._id || "")
+    .replace(/^plan-/, "")
+    .trim();
+
+  return raw;
+};
+
+const getPlanTitle = (planId?: string) => {
+  if (!planId) return "MacroBox Meal Plan";
+
+  const pretty = String(planId)
     .replaceAll("-", " ")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
-  return `${pretty} Challenge Plan`;
+  return `${pretty} Meal Plan`;
 };
 
-const getCartKey = (item: { _id: string; challengeId?: string }) =>
-  `${item._id}__${item.challengeId || "normal"}`;
+const getCartKey = (item: { _id: string; planId?: string; challengeId?: string }) => {
+  const finalPlanId = getFinalPlanId(item);
 
-const getPlanCartKey = (challengeId: string) =>
-  `plan-${challengeId}__${challengeId}`;
+  if (finalPlanId) {
+    return `${item._id}__${finalPlanId}`;
+  }
+
+  return `${item._id}__normal`;
+};
+
+const getPlanCartKey = (planId: string) => `plan-${planId}__${planId}`;
 
 const makeIncludedItem = (item: any): PlanIncludedItem => ({
-  _id: String(item._id || item.mealId || crypto.randomUUID()),
+  _id: String(item._id || item.mealId || item.meal || safeRandomId()),
   title: item.title || "Meal Item",
   price: cleanNumber(item.price),
   protein: cleanNumber(item.protein),
@@ -111,7 +154,9 @@ const makePlanDay = (day: any): PlanDay => ({
   day: Number(day.day || 1),
   date: String(day.date || ""),
   slot: String(day.slot || ""),
-  preference: day.preference || "mixed",
+  preference: ["veg", "nonveg", "mixed"].includes(day.preference)
+    ? day.preference
+    : "mixed",
   selectedMeal: String(day.selectedMeal || ""),
   selectedMealTitle: String(day.selectedMealTitle || "Meal"),
   selectedMealPrice: cleanNumber(day.selectedMealPrice),
@@ -128,27 +173,31 @@ const buildPlanDescription = (planDays: PlanDay[], fallbackCount: number) => {
     return `Daily delivery plan. Includes ${planDays.length} meals delivered across ${planDays.length} days.`;
   }
 
-  return `Includes ${fallbackCount} selected challenge item${
+  return `Includes ${fallbackCount} selected plan item${
     fallbackCount > 1 ? "s" : ""
   }.`;
 };
 
 const buildPlanFromItems = ({
-  challengeId,
+  planId,
   items,
   title,
   imageUrl,
   priceOverride,
   description,
   planDays,
+  preference,
+  rewardEligible,
 }: {
-  challengeId: string;
+  planId: string;
   items: PlanIncludedItem[];
   title?: string;
   imageUrl?: string;
   priceOverride?: number;
   description?: string;
   planDays?: PlanDay[];
+  preference?: "veg" | "nonveg" | "mixed" | "";
+  rewardEligible?: boolean;
 }): CartItem => {
   const computedPrice = items.reduce(
     (sum, item) => sum + item.price * item.qty,
@@ -168,12 +217,12 @@ const buildPlanFromItems = ({
     : [];
 
   return {
-    _id: `plan-${challengeId}`,
-    itemType: "challenge_plan",
-    challengeId,
-    title: title || getPlanTitle(challengeId),
-    description:
-      description || buildPlanDescription(finalPlanDays, items.length),
+    _id: `plan-${planId}`,
+    itemType: "plan",
+    planId,
+    challengeId: planId,
+    title: title || getPlanTitle(planId),
+    description: description || buildPlanDescription(finalPlanDays, items.length),
     price: cleanNumber(priceOverride || computedPrice),
     protein,
     calories,
@@ -181,6 +230,8 @@ const buildPlanFromItems = ({
     fat,
     imageUrl,
     qty: 1,
+    preference: preference || "mixed",
+    rewardEligible: rewardEligible !== false,
     planItems: items,
     planDays: finalPlanDays,
   };
@@ -189,7 +240,8 @@ const buildPlanFromItems = ({
 const normalizeNormalItem = (item: any): CartItem => ({
   _id: String(item._id),
   itemType: item.itemType || "meal",
-  challengeId: item.challengeId || "",
+  planId: "",
+  challengeId: "",
   title: item.title || "Meal",
   description: item.description || "",
   price: cleanNumber(item.price),
@@ -199,17 +251,11 @@ const normalizeNormalItem = (item: any): CartItem => ({
   fat: cleanNumber(item.fat),
   imageUrl: item.imageUrl,
   qty: Number(item.qty || 1),
-  planItems: Array.isArray(item.planItems)
-    ? item.planItems.map(makeIncludedItem)
-    : undefined,
-  planDays: Array.isArray(item.planDays)
-    ? item.planDays.map(makePlanDay)
-    : undefined,
 });
 
 const normalizeCart = (items: any[]): CartItem[] => {
   const normalItems: CartItem[] = [];
-  const challengeGroups = new Map<
+  const oldGroupedPlanItems = new Map<
     string,
     {
       title?: string;
@@ -219,45 +265,53 @@ const normalizeCart = (items: any[]): CartItem[] => {
   >();
 
   for (const item of items) {
-    const itemType = item.itemType || "";
+    if (isPlanItem(item)) {
+      const planId = getFinalPlanId(item);
 
-    if (itemType === "challenge_plan") {
-      const challengeId = String(item.challengeId || item._id || "").replace(
-        "plan-",
-        ""
-      );
+      if (!planId) {
+        normalItems.push(normalizeNormalItem(item));
+        continue;
+      }
 
-      const planItems = Array.isArray(item.planItems)
-        ? item.planItems.map(makeIncludedItem)
-        : [];
+      const alreadyBuiltPlan =
+        item.itemType === "plan" ||
+        item.itemType === "challenge_plan" ||
+        Array.isArray(item.planItems) ||
+        Array.isArray(item.planDays);
 
-      const finalPlanItems =
-        planItems.length > 0 ? planItems : [makeIncludedItem(item)];
+      if (alreadyBuiltPlan) {
+        const planItems = Array.isArray(item.planItems)
+          ? item.planItems.map(makeIncludedItem)
+          : [];
 
-      normalItems.push(
-        buildPlanFromItems({
-          challengeId,
-          items: finalPlanItems,
-          title: item.title || getPlanTitle(challengeId),
-          imageUrl: item.imageUrl,
-          priceOverride: item.price,
-          description: item.description,
-          planDays: item.planDays,
-        })
-      );
+        const finalPlanItems =
+          planItems.length > 0 ? planItems : [makeIncludedItem(item)];
 
-      continue;
-    }
+        normalItems.push(
+          buildPlanFromItems({
+            planId,
+            items: finalPlanItems,
+            title: item.title || getPlanTitle(planId),
+            imageUrl: item.imageUrl,
+            priceOverride: item.price,
+            description: item.description,
+            planDays: item.planDays,
+            preference: item.preference,
+            rewardEligible: item.rewardEligible,
+          })
+        );
 
-    if (item.challengeId) {
-      const challengeId = String(item.challengeId);
-      const existing = challengeGroups.get(challengeId);
+        continue;
+      }
+
+      // old cart style: individual meals with challengeId
+      const existing = oldGroupedPlanItems.get(planId);
 
       if (existing) {
         existing.items.push(makeIncludedItem(item));
       } else {
-        challengeGroups.set(challengeId, {
-          title: item.planTitle || getPlanTitle(challengeId),
+        oldGroupedPlanItems.set(planId, {
+          title: item.planTitle || getPlanTitle(planId),
           imageUrl: item.imageUrl,
           items: [makeIncludedItem(item)],
         });
@@ -269,10 +323,10 @@ const normalizeCart = (items: any[]): CartItem[] => {
     normalItems.push(normalizeNormalItem(item));
   }
 
-  const groupedPlans = Array.from(challengeGroups.entries()).map(
-    ([challengeId, group]) =>
+  const groupedPlans = Array.from(oldGroupedPlanItems.entries()).map(
+    ([planId, group]) =>
       buildPlanFromItems({
-        challengeId,
+        planId,
         items: group.items,
         title: group.title,
         imageUrl: group.imageUrl,
@@ -309,28 +363,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCart((prev) => {
       const cleanPrev = normalizeCart(prev);
 
-      if (item.itemType === "challenge_plan" && item.challengeId) {
-        const challengeId = String(item.challengeId);
-        const planKey = getPlanCartKey(challengeId);
+      if (isPlanItem(item)) {
+        const planId = getFinalPlanId(item);
+
+        if (!planId) {
+          return cleanPrev;
+        }
+
+        const planKey = getPlanCartKey(planId);
 
         const incomingPlanItems = Array.isArray(item.planItems)
           ? item.planItems.map(makeIncludedItem)
           : [makeIncludedItem(item)];
 
         const newPlan = buildPlanFromItems({
-          challengeId,
+          planId,
           items: incomingPlanItems,
-          title: item.title || getPlanTitle(challengeId),
+          title: item.title || getPlanTitle(planId),
           imageUrl: item.imageUrl,
           priceOverride: item.price,
           description: item.description,
           planDays: item.planDays,
+          preference: item.preference,
+          rewardEligible: item.rewardEligible,
         });
 
         const existingIndex = cleanPrev.findIndex(
           (cartItem) =>
-            cartItem.itemType === "challenge_plan" &&
-            getCartKey(cartItem) === planKey
+            isPlanItem(cartItem) && getCartKey(cartItem) === planKey
         );
 
         if (existingIndex >= 0) {
@@ -342,64 +402,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return [...cleanPrev, newPlan];
       }
 
-      if (item.challengeId) {
-        const challengeId = String(item.challengeId);
-        const planKey = getPlanCartKey(challengeId);
-        const incomingPlanItems = [makeIncludedItem(item)];
-
-        const existingIndex = cleanPrev.findIndex(
-          (cartItem) =>
-            cartItem.itemType === "challenge_plan" &&
-            getCartKey(cartItem) === planKey
-        );
-
-        if (existingIndex >= 0) {
-          const copy = [...cleanPrev];
-          const existingPlan = copy[existingIndex];
-
-          const mergedItems = [...(existingPlan.planItems || [])];
-
-          for (const incoming of incomingPlanItems) {
-            const matchIndex = mergedItems.findIndex(
-              (planItem) => planItem._id === incoming._id
-            );
-
-            if (matchIndex >= 0) {
-              mergedItems[matchIndex] = {
-                ...mergedItems[matchIndex],
-                qty: mergedItems[matchIndex].qty + incoming.qty,
-              };
-            } else {
-              mergedItems.push(incoming);
-            }
-          }
-
-          copy[existingIndex] = buildPlanFromItems({
-            challengeId,
-            items: mergedItems,
-            title: existingPlan.title || item.title || getPlanTitle(challengeId),
-            imageUrl: item.imageUrl || existingPlan.imageUrl,
-            priceOverride: existingPlan.price,
-            description: existingPlan.description,
-            planDays: existingPlan.planDays,
-          });
-
-          return copy;
-        }
-
-        return [
-          ...cleanPrev,
-          buildPlanFromItems({
-            challengeId,
-            items: incomingPlanItems,
-            title: getPlanTitle(challengeId),
-            imageUrl: item.imageUrl,
-          }),
-        ];
-      }
-
       const incomingKey = getCartKey({
         _id: item._id,
+        planId: "",
         challengeId: "",
       });
 
@@ -429,6 +434,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         {
           _id: String(item._id),
           itemType: "meal",
+          planId: "",
           challengeId: "",
           title: item.title,
           description: item.description || "",
@@ -444,33 +450,73 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const removeFromCart = (id: string, challengeId?: string) => {
+  const removeFromCart = (id: string, planId?: string) => {
     setCart((prev) =>
-      prev.filter(
-        (item) => getCartKey(item) !== getCartKey({ _id: id, challengeId })
+      normalizeCart(prev).filter(
+        (item) =>
+          getCartKey(item) !==
+          getCartKey({
+            _id: id,
+            planId,
+            challengeId: planId,
+          })
       )
     );
   };
 
-  const increaseQty = (id: string, challengeId?: string) => {
+  const increaseQty = (id: string, planId?: string) => {
     setCart((prev) =>
-      prev.map((item) =>
-        getCartKey(item) === getCartKey({ _id: id, challengeId })
-          ? { ...item, qty: item.qty + 1 }
+      normalizeCart(prev).map((item) =>
+        getCartKey(item) ===
+        getCartKey({
+          _id: id,
+          planId,
+          challengeId: planId,
+        })
+          ? {
+              ...item,
+              qty: item.itemType === "plan" ? 1 : item.qty + 1,
+            }
           : item
       )
     );
   };
 
-  const decreaseQty = (id: string, challengeId?: string) => {
+  const decreaseQty = (id: string, planId?: string) => {
     setCart((prev) =>
-      prev
+      normalizeCart(prev)
         .map((item) =>
-          getCartKey(item) === getCartKey({ _id: id, challengeId })
-            ? { ...item, qty: item.qty - 1 }
+          getCartKey(item) ===
+          getCartKey({
+            _id: id,
+            planId,
+            challengeId: planId,
+          })
+            ? {
+                ...item,
+                qty: item.itemType === "plan" ? 0 : item.qty - 1,
+              }
             : item
         )
         .filter((item) => item.qty > 0)
+    );
+  };
+
+  const updatePlanDays = (id: string, planId: string, planDays: PlanDay[]) => {
+    setCart((prev) =>
+      normalizeCart(prev).map((item) =>
+        getCartKey(item) ===
+        getCartKey({
+          _id: id,
+          planId,
+          challengeId: planId,
+        })
+          ? {
+              ...item,
+              planDays: planDays.map(makePlanDay),
+            }
+          : item
+      )
     );
   };
 
@@ -485,6 +531,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         removeFromCart,
         increaseQty,
         decreaseQty,
+        updatePlanDays,
         clearCart,
       }}
     >

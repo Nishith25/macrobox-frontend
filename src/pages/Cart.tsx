@@ -70,9 +70,11 @@ type AvailableCoupon = {
   maxDiscount: number;
   validFrom?: string | null;
   validTo?: string | null;
+  applyOn?: "cart" | "meal" | "plan" | "challenge_plan";
+  rewardType?: "none" | "next_plan" | "manual";
 };
 
-type ChallengeScheduleDay = {
+type PlanScheduleDay = {
   day: number;
   date: string;
   slot: string;
@@ -199,9 +201,14 @@ const prettyDate = (iso?: string | null) => {
 };
 
 const formatCouponLabel = (coupon: AvailableCoupon) => {
-  if (coupon.type === "flat") return `₹${coupon.value} OFF on plan`;
+  const rewardText =
+    coupon.rewardType === "next_plan" || coupon.applyOn === "plan"
+      ? "next plan"
+      : "cart";
 
-  return `${coupon.value}% OFF on next challenge plan`;
+  if (coupon.type === "flat") return `₹${coupon.value} OFF on ${rewardText}`;
+
+  return `${coupon.value}% OFF on ${rewardText}`;
 };
 
 const getAddressComponent = (
@@ -268,23 +275,39 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
   });
 };
 
-const isChallengePlan = (item: any) =>
-  item?.itemType === "challenge_plan" || Boolean(item?.challengeId);
+const isPlanItem = (item: any) =>
+  item?.itemType === "plan" ||
+  item?.itemType === "challenge_plan" ||
+  Boolean(item?.planId) ||
+  Boolean(item?.challengeId);
 
-const getCartKey = (item: any) => `${item._id}-${item.challengeId || "meal"}`;
+const getFinalPlanId = (item: any) =>
+  String(item?.planId || item?.challengeId || item?._id || "")
+    .replace(/^plan-/, "")
+    .trim();
+
+const getCartKey = (item: any) => {
+  const planId = getFinalPlanId(item);
+
+  if (isPlanItem(item) && planId) {
+    return `${item._id}-${planId}`;
+  }
+
+  return `${item._id}-meal`;
+};
 
 const cleanPlanTitle = (title?: string) => {
   return String(title || "Meal").replace(/^Day\s+\d+:\s*/i, "");
 };
 
-const buildScheduleFromCartItem = (item: any): ChallengeScheduleDay[] => {
-  if (!isChallengePlan(item)) return [];
+const buildScheduleFromCartItem = (item: any): PlanScheduleDay[] => {
+  if (!isPlanItem(item)) return [];
 
   if (Array.isArray(item.planDays) && item.planDays.length > 0) {
     return item.planDays.map((day: any, index: number) => ({
       day: Number(day.day || index + 1),
-      date: "",
-      slot: "",
+      date: String(day.date || ""),
+      slot: String(day.slot || ""),
       preference: day.preference || item.preference || "mixed",
       selectedMeal: String(day.selectedMeal || day.selectedMealId || ""),
       selectedMealTitle: cleanPlanTitle(
@@ -389,8 +412,8 @@ export default function Cart() {
   const [slotDate, setSlotDate] = useState("");
   const [slotTime, setSlotTime] = useState("");
 
-  const [challengeSchedules, setChallengeSchedules] = useState<
-    Record<string, ChallengeScheduleDay[]>
+  const [planSchedules, setPlanSchedules] = useState<
+    Record<string, PlanScheduleDay[]>
   >({});
 
   const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>(
@@ -398,13 +421,13 @@ export default function Cart() {
   );
   const [loadingCoupons, setLoadingCoupons] = useState(false);
 
-  const hasChallengePlans = useMemo(
-    () => cart.some((item: any) => isChallengePlan(item)),
+  const hasPlans = useMemo(
+    () => cart.some((item: any) => isPlanItem(item)),
     [cart]
   );
 
   const hasNormalMeals = useMemo(
-    () => cart.some((item: any) => !isChallengePlan(item)),
+    () => cart.some((item: any) => !isPlanItem(item)),
     [cart]
   );
 
@@ -416,7 +439,7 @@ export default function Cart() {
   const planSubtotal = useMemo(
     () =>
       cart
-        .filter((item: any) => isChallengePlan(item))
+        .filter((item: any) => isPlanItem(item))
         .reduce((sum, item) => sum + item.price * item.qty, 0),
     [cart]
   );
@@ -424,7 +447,7 @@ export default function Cart() {
   const normalMealsSubtotal = useMemo(
     () =>
       cart
-        .filter((item: any) => !isChallengePlan(item))
+        .filter((item: any) => !isPlanItem(item))
         .reduce((sum, item) => sum + item.price * item.qty, 0),
     [cart]
   );
@@ -458,11 +481,11 @@ export default function Cart() {
     "h-12 w-full min-w-0 rounded-[14px] border border-slate-200 bg-white px-4 text-left text-sm font-black text-slate-900 outline-none transition focus:border-green-500 focus:ring-4 focus:ring-green-100";
 
   useEffect(() => {
-    setChallengeSchedules((prev) => {
-      const next: Record<string, ChallengeScheduleDay[]> = {};
+    setPlanSchedules((prev) => {
+      const next: Record<string, PlanScheduleDay[]> = {};
 
       cart.forEach((item: any) => {
-        if (!isChallengePlan(item)) return;
+        if (!isPlanItem(item)) return;
 
         const key = getCartKey(item);
 
@@ -609,7 +632,10 @@ export default function Cart() {
       googleSearchReady
     ) {
       setTimeout(() => {
-        renderGoogleDeliveryMap(addressForm.lat as number, addressForm.lng as number);
+        renderGoogleDeliveryMap(
+          addressForm.lat as number,
+          addressForm.lng as number
+        );
       }, 100);
     }
 
@@ -670,7 +696,7 @@ export default function Cart() {
     }
 
     if (planSubtotal <= 0) {
-      setCouponMsg("Reward coupon is applicable only on challenge plans.");
+      setCouponMsg("Plan reward coupon is applicable only on meal plans.");
       setCouponMsgType("error");
       return;
     }
@@ -685,14 +711,12 @@ export default function Cart() {
         cartTotal: subtotal,
         planSubtotal,
         normalMealsSubtotal,
-        applyOn: "challenge_plan",
+        applyOn: "plan",
       });
 
       setCoupon(codeToApply);
       setDiscount(res.data.discount || 0);
-      setCouponMsg(
-        `Coupon applied on challenge plan. You saved ₹${res.data.discount}`
-      );
+      setCouponMsg(`Coupon applied on plan. You saved ₹${res.data.discount}`);
       setCouponMsgType("success");
 
       fetchAvailableCoupons();
@@ -708,12 +732,12 @@ export default function Cart() {
     }
   };
 
-  const updateChallengeScheduleDay = (
+  const updatePlanScheduleDay = (
     cartKey: string,
     dayNo: number,
-    patch: Partial<ChallengeScheduleDay>
+    patch: Partial<PlanScheduleDay>
   ) => {
-    setChallengeSchedules((prev) => {
+    setPlanSchedules((prev) => {
       const currentSchedule = prev[cartKey] || [];
 
       const nextSchedule = currentSchedule.map((day) => {
@@ -739,9 +763,7 @@ export default function Cart() {
               ...day,
               date,
               slot:
-                date && isSlotAllowed(date, day.slot || "")
-                  ? day.slot
-                  : "",
+                date && isSlotAllowed(date, day.slot || "") ? day.slot : "",
             };
           }),
         };
@@ -757,7 +779,7 @@ export default function Cart() {
   };
 
   const applyDayOneSlotToAllDays = (cartKey: string) => {
-    const schedule = challengeSchedules[cartKey] || [];
+    const schedule = planSchedules[cartKey] || [];
     const firstDay = schedule.find((day) => Number(day.day) === 1);
 
     if (!firstDay?.date) {
@@ -770,7 +792,7 @@ export default function Cart() {
       return;
     }
 
-    setChallengeSchedules((prev) => ({
+    setPlanSchedules((prev) => ({
       ...prev,
       [cartKey]: (prev[cartKey] || []).map((day) => {
         const date = addDaysToISO(firstDay.date, Number(day.day) - 1);
@@ -1110,21 +1132,21 @@ export default function Cart() {
     return true;
   };
 
-  const validateChallengeSchedules = () => {
+  const validatePlanSchedules = () => {
     for (const item of cart as any[]) {
-      if (!isChallengePlan(item)) continue;
+      if (!isPlanItem(item)) continue;
 
       const key = getCartKey(item);
-      const schedule = challengeSchedules[key] || [];
+      const schedule = planSchedules[key] || [];
 
       if (!schedule.length) {
-        setSlotMsg(`Please select challenge schedule for ${item.title}.`);
+        setSlotMsg(`Please select plan schedule for ${item.title}.`);
         return false;
       }
 
       for (const day of schedule) {
         if (!day.date || !day.slot) {
-          setSlotMsg("Please select date and slot for all challenge days.");
+          setSlotMsg("Please select date and slot for all plan days.");
           return false;
         }
 
@@ -1142,7 +1164,7 @@ export default function Cart() {
   };
 
   const validateScheduleStep = () => {
-    if (!validateChallengeSchedules()) return false;
+    if (!validatePlanSchedules()) return false;
 
     if (hasNormalMeals) {
       if (!slotDate || !slotTime) {
@@ -1163,7 +1185,7 @@ export default function Cart() {
   const getFinalPlanDays = (item: any) => {
     const key = getCartKey(item);
 
-    return (challengeSchedules[key] || []).map((day) => ({
+    return (planSchedules[key] || []).map((day) => ({
       day: day.day,
       date: day.date,
       slot: day.slot,
@@ -1233,26 +1255,27 @@ export default function Cart() {
       const finalCouponCode =
         discount > 0 && coupon.trim() ? coupon.trim().toUpperCase() : null;
 
-      const firstChallengeDay = cart
-        .filter((item: any) => isChallengePlan(item))
+      const firstPlanDay = cart
+        .filter((item: any) => isPlanItem(item))
         .flatMap((item: any) => getFinalPlanDays(item))[0];
 
       const payload = {
         items: cart.map((item: any) => {
-          const finalPlanDays = isChallengePlan(item)
-            ? getFinalPlanDays(item)
-            : [];
+          const planItem = isPlanItem(item);
+          const planId = getFinalPlanId(item);
+          const finalPlanDays = planItem ? getFinalPlanDays(item) : [];
 
           return {
-            mealId:
-              item.itemType === "challenge_plan"
-                ? item.planItems?.[0]?._id ||
-                  finalPlanDays?.[0]?.selectedMeal ||
-                  item._id
-                : item._id,
+            mealId: planItem
+              ? item.planItems?.[0]?._id ||
+                finalPlanDays?.[0]?.selectedMeal ||
+                item._id
+              : item._id,
 
-            itemType: item.itemType || "meal",
-            challengeId: item.challengeId || "",
+            itemType: planItem ? "plan" : "meal",
+            planId: planItem ? planId : "",
+            challengeId: planItem ? planId : "",
+
             title: item.title,
             description: item.description || "",
             price: item.price,
@@ -1261,12 +1284,14 @@ export default function Cart() {
             calories: item.calories,
             carbs: item.carbs || 0,
             fat: item.fat || 0,
+            preference: item.preference || "",
+            rewardEligible: item.rewardEligible !== false,
             planItems: item.planItems || [],
             planDays: finalPlanDays,
           };
         }),
         couponCode: finalCouponCode,
-        couponApplyOn: "challenge_plan",
+        couponApplyOn: "plan",
 
         address: {
           ...selectedAddress,
@@ -1285,8 +1310,8 @@ export default function Cart() {
               time: slotTime,
             }
           : {
-              date: firstChallengeDay?.date || "",
-              time: firstChallengeDay?.slot || "",
+              date: firstPlanDay?.date || "",
+              time: firstPlanDay?.slot || "",
             },
       };
 
@@ -1299,14 +1324,14 @@ export default function Cart() {
         amount,
         currency: "INR",
         name: "MacroBox",
-        description: "Meal Order",
+        description: hasPlans ? "MacroBox Plan Order" : "MacroBox Meal Order",
         order_id: razorpayOrderId,
         prefill: {
           name: selectedAddress?.fullName,
           contact: selectedAddress?.phone,
         },
         handler: async (response: any) => {
-          await api.post("/checkout/verify", {
+          const verifyRes = await api.post("/checkout/verify", {
             orderId,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
@@ -1316,7 +1341,15 @@ export default function Cart() {
           clearCart();
           setDiscount(0);
           setCoupon("");
-          setCouponMsg("Payment successful ✅");
+
+          if (verifyRes.data?.rewardCoupon?.code) {
+            setCouponMsg(
+              `Payment successful ✅ 10% OFF next-plan coupon unlocked: ${verifyRes.data.rewardCoupon.code}`
+            );
+          } else {
+            setCouponMsg("Payment successful ✅");
+          }
+
           setCouponMsgType("success");
 
           setTimeout(() => navigate("/orders"), 800);
@@ -1384,7 +1417,7 @@ export default function Cart() {
           </h1>
 
           <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-slate-500">
-            Add your favourite MacroBox meals to continue checkout.
+            Add your favourite MacroBox meals or plans to continue checkout.
           </p>
 
           <button
@@ -1439,7 +1472,8 @@ export default function Cart() {
           >
             <div className="grid gap-3">
               {cart.map((item: any) => {
-                const isPlan = isChallengePlan(item);
+                const isPlan = isPlanItem(item);
+                const planId = getFinalPlanId(item);
 
                 return (
                   <div
@@ -1455,7 +1489,7 @@ export default function Cart() {
 
                           {isPlan && (
                             <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-black text-green-700">
-                              Challenge Plan
+                              Meal Plan
                             </span>
                           )}
                         </div>
@@ -1463,7 +1497,8 @@ export default function Cart() {
                         {isPlan && (
                           <p className="mt-1 text-sm font-semibold text-slate-500">
                             {(item.planItems || item.planDays || []).length || 7}{" "}
-                            meals included. Schedule will be selected later.
+                            meals included. Daily schedule will be selected in
+                            checkout.
                           </p>
                         )}
 
@@ -1497,9 +1532,7 @@ export default function Cart() {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() =>
-                              decreaseQty(item._id, item.challengeId)
-                            }
+                            onClick={() => decreaseQty(item._id, planId)}
                             disabled={isPlan}
                             className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
                           >
@@ -1512,9 +1545,7 @@ export default function Cart() {
 
                           <button
                             type="button"
-                            onClick={() =>
-                              increaseQty(item._id, item.challengeId)
-                            }
+                            onClick={() => increaseQty(item._id, planId)}
                             disabled={isPlan}
                             className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
                           >
@@ -1523,9 +1554,7 @@ export default function Cart() {
 
                           <button
                             type="button"
-                            onClick={() =>
-                              removeFromCart(item._id, item.challengeId)
-                            }
+                            onClick={() => removeFromCart(item._id, planId)}
                             className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
                           >
                             <Trash2 size={15} />
@@ -1543,7 +1572,9 @@ export default function Cart() {
             stepNo="2"
             title="Delivery address"
             active={step === "address"}
-            done={Boolean(selectedAddress) && step !== "address" && step !== "cart"}
+            done={
+              Boolean(selectedAddress) && step !== "address" && step !== "cart"
+            }
             onChange={() => setStep("address")}
           >
             {selectedAddress && step !== "address" ? (
@@ -1675,15 +1706,12 @@ export default function Cart() {
               />
             ) : (
               <div className="space-y-4">
-                {hasChallengePlans &&
+                {hasPlans &&
                   cart
-                    .filter((item: any) => isChallengePlan(item))
+                    .filter((item: any) => isPlanItem(item))
                     .map((item: any) => {
                       const cartKey = getCartKey(item);
-                      const schedule = challengeSchedules[cartKey] || [];
-                      const dayOne = schedule.find(
-                        (day) => Number(day.day) === 1
-                      );
+                      const schedule = planSchedules[cartKey] || [];
 
                       return (
                         <div
@@ -1694,137 +1722,170 @@ export default function Cart() {
                             <div>
                               <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-blue-700">
                                 <CalendarClock size={16} />
-                                Challenge schedule
+                                Plan schedule
                               </p>
                               <p className="mt-1 text-xs font-bold text-slate-500">
                                 {item.title}
                               </p>
                             </div>
-
-                            
                           </div>
 
                           {(() => {
-  const dayOne = schedule.find((day) => Number(day.day) === 1);
-  const otherDays = schedule.filter((day) => Number(day.day) !== 1);
+                            const dayOne = schedule.find(
+                              (day) => Number(day.day) === 1
+                            );
+                            const otherDays = schedule.filter(
+                              (day) => Number(day.day) !== 1
+                            );
 
-  return (
-    <div className="space-y-3">
-      <div className="rounded-[16px] bg-white p-3 sm:p-4">
-        <p className="break-words text-sm font-black leading-5 text-slate-950 sm:text-base">
-          Day 1: {dayOne?.selectedMealTitle || "Meal"}
-        </p>
+                            return (
+                              <div className="space-y-3">
+                                <div className="rounded-[16px] bg-white p-3 sm:p-4">
+                                  <p className="break-words text-sm font-black leading-5 text-slate-950 sm:text-base">
+                                    Day 1: {dayOne?.selectedMealTitle || "Meal"}
+                                  </p>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <input
-            type="date"
-            min={todayISO()}
-            value={dayOne?.date || ""}
-            onChange={(event) =>
-              updateChallengeScheduleDay(cartKey, 1, {
-                date: event.target.value,
-              })
-            }
-            className={scheduleInputClass}
-          />
+                                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <input
+                                      type="date"
+                                      min={todayISO()}
+                                      value={dayOne?.date || ""}
+                                      onChange={(event) =>
+                                        updatePlanScheduleDay(cartKey, 1, {
+                                          date: event.target.value,
+                                        })
+                                      }
+                                      className={scheduleInputClass}
+                                    />
 
-          <select
-            value={dayOne?.slot || ""}
-            onChange={(event) =>
-              updateChallengeScheduleDay(cartKey, 1, {
-                slot: event.target.value,
-              })
-            }
-            className={scheduleInputClass}
-          >
-            <option value="">Select delivery slot</option>
+                                    <select
+                                      value={dayOne?.slot || ""}
+                                      onChange={(event) =>
+                                        updatePlanScheduleDay(cartKey, 1, {
+                                          slot: event.target.value,
+                                        })
+                                      }
+                                      className={scheduleInputClass}
+                                    >
+                                      <option value="">
+                                        Select delivery slot
+                                      </option>
 
-            {slots.map((slot) => {
-              const allowed = isSlotAllowed(dayOne?.date || "", slot);
+                                      {slots.map((slot) => {
+                                        const allowed = isSlotAllowed(
+                                          dayOne?.date || "",
+                                          slot
+                                        );
 
-              return (
-                <option key={slot} value={slot} disabled={!allowed}>
-                  {optionLabel(format12hFromSlot(slot), allowed)}
-                </option>
-              );
-            })}
-          </select>
-        </div>
+                                        return (
+                                          <option
+                                            key={slot}
+                                            value={slot}
+                                            disabled={!allowed}
+                                          >
+                                            {optionLabel(
+                                              format12hFromSlot(slot),
+                                              allowed
+                                            )}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
+                                  </div>
 
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-bold text-slate-500">
-            {dayOne?.date
-              ? formatDateForDisplay(dayOne.date)
-              : "Date not selected"}{" "}
-            •{" "}
-            {dayOne?.slot
-              ? format12hFromSlot(dayOne.slot)
-              : "Slot not selected"}
-          </p>
+                                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <p className="text-xs font-bold text-slate-500">
+                                      {dayOne?.date
+                                        ? formatDateForDisplay(dayOne.date)
+                                        : "Date not selected"}{" "}
+                                      •{" "}
+                                      {dayOne?.slot
+                                        ? format12hFromSlot(dayOne.slot)
+                                        : "Slot not selected"}
+                                    </p>
 
-          <button
-            type="button"
-            onClick={() => applyDayOneSlotToAllDays(cartKey)}
-            disabled={!dayOne?.date || !dayOne?.slot}
-            className="h-8 w-fit rounded-full bg-blue-600 px-3 text-[11px] font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Apply to all
-          </button>
-        </div>
-      </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        applyDayOneSlotToAllDays(cartKey)
+                                      }
+                                      disabled={!dayOne?.date || !dayOne?.slot}
+                                      className="h-8 w-fit rounded-full bg-blue-600 px-3 text-[11px] font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      Apply to all
+                                    </button>
+                                  </div>
+                                </div>
 
-      <div className="grid gap-2">
-        {otherDays.map((day) => (
-          <div
-            key={`${cartKey}-day-${day.day}`}
-            className="rounded-[14px] border border-slate-100 bg-white px-3 py-3"
-          >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_220px] sm:items-center">
-              <div className="min-w-0">
-                <p className="break-words text-sm font-black leading-5 text-slate-950">
-                  Day {day.day}: {day.selectedMealTitle}
-                </p>
+                                <div className="grid gap-2">
+                                  {otherDays.map((day) => (
+                                    <div
+                                      key={`${cartKey}-day-${day.day}`}
+                                      className="rounded-[14px] border border-slate-100 bg-white px-3 py-3"
+                                    >
+                                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_220px] sm:items-center">
+                                        <div className="min-w-0">
+                                          <p className="break-words text-sm font-black leading-5 text-slate-950">
+                                            Day {day.day}:{" "}
+                                            {day.selectedMealTitle}
+                                          </p>
 
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  {day.date
-                    ? formatDateForDisplay(day.date)
-                    : "Date auto from Day 1"}
-                </p>
-              </div>
+                                          <p className="mt-1 text-xs font-bold text-slate-500">
+                                            {day.date
+                                              ? formatDateForDisplay(day.date)
+                                              : "Date auto from Day 1"}
+                                          </p>
+                                        </div>
 
-              <select
-                value={day.slot || ""}
-                onChange={(event) =>
-                  updateChallengeScheduleDay(cartKey, day.day, {
-                    slot: event.target.value,
-                  })
-                }
-                disabled={!day.date}
-                className={scheduleInputClass}
-              >
-                <option value="">Select slot</option>
+                                        <select
+                                          value={day.slot || ""}
+                                          onChange={(event) =>
+                                            updatePlanScheduleDay(
+                                              cartKey,
+                                              day.day,
+                                              {
+                                                slot: event.target.value,
+                                              }
+                                            )
+                                          }
+                                          disabled={!day.date}
+                                          className={scheduleInputClass}
+                                        >
+                                          <option value="">Select slot</option>
 
-                {slots.map((slot) => {
-                  const allowed = isSlotAllowed(day.date || "", slot);
+                                          {slots.map((slot) => {
+                                            const allowed = isSlotAllowed(
+                                              day.date || "",
+                                              slot
+                                            );
 
-                  return (
-                    <option key={slot} value={slot} disabled={!allowed}>
-                      {optionLabel(format12hFromSlot(slot), allowed)}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+                                            return (
+                                              <option
+                                                key={slot}
+                                                value={slot}
+                                                disabled={!allowed}
+                                              >
+                                                {optionLabel(
+                                                  format12hFromSlot(slot),
+                                                  allowed
+                                                )}
+                                              </option>
+                                            );
+                                          })}
+                                        </select>
+                                      </div>
 
-            <p className="mt-2 text-xs font-bold text-slate-500">
-              {day.slot ? format12hFromSlot(day.slot) : "Slot not selected"}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-})()}
+                                      <p className="mt-2 text-xs font-bold text-slate-500">
+                                        {day.slot
+                                          ? format12hFromSlot(day.slot)
+                                          : "Slot not selected"}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}
@@ -1837,8 +1898,8 @@ export default function Cart() {
                     </p>
 
                     <p className="mt-1 text-xs font-bold text-slate-500">
-                      This slot is only for normal meals, separate from challenge
-                      plan days.
+                      This slot is only for normal meals, separate from plan
+                      delivery days.
                     </p>
 
                     <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1935,15 +1996,15 @@ export default function Cart() {
           />
 
           <button
-  type="button"
-  onClick={step === "payment" ? checkout : goNext}
-  disabled={checkingOut}
-  className="hidden h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:opacity-60 lg:flex"
->
-  <LocateFixed size={18} />
-  {primaryButtonText}
-  {step !== "payment" && <ChevronRight size={18} />}
-</button>
+            type="button"
+            onClick={step === "payment" ? checkout : goNext}
+            disabled={checkingOut}
+            className="hidden h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:opacity-60 lg:flex"
+          >
+            <LocateFixed size={18} />
+            {primaryButtonText}
+            {step !== "payment" && <ChevronRight size={18} />}
+          </button>
 
           <section className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-4 flex items-center gap-3">
@@ -2431,22 +2492,37 @@ function BillSummary({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <SummaryMetric color="green" label="Protein" value={`${totalProtein}`} unit="g" />
+        <SummaryMetric
+          color="green"
+          label="Protein"
+          value={`${totalProtein}`}
+          unit="g"
+        />
         <SummaryMetric
           color="orange"
           label="Calories"
           value={`${totalCalories}`}
           unit="kcal"
         />
-        <SummaryMetric color="yellow" label="Carbs" value={`${totalCarbs}`} unit="g" />
-        <SummaryMetric color="blue" label="Fat" value={`${totalFat}`} unit="g" />
+        <SummaryMetric
+          color="yellow"
+          label="Carbs"
+          value={`${totalCarbs}`}
+          unit="g"
+        />
+        <SummaryMetric
+          color="blue"
+          label="Fat"
+          value={`${totalFat}`}
+          unit="g"
+        />
       </div>
 
       <hr className="my-5 border-slate-200" />
 
       <div className="space-y-3 text-sm">
         <BillRow label="Meals Subtotal" value={`₹${normalMealsSubtotal}`} />
-        <BillRow label="Challenge Plan" value={`₹${planSubtotal}`} />
+        <BillRow label="Plans Subtotal" value={`₹${planSubtotal}`} />
         <BillRow label="Plan Discount" value={`-₹${discount}`} muted />
 
         <div className="border-t border-slate-200 pt-4">

@@ -1,4 +1,5 @@
 // frontend/src/context/AuthContext.tsx
+
 import { createContext, useContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import FullScreenLoader from "../components/FullScreenLoader";
@@ -95,7 +96,7 @@ type AuthContextType = {
   isChef: boolean;
   login: (data: LoginPayload) => Promise<User>;
   signup: (data: SignupPayload) => Promise<User | null>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateUser: (updatedUser: Partial<User>) => void;
   refreshStoredUser: (freshUser?: User) => void;
 };
@@ -103,6 +104,17 @@ type AuthContextType = {
 /* ================= CONTEXT ================= */
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+
+/* ================= HELPERS ================= */
+
+const isTokenExpired = (accessToken: string) => {
+  try {
+    const decoded = jwtDecode<JwtPayload>(accessToken);
+    return decoded.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+};
 
 /* ================= PROVIDER ================= */
 
@@ -123,9 +135,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setToken(accessToken);
 
     localStorage.setItem("token", accessToken);
+    localStorage.setItem("macrobox_token", accessToken);
     localStorage.setItem("user", JSON.stringify(userData));
 
     api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+  };
+
+  /* ================= CLEAR SESSION ================= */
+
+  const clearSession = () => {
+    setUser(null);
+    setToken(null);
+
+    delete api.defaults.headers.common.Authorization;
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("macrobox_token");
+    localStorage.removeItem("user");
   };
 
   /* ================= UPDATE STORED USER ================= */
@@ -169,42 +195,60 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   /* ================= LOGOUT ================= */
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-
-    delete api.defaults.headers.common.Authorization;
-
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const logout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // Ignore logout API error and clear local session anyway
+    } finally {
+      clearSession();
+    }
   };
 
   /* ================= RESTORE SESSION ================= */
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
-
-    if (savedToken && savedUser) {
+    const restoreSession = async () => {
       try {
-        const decoded = jwtDecode<JwtPayload>(savedToken);
+        const savedToken =
+          localStorage.getItem("token") ||
+          localStorage.getItem("macrobox_token") ||
+          "";
 
-        if (decoded.exp * 1000 < Date.now()) {
-          logout();
-        } else {
-          const parsedUser = JSON.parse(savedUser);
+        const savedUser = localStorage.getItem("user");
 
+        if (!savedToken || !savedUser) {
+          clearSession();
+          return;
+        }
+
+        const parsedUser = JSON.parse(savedUser);
+
+        if (!isTokenExpired(savedToken)) {
           setToken(savedToken);
           setUser(parsedUser);
-
           api.defaults.headers.common.Authorization = `Bearer ${savedToken}`;
+          return;
         }
-      } catch {
-        logout();
-      }
-    }
 
-    setLoading(false);
+        const refreshRes = await api.post("/auth/refresh");
+        const freshToken = refreshRes.data?.token;
+        const freshUser = refreshRes.data?.user;
+
+        if (!freshToken || !freshUser) {
+          clearSession();
+          return;
+        }
+
+        saveSession(freshToken, freshUser);
+      } catch {
+        clearSession();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    restoreSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

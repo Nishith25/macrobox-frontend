@@ -43,8 +43,11 @@ type OrderItem = {
   title?: string;
   price?: number;
   qty?: number;
-  itemType?: "meal" | "challenge_plan";
+  itemType?: "meal" | "plan" | "challenge_plan";
+  planId?: string;
   challengeId?: string;
+  preference?: "veg" | "nonveg" | "mixed" | "";
+  rewardEligible?: boolean;
   planItems?: PlanIncludedItem[];
   planDays?: PlanDay[];
 };
@@ -61,6 +64,7 @@ type Order = {
     subtotal?: number;
     discount?: number;
     payable?: number;
+    planSubtotal?: number;
     challengePlanSubtotal?: number;
     normalMealsSubtotal?: number;
     totalProtein?: number;
@@ -72,6 +76,7 @@ type Order = {
     code?: string;
     discount?: number;
     redeemed?: boolean;
+    applyOn?: "cart" | "plan" | "challenge_plan";
   };
   delivery?: {
     address?: {
@@ -130,9 +135,22 @@ const formatDateTime = (value?: string) => {
 const formatDateOnly = (value?: string) => {
   if (!value) return "-";
 
-  const date = new Date(value);
+  const text = String(value);
 
-  if (Number.isNaN(date.getTime())) return value;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const [year, month, day] = text.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  const date = new Date(text);
+
+  if (Number.isNaN(date.getTime())) return text;
 
   return date.toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -163,15 +181,26 @@ const readableStatus = (value?: string) => {
 };
 
 const isPlanItem = (item?: OrderItem) => {
-  return item?.itemType === "challenge_plan" || Boolean(item?.challengeId);
+  return (
+    item?.itemType === "plan" ||
+    item?.itemType === "challenge_plan" ||
+    Boolean(item?.planId) ||
+    Boolean(item?.challengeId)
+  );
 };
 
-const getTodayPlanDay = (item: OrderItem) => {
+const getPlanId = (item?: OrderItem) => {
+  return String(item?.planId || item?.challengeId || "").trim();
+};
+
+const getNextPlanDay = (item: OrderItem) => {
   const planDays = item.planDays || [];
   const today = todayISO();
 
   return (
-    planDays.find((day) => day.date === today) ||
+    planDays.find(
+      (day) => day.date === today && day.deliveryStatus !== "delivered"
+    ) ||
     planDays.find((day) => day.deliveryStatus !== "delivered") ||
     planDays[0] ||
     null
@@ -202,7 +231,7 @@ const getAddressText = (order: Order) => {
 const getSplitTotals = (order: Order) => {
   const items = order.items || [];
 
-  const fallbackChallengePlanSubtotal = items
+  const fallbackPlanSubtotal = items
     .filter((item) => isPlanItem(item))
     .reduce(
       (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
@@ -211,20 +240,22 @@ const getSplitTotals = (order: Order) => {
 
   const subtotal = Number(order.totals?.subtotal || 0);
 
-  const challengePlanSubtotal =
-    Number(order.totals?.challengePlanSubtotal || 0) > 0
-      ? Number(order.totals?.challengePlanSubtotal || 0)
-      : Math.round(fallbackChallengePlanSubtotal);
+  const savedPlanSubtotal = Number(
+    order.totals?.planSubtotal || order.totals?.challengePlanSubtotal || 0
+  );
+
+  const planSubtotal =
+    savedPlanSubtotal > 0 ? savedPlanSubtotal : Math.round(fallbackPlanSubtotal);
 
   const normalMealsSubtotal =
     Number(order.totals?.normalMealsSubtotal || 0) > 0
       ? Number(order.totals?.normalMealsSubtotal || 0)
-      : Math.max(subtotal - challengePlanSubtotal, 0);
+      : Math.max(subtotal - planSubtotal, 0);
 
   return {
     subtotal,
     normalMealsSubtotal,
-    challengePlanSubtotal,
+    planSubtotal,
     discount: Number(order.totals?.discount || 0),
     payable: Number(order.totals?.payable || 0),
   };
@@ -314,13 +345,22 @@ export default function AdminOrders() {
   const exportCSV = () => {
     const rows = orders.map((order) => {
       const splitTotals = getSplitTotals(order);
-      const schedule = (order.items || [])
+
+      const planSchedule = (order.items || [])
+        .filter((item) => isPlanItem(item))
         .flatMap((item) =>
           (item.planDays || []).map(
             (day) =>
               `Day ${day.day}: ${day.selectedMealTitle} (${day.date} ${day.slot})`
           )
         )
+        .join(" | ");
+
+      const itemTitles = (order.items || [])
+        .map((item) => {
+          const tag = isPlanItem(item) ? "Plan" : "Meal";
+          return `${tag}: ${item.title || ""}`;
+        })
         .join(" | ");
 
       return {
@@ -333,11 +373,12 @@ export default function AdminOrders() {
         deliveryStatus: order.delivery?.status || "",
         deliveryAgent: order.delivery?.agent?.name || "",
         mealsSubtotal: splitTotals.normalMealsSubtotal,
-        challengePlanSubtotal: splitTotals.challengePlanSubtotal,
+        plansSubtotal: splitTotals.planSubtotal,
         planDiscount: splitTotals.discount,
         totalPayable: splitTotals.payable,
         coupon: order.coupon?.code || "",
-        challengeSchedule: schedule,
+        items: itemTitles,
+        planSchedule,
         date: order.createdAt || "",
       };
     });
@@ -382,8 +423,8 @@ export default function AdminOrders() {
           <h1 className="text-3xl font-bold">Admin Orders</h1>
 
           <p className="mt-1 text-gray-600">
-            View daily orders, payments, delivery status, agents, revenue, and
-            challenge schedules.
+            View daily orders, payments, delivery status, agents, revenue, meals
+            and plan schedules.
           </p>
 
           <p className="mt-2 text-sm font-medium text-green-700">
@@ -491,7 +532,7 @@ export default function AdminOrders() {
               <th className="p-4">Delivery</th>
               <th className="p-4">Agent</th>
               <th className="p-4">Billing</th>
-              <th className="p-4">Items / Challenge Schedule</th>
+              <th className="p-4">Items / Plan Schedule</th>
               <th className="p-4">Coupon</th>
               <th className="p-4">Date</th>
               <th className="p-4 text-right">Actions</th>
@@ -514,11 +555,20 @@ export default function AdminOrders() {
             ) : (
               orders.map((order) => {
                 const splitTotals = getSplitTotals(order);
+                const hasPlan = (order.items || []).some((item) =>
+                  isPlanItem(item)
+                );
 
                 return (
                   <tr key={order._id} className="border-t align-top">
                     <td className="max-w-[190px] break-all p-4 font-semibold">
-                      {order._id}
+                      <p>{order._id}</p>
+
+                      {hasPlan && (
+                        <p className="mt-2 w-fit rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
+                          Plan Order
+                        </p>
+                      )}
                     </td>
 
                     <td className="p-4">
@@ -549,8 +599,8 @@ export default function AdminOrders() {
                       </p>
 
                       <p>
-                        {order.delivery?.slot?.date || "-"} |{" "}
-                        {order.delivery?.slot?.time || "-"}
+                        {formatDateOnly(order.delivery?.slot?.date)} |{" "}
+                        {formatSlot(order.delivery?.slot?.time)}
                       </p>
 
                       <p className="mt-1 line-clamp-2 text-xs text-gray-500">
@@ -584,8 +634,8 @@ export default function AdminOrders() {
                         />
 
                         <BillingLine
-                          label="Challenge Plan"
-                          value={`₹${splitTotals.challengePlanSubtotal}`}
+                          label="Plans"
+                          value={`₹${splitTotals.planSubtotal}`}
                         />
 
                         <BillingLine
@@ -630,8 +680,19 @@ export default function AdminOrders() {
                           </p>
 
                           <p className="text-xs text-gray-500">
-                            {order.coupon.redeemed ? "Redeemed" : "Not redeemed"}
+                            {order.coupon.redeemed
+                              ? "Redeemed"
+                              : "Not redeemed"}
                           </p>
+
+                          {order.coupon.applyOn && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              Apply on:{" "}
+                              {order.coupon.applyOn === "challenge_plan"
+                                ? "plan"
+                                : order.coupon.applyOn}
+                            </p>
+                          )}
                         </div>
                       ) : (
                         "-"
@@ -663,14 +724,13 @@ export default function AdminOrders() {
 
 function AdminOrderItem({ item }: { item: OrderItem }) {
   const isPlan = isPlanItem(item);
-  const todayPlanDay = isPlan ? getTodayPlanDay(item) : null;
+  const nextPlanDay = isPlan ? getNextPlanDay(item) : null;
+  const planId = getPlanId(item);
 
   return (
     <div
       className={`rounded-xl border p-3 ${
-        isPlan
-          ? "border-green-200 bg-green-50"
-          : "border-gray-200 bg-white"
+        isPlan ? "border-green-200 bg-green-50" : "border-gray-200 bg-white"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -679,11 +739,19 @@ function AdminOrderItem({ item }: { item: OrderItem }) {
             {item.title || "Meal"} × {item.qty || 1}
           </p>
 
-          {isPlan && (
-            <p className="mt-1 w-fit rounded-full bg-white px-2 py-1 text-[10px] font-bold text-green-700">
-              Challenge Plan
-            </p>
-          )}
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {isPlan && (
+              <p className="w-fit rounded-full bg-white px-2 py-1 text-[10px] font-bold text-green-700">
+                Meal Plan
+              </p>
+            )}
+
+            {isPlan && planId && (
+              <p className="w-fit rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">
+                {planId}
+              </p>
+            )}
+          </div>
         </div>
 
         <p className="font-bold text-gray-900">
@@ -691,23 +759,23 @@ function AdminOrderItem({ item }: { item: OrderItem }) {
         </p>
       </div>
 
-      {isPlan && todayPlanDay && (
+      {isPlan && nextPlanDay && (
         <div className="mt-3 rounded-lg border border-orange-100 bg-orange-50 p-2">
           <p className="text-[11px] font-black uppercase text-orange-700">
             Next Scheduled Meal
           </p>
 
           <p className="mt-1 text-xs font-bold text-gray-900">
-            Day {todayPlanDay.day}: {todayPlanDay.selectedMealTitle || "Meal"}
+            Day {nextPlanDay.day}: {nextPlanDay.selectedMealTitle || "Meal"}
           </p>
 
           <p className="mt-1 text-xs font-semibold text-gray-500">
-            {formatDateOnly(todayPlanDay.date)} • {formatSlot(todayPlanDay.slot)}
+            {formatDateOnly(nextPlanDay.date)} • {formatSlot(nextPlanDay.slot)}
           </p>
 
-          {todayPlanDay.alternativeMealTitle && (
+          {nextPlanDay.alternativeMealTitle && (
             <p className="mt-1 text-xs font-semibold text-gray-500">
-              Alternative: {todayPlanDay.alternativeMealTitle}
+              Alternative: {nextPlanDay.alternativeMealTitle}
             </p>
           )}
         </div>
@@ -716,7 +784,7 @@ function AdminOrderItem({ item }: { item: OrderItem }) {
       {isPlan && item.planDays && item.planDays.length > 0 && (
         <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-2">
           <p className="mb-2 text-[11px] font-black uppercase text-blue-700">
-            Full Day-wise Schedule
+            Full Day-wise Plan Schedule
           </p>
 
           <div className="grid gap-2">

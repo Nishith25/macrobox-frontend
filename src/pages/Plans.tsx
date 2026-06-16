@@ -1,4 +1,4 @@
-// frontend/src/pages/Challenges.tsx (FRONTEND)
+// frontend/src/pages/Plans.tsx (FRONTEND)
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -20,9 +20,11 @@ import toast from "react-hot-toast";
 
 import api from "../api/api";
 
-type BackendChallenge = {
+type BackendPlan = {
   _id: string;
-  challengeId: string;
+
+  // New plan fields
+  planId?: string;
   title: string;
   subtitle?: string;
   description?: string;
@@ -35,6 +37,13 @@ type BackendChallenge = {
   perks?: string[];
   rewards?: string[];
   meals?: string[];
+  planItems?: any[];
+  isPurchased?: boolean;
+  rewardEligible?: boolean;
+  rewardUnlocked?: boolean;
+
+  // Temporary backward compatibility until backend/models are fully renamed
+  challengeId?: string;
   isJoined?: boolean;
   canStartAgain?: boolean;
   userStatus?: "joined" | "in_progress" | "completed" | "cancelled" | null;
@@ -43,31 +52,37 @@ type BackendChallenge = {
   completedAttemptsCount?: number;
   latestCompletedAt?: string | null;
   completedDaysCount?: number;
-  rewardUnlocked?: boolean;
 };
 
-type HistorySummary = {
-  challengeId: string;
+type PlanHistorySummary = {
+  planId?: string;
+  challengeId?: string;
   title: string;
   badge?: string;
   goal?: string;
   durationDays?: number;
-  completedTimes: number;
+  purchasedTimes?: number;
+  completedTimes?: number;
+  latestPurchasedAt?: string | null;
   latestCompletedAt?: string | null;
 };
 
-type HistoryAttempt = {
+type PlanHistoryOrder = {
   _id: string;
-  challengeId: string;
+  planId?: string;
+  challengeId?: string;
   title: string;
   badge?: string;
   goal?: string;
   durationDays?: number;
-  attemptNo?: number;
-  completedDaysCount?: number;
-  rewardUnlocked?: boolean;
+  purchasedAt?: string;
   startedAt?: string;
   completedAt?: string;
+  rewardUnlocked?: boolean;
+
+  // Old fields, kept temporarily for compatibility
+  attemptNo?: number;
+  completedDaysCount?: number;
 };
 
 const goalIcon = (goal: string) => {
@@ -84,6 +99,11 @@ const goalLabel = (goal: string) => {
   if (goal === "student_power") return "Student Power";
   if (goal === "couple") return "Couple";
   if (goal === "office_fit") return "Office Fit";
+  if (goal === "bulk") return "Bulk";
+  if (goal === "lean") return "Lean";
+  if (goal === "mixed") return "Mixed";
+  if (goal === "veg") return "Veg";
+  if (goal === "nonveg") return "Nonveg";
   return "MacroBox";
 };
 
@@ -101,51 +121,61 @@ const formatDate = (value?: string | null) => {
   });
 };
 
-export default function Challenges() {
-  const [challenges, setChallenges] = useState<BackendChallenge[]>([]);
-  const [historySummary, setHistorySummary] = useState<HistorySummary[]>([]);
-  const [historyAttempts, setHistoryAttempts] = useState<HistoryAttempt[]>([]);
+const getPlanId = (plan: BackendPlan) => {
+  return plan.planId || plan.challengeId || plan._id;
+};
+
+export default function Plans() {
+  const [plans, setPlans] = useState<BackendPlan[]>([]);
+  const [historySummary, setHistorySummary] = useState<PlanHistorySummary[]>([]);
+  const [historyOrders, setHistoryOrders] = useState<PlanHistoryOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadChallenges = async () => {
+  const loadPlans = async () => {
     try {
       setLoading(true);
 
-      const [challengeRes, historyRes] = await Promise.all([
-        api.get("/challenges"),
-        api.get("/challenges/history/summary"),
+      const [planRes, historyRes] = await Promise.all([
+        api.get("/plans"),
+        api.get("/plans/history/summary"),
       ]);
 
-      setChallenges(Array.isArray(challengeRes.data) ? challengeRes.data : []);
+      setPlans(Array.isArray(planRes.data) ? planRes.data : []);
       setHistorySummary(
         Array.isArray(historyRes.data?.summary) ? historyRes.data.summary : []
       );
-      setHistoryAttempts(
-        Array.isArray(historyRes.data?.attempts) ? historyRes.data.attempts : []
+      setHistoryOrders(
+        Array.isArray(historyRes.data?.attempts)
+          ? historyRes.data.attempts
+          : Array.isArray(historyRes.data?.orders)
+          ? historyRes.data.orders
+          : []
       );
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to load challenges");
+      toast.error(error?.response?.data?.message || "Failed to load plans");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadChallenges();
+    loadPlans();
   }, []);
 
   const stats = useMemo(() => {
-    const active = challenges.filter((item) => item.isJoined).length;
-    const completedTimes = historyAttempts.length;
-    const rewards = historyAttempts.filter((item) => item.rewardUnlocked).length;
+    const purchased = plans.filter(
+      (item) => item.isPurchased || item.isJoined
+    ).length;
+
+    const rewards = historyOrders.filter((item) => item.rewardUnlocked).length;
 
     return {
-      total: challenges.length,
-      active,
-      completedTimes,
+      total: plans.length,
+      purchased,
+      planOrders: historyOrders.length,
       rewards,
     };
-  }, [challenges, historyAttempts]);
+  }, [plans, historyOrders]);
 
   return (
     <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 text-slate-950 sm:px-6">
@@ -155,31 +185,30 @@ export default function Challenges() {
             <div className="max-w-3xl">
               <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
                 <Trophy size={15} />
-                MacroBox Challenges
+                MacroBox Plans
               </p>
 
               <h1 className="mt-5 text-[42px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px]">
                 Eat healthy.
                 <br />
-                <span className="text-green-600">Complete challenges.</span>
+                <span className="text-green-600">Choose your plan.</span>
               </h1>
 
               <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
-                Join a goal-based challenge. Daily progress updates
-                automatically after paid challenge orders. Complete 7
-                consecutive paid order days to unlock rewards.
+                Pick a 7-day MacroBox meal plan, schedule your daily deliveries,
+                and get 10% OFF your next plan after successful payment.
               </p>
 
               <div className="mt-7 grid gap-3 sm:grid-cols-3">
-                <MiniFeature icon={<Target size={18} />} title="Goal Based" />
-                <MiniFeature icon={<Gift size={18} />} title="Auto Rewards" />
-                <MiniFeature icon={<Sparkles size={18} />} title="Auto Progress" />
+                <MiniFeature icon={<Target size={18} />} title="Goal Based Plans" />
+                <MiniFeature icon={<CalendarCheck size={18} />} title="7 Meals Scheduled" />
+                <MiniFeature icon={<Gift size={18} />} title="10% Next Plan Reward" />
               </div>
             </div>
 
             <button
               type="button"
-              onClick={loadChallenges}
+              onClick={loadPlans}
               disabled={loading}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-[16px] border border-green-200 bg-white px-5 text-sm font-black text-green-700 shadow-sm transition hover:bg-green-50 disabled:opacity-60"
             >
@@ -193,9 +222,9 @@ export default function Challenges() {
           </div>
 
           <div className="mt-7 grid gap-3 sm:grid-cols-4">
-            <HeroStat label="Challenges" value={`${stats.total}`} />
-            <HeroStat label="Active" value={`${stats.active}`} />
-            <HeroStat label="Completed Times" value={`${stats.completedTimes}`} />
+            <HeroStat label="Plans" value={`${stats.total}`} />
+            <HeroStat label="Purchased" value={`${stats.purchased}`} />
+            <HeroStat label="Plan Orders" value={`${stats.planOrders}`} />
             <HeroStat label="Rewards" value={`${stats.rewards}`} />
           </div>
         </section>
@@ -204,11 +233,11 @@ export default function Challenges() {
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.18em] text-green-600">
-                Choose your challenge
+                Choose your meal plan
               </p>
 
               <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
-                MacroBox Challenge Plans
+                MacroBox Meal Plans
               </h2>
             </div>
 
@@ -216,116 +245,128 @@ export default function Challenges() {
               to="/rewards"
               className="inline-flex w-fit items-center gap-2 rounded-[16px] bg-green-600 px-5 py-3 text-sm font-black text-white shadow-[0_14px_28px_rgba(22,163,74,0.24)]"
             >
-              View Rewards
+              View Plan Rewards
               <ArrowRight size={17} />
             </Link>
           </div>
 
           {loading ? (
             <LoadingCard />
-          ) : challenges.length === 0 ? (
-            <EmptyCard title="No challenges found" text="Add challenges from admin panel." />
+          ) : plans.length === 0 ? (
+            <EmptyCard title="No plans found" text="Add meal plans from admin panel." />
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {challenges.map((challenge) => {
-                const duration = challenge.durationDays || 7;
-                const completed = challenge.completedDaysCount || 0;
-                const progress = Math.min(
-                  100,
-                  Math.round((completed / duration) * 100)
-                );
+              {plans.map((plan) => {
+                const duration = plan.durationDays || 7;
+                const price = plan.trialPrice || plan.price || 99;
+                const originalPrice = plan.originalPrice || null;
+                const planId = getPlanId(plan);
 
-                const price = challenge.trialPrice || challenge.price || 99;
+                const mealsCount =
+                  Array.isArray(plan.planItems) && plan.planItems.length > 0
+                    ? plan.planItems.length
+                    : Array.isArray(plan.meals)
+                    ? plan.meals.length
+                    : duration;
 
-                const statusLabel = challenge.isJoined
-                  ? challenge.userStatus === "in_progress"
-                    ? "In Progress"
-                    : "Joined"
-                  : challenge.completedAttemptsCount
-                  ? "Completed Before"
-                  : "Not Joined";
+                const purchasedBefore =
+                  plan.isPurchased ||
+                  plan.isJoined ||
+                  Boolean(plan.completedAttemptsCount);
 
-                const buttonLabel = challenge.isJoined
-                  ? "Continue"
-                  : challenge.canStartAgain || challenge.completedAttemptsCount
-                  ? "Start Again"
-                  : "Start";
+                const rewardText = plan.rewardEligible === false
+                  ? "No reward"
+                  : "10% next plan";
 
                 return (
                   <article
-                    key={challenge._id}
+                    key={plan._id}
                     className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_14px_35px_rgba(15,23,42,0.05)] transition hover:-translate-y-1 hover:border-green-200 hover:shadow-[0_24px_55px_rgba(15,23,42,0.1)]"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                        {challenge.badge || goalLabel(challenge.goal)}
+                        {plan.badge || goalLabel(plan.goal)}
                       </span>
 
                       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-50 text-green-700">
-                        {goalIcon(challenge.goal)}
+                        {goalIcon(plan.goal)}
                       </span>
                     </div>
 
                     <h3 className="mt-5 text-2xl font-black tracking-[-0.04em] text-slate-950">
-                      {challenge.title}
+                      {plan.title}
                     </h3>
 
                     <p className="mt-2 min-h-[72px] text-sm font-medium leading-6 text-slate-500">
-                      {challenge.description ||
-                        "Start your MacroBox challenge and complete progress through paid orders."}
+                      {plan.description ||
+                        "Choose this MacroBox meal plan, schedule your daily meals, and unlock a reward after payment."}
                     </p>
 
                     <div className="mt-5 grid grid-cols-2 gap-3">
                       <InfoBox label="Duration" value={`${duration} Days`} />
-                      <InfoBox label="Progress" value={`${completed}/${duration}`} />
-                      <InfoBox label="Goal" value={goalLabel(challenge.goal)} />
-                      <InfoBox label="Status" value={statusLabel} />
+                      <InfoBox label="Meals" value={`${mealsCount} Meals`} />
+                      <InfoBox label="Goal" value={goalLabel(plan.goal)} />
+                      <InfoBox label="Reward" value={rewardText} />
                     </div>
 
-                    {challenge.completedAttemptsCount ? (
+                    {purchasedBefore ? (
                       <div className="mt-4 rounded-[16px] border border-green-100 bg-green-50 p-3 text-sm font-black text-green-700">
-                        Completed {challenge.completedAttemptsCount} time
-                        {challenge.completedAttemptsCount > 1 ? "s" : ""}
+                        Purchased before
+                        {plan.completedAttemptsCount
+                          ? ` × ${plan.completedAttemptsCount}`
+                          : ""}
                       </div>
                     ) : null}
 
-                    {(challenge.isJoined || completed > 0) && (
-                      <div className="mt-5">
-                        <div className="mb-2 flex items-center justify-between text-xs font-black text-slate-500">
-                          <span>Current Progress</span>
-                          <span>{progress}%</span>
-                        </div>
-
-                        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className="h-full rounded-full bg-green-600 transition-all"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {challenge.rewardUnlocked && (
+                    {plan.rewardUnlocked ? (
                       <div className="mt-4 rounded-[16px] border border-green-100 bg-green-50 p-3 text-sm font-black text-green-700">
-                        🎉 Reward unlocked
+                        🎉 10% next plan reward unlocked
                       </div>
-                    )}
+                    ) : null}
+
+                    <div className="mt-5 rounded-[18px] border border-slate-100 bg-slate-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-green-700 shadow-sm">
+                          <Sparkles size={18} />
+                        </span>
+
+                        <div>
+                          <p className="text-sm font-black text-slate-950">
+                            What you get
+                          </p>
+                          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                            {duration}-day meal schedule, selected MacroBox meals,
+                            and 10% OFF your next eligible plan after successful
+                            payment.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
                     <div className="mt-5 flex items-end justify-between border-t border-slate-100 pt-4">
                       <div>
                         <p className="text-xs font-black uppercase tracking-wide text-slate-400">
                           Starts from
                         </p>
-                        <p className="mt-1 text-2xl font-black tracking-[-0.05em] text-slate-950">
-                          ₹{price}
-                        </p>
+
+                        <div className="mt-1 flex items-end gap-2">
+                          <p className="text-2xl font-black tracking-[-0.05em] text-slate-950">
+                            ₹{price}
+                          </p>
+
+                          {originalPrice && originalPrice > price ? (
+                            <p className="mb-1 text-sm font-bold text-slate-400 line-through">
+                              ₹{originalPrice}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
 
                       <Link
-                        to={`/challenges/${challenge.challengeId}`}
+                        to={`/plans/${planId}`}
                         className="inline-flex h-12 items-center gap-2 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
                       >
-                        {buttonLabel}
+                        View Plan
                         <ArrowRight size={17} />
                       </Link>
                     </div>
@@ -344,10 +385,10 @@ export default function Challenges() {
 
             <div>
               <h2 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
-                Challenge History
+                Plan History
               </h2>
               <p className="text-sm font-semibold text-slate-500">
-                Completed challenges and number of times you finished each type.
+                Your purchased MacroBox plans and rewards unlocked from plan orders.
               </p>
             </div>
           </div>
@@ -356,78 +397,91 @@ export default function Challenges() {
             <LoadingCard />
           ) : historySummary.length === 0 ? (
             <EmptyCard
-              title="No completed challenges yet"
-              text="Complete 7 consecutive paid challenge order days to see history here."
+              title="No plan purchases yet"
+              text="Buy any eligible 7-day MacroBox plan to unlock 10% OFF your next plan."
             />
           ) : (
             <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
                 <h3 className="mb-4 flex items-center gap-2 text-xl font-black text-slate-950">
                   <Trophy className="text-green-600" size={20} />
-                  Completed Types
+                  Purchased Plan Types
                 </h3>
 
                 <div className="space-y-3">
-                  {historySummary.map((item) => (
-                    <div
-                      key={item.challengeId}
-                      className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-base font-black text-slate-950">
-                            {item.title}
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-slate-500">
-                            {item.badge || goalLabel(item.goal || "")} • Latest:{" "}
-                            {formatDate(item.latestCompletedAt)}
-                          </p>
-                        </div>
+                  {historySummary.map((item) => {
+                    const purchasedTimes =
+                      item.purchasedTimes || item.completedTimes || 0;
+                    const latestDate =
+                      item.latestPurchasedAt || item.latestCompletedAt || null;
 
-                        <span className="rounded-full bg-green-600 px-3 py-1 text-xs font-black text-white">
-                          × {item.completedTimes}
-                        </span>
+                    return (
+                      <div
+                        key={item.planId || item.challengeId || item.title}
+                        className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-base font-black text-slate-950">
+                              {item.title}
+                            </p>
+                            <p className="mt-1 text-xs font-bold text-slate-500">
+                              {item.badge || goalLabel(item.goal || "")} • Latest:{" "}
+                              {formatDate(latestDate)}
+                            </p>
+                          </div>
+
+                          <span className="rounded-full bg-green-600 px-3 py-1 text-xs font-black text-white">
+                            × {purchasedTimes}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
                 <h3 className="mb-4 flex items-center gap-2 text-xl font-black text-slate-950">
                   <CalendarCheck className="text-green-600" size={20} />
-                  Recent Completed Attempts
+                  Recent Plan Orders
                 </h3>
 
                 <div className="space-y-3">
-                  {historyAttempts.slice(0, 8).map((attempt) => (
-                    <div
-                      key={attempt._id}
-                      className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"
-                    >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="text-sm font-black text-slate-950">
-                            {attempt.title}
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-slate-500">
-                            Attempt {attempt.attemptNo || 1} •{" "}
-                            {attempt.completedDaysCount || 0}/
-                            {attempt.durationDays || 7} days
-                          </p>
-                        </div>
+                  {historyOrders.slice(0, 8).map((order) => {
+                    const date =
+                      order.purchasedAt || order.completedAt || order.startedAt;
 
-                        <div className="text-left sm:text-right">
-                          <p className="text-xs font-black text-green-700">
-                            {attempt.rewardUnlocked ? "Reward unlocked" : "Completed"}
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-slate-500">
-                            {formatDate(attempt.completedAt)}
-                          </p>
+                    return (
+                      <div
+                        key={order._id}
+                        className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-black text-slate-950">
+                              {order.title}
+                            </p>
+                            <p className="mt-1 text-xs font-bold text-slate-500">
+                              {order.durationDays || 7}-day plan •{" "}
+                              {order.badge || goalLabel(order.goal || "")}
+                            </p>
+                          </div>
+
+                          <div className="text-left sm:text-right">
+                            <p className="text-xs font-black text-green-700">
+                              {order.rewardUnlocked
+                                ? "10% reward unlocked"
+                                : "Plan purchased"}
+                            </p>
+                            <p className="mt-1 text-xs font-bold text-slate-500">
+                              {formatDate(date)}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -443,7 +497,7 @@ function LoadingCard() {
     <div className="flex min-h-[260px] items-center justify-center rounded-[28px] border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center gap-3 text-sm font-black text-slate-600">
         <Loader2 className="animate-spin text-green-600" size={22} />
-        Loading challenges...
+        Loading plans...
       </div>
     </div>
   );

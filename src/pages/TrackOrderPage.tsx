@@ -827,13 +827,13 @@ export default function TrackOrderPage() {
                 />
 
                 <StatusStep
-                  active={["out_for_delivery", "delivered"].includes(
-                    deliveryStatus
-                  )}
-                  icon={<Truck size={16} />}
-                  title="Out for delivery"
-                  desc="Your meal is on the way."
-                />
+  active={["out_for_delivery", "delivered"].includes(
+    deliveryStatus
+  )}
+  icon={<Truck size={16} />}
+  title="Out for delivery"
+  desc="Your order is on the way."
+/>
 
                 <StatusStep
                   active={deliveryStatus === "delivered"}
