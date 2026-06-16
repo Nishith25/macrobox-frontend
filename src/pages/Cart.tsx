@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  BookmarkPlus,
+  Briefcase,
   CalendarClock,
+  CheckCircle2,
+  ChevronRight,
   Clock,
+  Home,
   LocateFixed,
   MapPin,
   Minus,
@@ -30,7 +33,9 @@ declare global {
 const SLOT_START_HOUR = 7;
 const SLOT_END_HOUR = 19;
 
+type StepType = "cart" | "address" | "schedule" | "payment";
 type LocationMode = "manual" | "current";
+type MsgType = "success" | "error" | null;
 
 type Address = {
   fullName: string;
@@ -57,8 +62,6 @@ type SavedAddress = Address & {
   isDefault?: boolean;
 };
 
-type MsgType = "success" | "error" | null;
-
 type AvailableCoupon = {
   code: string;
   type: "flat" | "percent";
@@ -81,6 +84,26 @@ type ChallengeScheduleDay = {
   selectedMealCalories: number;
   selectedMealCarbs: number;
   selectedMealFat: number;
+};
+
+const emptyAddress: Address = {
+  fullName: "",
+  phone: "",
+  flatNo: "",
+  floor: "",
+  buildingName: "",
+  area: "",
+  landmark: "",
+  city: "",
+  state: "",
+  pincode: "",
+  addressLabel: "Home",
+  locationMode: "current",
+  locationText: "",
+  formattedAddress: "",
+  lat: null,
+  lng: null,
+  mapsUrl: "",
 };
 
 const pad2 = (num: number) => String(num).padStart(2, "0");
@@ -121,11 +144,13 @@ const formatDateForDisplay = (isoDate: string) => {
 const format12hFromHour = (hour24: number) => {
   const period = hour24 >= 12 ? "PM" : "AM";
   const hour = hour24 % 12 === 0 ? 12 : hour24 % 12;
+
   return `${hour}:00 ${period}`;
 };
 
 const format12hFromSlot = (slotHHmm: string) => {
   if (!slotHHmm) return "Select slot";
+
   return format12hFromHour(Number(slotHHmm.split(":")[0]));
 };
 
@@ -175,6 +200,7 @@ const prettyDate = (iso?: string | null) => {
 
 const formatCouponLabel = (coupon: AvailableCoupon) => {
   if (coupon.type === "flat") return `₹${coupon.value} OFF on plan`;
+
   return `${coupon.value}% OFF on next challenge plan`;
 };
 
@@ -247,6 +273,10 @@ const isChallengePlan = (item: any) =>
 
 const getCartKey = (item: any) => `${item._id}-${item.challengeId || "meal"}`;
 
+const cleanPlanTitle = (title?: string) => {
+  return String(title || "Meal").replace(/^Day\s+\d+:\s*/i, "");
+};
+
 const buildScheduleFromCartItem = (item: any): ChallengeScheduleDay[] => {
   if (!isChallengePlan(item)) return [];
 
@@ -257,7 +287,9 @@ const buildScheduleFromCartItem = (item: any): ChallengeScheduleDay[] => {
       slot: "",
       preference: day.preference || item.preference || "mixed",
       selectedMeal: String(day.selectedMeal || day.selectedMealId || ""),
-      selectedMealTitle: day.selectedMealTitle || `Day ${index + 1} Meal`,
+      selectedMealTitle: cleanPlanTitle(
+        day.selectedMealTitle || `Day ${index + 1} Meal`
+      ),
       selectedMealPrice: Number(day.selectedMealPrice || 0),
       selectedMealProtein: Number(day.selectedMealProtein || 0),
       selectedMealCalories: Number(day.selectedMealCalories || 0),
@@ -273,10 +305,7 @@ const buildScheduleFromCartItem = (item: any): ChallengeScheduleDay[] => {
       slot: "",
       preference: item.preference || "mixed",
       selectedMeal: String(meal._id || ""),
-      selectedMealTitle: String(meal.title || `Day ${index + 1} Meal`).replace(
-        /^Day\s+\d+:\s*/i,
-        ""
-      ),
+      selectedMealTitle: cleanPlanTitle(meal.title || `Day ${index + 1} Meal`),
       selectedMealPrice: Number(meal.price || 0),
       selectedMealProtein: Number(meal.protein || 0),
       selectedMealCalories: Number(meal.calories || 0),
@@ -288,10 +317,38 @@ const buildScheduleFromCartItem = (item: any): ChallengeScheduleDay[] => {
   return [];
 };
 
+const addressPreview = (address?: Partial<Address> | null) => {
+  if (!address) return "Address not available";
+
+  if (address.formattedAddress) return address.formattedAddress;
+
+  const parts = [
+    address.flatNo,
+    address.floor,
+    address.buildingName,
+    address.area,
+    address.landmark,
+    address.city,
+    address.state,
+    address.pincode,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(", ") : "Address not available";
+};
+
+const addressIcon = (label?: string) => {
+  if (label === "Work") return <Briefcase size={18} />;
+  if (label === "Home") return <Home size={18} />;
+
+  return <MapPin size={18} />;
+};
+
 export default function Cart() {
   const navigate = useNavigate();
   const { cart, increaseQty, decreaseQty, removeFromCart, clearCart } =
     useCart();
+
+  const [step, setStep] = useState<StepType>("cart");
 
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
@@ -305,27 +362,16 @@ export default function Cart() {
   const [applying, setApplying] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
 
-  const [address, setAddress] = useState<Address>({
-    fullName: "",
-    phone: "",
-    flatNo: "",
-    floor: "",
-    buildingName: "",
-    area: "",
-    landmark: "",
-    city: "",
-    state: "",
-    pincode: "",
-    addressLabel: "Home",
-    locationMode: "current",
-    locationText: "",
-    formattedAddress: "",
-    lat: null,
-    lng: null,
-    mapsUrl: "",
-  });
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [loadingSavedAddresses, setLoadingSavedAddresses] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(
+    null
+  );
 
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [addressForm, setAddressForm] = useState<Address>(emptyAddress);
   const [addressSearch, setAddressSearch] = useState("");
+  const [savingAddress, setSavingAddress] = useState(false);
 
   const addressInputRef = useRef<HTMLInputElement | null>(null);
   const googleAutocompleteRef =
@@ -337,10 +383,6 @@ export default function Cart() {
 
   const [googleSearchReady, setGoogleSearchReady] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
-
-  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
-  const [loadingSavedAddresses, setLoadingSavedAddresses] = useState(false);
-  const [saveAddressForFuture, setSaveAddressForFuture] = useState(true);
 
   const slots = useMemo(() => buildSlots(), []);
 
@@ -365,28 +407,6 @@ export default function Cart() {
     () => cart.some((item: any) => !isChallengePlan(item)),
     [cart]
   );
-
-  const onlyChallengePlans = hasChallengePlans && !hasNormalMeals;
-
-  useEffect(() => {
-    setChallengeSchedules((prev) => {
-      const next: Record<string, ChallengeScheduleDay[]> = {};
-
-      cart.forEach((item: any) => {
-        if (!isChallengePlan(item)) return;
-
-        const key = getCartKey(item);
-
-        if (prev[key]?.length) {
-          next[key] = prev[key];
-        } else {
-          next[key] = buildScheduleFromCartItem(item);
-        }
-      });
-
-      return next;
-    });
-  }, [cart]);
 
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.qty, 0),
@@ -432,10 +452,261 @@ export default function Cart() {
   const payable = Math.max(subtotal - discount, 0);
 
   const inputClass =
-    "h-12 w-full rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100";
+    "h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100";
 
   const scheduleInputClass =
-    "h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-white px-4 text-left text-sm font-black text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
+    "h-12 w-full min-w-0 rounded-[14px] border border-slate-200 bg-white px-4 text-left text-sm font-black text-slate-900 outline-none transition focus:border-green-500 focus:ring-4 focus:ring-green-100";
+
+  useEffect(() => {
+    setChallengeSchedules((prev) => {
+      const next: Record<string, ChallengeScheduleDay[]> = {};
+
+      cart.forEach((item: any) => {
+        if (!isChallengePlan(item)) return;
+
+        const key = getCartKey(item);
+
+        if (prev[key]?.length) {
+          next[key] = prev[key];
+        } else {
+          next[key] = buildScheduleFromCartItem(item);
+        }
+      });
+
+      return next;
+    });
+  }, [cart]);
+
+  useEffect(() => {
+    fetchSavedAddresses();
+  }, []);
+
+  useEffect(() => {
+    if (cart.length > 0) fetchAvailableCoupons();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planSubtotal, cart.length]);
+
+  useEffect(() => {
+    const styleId = "macrobox-google-places-premium-style";
+
+    if (document.getElementById(styleId)) return;
+
+    const style = document.createElement("style");
+
+    style.id = styleId;
+
+    style.innerHTML = `
+      .pac-container {
+        z-index: 999999 !important;
+        margin-top: 12px !important;
+        border-radius: 18px !important;
+        border: 1px solid #bbf7d0 !important;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22) !important;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        overflow: hidden !important;
+        padding: 8px 0 !important;
+      }
+
+      .pac-item {
+        padding: 14px 18px !important;
+        font-size: 14px !important;
+        line-height: 22px !important;
+        cursor: pointer !important;
+        border-top: 1px solid #f3f4f6 !important;
+      }
+
+      .pac-item:first-child {
+        border-top: none !important;
+      }
+
+      .pac-item:hover {
+        background: #f0fdf4 !important;
+      }
+
+      .pac-item-query {
+        font-size: 15px !important;
+        font-weight: 900 !important;
+        color: #111827 !important;
+      }
+
+      .pac-matched {
+        font-weight: 900 !important;
+        color: #16a34a !important;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }, []);
+
+  useEffect(() => {
+    if (!showAddressModal) return;
+
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey) {
+      setLocationMsg("Google Maps API key is missing.");
+      return;
+    }
+
+    loadGoogleMapsScript(apiKey)
+      .then(() => {
+        setGoogleSearchReady(true);
+
+        if (!addressInputRef.current) return;
+
+        const autocomplete = new google.maps.places.Autocomplete(
+          addressInputRef.current,
+          {
+            componentRestrictions: {
+              country: "in",
+            },
+            fields: [
+              "place_id",
+              "name",
+              "formatted_address",
+              "geometry",
+              "address_components",
+            ],
+            types: ["geocode", "establishment"],
+          }
+        );
+
+        googleAutocompleteRef.current = autocomplete;
+
+        autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace();
+
+          const lat = place.geometry?.location?.lat();
+          const lng = place.geometry?.location?.lng();
+
+          if (lat == null || lng == null) {
+            setLocationMsg("Please select a valid address from suggestions.");
+            return;
+          }
+
+          applyLocationToAddress({
+            lat,
+            lng,
+            formattedAddress: place.formatted_address || place.name || "",
+            components: place.address_components,
+            mode: "manual",
+          });
+        });
+      })
+      .catch((error: unknown) => {
+        console.error("GOOGLE MAPS LOAD ERROR:", error);
+        setLocationMsg("Google address search failed to load.");
+      });
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAddressModal]);
+
+  useEffect(() => {
+    if (
+      showAddressModal &&
+      addressForm.lat != null &&
+      addressForm.lng != null &&
+      googleSearchReady
+    ) {
+      setTimeout(() => {
+        renderGoogleDeliveryMap(addressForm.lat as number, addressForm.lng as number);
+      }, 100);
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressForm.lat, addressForm.lng, googleSearchReady, showAddressModal]);
+
+  const fetchSavedAddresses = async () => {
+    try {
+      setLoadingSavedAddresses(true);
+
+      const res = await api.get("/user/addresses");
+      const list = res.data || [];
+
+      setSavedAddresses(list);
+
+      const defaultAddress =
+        list.find((address: SavedAddress) => address.isDefault) || list[0];
+
+      if (defaultAddress && !selectedAddress) {
+        setSelectedAddress(defaultAddress);
+      }
+    } catch {
+      setSavedAddresses([]);
+    } finally {
+      setLoadingSavedAddresses(false);
+    }
+  };
+
+  const fetchAvailableCoupons = async () => {
+    try {
+      setLoadingCoupons(true);
+
+      const res = await api.get(
+        `/coupons/available?cartTotal=${subtotal}&planSubtotal=${planSubtotal}`
+      );
+
+      setAvailableCoupons(res.data || []);
+    } catch {
+      setAvailableCoupons([]);
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCoupon("");
+    setDiscount(0);
+    setCouponMsg("Coupon removed.");
+    setCouponMsgType("success");
+  };
+
+  const applyCoupon = async (codeOverride?: string) => {
+    const codeToApply = (codeOverride ?? coupon).trim().toUpperCase();
+
+    if (!codeToApply) {
+      removeCoupon();
+      return;
+    }
+
+    if (planSubtotal <= 0) {
+      setCouponMsg("Reward coupon is applicable only on challenge plans.");
+      setCouponMsgType("error");
+      return;
+    }
+
+    setApplying(true);
+    setCouponMsg(null);
+    setCouponMsgType(null);
+
+    try {
+      const res = await api.post("/coupons/apply", {
+        code: codeToApply,
+        cartTotal: subtotal,
+        planSubtotal,
+        normalMealsSubtotal,
+        applyOn: "challenge_plan",
+      });
+
+      setCoupon(codeToApply);
+      setDiscount(res.data.discount || 0);
+      setCouponMsg(
+        `Coupon applied on challenge plan. You saved ₹${res.data.discount}`
+      );
+      setCouponMsgType("success");
+
+      fetchAvailableCoupons();
+    } catch (error: any) {
+      setDiscount(0);
+      setCouponMsg(
+        error?.response?.data?.message || "Invalid or expired coupon"
+      );
+      setCouponMsgType("error");
+      fetchAvailableCoupons();
+    } finally {
+      setApplying(false);
+    }
+  };
 
   const updateChallengeScheduleDay = (
     cartKey: string,
@@ -515,123 +786,6 @@ export default function Cart() {
     setSlotMsg(null);
   };
 
-  const fetchAvailableCoupons = async () => {
-    try {
-      setLoadingCoupons(true);
-
-      const res = await api.get(
-        `/coupons/available?cartTotal=${subtotal}&planSubtotal=${planSubtotal}`
-      );
-
-      setAvailableCoupons(res.data || []);
-    } catch {
-      setAvailableCoupons([]);
-    } finally {
-      setLoadingCoupons(false);
-    }
-  };
-
-  const fetchSavedAddresses = async () => {
-    try {
-      setLoadingSavedAddresses(true);
-
-      const res = await api.get("/user/addresses");
-
-      setSavedAddresses(res.data || []);
-    } catch {
-      setSavedAddresses([]);
-    } finally {
-      setLoadingSavedAddresses(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSavedAddresses();
-  }, []);
-
-  useEffect(() => {
-    if (cart.length > 0) fetchAvailableCoupons();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planSubtotal, cart.length]);
-
-  const removeCoupon = () => {
-    setCoupon("");
-    setDiscount(0);
-    setCouponMsg("Coupon removed.");
-    setCouponMsgType("success");
-  };
-
-  useEffect(() => {
-    if (!coupon.trim()) return;
-
-    if (discount > 0 && planSubtotal <= 0) {
-      setCoupon("");
-      setDiscount(0);
-      setCouponMsg(
-        "Coupon removed because it is applicable only on challenge plans."
-      );
-      setCouponMsgType("error");
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planSubtotal]);
-
-  useEffect(() => {
-    const styleId = "macrobox-google-places-premium-style";
-
-    if (document.getElementById(styleId)) return;
-
-    const style = document.createElement("style");
-
-    style.id = styleId;
-
-    style.innerHTML = `
-      .pac-container {
-        z-index: 999999 !important;
-        margin-top: 12px !important;
-        border-radius: 22px !important;
-        border: 1px solid #bbf7d0 !important;
-        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22) !important;
-        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-        overflow: hidden !important;
-        padding: 10px 0 !important;
-      }
-
-      .pac-item {
-        padding: 18px 20px !important;
-        font-size: 15px !important;
-        line-height: 24px !important;
-        cursor: pointer !important;
-        border-top: 1px solid #f3f4f6 !important;
-      }
-
-      .pac-item:first-child {
-        border-top: none !important;
-      }
-
-      .pac-item:hover {
-        background: #f0fdf4 !important;
-      }
-
-      .pac-icon {
-        margin-top: 8px !important;
-      }
-
-      .pac-item-query {
-        font-size: 16px !important;
-        font-weight: 900 !important;
-        color: #111827 !important;
-      }
-
-      .pac-matched {
-        font-weight: 900 !important;
-        color: #16a34a !important;
-      }
-    `;
-
-    document.head.appendChild(style);
-  }, []);
-
   const applyLocationToAddress = ({
     lat,
     lng,
@@ -651,7 +805,7 @@ export default function Cart() {
     const pincode = getAddressComponent(components, "postal_code");
     const url = makeMapsUrl(lat, lng);
 
-    setAddress((prev) => ({
+    setAddressForm((prev) => ({
       ...prev,
       locationMode: mode,
       lat,
@@ -774,124 +928,6 @@ export default function Cart() {
     }
   };
 
-  useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
-    if (!apiKey) {
-      setLocationMsg("Google Maps API key is missing.");
-      return;
-    }
-
-    if (!addressInputRef.current) return;
-
-    loadGoogleMapsScript(apiKey)
-      .then(() => {
-        if (!addressInputRef.current) return;
-
-        const autocomplete = new google.maps.places.Autocomplete(
-          addressInputRef.current,
-          {
-            componentRestrictions: {
-              country: "in",
-            },
-            fields: [
-              "place_id",
-              "name",
-              "formatted_address",
-              "geometry",
-              "address_components",
-            ],
-            types: ["geocode", "establishment"],
-          }
-        );
-
-        googleAutocompleteRef.current = autocomplete;
-
-        autocomplete.addListener("place_changed", () => {
-          const place = autocomplete.getPlace();
-
-          const lat = place.geometry?.location?.lat();
-          const lng = place.geometry?.location?.lng();
-
-          if (lat == null || lng == null) {
-            setLocationMsg("Please select a valid address from suggestions.");
-            return;
-          }
-
-          applyLocationToAddress({
-            lat,
-            lng,
-            formattedAddress: place.formatted_address || place.name || "",
-            components: place.address_components,
-            mode: "manual",
-          });
-        });
-
-        setGoogleSearchReady(true);
-      })
-      .catch((error: unknown) => {
-        console.error("GOOGLE MAPS LOAD ERROR:", error);
-        setLocationMsg("Google address search failed to load.");
-      });
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (address.lat != null && address.lng != null && googleSearchReady) {
-      renderGoogleDeliveryMap(address.lat, address.lng);
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address.lat, address.lng, googleSearchReady]);
-
-  const applyCoupon = async (codeOverride?: string) => {
-    const codeToApply = (codeOverride ?? coupon).trim().toUpperCase();
-
-    if (!codeToApply) {
-      removeCoupon();
-      return;
-    }
-
-    if (planSubtotal <= 0) {
-      setCouponMsg("Reward coupon is applicable only on challenge plans.");
-      setCouponMsgType("error");
-      return;
-    }
-
-    setApplying(true);
-    setCouponMsg(null);
-    setCouponMsgType(null);
-
-    try {
-      const res = await api.post("/coupons/apply", {
-        code: codeToApply,
-        cartTotal: subtotal,
-        planSubtotal,
-        normalMealsSubtotal,
-        applyOn: "challenge_plan",
-      });
-
-      setCoupon(codeToApply);
-      setDiscount(res.data.discount || 0);
-      setCouponMsg(
-        `Coupon applied on challenge plan. You saved ₹${res.data.discount}`
-      );
-      setCouponMsgType("success");
-
-      fetchAvailableCoupons();
-    } catch (error: any) {
-      setDiscount(0);
-      setCouponMsg(
-        error?.response?.data?.message || "Invalid or expired coupon"
-      );
-      setCouponMsgType("error");
-      fetchAvailableCoupons();
-    } finally {
-      setApplying(false);
-    }
-  };
-
   const useCurrentLocation = async () => {
     setLocationMsg(null);
 
@@ -981,67 +1017,98 @@ export default function Cart() {
     }
   };
 
-  const selectSavedAddress = (saved: SavedAddress) => {
-    setAddress({
-      fullName: saved.fullName || "",
-      phone: saved.phone || "",
-      flatNo: saved.flatNo || "",
-      floor: saved.floor || "",
-      buildingName: saved.buildingName || "",
-      area: saved.area || "",
-      landmark: saved.landmark || "",
-      city: saved.city || "",
-      state: saved.state || "",
-      pincode: saved.pincode || "",
-      addressLabel: saved.addressLabel || "Home",
-      locationMode: saved.locationMode || "manual",
-      locationText: saved.locationText || "",
-      formattedAddress: saved.formattedAddress || "",
-      lat: saved.lat ?? null,
-      lng: saved.lng ?? null,
-      mapsUrl: saved.mapsUrl || "",
-    });
-
-    setAddressSearch(saved.formattedAddress || saved.locationText || "");
+  const openAddressModal = () => {
+    setAddressForm(selectedAddress || emptyAddress);
+    setAddressSearch(
+      selectedAddress?.formattedAddress || selectedAddress?.locationText || ""
+    );
     setLocationMsg(null);
     setAddressMsg(null);
+    setShowAddressModal(true);
+
+    googleMapInstanceRef.current = null;
+    googleMarkerRef.current = null;
   };
 
-  const saveCurrentAddress = async () => {
+  const saveAddress = async () => {
+    setAddressMsg(null);
+    setLocationMsg(null);
+
+    if (
+      !addressForm.fullName ||
+      !addressForm.phone ||
+      !addressForm.flatNo ||
+      !addressForm.buildingName ||
+      !addressForm.city ||
+      !addressForm.state ||
+      !addressForm.pincode
+    ) {
+      setAddressMsg("Please fill complete delivery address.");
+      return;
+    }
+
+    if (
+      addressForm.lat == null ||
+      addressForm.lng == null ||
+      !addressForm.mapsUrl
+    ) {
+      setLocationMsg("Please select exact delivery location.");
+      return;
+    }
+
     try {
-      const lat = Number(address.lat);
-      const lng = Number(address.lng);
+      setSavingAddress(true);
 
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const lat = Number(addressForm.lat);
+      const lng = Number(addressForm.lng);
 
-      await api.post("/user/addresses", {
-        ...address,
+      const res = await api.post("/user/addresses", {
+        ...addressForm,
         lat,
         lng,
-        mapsUrl: address.mapsUrl || makeMapsUrl(lat, lng),
-        locationText: address.locationText || `${lat}, ${lng}`,
-        formattedAddress: address.formattedAddress || `${lat}, ${lng}`,
+        mapsUrl: addressForm.mapsUrl || makeMapsUrl(lat, lng),
+        locationText: addressForm.locationText || `${lat}, ${lng}`,
+        formattedAddress: addressForm.formattedAddress || `${lat}, ${lng}`,
       });
 
-      fetchSavedAddresses();
-    } catch (error) {
-      console.log("SAVE ADDRESS ERROR:", error);
+      const addresses = res.data?.addresses || [];
+
+      setSavedAddresses(addresses);
+
+      const selected =
+        addresses.find((item: SavedAddress) => item.isDefault) || addresses[0];
+
+      if (selected) {
+        setSelectedAddress(selected);
+      }
+
+      setShowAddressModal(false);
+      setStep("schedule");
+    } catch (error: any) {
+      setAddressMsg(error?.response?.data?.message || "Failed to save address");
+    } finally {
+      setSavingAddress(false);
     }
   };
 
-  const loadRazorpay = () =>
-    new Promise<boolean>((resolve) => {
-      if (document.getElementById("razorpay-sdk")) return resolve(true);
+  const validateAddressStep = () => {
+    if (!selectedAddress) {
+      setAddressMsg("Please select or add a delivery address.");
+      return false;
+    }
 
-      const script = document.createElement("script");
+    if (
+      selectedAddress.lat == null ||
+      selectedAddress.lng == null ||
+      !selectedAddress.mapsUrl
+    ) {
+      setAddressMsg("Selected address does not have exact map location.");
+      return false;
+    }
 
-      script.id = "razorpay-sdk";
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-
-      document.body.appendChild(script);
-    });
+    setAddressMsg(null);
+    return true;
+  };
 
   const validateChallengeSchedules = () => {
     for (const item of cart as any[]) {
@@ -1070,32 +1137,11 @@ export default function Cart() {
       }
     }
 
+    setSlotMsg(null);
     return true;
   };
 
-  const validateCheckout = () => {
-    setAddressMsg(null);
-    setSlotMsg(null);
-    setLocationMsg(null);
-
-    if (
-      !address.fullName ||
-      !address.phone ||
-      !address.flatNo ||
-      !address.buildingName ||
-      !address.city ||
-      !address.state ||
-      !address.pincode
-    ) {
-      setAddressMsg("Please fill complete delivery address.");
-      return false;
-    }
-
-    if (address.lat == null || address.lng == null || !address.mapsUrl) {
-      setLocationMsg("Please select exact delivery location.");
-      return false;
-    }
-
+  const validateScheduleStep = () => {
     if (!validateChallengeSchedules()) return false;
 
     if (hasNormalMeals) {
@@ -1110,6 +1156,7 @@ export default function Cart() {
       }
     }
 
+    setSlotMsg(null);
     return true;
   };
 
@@ -1135,14 +1182,37 @@ export default function Cart() {
     }));
   };
 
-  const checkout = async () => {
-    if (!validateCheckout()) return;
+  const loadRazorpay = () =>
+    new Promise<boolean>((resolve) => {
+      if (document.getElementById("razorpay-sdk")) return resolve(true);
 
-    const lat = Number(address.lat);
-    const lng = Number(address.lng);
+      const script = document.createElement("script");
+
+      script.id = "razorpay-sdk";
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+
+      document.body.appendChild(script);
+    });
+
+  const checkout = async () => {
+    if (!validateAddressStep()) {
+      setStep("address");
+      return;
+    }
+
+    if (!validateScheduleStep()) {
+      setStep("schedule");
+      return;
+    }
+
+    const lat = Number(selectedAddress?.lat);
+    const lng = Number(selectedAddress?.lng);
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      setLocationMsg("Please select exact delivery location again.");
+      setAddressMsg("Please select exact delivery location again.");
+      setStep("address");
       return;
     }
 
@@ -1199,13 +1269,14 @@ export default function Cart() {
         couponApplyOn: "challenge_plan",
 
         address: {
-          ...address,
-          locationMode: address.locationMode || "manual",
+          ...selectedAddress,
+          locationMode: selectedAddress?.locationMode || "manual",
           lat,
           lng,
-          mapsUrl: address.mapsUrl || makeMapsUrl(lat, lng),
-          locationText: address.locationText || `${lat}, ${lng}`,
-          formattedAddress: address.formattedAddress || `${lat}, ${lng}`,
+          mapsUrl: selectedAddress?.mapsUrl || makeMapsUrl(lat, lng),
+          locationText: selectedAddress?.locationText || `${lat}, ${lng}`,
+          formattedAddress:
+            selectedAddress?.formattedAddress || `${lat}, ${lng}`,
         },
 
         deliverySlot: hasNormalMeals
@@ -1219,10 +1290,6 @@ export default function Cart() {
             },
       };
 
-      if (saveAddressForFuture) {
-        await saveCurrentAddress();
-      }
-
       const createRes = await api.post("/checkout/create-order", payload);
 
       const { razorpayOrderId, amount, keyId, orderId } = createRes.data;
@@ -1235,8 +1302,8 @@ export default function Cart() {
         description: "Meal Order",
         order_id: razorpayOrderId,
         prefill: {
-          name: address.fullName,
-          contact: address.phone,
+          name: selectedAddress?.fullName,
+          contact: selectedAddress?.phone,
         },
         handler: async (response: any) => {
           await api.post("/checkout/verify", {
@@ -1274,10 +1341,40 @@ export default function Cart() {
     }
   };
 
+  const goNext = () => {
+    if (step === "cart") {
+      setStep("address");
+      return;
+    }
+
+    if (step === "address") {
+      if (validateAddressStep()) setStep("schedule");
+      return;
+    }
+
+    if (step === "schedule") {
+      if (validateScheduleStep()) setStep("payment");
+      return;
+    }
+
+    checkout();
+  };
+
+  const primaryButtonText =
+    step === "cart"
+      ? "Continue"
+      : step === "address"
+      ? "Deliver Here"
+      : step === "schedule"
+      ? "Review & Pay"
+      : checkingOut
+      ? "Processing..."
+      : "Proceed to Pay";
+
   if (cart.length === 0) {
     return (
-      <main className="min-h-screen bg-[#f6f7f8] px-4 py-14 text-slate-950 sm:px-6 sm:py-16">
-        <div className="mx-auto max-w-[820px] rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:p-10">
+      <main className="min-h-screen bg-[#f2f3f5] px-4 py-14 text-slate-950 sm:px-6 sm:py-16">
+        <div className="mx-auto max-w-[760px] rounded-[20px] border border-slate-200 bg-white p-8 text-center shadow-sm sm:p-10">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-700">
             <ShoppingBag size={30} />
           </div>
@@ -1293,7 +1390,7 @@ export default function Cart() {
           <button
             type="button"
             onClick={() => navigate("/meals")}
-            className="mt-7 rounded-[18px] bg-green-600 px-7 py-3 text-sm font-black text-white transition hover:bg-green-700"
+            className="mt-7 rounded-[14px] bg-green-600 px-7 py-3 text-sm font-black text-white transition hover:bg-green-700"
           >
             Explore Meals
           </button>
@@ -1303,182 +1400,76 @@ export default function Cart() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] pb-32 text-slate-950 xl:pb-24">
-      <section className="border-b border-slate-200 bg-white/80 px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mx-auto max-w-[1240px]">
-          <p className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
-            <ShieldCheck size={14} />
-            Secure Checkout
-          </p>
-
-          <h1 className="mt-4 text-[38px] font-black tracking-[-0.07em] text-slate-950 sm:text-[34px]">
-            Your Cart
-          </h1>
-
-          <p className="mt-1 max-w-xl text-base font-medium leading-7 text-slate-500">
-            Review meals, choose delivery location, and complete payment.
-          </p>
-        </div>
-      </section>
-
-      <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:grid-cols-[1fr_390px] xl:gap-7">
-        <div className="space-y-6 xl:space-y-7">
-          <SectionCard>
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <IconCircle>
-                  <ShoppingBag size={20} />
-                </IconCircle>
-
-                <h2 className="text-xl font-black text-slate-950">
-                  {hasChallengePlans ? "Plans in Cart" : "Meals in Cart"}
-                </h2>
-              </div>
-
-              <span className="rounded-full bg-green-50 px-4 py-1.5 text-sm font-black text-green-700">
-                {cart.length} item{cart.length > 1 ? "s" : ""}
-              </span>
+    <main className="min-h-screen bg-[#eef0f2] pb-28 text-slate-950 lg:pb-10">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-[1240px] items-center justify-between px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-green-600 text-white">
+              <ShieldCheck size={23} />
             </div>
 
-            <div className="space-y-3 sm:space-y-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                Secure Checkout
+              </p>
+              <h1 className="text-lg font-black tracking-[-0.04em] text-slate-950">
+                MacroBox Cart
+              </h1>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("/meals")}
+            className="hidden rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-50 sm:inline-flex"
+          >
+            Add more meals
+          </button>
+        </div>
+      </header>
+
+      <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[1fr_390px]">
+        <section className="space-y-5">
+          <StepCard
+            stepNo="1"
+            title="Review cart"
+            active={step === "cart"}
+            done={step !== "cart"}
+            onChange={() => setStep("cart")}
+          >
+            <div className="grid gap-3">
               {cart.map((item: any) => {
-                const cartKey = getCartKey(item);
                 const isPlan = isChallengePlan(item);
-                const schedule = challengeSchedules[cartKey] || [];
-                const dayOne = schedule.find((day) => Number(day.day) === 1);
 
                 return (
                   <div
-                    key={cartKey}
-                    className="rounded-[22px] border border-slate-200 bg-white p-4"
+                    key={getCartKey(item)}
+                    className="rounded-[16px] border border-slate-200 bg-white p-4"
                   >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-2 text-base font-black text-slate-950">
-                          {item.title}
-                        </h3>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-black text-slate-950">
+                            {item.title}
+                          </h3>
+
+                          {isPlan && (
+                            <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-black text-green-700">
+                              Challenge Plan
+                            </span>
+                          )}
+                        </div>
 
                         {isPlan && (
-                          <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                            Challenge Plan
+                          <p className="mt-1 text-sm font-semibold text-slate-500">
+                            {(item.planItems || item.planDays || []).length || 7}{" "}
+                            meals included. Schedule will be selected later.
                           </p>
                         )}
 
-                        {isPlan && schedule.length > 0 && (
-                          <div className="mt-3 w-full rounded-[18px] border border-blue-100 bg-blue-50 p-3 sm:p-4">
-                            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                              <p className="flex items-center gap-2 text-[11px] font-black uppercase leading-5 tracking-wide text-blue-700 sm:text-xs">
-                                <CalendarClock size={14} className="shrink-0" />
-                                <span>Day-wise Delivery Schedule</span>
-                              </p>
-
-                              <button
-                                type="button"
-                                onClick={() => applyDayOneSlotToAllDays(cartKey)}
-                                disabled={!dayOne?.date || !dayOne?.slot}
-                                className="h-8 w-fit rounded-full bg-blue-600 px-3 text-[11px] font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                Apply to all
-                              </button>
-                            </div>
-
-                            <div className="grid gap-3">
-                              {schedule.map((day) => (
-                                <div
-                                  key={`${cartKey}-day-${day.day}`}
-                                  className="w-full rounded-[16px] bg-white p-3 sm:p-4"
-                                >
-                                  <div className="flex flex-col gap-1">
-                                    <p className="break-words text-sm font-black leading-5 text-slate-950 sm:text-base">
-                                      Day {day.day}: {day.selectedMealTitle}
-                                    </p>
-
-                                    {day.day !== 1 && (
-                                      <p className="text-xs font-bold text-slate-400">
-                                        Date auto-selected from Day 1
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  <div className="mt-3 grid w-full grid-cols-1 gap-3 md:grid-cols-2">
-                                    <label className="relative block w-full">
-                                      <span className={scheduleInputClass}>
-                                        {formatDateForDisplay(day.date)}
-                                      </span>
-
-                                      <input
-                                        type="date"
-                                        min={todayISO()}
-                                        value={day.date}
-                                        disabled={day.day !== 1}
-                                        onChange={(event) =>
-                                          updateChallengeScheduleDay(
-                                            cartKey,
-                                            day.day,
-                                            {
-                                              date: event.target.value,
-                                            }
-                                          )
-                                        }
-                                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-                                      />
-                                    </label>
-
-                                    <select
-                                      value={day.slot}
-                                      onChange={(event) =>
-                                        updateChallengeScheduleDay(
-                                          cartKey,
-                                          day.day,
-                                          {
-                                            slot: event.target.value,
-                                          }
-                                        )
-                                      }
-                                      className={scheduleInputClass}
-                                    >
-                                      <option value="">Select delivery slot</option>
-
-                                      {slots.map((slot) => {
-                                        const allowed = isSlotAllowed(
-                                          day.date,
-                                          slot
-                                        );
-
-                                        return (
-                                          <option
-                                            key={slot}
-                                            value={slot}
-                                            disabled={!allowed}
-                                          >
-                                            {optionLabel(
-                                              format12hFromSlot(slot),
-                                              allowed
-                                            )}
-                                          </option>
-                                        );
-                                      })}
-                                    </select>
-                                  </div>
-
-                                  <p className="mt-2 break-words text-xs font-bold text-slate-500">
-                                    {day.date
-                                      ? formatDateForDisplay(day.date)
-                                      : "Date not selected"}{" "}
-                                    •{" "}
-                                    {day.slot
-                                      ? format12hFromSlot(day.slot)
-                                      : "Slot not selected"}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
                         {!isPlan && (
-                          <p className="mt-2 text-sm font-semibold text-slate-500">
-                            Normal meal delivery uses the common delivery time.
+                          <p className="mt-1 text-sm font-semibold text-slate-500">
+                            Normal meal delivery time will be selected later.
                           </p>
                         )}
 
@@ -1486,32 +1477,23 @@ export default function Cart() {
                           <MacroPill color="green">
                             Protein {item.protein * item.qty}g
                           </MacroPill>
-
                           <MacroPill color="orange">
                             Calories {item.calories * item.qty} kcal
                           </MacroPill>
-
                           <MacroPill color="yellow">
                             Carbs {(item.carbs || 0) * item.qty}g
                           </MacroPill>
-
                           <MacroPill color="blue">
                             Fat {(item.fat || 0) * item.qty}g
                           </MacroPill>
                         </div>
-
-                        <p className="mt-3 text-sm font-black text-slate-900">
-                          ₹{item.price}{" "}
-                          <span className="font-bold text-slate-400">
-                            × {item.qty}
-                          </span>{" "}
-                          <span className="text-green-700">
-                            = ₹{item.price * item.qty}
-                          </span>
-                        </p>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 lg:justify-end">
+                      <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
+                        <p className="text-base font-black text-slate-950">
+                          ₹{item.price * item.qty}
+                        </p>
+
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -1519,12 +1501,12 @@ export default function Cart() {
                               decreaseQty(item._id, item.challengeId)
                             }
                             disabled={isPlan}
-                            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            <Minus size={16} />
+                            <Minus size={15} />
                           </button>
 
-                          <span className="flex min-w-8 justify-center text-base font-black text-slate-950">
+                          <span className="flex min-w-7 justify-center text-sm font-black">
                             {item.qty}
                           </span>
 
@@ -1534,403 +1516,408 @@ export default function Cart() {
                               increaseQty(item._id, item.challengeId)
                             }
                             disabled={isPlan}
-                            className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            <Plus size={16} />
+                            <Plus size={15} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeFromCart(item._id, item.challengeId)
+                            }
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
+                          >
+                            <Trash2 size={15} />
                           </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeFromCart(item._id, item.challengeId)
-                          }
-                          className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
-                        >
-                          <Trash2 size={17} />
-                        </button>
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </SectionCard>
+          </StepCard>
 
-          <SectionCard>
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <IconCircle>
-                  <MapPin size={20} />
-                </IconCircle>
+          <StepCard
+            stepNo="2"
+            title="Delivery address"
+            active={step === "address"}
+            done={Boolean(selectedAddress) && step !== "address" && step !== "cart"}
+            onChange={() => setStep("address")}
+          >
+            {selectedAddress && step !== "address" ? (
+              <SelectedSummary
+                title={selectedAddress.addressLabel}
+                description={addressPreview(selectedAddress)}
+                action="Change"
+                onClick={() => setStep("address")}
+              />
+            ) : (
+              <div>
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-500">
+                      Choose from saved addresses or add a new one.
+                    </p>
+                  </div>
 
-                <h2 className="text-xl font-black text-slate-950">
-                  Delivery Address
-                </h2>
-              </div>
-
-              <span className="hidden rounded-full bg-orange-50 px-4 py-1.5 text-xs font-black text-orange-700 sm:inline-flex">
-                Exact pin required
-              </span>
-            </div>
-
-            <p className="mb-5 text-sm font-medium leading-6 text-slate-500">
-              Search your address, select the correct Google result, then drag
-              the marker or tap the map to adjust the exact delivery pin.
-            </p>
-
-            {savedAddresses.length > 0 && (
-              <div className="mb-5 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-black text-slate-900">
-                    Saved Addresses
-                  </p>
-
-                  <p className="text-xs font-bold text-slate-400">
-                    Quick select
-                  </p>
+                  <button
+                    type="button"
+                    onClick={openAddressModal}
+                    className="w-fit rounded-[12px] border border-green-200 bg-green-50 px-4 py-2 text-xs font-black text-green-700 transition hover:bg-green-100"
+                  >
+                    Add New Address
+                  </button>
                 </div>
 
                 {loadingSavedAddresses ? (
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="rounded-[16px] bg-slate-50 p-4 text-sm font-bold text-slate-500">
                     Loading saved addresses...
                   </p>
+                ) : savedAddresses.length === 0 ? (
+                  <div className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
+                    <p className="text-sm font-black text-slate-800">
+                      No saved address found
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      Add your delivery address to continue.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={openAddressModal}
+                      className="mt-4 rounded-[12px] bg-green-600 px-5 py-2 text-sm font-black text-white"
+                    >
+                      Add Address
+                    </button>
+                  </div>
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2">
-                    {savedAddresses.slice(0, 4).map((saved) => (
-                      <button
-                        key={saved._id}
-                        type="button"
-                        onClick={() => selectSavedAddress(saved)}
-                        className="rounded-[18px] border border-slate-200 bg-white p-3 text-left transition hover:border-green-500 hover:bg-green-50"
-                      >
-                        <p className="truncate text-sm font-black text-slate-900">
-                          {saved.addressLabel} • {saved.fullName}
-                        </p>
+                    {savedAddresses.map((address) => {
+                      const selected =
+                        String(selectedAddress?._id || "") ===
+                        String(address._id || "");
 
-                        <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-500">
-                          {saved.flatNo}, {saved.buildingName}, {saved.area},{" "}
-                          {saved.city} - {saved.pincode}
-                        </p>
-                      </button>
-                    ))}
+                      return (
+                        <button
+                          key={address._id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAddress(address);
+                            setAddressMsg(null);
+                          }}
+                          className={`rounded-[16px] border p-4 text-left transition ${
+                            selected
+                              ? "border-green-500 bg-green-50"
+                              : "border-slate-200 bg-white hover:border-green-300"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                                selected
+                                  ? "bg-green-600 text-white"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {addressIcon(address.addressLabel)}
+                            </span>
+
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-black text-slate-950">
+                                  {address.addressLabel}
+                                </p>
+
+                                {selected && (
+                                  <CheckCircle2
+                                    size={16}
+                                    className="text-green-600"
+                                  />
+                                )}
+                              </div>
+
+                              <p className="mt-1 line-clamp-3 text-sm font-semibold leading-6 text-slate-500">
+                                {addressPreview(address)}
+                              </p>
+
+                              <p className="mt-3 text-xs font-black text-green-700">
+                                Deliver Here
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
+                )}
+
+                {addressMsg && (
+                  <MessageBox type="error" message={addressMsg} />
                 )}
               </div>
             )}
+          </StepCard>
 
-            <div className="rounded-[22px] border border-slate-200 bg-white p-4">
-              <div className="mb-4">
-                <p className="flex items-center gap-2 text-base font-black text-slate-950">
-                  <Search size={18} className="text-green-600" />
-                  Search Location
-                </p>
+          <StepCard
+            stepNo="3"
+            title="Delivery schedule"
+            active={step === "schedule"}
+            done={step === "payment"}
+            onChange={() => setStep("schedule")}
+          >
+            {step !== "schedule" && step === "payment" ? (
+              <SelectedSummary
+                title="Schedule selected"
+                description="Delivery timing is ready for payment."
+                action="Change"
+                onClick={() => setStep("schedule")}
+              />
+            ) : (
+              <div className="space-y-4">
+                {hasChallengePlans &&
+                  cart
+                    .filter((item: any) => isChallengePlan(item))
+                    .map((item: any) => {
+                      const cartKey = getCartKey(item);
+                      const schedule = challengeSchedules[cartKey] || [];
+                      const dayOne = schedule.find(
+                        (day) => Number(day.day) === 1
+                      );
 
-                <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
-                  Type apartment, street, area, or landmark and select from
-                  Google suggestions.
-                </p>
-              </div>
+                      return (
+                        <div
+                          key={cartKey}
+                          className="rounded-[18px] border border-blue-100 bg-blue-50 p-3 sm:p-4"
+                        >
+                          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-blue-700">
+                                <CalendarClock size={16} />
+                                Challenge schedule
+                              </p>
+                              <p className="mt-1 text-xs font-bold text-slate-500">
+                                {item.title}
+                              </p>
+                            </div>
 
-              <div className="flex flex-col gap-3 md:flex-row">
-                <div className="relative flex-1">
-                  <Search
-                    size={18}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
+                            <button
+                              type="button"
+                              onClick={() => applyDayOneSlotToAllDays(cartKey)}
+                              disabled={!dayOne?.date || !dayOne?.slot}
+                              className="h-9 w-fit rounded-full bg-blue-600 px-4 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Apply Day 1 slot to all
+                            </button>
+                          </div>
 
-                  <input
-                    ref={addressInputRef}
-                    value={addressSearch}
-                    onChange={(event) => setAddressSearch(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        geocodeTypedAddress();
-                      }
-                    }}
-                    placeholder={
-                      googleSearchReady
-                        ? "Search exact delivery address..."
-                        : "Loading Google Maps search..."
-                    }
-                    className="h-12 w-full rounded-[16px] border border-slate-200 bg-white pl-11 pr-10 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100"
-                  />
+                          <div className="grid gap-3">
+                            {schedule.map((day) => (
+                              <div
+                                key={`${cartKey}-day-${day.day}`}
+                                className="rounded-[16px] bg-white p-3 sm:p-4"
+                              >
+                                <div className="flex flex-col gap-1">
+                                  <p className="break-words text-sm font-black leading-5 text-slate-950 sm:text-base">
+                                    Day {day.day}: {day.selectedMealTitle}
+                                  </p>
 
-                  {addressSearch && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddressSearch("");
-                        setLocationMsg(null);
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
+                                  {day.day !== 1 && (
+                                    <p className="text-xs font-bold text-slate-400">
+                                      Date auto-selected from Day 1
+                                    </p>
+                                  )}
+                                </div>
 
-                <button
-                  type="button"
-                  onClick={geocodeTypedAddress}
-                  disabled={searchingAddress}
-                  className="h-12 rounded-[16px] bg-green-600 px-6 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
-                >
-                  {searchingAddress ? "Searching..." : "Search"}
-                </button>
-              </div>
+                                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                  <label className="relative block w-full">
+                                    <span className={scheduleInputClass}>
+                                      {formatDateForDisplay(day.date)}
+                                    </span>
 
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={useCurrentLocation}
-                  className="h-12 rounded-[16px] bg-green-600 text-sm font-black text-white transition hover:bg-green-700"
-                >
-                  <Navigation size={17} className="mr-1 inline" />
-                  Current Location
-                </button>
+                                    <input
+                                      type="date"
+                                      min={todayISO()}
+                                      value={day.date}
+                                      disabled={day.day !== 1}
+                                      onChange={(event) =>
+                                        updateChallengeScheduleDay(
+                                          cartKey,
+                                          day.day,
+                                          {
+                                            date: event.target.value,
+                                          }
+                                        )
+                                      }
+                                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                                    />
+                                  </label>
 
-                {address.mapsUrl && (
-                  <a
-                    href={address.mapsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex h-12 items-center justify-center rounded-[16px] border border-green-200 bg-white text-sm font-black text-green-700 transition hover:bg-green-50"
-                  >
-                    Open Maps
-                  </a>
-                )}
-              </div>
+                                  <select
+                                    value={day.slot}
+                                    onChange={(event) =>
+                                      updateChallengeScheduleDay(
+                                        cartKey,
+                                        day.day,
+                                        {
+                                          slot: event.target.value,
+                                        }
+                                      )
+                                    }
+                                    className={scheduleInputClass}
+                                  >
+                                    <option value="">Select delivery slot</option>
 
-              {address.lat != null && address.lng != null && (
-                <div className="mt-5 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
-                  <div className="relative h-[300px] w-full sm:h-[380px]">
-                    <div ref={googleMapRef} className="h-full w-full" />
+                                    {slots.map((slot) => {
+                                      const allowed = isSlotAllowed(
+                                        day.date,
+                                        slot
+                                      );
+
+                                      return (
+                                        <option
+                                          key={slot}
+                                          value={slot}
+                                          disabled={!allowed}
+                                        >
+                                          {optionLabel(
+                                            format12hFromSlot(slot),
+                                            allowed
+                                          )}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                </div>
+
+                                <p className="mt-2 text-xs font-bold text-slate-500">
+                                  {day.date
+                                    ? formatDateForDisplay(day.date)
+                                    : "Date not selected"}{" "}
+                                  •{" "}
+                                  {day.slot
+                                    ? format12hFromSlot(day.slot)
+                                    : "Slot not selected"}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                {hasNormalMeals && (
+                  <div className="rounded-[18px] border border-slate-200 bg-white p-4">
+                    <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-slate-800">
+                      <Clock size={16} className="text-green-600" />
+                      Normal meal delivery
+                    </p>
+
+                    <p className="mt-1 text-xs font-bold text-slate-500">
+                      This slot is only for normal meals, separate from challenge
+                      plan days.
+                    </p>
+
+                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <input
+                        type="date"
+                        className={inputClass}
+                        value={slotDate}
+                        onChange={(event) => {
+                          const newDate = event.target.value;
+                          setSlotDate(newDate);
+                          setSlotMsg(null);
+
+                          if (!isSlotAllowed(newDate, slotTime)) {
+                            setSlotTime("");
+                          }
+                        }}
+                        min={todayISO()}
+                      />
+
+                      <select
+                        className={inputClass}
+                        value={slotTime}
+                        onChange={(event) => {
+                          setSlotTime(event.target.value);
+                          setSlotMsg(null);
+                        }}
+                      >
+                        <option value="">Select delivery slot</option>
+
+                        {slots.map((slot) => {
+                          const allowed = isSlotAllowed(slotDate, slot);
+
+                          return (
+                            <option
+                              key={slot}
+                              value={slot}
+                              disabled={!allowed}
+                            >
+                              {optionLabel(format12hFromSlot(slot), allowed)}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {locationMsg && <MessageBox type="error" message={locationMsg} />}
-            </div>
-
-            <div className="mt-5 rounded-[22px] border border-slate-200 bg-white p-4">
-              <p className="mb-4 text-sm font-black text-slate-900">
-                Delivery Details
-              </p>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input
-                  placeholder="Full Name"
-                  className={inputClass}
-                  value={address.fullName}
-                  onChange={(event) =>
-                    setAddress({ ...address, fullName: event.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Phone Number"
-                  className={inputClass}
-                  value={address.phone}
-                  onChange={(event) =>
-                    setAddress({ ...address, phone: event.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Flat / House No"
-                  className={inputClass}
-                  value={address.flatNo}
-                  onChange={(event) =>
-                    setAddress({ ...address, flatNo: event.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Floor optional"
-                  className={inputClass}
-                  value={address.floor}
-                  onChange={(event) =>
-                    setAddress({ ...address, floor: event.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Building / Apartment"
-                  className={`${inputClass} sm:col-span-2`}
-                  value={address.buildingName}
-                  onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      buildingName: event.target.value,
-                    })
-                  }
-                />
-
-                <input
-                  placeholder="Area / Locality"
-                  className={inputClass}
-                  value={address.area}
-                  onChange={(event) =>
-                    setAddress({ ...address, area: event.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Landmark optional"
-                  className={inputClass}
-                  value={address.landmark}
-                  onChange={(event) =>
-                    setAddress({ ...address, landmark: event.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="City"
-                  className={inputClass}
-                  value={address.city}
-                  onChange={(event) =>
-                    setAddress({ ...address, city: event.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="State"
-                  className={inputClass}
-                  value={address.state}
-                  onChange={(event) =>
-                    setAddress({ ...address, state: event.target.value })
-                  }
-                />
-
-                <input
-                  placeholder="Pincode"
-                  className={inputClass}
-                  value={address.pincode}
-                  onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      pincode: event.target.value.replace(/\D/g, "").slice(0, 6),
-                    })
-                  }
-                />
-
-                <select
-                  className={inputClass}
-                  value={address.addressLabel}
-                  onChange={(event) =>
-                    setAddress({
-                      ...address,
-                      addressLabel: event.target.value as
-                        | "Home"
-                        | "Work"
-                        | "Other",
-                    })
-                  }
-                >
-                  <option value="Home">Home</option>
-                  <option value="Work">Work</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <label className="mt-4 flex items-center gap-2 rounded-[16px] bg-slate-50 p-3 text-sm font-bold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={saveAddressForFuture}
-                  onChange={(event) =>
-                    setSaveAddressForFuture(event.target.checked)
-                  }
-                />
-                <BookmarkPlus size={16} className="text-green-600" />
-                Save this address for future orders
-              </label>
-
-              {addressMsg && <MessageBox type="error" message={addressMsg} />}
-            </div>
-          </SectionCard>
-        </div>
-
-        <aside className="space-y-5 xl:sticky xl:top-28 xl:self-start">
-          <SectionCard>
-            <div className="mb-5 flex items-center gap-3">
-              <IconCircle>
-                <ShieldCheck size={19} />
-              </IconCircle>
-
-              <h2 className="text-xl font-black text-slate-950">
-                Order Summary
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <SummaryMetric
-                color="green"
-                label="Protein"
-                value={`${totalProtein}`}
-                unit="g"
-              />
-              <SummaryMetric
-                color="orange"
-                label="Calories"
-                value={`${totalCalories}`}
-                unit="kcal"
-              />
-              <SummaryMetric
-                color="yellow"
-                label="Carbs"
-                value={`${totalCarbs}`}
-                unit="g"
-              />
-              <SummaryMetric
-                color="blue"
-                label="Fat"
-                value={`${totalFat}`}
-                unit="g"
-              />
-            </div>
-
-            <hr className="my-5 border-slate-200" />
-
-            <div className="space-y-3 text-sm">
-              <p className="flex justify-between">
-                <span className="font-medium text-slate-500">
-                  Meals Subtotal
-                </span>
-                <b className="text-slate-950">₹{normalMealsSubtotal}</b>
-              </p>
-
-              <p className="flex justify-between">
-                <span className="font-medium text-slate-500">
-                  Challenge Plan
-                </span>
-                <b className="text-slate-950">₹{planSubtotal}</b>
-              </p>
-
-              <p className="flex justify-between">
-                <span className="font-medium text-slate-500">
-                  Plan Discount
-                </span>
-                <b className="text-slate-500">-₹{discount}</b>
-              </p>
-
-              <div className="border-t border-slate-200 pt-4">
-                <p className="flex justify-between text-lg font-black">
-                  <span className="text-slate-950">Total Payable</span>
-                  <span className="text-green-700">₹{payable}</span>
+                <p className="rounded-[14px] border border-yellow-200 bg-yellow-50 p-3 text-xs font-bold leading-5 text-yellow-800">
+                  Every delivery must be scheduled at least <b>3 hours</b>{" "}
+                  before the selected slot.
                 </p>
-              </div>
-            </div>
-          </SectionCard>
 
-          <SectionCard>
-            <div className="mb-5 flex items-center gap-3">
+                {slotMsg && <MessageBox type="error" message={slotMsg} />}
+              </div>
+            )}
+          </StepCard>
+
+          <StepCard
+            stepNo="4"
+            title="Payment"
+            active={step === "payment"}
+            done={false}
+            onChange={() => setStep("payment")}
+          >
+            <div className="rounded-[16px] border border-green-100 bg-green-50 p-4">
+              <p className="text-sm font-black text-green-800">
+                Review your order and proceed to secure payment.
+              </p>
+
+              <p className="mt-1 text-xs font-semibold leading-5 text-green-700">
+                Please confirm your address and delivery schedule before paying.
+              </p>
+            </div>
+
+            {couponMsg && (
+              <MessageBox
+                type={couponMsgType === "error" ? "error" : "success"}
+                message={couponMsg}
+              />
+            )}
+          </StepCard>
+        </section>
+
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <BillSummary
+            totalProtein={totalProtein}
+            totalCalories={totalCalories}
+            totalCarbs={totalCarbs}
+            totalFat={totalFat}
+            normalMealsSubtotal={normalMealsSubtotal}
+            planSubtotal={planSubtotal}
+            discount={discount}
+            payable={payable}
+          />
+
+          <section className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center gap-3">
               <IconCircle>
                 <Tag size={18} />
               </IconCircle>
 
-              <h2 className="text-xl font-black text-slate-950">
+              <h2 className="text-lg font-black text-slate-950">
                 Apply Coupon
               </h2>
             </div>
@@ -1947,23 +1934,23 @@ export default function Cart() {
               className={inputClass}
             />
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => applyCoupon()}
                 disabled={applying}
-                className="h-12 rounded-[16px] bg-green-600 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
+                className="h-11 rounded-[12px] bg-green-600 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
               >
-                {applying ? "Applying..." : "Apply Coupon"}
+                {applying ? "Applying..." : "Apply"}
               </button>
 
               <button
                 type="button"
                 onClick={removeCoupon}
                 disabled={!coupon && discount === 0}
-                className="h-12 rounded-[16px] border border-red-100 bg-red-50 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-11 rounded-[12px] border border-red-100 bg-red-50 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Remove Coupon
+                Remove
               </button>
             </div>
 
@@ -1974,8 +1961,8 @@ export default function Cart() {
               />
             )}
 
-            <div className="mt-5">
-              <p className="mb-3 text-sm font-black text-slate-900">
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-black text-slate-900">
                 Available Coupons
               </p>
 
@@ -1984,11 +1971,11 @@ export default function Cart() {
                   Loading coupons...
                 </p>
               ) : availableCoupons.length === 0 ? (
-                <p className="rounded-[16px] border border-slate-200 bg-white p-3 text-center text-sm font-medium text-slate-500">
-                  No coupons available for your challenge plan.
+                <p className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-center text-sm font-medium text-slate-500">
+                  No coupons available.
                 </p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {availableCoupons.map((item) => {
                     const from = prettyDate(item.validFrom);
                     const to = prettyDate(item.validTo);
@@ -1999,7 +1986,7 @@ export default function Cart() {
                         type="button"
                         onClick={() => applyCoupon(item.code)}
                         disabled={applying}
-                        className="w-full rounded-[16px] border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-green-500 hover:bg-green-50"
+                        className="w-full rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-green-500 hover:bg-green-50"
                       >
                         <p className="text-sm font-black text-slate-950">
                           {item.code}
@@ -2020,134 +2007,28 @@ export default function Cart() {
                 </div>
               )}
             </div>
-          </SectionCard>
+          </section>
 
-          {hasNormalMeals && (
-            <SectionCard>
-              <div className="mb-5 flex items-center gap-3">
-                <IconCircle>
-                  <Clock size={18} />
-                </IconCircle>
-
-                <h2 className="text-xl font-black text-slate-950">
-                  Normal Meal Delivery Time
-                </h2>
-              </div>
-
-              <input
-                type="date"
-                className={inputClass}
-                value={slotDate}
-                onChange={(event) => {
-                  const newDate = event.target.value;
-
-                  setSlotDate(newDate);
-                  setSlotMsg(null);
-
-                  if (!isSlotAllowed(newDate, slotTime)) {
-                    setSlotTime("");
-                  }
-                }}
-                min={todayISO()}
-              />
-
-              <select
-                className={`${inputClass} mt-3`}
-                value={slotTime}
-                onChange={(event) => {
-                  setSlotTime(event.target.value);
-                  setSlotMsg(null);
-                }}
-              >
-                <option value="">Select delivery slot</option>
-
-                {slots.map((slot) => {
-                  const allowed = isSlotAllowed(slotDate, slot);
-                  const label = format12hFromSlot(slot);
-
-                  return (
-                    <option key={slot} value={slot} disabled={!allowed}>
-                      {optionLabel(label, allowed)}
-                    </option>
-                  );
-                })}
-              </select>
-
-              <p className="mt-3 rounded-[16px] border border-yellow-200 bg-yellow-50 p-3 text-xs font-medium leading-5 text-yellow-800">
-                Normal meals must be placed at least <b>3 hours</b> before your
-                selected delivery slot.
-              </p>
-
-              {slotMsg && <MessageBox type="error" message={slotMsg} />}
-
-              <button
-                type="button"
-                onClick={checkout}
-                disabled={checkingOut}
-                className="mt-5 hidden h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60 xl:flex"
-              >
-                <LocateFixed size={18} />
-                {checkingOut ? "Processing..." : "Checkout & Pay"}
-              </button>
-
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-slate-500">
-                <span>○ Secure Payment</span>
-                <span>⚡ Fast Delivery</span>
-                <span>○ Fresh Meals</span>
-              </div>
-            </SectionCard>
-          )}
-
-          {onlyChallengePlans && (
-            <SectionCard>
-              <div className="mb-5 flex items-center gap-3">
-                <IconCircle>
-                  <Clock size={18} />
-                </IconCircle>
-
-                <h2 className="text-xl font-black text-slate-950">
-                  Challenge Delivery Time
-                </h2>
-              </div>
-
-              <p className="rounded-[16px] border border-blue-100 bg-blue-50 p-3 text-sm font-bold leading-6 text-blue-700">
-                Select date and slot inside the plan card for each challenge
-                day.
-              </p>
-
-              <p className="mt-3 rounded-[16px] border border-yellow-200 bg-yellow-50 p-3 text-xs font-medium leading-5 text-yellow-800">
-                Every challenge day must be scheduled at least <b>3 hours</b>{" "}
-                before the selected delivery slot.
-              </p>
-
-              {slotMsg && <MessageBox type="error" message={slotMsg} />}
-
-              <button
-                type="button"
-                onClick={checkout}
-                disabled={checkingOut}
-                className="mt-5 hidden h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60 xl:flex"
-              >
-                <LocateFixed size={18} />
-                {checkingOut ? "Processing..." : "Checkout & Pay"}
-              </button>
-
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-slate-500">
-                <span>○ Secure Payment</span>
-                <span>⚡ Daily Delivery</span>
-                <span>○ Fresh Meals</span>
-              </div>
-            </SectionCard>
-          )}
+          <button
+            type="button"
+            onClick={step === "payment" ? checkout : goNext}
+            disabled={checkingOut}
+            className="hidden h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-green-600 text-base font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:opacity-60 lg:flex"
+          >
+            <LocateFixed size={18} />
+            {primaryButtonText}
+            {step !== "payment" && <ChevronRight size={18} />}
+          </button>
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-[9998] border-t border-slate-200 bg-white/95 p-3 shadow-[0_-18px_45px_rgba(15,23,42,0.12)] backdrop-blur xl:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-[9998] border-t border-slate-200 bg-white/95 p-3 shadow-[0_-18px_45px_rgba(15,23,42,0.12)] backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-[560px] items-center justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-wide text-slate-400">
               Payable
             </p>
+
             <p className="text-2xl font-black tracking-[-0.05em] text-green-700">
               ₹{payable}
             </p>
@@ -2155,24 +2036,421 @@ export default function Cart() {
 
           <button
             type="button"
-            onClick={checkout}
+            onClick={step === "payment" ? checkout : goNext}
             disabled={checkingOut}
-            className="flex h-13 min-w-[190px] items-center justify-center gap-2 rounded-[18px] bg-green-600 px-5 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
+            className="flex h-13 min-w-[190px] items-center justify-center gap-2 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
           >
             <LocateFixed size={18} />
-            {checkingOut ? "Processing..." : "Checkout & Pay"}
+            {primaryButtonText}
           </button>
         </div>
       </div>
+
+      {showAddressModal && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950/55">
+          <div className="h-full w-full overflow-y-auto">
+            <div className="min-h-full bg-white md:max-w-[560px]">
+              <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddressModal(false)}
+                  className="rounded-full p-2 text-slate-600 hover:bg-slate-100"
+                >
+                  <X size={20} />
+                </button>
+
+                <p className="text-lg font-black text-slate-950">
+                  Save delivery address
+                </p>
+              </div>
+
+              <div className="p-4">
+                <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-3">
+                  <p className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950">
+                    <Search size={17} className="text-green-600" />
+                    Search location
+                  </p>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      ref={addressInputRef}
+                      value={addressSearch}
+                      onChange={(event) => setAddressSearch(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          geocodeTypedAddress();
+                        }
+                      }}
+                      placeholder={
+                        googleSearchReady
+                          ? "Search exact delivery address..."
+                          : "Loading Google Maps search..."
+                      }
+                      className={inputClass}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={geocodeTypedAddress}
+                      disabled={searchingAddress}
+                      className="h-12 rounded-[14px] bg-green-600 px-5 text-sm font-black text-white disabled:opacity-60"
+                    >
+                      {searchingAddress ? "Searching..." : "Search"}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={useCurrentLocation}
+                    className="mt-3 h-12 w-full rounded-[14px] bg-green-600 text-sm font-black text-white transition hover:bg-green-700"
+                  >
+                    <Navigation size={17} className="mr-1 inline" />
+                    Use Current Location
+                  </button>
+
+                  {addressForm.lat != null && addressForm.lng != null && (
+                    <div className="mt-4 overflow-hidden rounded-[18px] border border-slate-200 bg-white">
+                      <div className="relative h-[260px] w-full">
+                        <div ref={googleMapRef} className="h-full w-full" />
+                      </div>
+                    </div>
+                  )}
+
+                  {locationMsg && (
+                    <MessageBox type="error" message={locationMsg} />
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-[18px] border border-slate-200 bg-white p-4">
+                  <p className="mb-4 text-sm font-black text-slate-900">
+                    Address details
+                  </p>
+
+                  <div className="grid gap-3">
+                    <input
+                      placeholder="Full Name"
+                      className={inputClass}
+                      value={addressForm.fullName}
+                      onChange={(event) =>
+                        setAddressForm({
+                          ...addressForm,
+                          fullName: event.target.value,
+                        })
+                      }
+                    />
+
+                    <input
+                      placeholder="Phone Number"
+                      className={inputClass}
+                      value={addressForm.phone}
+                      onChange={(event) =>
+                        setAddressForm({
+                          ...addressForm,
+                          phone: event.target.value,
+                        })
+                      }
+                    />
+
+                    <input
+                      placeholder="Flat / House No"
+                      className={inputClass}
+                      value={addressForm.flatNo}
+                      onChange={(event) =>
+                        setAddressForm({
+                          ...addressForm,
+                          flatNo: event.target.value,
+                        })
+                      }
+                    />
+
+                    <input
+                      placeholder="Floor optional"
+                      className={inputClass}
+                      value={addressForm.floor}
+                      onChange={(event) =>
+                        setAddressForm({
+                          ...addressForm,
+                          floor: event.target.value,
+                        })
+                      }
+                    />
+
+                    <input
+                      placeholder="Building / Apartment"
+                      className={inputClass}
+                      value={addressForm.buildingName}
+                      onChange={(event) =>
+                        setAddressForm({
+                          ...addressForm,
+                          buildingName: event.target.value,
+                        })
+                      }
+                    />
+
+                    <input
+                      placeholder="Area / Locality"
+                      className={inputClass}
+                      value={addressForm.area}
+                      onChange={(event) =>
+                        setAddressForm({
+                          ...addressForm,
+                          area: event.target.value,
+                        })
+                      }
+                    />
+
+                    <input
+                      placeholder="Landmark optional"
+                      className={inputClass}
+                      value={addressForm.landmark}
+                      onChange={(event) =>
+                        setAddressForm({
+                          ...addressForm,
+                          landmark: event.target.value,
+                        })
+                      }
+                    />
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <input
+                        placeholder="City"
+                        className={inputClass}
+                        value={addressForm.city}
+                        onChange={(event) =>
+                          setAddressForm({
+                            ...addressForm,
+                            city: event.target.value,
+                          })
+                        }
+                      />
+
+                      <input
+                        placeholder="State"
+                        className={inputClass}
+                        value={addressForm.state}
+                        onChange={(event) =>
+                          setAddressForm({
+                            ...addressForm,
+                            state: event.target.value,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <input
+                        placeholder="Pincode"
+                        className={inputClass}
+                        value={addressForm.pincode}
+                        onChange={(event) =>
+                          setAddressForm({
+                            ...addressForm,
+                            pincode: event.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 6),
+                          })
+                        }
+                      />
+
+                      <select
+                        className={inputClass}
+                        value={addressForm.addressLabel}
+                        onChange={(event) =>
+                          setAddressForm({
+                            ...addressForm,
+                            addressLabel: event.target.value as
+                              | "Home"
+                              | "Work"
+                              | "Other",
+                          })
+                        }
+                      >
+                        <option value="Home">Home</option>
+                        <option value="Work">Work</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {addressMsg && (
+                    <MessageBox type="error" message={addressMsg} />
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={saveAddress}
+                    disabled={savingAddress}
+                    className="mt-4 h-13 w-full rounded-[14px] bg-green-600 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
+                  >
+                    {savingAddress ? "Saving..." : "Save Address & Continue"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
 
-function SectionCard({ children }: { children: React.ReactNode }) {
+function StepCard({
+  stepNo,
+  title,
+  active,
+  done,
+  onChange,
+  children,
+}: {
+  stepNo: string;
+  title: string;
+  active: boolean;
+  done: boolean;
+  onChange: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_35px_rgba(15,23,42,0.05)] sm:p-5">
-      {children}
+    <section className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] text-sm font-black ${
+              active
+                ? "bg-slate-950 text-white"
+                : done
+                ? "bg-green-600 text-white"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {done ? <CheckCircle2 size={18} /> : stepNo}
+          </span>
+
+          <h2 className="text-xl font-black tracking-[-0.04em] text-slate-950">
+            {title}
+          </h2>
+        </div>
+
+        {done && (
+          <button
+            type="button"
+            onClick={onChange}
+            className="text-xs font-black uppercase text-orange-600"
+          >
+            Change
+          </button>
+        )}
+      </div>
+
+      {(active || done) && children}
     </section>
+  );
+}
+
+function SelectedSummary({
+  title,
+  description,
+  action,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  action: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-[16px] bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="font-black text-slate-950">{title}</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+          {description}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-fit rounded-full bg-white px-4 py-2 text-xs font-black text-green-700"
+      >
+        {action}
+      </button>
+    </div>
+  );
+}
+
+function BillSummary({
+  totalProtein,
+  totalCalories,
+  totalCarbs,
+  totalFat,
+  normalMealsSubtotal,
+  planSubtotal,
+  discount,
+  payable,
+}: {
+  totalProtein: number;
+  totalCalories: number;
+  totalCarbs: number;
+  totalFat: number;
+  normalMealsSubtotal: number;
+  planSubtotal: number;
+  discount: number;
+  payable: number;
+}) {
+  return (
+    <section className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex items-center gap-3">
+        <IconCircle>
+          <ShieldCheck size={19} />
+        </IconCircle>
+
+        <h2 className="text-lg font-black text-slate-950">Bill Details</h2>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <SummaryMetric color="green" label="Protein" value={`${totalProtein}`} unit="g" />
+        <SummaryMetric
+          color="orange"
+          label="Calories"
+          value={`${totalCalories}`}
+          unit="kcal"
+        />
+        <SummaryMetric color="yellow" label="Carbs" value={`${totalCarbs}`} unit="g" />
+        <SummaryMetric color="blue" label="Fat" value={`${totalFat}`} unit="g" />
+      </div>
+
+      <hr className="my-5 border-slate-200" />
+
+      <div className="space-y-3 text-sm">
+        <BillRow label="Meals Subtotal" value={`₹${normalMealsSubtotal}`} />
+        <BillRow label="Challenge Plan" value={`₹${planSubtotal}`} />
+        <BillRow label="Plan Discount" value={`-₹${discount}`} muted />
+
+        <div className="border-t border-slate-200 pt-4">
+          <div className="flex justify-between text-lg font-black">
+            <span className="text-slate-950">To Pay</span>
+            <span className="text-green-700">₹{payable}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BillRow({
+  label,
+  value,
+  muted,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+}) {
+  return (
+    <p className="flex justify-between">
+      <span className="font-medium text-slate-500">{label}</span>
+      <b className={muted ? "text-slate-500" : "text-slate-950"}>{value}</b>
+    </p>
   );
 }
 
@@ -2228,9 +2506,9 @@ function SummaryMetric({
       : "border-blue-100 bg-blue-50 text-blue-700";
 
   return (
-    <div className={`rounded-[18px] border p-3 sm:p-4 ${className}`}>
+    <div className={`rounded-[14px] border p-3 ${className}`}>
       <p className="text-xs font-black">{label}</p>
-      <p className="mt-2 text-lg font-black text-slate-950 sm:text-xl">
+      <p className="mt-2 text-lg font-black text-slate-950">
         {value} <span className="text-sm font-bold text-slate-500">{unit}</span>
       </p>
     </div>
@@ -2246,7 +2524,7 @@ function MessageBox({
 }) {
   return (
     <p
-      className={`mt-3 rounded-[16px] p-3 text-sm font-bold ${
+      className={`mt-3 rounded-[14px] p-3 text-sm font-bold ${
         type === "error"
           ? "bg-red-50 text-red-600"
           : "bg-green-50 text-green-700"
