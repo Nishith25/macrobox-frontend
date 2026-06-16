@@ -1701,14 +1701,7 @@ export default function Cart() {
                               </p>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => applyDayOneSlotToAllDays(cartKey)}
-                              disabled={!dayOne?.date || !dayOne?.slot}
-                              className="h-9 w-fit rounded-full bg-blue-600 px-4 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              Apply Day 1 slot to all
-                            </button>
+                            
                           </div>
 
                           {(() => {
@@ -1786,7 +1779,7 @@ export default function Cart() {
             key={`${cartKey}-day-${day.day}`}
             className="rounded-[14px] border border-slate-100 bg-white px-3 py-3"
           >
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_220px] sm:items-center">
               <div className="min-w-0">
                 <p className="break-words text-sm font-black leading-5 text-slate-950">
                   Day {day.day}: {day.selectedMealTitle}
@@ -1799,10 +1792,33 @@ export default function Cart() {
                 </p>
               </div>
 
-              <p className="w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-                {day.slot ? format12hFromSlot(day.slot) : "Slot not applied"}
-              </p>
+              <select
+                value={day.slot || ""}
+                onChange={(event) =>
+                  updateChallengeScheduleDay(cartKey, day.day, {
+                    slot: event.target.value,
+                  })
+                }
+                disabled={!day.date}
+                className={scheduleInputClass}
+              >
+                <option value="">Select slot</option>
+
+                {slots.map((slot) => {
+                  const allowed = isSlotAllowed(day.date || "", slot);
+
+                  return (
+                    <option key={slot} value={slot} disabled={!allowed}>
+                      {optionLabel(format12hFromSlot(slot), allowed)}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
+
+            <p className="mt-2 text-xs font-bold text-slate-500">
+              {day.slot ? format12hFromSlot(day.slot) : "Slot not selected"}
+            </p>
           </div>
         ))}
       </div>
