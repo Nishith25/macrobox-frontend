@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Search,
   Sparkles,
-  Star,
   Trophy,
   Users,
   Zap,
@@ -58,7 +57,7 @@ type BackendPlan = {
   rewardEligible?: boolean;
   rewardUnlocked?: boolean;
 
-  // Temporary backward compatibility until backend/models are fully renamed
+  // Temporary backward compatibility until backend is fully migrated
   challengeId?: string;
   isJoined?: boolean;
   canStartAgain?: boolean;
@@ -96,7 +95,7 @@ type PlanHistoryOrder = {
   completedAt?: string;
   rewardUnlocked?: boolean;
 
-  // Old fields, kept temporarily for compatibility
+  // Old fields kept temporarily for compatibility
   attemptNo?: number;
   completedDaysCount?: number;
 };
@@ -120,7 +119,7 @@ const goalLabel = (goal: string) => {
   if (goal === "lean") return "Lean";
   if (goal === "mixed") return "Mixed";
   if (goal === "veg") return "Veg";
-  if (goal === "nonveg") return "Nonveg";
+  if (goal === "nonveg") return "Non-Veg";
   return "MacroBox";
 };
 
@@ -166,9 +165,7 @@ const getProfessionalMealCount = (plan: BackendPlan) => {
 
   const bestMealSetCount = Math.max(vegCount, nonvegCount, mixedCount);
 
-  if (bestMealSetCount > 0) {
-    return bestMealSetCount;
-  }
+  if (bestMealSetCount > 0) return bestMealSetCount;
 
   if (Array.isArray(plan.days) && plan.days.length > 0) {
     return plan.days.filter((day) => day?.isActive !== false).length;
@@ -190,23 +187,11 @@ const getDiscountPercent = (price: number, originalPrice?: number | null) => {
   return Math.round(((originalPrice - price) / originalPrice) * 100);
 };
 
-const getPlanImageGradient = (goal: string) => {
-  if (goal === "muscle_gain") {
-    return "from-orange-100 via-amber-50 to-white";
-  }
-
-  if (goal === "clean_eating") {
-    return "from-green-100 via-emerald-50 to-white";
-  }
-
-  if (goal === "couple") {
-    return "from-pink-100 via-orange-50 to-white";
-  }
-
-  if (goal === "office_fit") {
-    return "from-blue-100 via-sky-50 to-white";
-  }
-
+const getCardGradient = (goal: string) => {
+  if (goal === "muscle_gain") return "from-orange-100 via-amber-50 to-white";
+  if (goal === "clean_eating") return "from-green-100 via-emerald-50 to-white";
+  if (goal === "couple") return "from-pink-100 via-orange-50 to-white";
+  if (goal === "office_fit") return "from-blue-100 via-sky-50 to-white";
   return "from-orange-100 via-white to-green-50";
 };
 
@@ -237,9 +222,11 @@ export default function Plans() {
       ]);
 
       setPlans(Array.isArray(planRes.data) ? planRes.data : []);
+
       setHistorySummary(
         Array.isArray(historyRes.data?.summary) ? historyRes.data.summary : []
       );
+
       setHistoryOrders(
         Array.isArray(historyRes.data?.attempts)
           ? historyRes.data.attempts
@@ -309,12 +296,12 @@ export default function Plans() {
               </div>
 
               <h1 className="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950 sm:text-5xl">
-                Meal plans near you
+                MacroBox Meal Plans
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:text-base">
-                Goal-based 7-day MacroBox plans with daily delivery slots and
-                reward benefits.
+                Pick a goal-based 7-day meal plan and schedule your daily
+                deliveries.
               </p>
             </div>
 
@@ -350,10 +337,11 @@ export default function Plans() {
                 size={18}
                 className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
+
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search for plans"
+                placeholder="Search MacroBox plans"
                 className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white"
               />
             </div>
@@ -383,40 +371,13 @@ export default function Plans() {
       </section>
 
       <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6">
-        <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-[#171a29] via-[#25283a] to-[#171a29] p-5 text-white shadow-[0_18px_45px_rgba(15,23,42,0.18)] sm:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-orange-200">
-                <Gift size={14} />
-                Plan Reward
-              </p>
-
-              <h2 className="mt-3 text-2xl font-black tracking-[-0.04em] sm:text-4xl">
-                Buy a 7-day plan, unlock 10% OFF next plan
-              </h2>
-
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/70">
-                Schedule your meals in cart, complete payment, and get your
-                next eligible plan reward.
-              </p>
-            </div>
-
-            <Link
-              to="/rewards"
-              className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-orange-50"
-            >
-              View Rewards
-              <ArrowRight size={17} />
-            </Link>
-          </div>
-        </section>
-
-        <section className="mt-8">
+        <section>
           <div className="mb-5 flex items-end justify-between gap-3">
             <div>
               <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                Recommended meal plans
+                Available Plans
               </h2>
+
               <p className="mt-1 text-sm font-bold text-slate-500">
                 {loading
                   ? "Loading plans..."
@@ -425,6 +386,14 @@ export default function Plans() {
                     } available`}
               </p>
             </div>
+
+            <Link
+              to="/rewards"
+              className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 shadow-sm transition hover:border-orange-300 hover:text-orange-600 sm:inline-flex"
+            >
+              Rewards
+              <ArrowRight size={16} />
+            </Link>
           </div>
 
           {loading ? (
@@ -432,7 +401,7 @@ export default function Plans() {
           ) : filteredPlans.length === 0 ? (
             <EmptyCard
               title="No plans found"
-              text="Try changing the search or filter. Admin can add meal plans from panel."
+              text="Try changing the search or filter."
             />
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -458,7 +427,7 @@ export default function Plans() {
                     className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
                   >
                     <div
-                      className={`relative h-44 bg-gradient-to-br ${getPlanImageGradient(
+                      className={`relative h-44 bg-gradient-to-br ${getCardGradient(
                         plan.goal
                       )}`}
                     >
@@ -472,10 +441,10 @@ export default function Plans() {
                       {discountPercent ? (
                         <div className="absolute bottom-4 left-4 rounded-xl bg-[#171a29] px-3 py-2 text-white shadow-lg">
                           <p className="text-xs font-black uppercase tracking-wide text-orange-200">
-                            Flat
+                            Save
                           </p>
                           <p className="text-xl font-black leading-none">
-                            {discountPercent}% OFF
+                            {discountPercent}%
                           </p>
                         </div>
                       ) : null}
@@ -492,23 +461,19 @@ export default function Plans() {
                             {plan.title}
                           </h3>
 
-                          <div className="mt-1 flex items-center gap-1 text-xs font-black text-slate-500">
-                            <Star
-                              size={14}
-                              className="fill-green-600 text-green-600"
-                            />
-                            4.8 • {duration} days • {mealsCount} meals
-                          </div>
+                          <p className="mt-1 text-xs font-black text-slate-500">
+                            {duration} days • {mealsCount} meals
+                          </p>
                         </div>
 
                         <div className="rounded-lg bg-green-600 px-2 py-1 text-xs font-black text-white">
-                          HEALTHY
+                          PLAN
                         </div>
                       </div>
 
                       <p className="mt-3 line-clamp-2 min-h-[44px] text-sm font-semibold leading-6 text-slate-500">
                         {plan.description ||
-                          "Choose this MacroBox meal plan, schedule your daily meals, and unlock a reward after payment."}
+                          "Choose this MacroBox meal plan and schedule your daily meals."}
                       </p>
 
                       <div className="mt-4 flex flex-wrap gap-2">
@@ -530,14 +495,14 @@ export default function Plans() {
                       {plan.rewardUnlocked ? (
                         <div className="mt-4 flex items-center gap-2 rounded-xl border border-orange-100 bg-orange-50 p-3 text-xs font-black text-orange-700">
                           <Gift size={16} />
-                          10% next plan reward unlocked
+                          Reward unlocked
                         </div>
                       ) : null}
 
                       <div className="mt-5 flex items-end justify-between border-t border-dashed border-slate-200 pt-4">
                         <div>
                           <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                            Starting at
+                            Price
                           </p>
 
                           <div className="mt-1 flex items-end gap-2">
@@ -557,7 +522,7 @@ export default function Plans() {
                           to={`/plans/${planId}`}
                           className="inline-flex h-11 items-center gap-2 rounded-xl border border-orange-500 bg-orange-500 px-4 text-sm font-black text-white transition hover:bg-orange-600"
                         >
-                          ADD
+                          View Plan
                           <ArrowRight size={16} />
                         </Link>
                       </div>
@@ -570,20 +535,19 @@ export default function Plans() {
         </section>
 
         <section className="mt-10">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                <History size={21} />
-              </span>
+          <div className="mb-5 flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+              <History size={21} />
+            </span>
 
-              <div>
-                <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                  Plan History
-                </h2>
-                <p className="text-sm font-semibold text-slate-500">
-                  Your purchased MacroBox plans and rewards.
-                </p>
-              </div>
+            <div>
+              <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                Plan History
+              </h2>
+
+              <p className="text-sm font-semibold text-slate-500">
+                Your purchased MacroBox plans and rewards.
+              </p>
             </div>
           </div>
 
@@ -592,20 +556,21 @@ export default function Plans() {
           ) : historySummary.length === 0 ? (
             <EmptyCard
               title="No plan purchases yet"
-              text="Buy any eligible 7-day MacroBox plan to unlock 10% OFF your next plan."
+              text="Buy an eligible 7-day MacroBox plan to unlock your next plan reward."
             />
           ) : (
             <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h3 className="mb-4 flex items-center gap-2 text-lg font-black text-slate-950">
                   <Trophy className="text-orange-500" size={20} />
-                  Purchased Plan Types
+                  Purchased Plans
                 </h3>
 
                 <div className="space-y-3">
                   {historySummary.map((item) => {
                     const purchasedTimes =
                       item.purchasedTimes || item.completedTimes || 0;
+
                     const latestDate =
                       item.latestPurchasedAt || item.latestCompletedAt || null;
 
@@ -619,9 +584,10 @@ export default function Plans() {
                             <p className="text-sm font-black text-slate-950">
                               {item.title}
                             </p>
+
                             <p className="mt-1 text-xs font-bold text-slate-500">
-                              {item.badge || goalLabel(item.goal || "")} •
-                              Latest: {formatDate(latestDate)}
+                              {item.badge || goalLabel(item.goal || "")} •{" "}
+                              {formatDate(latestDate)}
                             </p>
                           </div>
 
@@ -656,6 +622,7 @@ export default function Plans() {
                             <p className="text-sm font-black text-slate-950">
                               {order.title}
                             </p>
+
                             <p className="mt-1 text-xs font-bold text-slate-500">
                               {order.durationDays || 7}-day plan •{" "}
                               {order.badge || goalLabel(order.goal || "")}
@@ -665,9 +632,10 @@ export default function Plans() {
                           <div className="text-left sm:text-right">
                             <p className="text-xs font-black text-orange-600">
                               {order.rewardUnlocked
-                                ? "10% reward unlocked"
+                                ? "Reward unlocked"
                                 : "Plan purchased"}
                             </p>
+
                             <p className="mt-1 text-xs font-bold text-slate-500">
                               {formatDate(date)}
                             </p>
@@ -712,6 +680,7 @@ function HeroStat({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
+
       <p className="mt-1 text-2xl font-black tracking-[-0.05em] text-slate-950">
         {value}
       </p>
