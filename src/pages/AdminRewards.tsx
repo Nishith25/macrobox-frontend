@@ -4,16 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 import toast from "react-hot-toast";
 
-type RewardType = "free_item" | "discount" | "free_meal" | "plan_box" | "challenge_box";
+type RewardType =
+  | "free_item"
+  | "discount"
+  | "free_meal"
+  | "plan_box"
+  | "challenge_box";
 
 type RequiredAction =
   | "buy_7_day_plan"
   | "buy_plan"
   | "next_plan_reward"
-  | "join_challenge"
   | "post_3_stories"
-  | "complete_7_days"
-  | "refer_2_friends";
+  | "refer_2_friends"
+  | "join_challenge"
+  | "complete_7_days";
 
 type Reward = {
   _id: string;
@@ -39,6 +44,8 @@ const actionOptions: { key: RequiredAction; label: string }[] = [
   { key: "buy_7_day_plan", label: "Buy 7-Day Plan" },
   { key: "buy_plan", label: "Buy Plan" },
   { key: "next_plan_reward", label: "Next Plan Reward" },
+  { key: "post_3_stories", label: "Post 3 Stories" },
+  { key: "refer_2_friends", label: "Refer 2 Friends" },
 ];
 
 const typeLabelMap: Record<RewardType, string> = {
@@ -53,12 +60,12 @@ const actionLabelMap: Record<RequiredAction, string> = {
   buy_7_day_plan: "Buy 7-Day Plan",
   buy_plan: "Buy Plan",
   next_plan_reward: "Next Plan Reward",
+  post_3_stories: "Post 3 Stories",
+  refer_2_friends: "Refer 2 Friends",
 
   // Old compatibility labels
   join_challenge: "Buy Plan",
-  post_3_stories: "Post 3 Stories",
   complete_7_days: "Buy 7-Day Plan",
-  refer_2_friends: "Refer 2 Friends",
 };
 
 const slugify = (value: string) =>
@@ -74,8 +81,9 @@ const normalizeRewardForUI = (reward: Reward): Reward => {
     ...reward,
     type: reward.type === "challenge_box" ? "plan_box" : reward.type,
     requiredAction:
-      reward.requiredAction === "join_challenge" ||
-      reward.requiredAction === "complete_7_days"
+      reward.requiredAction === "join_challenge"
+        ? "buy_plan"
+        : reward.requiredAction === "complete_7_days"
         ? "buy_7_day_plan"
         : reward.requiredAction,
   };
@@ -134,7 +142,8 @@ function RewardRow({
         </span>
 
         <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
-          {actionLabelMap[normalizedReward.requiredAction]}
+          {actionLabelMap[normalizedReward.requiredAction] ||
+            normalizedReward.requiredAction}
         </span>
 
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
@@ -191,9 +200,9 @@ export default function AdminRewards() {
     rewardId: "",
     description: "",
     type: "discount" as RewardType,
-    valueText: "10% OFF",
+    valueText: "",
     requiredAction: "buy_7_day_plan" as RequiredAction,
-    couponCode: "PLAN10",
+    couponCode: "",
     isActive: true,
     sortOrder: "1",
   });
@@ -223,31 +232,12 @@ export default function AdminRewards() {
       rewardId: "",
       description: "",
       type: "discount",
-      valueText: "10% OFF",
+      valueText: "",
       requiredAction: "buy_7_day_plan",
-      couponCode: "PLAN10",
+      couponCode: "",
       isActive: true,
       sortOrder: "1",
     });
-  };
-
-  const fillDefaultPlanReward = () => {
-    setEditingId(null);
-
-    setForm({
-      title: "10% OFF Next Plan",
-      rewardId: "next-plan-10",
-      description:
-        "Buy any eligible 7-day MacroBox plan and get 10% OFF your next eligible plan.",
-      type: "discount",
-      valueText: "10% OFF",
-      requiredAction: "buy_7_day_plan",
-      couponCode: "PLAN10",
-      isActive: true,
-      sortOrder: "1",
-    });
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const updateTitle = (value: string) => {
@@ -278,8 +268,9 @@ export default function AdminRewards() {
       form.type === "challenge_box" ? "plan_box" : form.type;
 
     const normalizedAction =
-      form.requiredAction === "join_challenge" ||
-      form.requiredAction === "complete_7_days"
+      form.requiredAction === "join_challenge"
+        ? "buy_plan"
+        : form.requiredAction === "complete_7_days"
         ? "buy_7_day_plan"
         : form.requiredAction;
 
@@ -350,7 +341,9 @@ export default function AdminRewards() {
         prev.map((item) => (item._id === reward._id ? res.data : item))
       );
 
-      toast.success(res.data.isActive ? "Reward activated" : "Reward deactivated");
+      toast.success(
+        res.data.isActive ? "Reward activated" : "Reward deactivated"
+      );
     } catch {
       toast.error("Status update failed");
     }
@@ -374,9 +367,12 @@ export default function AdminRewards() {
     const active = rewards.filter((item) => item.isActive).length;
     const inactive = rewards.filter((item) => !item.isActive).length;
     const discounts = rewards.filter((item) => item.type === "discount").length;
+    const freeRewards = rewards.filter((item) =>
+      ["free_item", "free_meal"].includes(item.type)
+    ).length;
     const planRewards = rewards.filter((item) =>
       ["buy_7_day_plan", "buy_plan", "next_plan_reward"].includes(
-        item.requiredAction
+        normalizeRewardForUI(item).requiredAction
       )
     ).length;
 
@@ -385,34 +381,23 @@ export default function AdminRewards() {
       active,
       inactive,
       discounts,
+      freeRewards,
       planRewards,
     };
   }, [rewards]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Manage Plan Rewards
-          </h1>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Manage Rewards</h1>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Create and manage the 10% next-plan reward used on the MacroBox
-            rewards page.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={fillDefaultPlanReward}
-          className="rounded-xl bg-green-600 px-5 py-3 text-sm font-bold text-white hover:bg-green-700"
-        >
-          Fill 10% Plan Reward
-        </button>
+        <p className="mt-1 text-sm text-gray-500">
+          Create and manage MacroBox rewards for plans, discounts, referrals and
+          future campaigns.
+        </p>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-5">
+      <div className="mb-6 grid gap-4 md:grid-cols-6">
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <p className="text-sm text-gray-500">Total Rewards</p>
           <p className="mt-1 text-2xl font-bold">{stats.total}</p>
@@ -445,11 +430,18 @@ export default function AdminRewards() {
             {stats.planRewards}
           </p>
         </div>
+
+        <div className="rounded-2xl border bg-purple-50 p-4 shadow-sm">
+          <p className="text-sm text-purple-700">Free Rewards</p>
+          <p className="mt-1 text-2xl font-bold text-purple-700">
+            {stats.freeRewards}
+          </p>
+        </div>
       </div>
 
       <div className="mb-10 rounded-2xl border bg-white p-6 shadow-sm">
         <h2 className="mb-4 font-semibold">
-          {editingId ? "Update reward" : "Create a new plan reward"}
+          {editingId ? "Update reward" : "Create a new reward"}
         </h2>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -509,7 +501,7 @@ export default function AdminRewards() {
           </select>
 
           <input
-            placeholder="Value text e.g. 10% OFF"
+            placeholder="Value text e.g. 10% OFF / Free Meal"
             value={form.valueText}
             onChange={(e) => setForm({ ...form, valueText: e.target.value })}
             className="rounded-lg border px-3 py-2"
