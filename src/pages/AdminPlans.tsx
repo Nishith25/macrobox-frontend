@@ -14,6 +14,32 @@ type PlanGoal =
   | "office_fit";
 
 type MealMode = "veg" | "nonveg" | "both";
+type MealSetKey = "veg" | "nonveg" | "mixed";
+
+type MealOption = {
+  _id: string;
+  title: string;
+  imageUrl?: string;
+  price?: number;
+  protein?: number;
+  calories?: number;
+  carbs?: number;
+  fat?: number;
+  foodType?: "veg" | "nonveg";
+};
+
+type PlanMealDay = {
+  day: number;
+  title?: string;
+  meal?: string | MealOption | null;
+  isActive?: boolean;
+};
+
+type PlanMealSets = {
+  veg: PlanMealDay[];
+  nonveg: PlanMealDay[];
+  mixed: PlanMealDay[];
+};
 
 type Plan = {
   _id: string;
@@ -33,6 +59,7 @@ type Plan = {
   perks?: string[];
   rewards?: string[];
   meals?: string[];
+  mealSets?: PlanMealSets;
   rewardEligible?: boolean;
   isActive: boolean;
   sortOrder?: number;
@@ -70,6 +97,24 @@ const mealModeLabelMap: Record<MealMode, string> = {
   nonveg: "Non-Veg Only",
 };
 
+const mealSetTabs: { key: MealSetKey; label: string; hint: string }[] = [
+  {
+    key: "veg",
+    label: "Veg Plan Meals",
+    hint: "Used when customer selects Veg",
+  },
+  {
+    key: "nonveg",
+    label: "Non-Veg Plan Meals",
+    hint: "Used when customer selects Non-Veg",
+  },
+  {
+    key: "mixed",
+    label: "Mixed Plan Meals",
+    hint: "Used when customer selects Mixed",
+  },
+];
+
 const DEFAULT_PLAN_REWARD =
   "Buy this 7-day MacroBox plan and get 10% OFF your next eligible plan.";
 
@@ -91,6 +136,68 @@ const textToArray = (text: string) =>
 
 const getPlanId = (plan: Plan) => plan.planId || plan.challengeId || "";
 
+const getMealId = (meal?: string | MealOption | null) => {
+  if (!meal) return "";
+  if (typeof meal === "string") return meal;
+  return meal._id || "";
+};
+
+const getMealTitle = (meal?: string | MealOption | null) => {
+  if (!meal) return "";
+  if (typeof meal === "string") return "";
+  return meal.title || "";
+};
+
+const createMealSetDays = (durationDays: number): PlanMealDay[] =>
+  Array.from({ length: durationDays }, (_, index) => ({
+    day: index + 1,
+    title: `Day ${index + 1}`,
+    meal: null,
+    isActive: true,
+  }));
+
+const normalizeMealSetDays = (
+  days: PlanMealDay[] | undefined,
+  durationDays: number
+): PlanMealDay[] => {
+  const existing = Array.isArray(days) ? days : [];
+
+  return Array.from({ length: durationDays }, (_, index) => {
+    const current = existing[index];
+
+    return {
+      day: index + 1,
+      title: current?.title || `Day ${index + 1}`,
+      meal: current?.meal || null,
+      isActive: current?.isActive !== false,
+    };
+  });
+};
+
+const createEmptyMealSets = (durationDays: number): PlanMealSets => ({
+  veg: createMealSetDays(durationDays),
+  nonveg: createMealSetDays(durationDays),
+  mixed: createMealSetDays(durationDays),
+});
+
+const normalizeMealSets = (
+  mealSets: PlanMealSets | undefined,
+  durationDays: number
+): PlanMealSets => ({
+  veg: normalizeMealSetDays(mealSets?.veg, durationDays),
+  nonveg: normalizeMealSetDays(mealSets?.nonveg, durationDays),
+  mixed: normalizeMealSetDays(mealSets?.mixed, durationDays),
+});
+
+const countSelectedMeals = (mealSets?: PlanMealSets) => {
+  if (!mealSets) return 0;
+
+  return ["veg", "nonveg", "mixed"].reduce((total, key) => {
+    const set = mealSets[key as MealSetKey] || [];
+    return total + set.filter((item) => getMealId(item.meal)).length;
+  }, 0);
+};
+
 function PlanRow({
   plan,
   onEdit,
@@ -104,6 +211,7 @@ function PlanRow({
 }) {
   const [showMore, setShowMore] = useState(false);
   const planId = getPlanId(plan);
+  const selectedMealsCount = countSelectedMeals(plan.mealSets);
 
   return (
     <div className="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
@@ -185,6 +293,10 @@ function PlanRow({
               Rewards: {plan.rewards?.length || 0}
             </span>
 
+            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
+              Selected Meals: {selectedMealsCount}
+            </span>
+
             <span
               className={`rounded-full px-3 py-1 text-xs font-bold ${
                 plan.rewardEligible !== false
@@ -198,15 +310,13 @@ function PlanRow({
             </span>
           </div>
 
-          {plan.description && (
-            <button
-              type="button"
-              onClick={() => setShowMore((prev) => !prev)}
-              className="mt-3 text-sm font-semibold text-green-700 underline"
-            >
-              {showMore ? "Hide Details" : "View Details"}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowMore((prev) => !prev)}
+            className="mt-3 text-sm font-semibold text-green-700 underline"
+          >
+            {showMore ? "Hide Details" : "View Details"}
+          </button>
 
           <div className="mt-4 flex flex-wrap gap-3">
             <button
@@ -241,7 +351,7 @@ function PlanRow({
       </div>
 
       {showMore && (
-        <div className="mt-4 space-y-3 rounded-xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
+        <div className="mt-4 space-y-4 rounded-xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
           {plan.description && <p>{plan.description}</p>}
 
           {plan.perks && plan.perks.length > 0 && (
@@ -266,14 +376,22 @@ function PlanRow({
             </div>
           )}
 
-          {plan.meals && plan.meals.length > 0 && (
-            <div>
-              <p className="font-bold text-gray-900">Suggested Meals:</p>
-              <ul className="list-inside list-disc">
-                {plan.meals.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+          {plan.mealSets && (
+            <div className="grid gap-3 md:grid-cols-3">
+              {mealSetTabs.map((tab) => (
+                <div key={tab.key} className="rounded-xl border bg-white p-3">
+                  <p className="font-bold text-gray-900">{tab.label}</p>
+
+                  <ul className="mt-2 space-y-1 text-xs font-semibold text-slate-600">
+                    {(plan.mealSets?.[tab.key] || []).map((item) => (
+                      <li key={`${tab.key}-${item.day}`}>
+                        Day {item.day}:{" "}
+                        {getMealTitle(item.meal) || "No meal selected"}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -284,10 +402,14 @@ function PlanRow({
 
 export default function AdminPlans() {
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [mealOptions, setMealOptions] = useState<MealOption[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMeals, setLoadingMeals] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeMealSetTab, setActiveMealSetTab] =
+    useState<MealSetKey>("mixed");
 
   const [form, setForm] = useState({
     title: "",
@@ -304,10 +426,10 @@ export default function AdminPlans() {
     imageUrl: "",
     perksText: "",
     rewardsText: DEFAULT_PLAN_REWARD,
-    mealsText: "",
     rewardEligible: true,
     isActive: true,
     sortOrder: "0",
+    mealSets: createEmptyMealSets(7),
   });
 
   const fetchPlans = async () => {
@@ -315,7 +437,7 @@ export default function AdminPlans() {
 
     try {
       const res = await api.get("/admin/plans");
-      setPlans(res.data || []);
+      setPlans(Array.isArray(res.data) ? res.data : []);
     } catch {
       toast.error("Failed to load plans");
     } finally {
@@ -323,12 +445,39 @@ export default function AdminPlans() {
     }
   };
 
+  const fetchMealOptions = async () => {
+    setLoadingMeals(true);
+
+    try {
+      const res = await api.get("/admin/plans/meal-options");
+      setMealOptions(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      toast.error("Failed to load meal options");
+    } finally {
+      setLoadingMeals(false);
+    }
+  };
+
   useEffect(() => {
     fetchPlans();
+    fetchMealOptions();
   }, []);
+
+  const mealOptionsByTab = useMemo(() => {
+    if (activeMealSetTab === "veg") {
+      return mealOptions.filter((meal) => meal.foodType === "veg");
+    }
+
+    if (activeMealSetTab === "nonveg") {
+      return mealOptions.filter((meal) => meal.foodType === "nonveg");
+    }
+
+    return mealOptions;
+  }, [mealOptions, activeMealSetTab]);
 
   const resetForm = () => {
     setEditingId(null);
+    setActiveMealSetTab("mixed");
 
     setForm({
       title: "",
@@ -345,10 +494,10 @@ export default function AdminPlans() {
       imageUrl: "",
       perksText: "",
       rewardsText: DEFAULT_PLAN_REWARD,
-      mealsText: "",
       rewardEligible: true,
       isActive: true,
       sortOrder: "0",
+      mealSets: createEmptyMealSets(7),
     });
   };
 
@@ -358,6 +507,86 @@ export default function AdminPlans() {
       title: value,
       planId: editingId ? prev.planId : slugify(value),
     }));
+  };
+
+  const updateDurationDays = (value: string) => {
+    const nextDuration = Math.max(1, Number(value || 7));
+
+    setForm((prev) => ({
+      ...prev,
+      durationDays: value,
+      mealSets: normalizeMealSets(prev.mealSets, nextDuration),
+    }));
+  };
+
+  const updateMealForDay = (
+    setKey: MealSetKey,
+    dayIndex: number,
+    mealId: string
+  ) => {
+    setForm((prev) => {
+      const durationDays = Math.max(1, Number(prev.durationDays || 7));
+      const normalizedSets = normalizeMealSets(prev.mealSets, durationDays);
+
+      normalizedSets[setKey] = normalizedSets[setKey].map((item, index) =>
+        index === dayIndex
+          ? {
+              ...item,
+              meal: mealId || null,
+            }
+          : item
+      );
+
+      return {
+        ...prev,
+        mealSets: normalizedSets,
+      };
+    });
+  };
+
+  const copyMealSet = (from: MealSetKey, to: MealSetKey) => {
+    setForm((prev) => {
+      const durationDays = Math.max(1, Number(prev.durationDays || 7));
+      const normalizedSets = normalizeMealSets(prev.mealSets, durationDays);
+
+      return {
+        ...prev,
+        mealSets: {
+          ...normalizedSets,
+          [to]: normalizedSets[from].map((item) => ({ ...item })),
+        },
+      };
+    });
+
+    toast.success(`Copied ${from} meals to ${to}`);
+  };
+
+  const validateMealSets = () => {
+    const durationDays = Math.max(1, Number(form.durationDays || 7));
+    const sets = normalizeMealSets(form.mealSets, durationDays);
+
+    const requiredTabs: MealSetKey[] =
+      form.mealMode === "veg"
+        ? ["veg"]
+        : form.mealMode === "nonveg"
+        ? ["nonveg"]
+        : ["veg", "nonveg", "mixed"];
+
+    for (const key of requiredTabs) {
+      const missingDay = sets[key].find((item) => !getMealId(item.meal));
+
+      if (missingDay) {
+        toast.error(
+          `Select ${mealSetTabs.find((tab) => tab.key === key)?.label} for Day ${
+            missingDay.day
+          }`
+        );
+        setActiveMealSetTab(key);
+        return false;
+      }
+    }
+
+    return true;
   };
 
   const savePlan = async () => {
@@ -376,7 +605,14 @@ export default function AdminPlans() {
       return;
     }
 
+    if (!validateMealSets()) {
+      return;
+    }
+
     const cleanPlanId = slugify(form.planId);
+    const durationDays = Math.max(1, Number(form.durationDays || 7));
+
+    const normalizedMealSets = normalizeMealSets(form.mealSets, durationDays);
 
     const payload = {
       title: form.title.trim(),
@@ -387,7 +623,7 @@ export default function AdminPlans() {
       goal: form.goal,
       mealMode: form.mealMode,
       badge: form.badge.trim(),
-      durationDays: Number(form.durationDays || 7),
+      durationDays,
       price: Number(form.price || 0),
       trialPrice: form.trialPrice ? Number(form.trialPrice) : null,
       originalPrice: form.originalPrice ? Number(form.originalPrice) : null,
@@ -397,7 +633,27 @@ export default function AdminPlans() {
         textToArray(form.rewardsText).length > 0
           ? textToArray(form.rewardsText)
           : [DEFAULT_PLAN_REWARD],
-      meals: textToArray(form.mealsText),
+      mealSets: {
+        veg: normalizedMealSets.veg.map((item) => ({
+          day: item.day,
+          title: item.title || `Day ${item.day}`,
+          meal: getMealId(item.meal) || null,
+          isActive: item.isActive !== false,
+        })),
+        nonveg: normalizedMealSets.nonveg.map((item) => ({
+          day: item.day,
+          title: item.title || `Day ${item.day}`,
+          meal: getMealId(item.meal) || null,
+          isActive: item.isActive !== false,
+        })),
+        mixed: normalizedMealSets.mixed.map((item) => ({
+          day: item.day,
+          title: item.title || `Day ${item.day}`,
+          meal: getMealId(item.meal) || null,
+          isActive: item.isActive !== false,
+        })),
+      },
+      meals: [],
       rewardEligible: form.rewardEligible,
       isActive: form.isActive,
       sortOrder: Number(form.sortOrder || 0),
@@ -431,7 +687,10 @@ export default function AdminPlans() {
   };
 
   const handleEdit = (plan: Plan) => {
+    const durationDays = Math.max(1, Number(plan.durationDays || 7));
+
     setEditingId(plan._id);
+    setActiveMealSetTab("mixed");
 
     setForm({
       title: plan.title,
@@ -441,7 +700,7 @@ export default function AdminPlans() {
       goal: plan.goal,
       mealMode: plan.mealMode || "both",
       badge: plan.badge || "",
-      durationDays: String(plan.durationDays || 7),
+      durationDays: String(durationDays),
       price: String(plan.price || ""),
       trialPrice:
         plan.trialPrice === null || plan.trialPrice === undefined
@@ -454,10 +713,10 @@ export default function AdminPlans() {
       imageUrl: plan.imageUrl || "",
       perksText: arrayToText(plan.perks),
       rewardsText: arrayToText(plan.rewards) || DEFAULT_PLAN_REWARD,
-      mealsText: arrayToText(plan.meals),
       rewardEligible: plan.rewardEligible !== false,
       isActive: plan.isActive !== false,
       sortOrder: String(plan.sortOrder || 0),
+      mealSets: normalizeMealSets(plan.mealSets, durationDays),
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -516,14 +775,16 @@ export default function AdminPlans() {
     };
   }, [plans]);
 
+  const activeMealSetDays = form.mealSets[activeMealSetTab] || [];
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Manage Plans</h1>
 
         <p className="mt-1 text-sm text-gray-500">
-          Create and manage MacroBox meal plans, pricing, perks, rewards and
-          suggested meals.
+          Create professional meal plans by selecting actual meals for Veg,
+          Non-Veg and Mixed plan versions.
         </p>
       </div>
 
@@ -646,10 +907,9 @@ export default function AdminPlans() {
           <input
             placeholder="Duration days"
             type="number"
+            min={1}
             value={form.durationDays}
-            onChange={(e) =>
-              setForm({ ...form, durationDays: e.target.value })
-            }
+            onChange={(e) => updateDurationDays(e.target.value)}
             className="rounded-lg border px-3 py-2"
           />
 
@@ -732,16 +992,157 @@ export default function AdminPlans() {
             value={form.rewardsText}
             onChange={(e) => setForm({ ...form, rewardsText: e.target.value })}
             rows={5}
-            className="rounded-lg border px-3 py-2"
+            className="rounded-lg border px-3 py-2 md:col-span-2"
           />
+        </div>
 
-          <textarea
-            placeholder="Suggested meals - one per line"
-            value={form.mealsText}
-            onChange={(e) => setForm({ ...form, mealsText: e.target.value })}
-            rows={5}
-            className="rounded-lg border px-3 py-2"
-          />
+        <div className="mt-8 rounded-2xl border border-green-100 bg-green-50/40 p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h3 className="text-lg font-black text-gray-900">
+                Meals Included in This Plan
+              </h3>
+
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Select actual meals from your Meals collection for each day.
+              </p>
+            </div>
+
+            <div className="text-sm font-bold text-slate-500">
+              {loadingMeals
+                ? "Loading meals..."
+                : `${mealOptions.length} meals available`}
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {mealSetTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveMealSetTab(tab.key)}
+                className={`rounded-xl border px-4 py-2 text-sm font-black transition ${
+                  activeMealSetTab === tab.key
+                    ? "border-green-600 bg-green-600 text-white"
+                    : "border-green-100 bg-white text-green-700 hover:bg-green-50"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <p className="mt-3 text-xs font-bold text-slate-500">
+            {mealSetTabs.find((tab) => tab.key === activeMealSetTab)?.hint}
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {activeMealSetTab !== "veg" && (
+              <button
+                type="button"
+                onClick={() => copyMealSet("veg", activeMealSetTab)}
+                className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Copy Veg meals here
+              </button>
+            )}
+
+            {activeMealSetTab !== "nonveg" && (
+              <button
+                type="button"
+                onClick={() => copyMealSet("nonveg", activeMealSetTab)}
+                className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Copy Non-Veg meals here
+              </button>
+            )}
+
+            {activeMealSetTab !== "mixed" && (
+              <button
+                type="button"
+                onClick={() => copyMealSet("mixed", activeMealSetTab)}
+                className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Copy Mixed meals here
+              </button>
+            )}
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {activeMealSetDays.map((item, index) => {
+              const selectedMealId = getMealId(item.meal);
+              const selectedMeal = mealOptions.find(
+                (meal) => meal._id === selectedMealId
+              );
+
+              return (
+                <div
+                  key={`${activeMealSetTab}-${item.day}`}
+                  className="rounded-2xl border bg-white p-4 shadow-sm"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-gray-900">
+                        Day {item.day}
+                      </p>
+
+                      <p className="text-xs font-bold text-slate-400">
+                        Choose meal for this day
+                      </p>
+                    </div>
+
+                    {selectedMeal?.foodType && (
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-black ${
+                          selectedMeal.foodType === "veg"
+                            ? "bg-green-50 text-green-700"
+                            : "bg-orange-50 text-orange-700"
+                        }`}
+                      >
+                        {selectedMeal.foodType === "veg" ? "Veg" : "Non-Veg"}
+                      </span>
+                    )}
+                  </div>
+
+                  <select
+                    value={selectedMealId}
+                    onChange={(e) =>
+                      updateMealForDay(
+                        activeMealSetTab,
+                        index,
+                        e.target.value
+                      )
+                    }
+                    className="h-12 w-full rounded-xl border px-3 text-sm font-bold outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                  >
+                    <option value="">Select meal</option>
+
+                    {mealOptionsByTab.map((meal) => (
+                      <option key={meal._id} value={meal._id}>
+                        {meal.title} · ₹{meal.price || 0} ·{" "}
+                        {meal.foodType === "veg" ? "Veg" : "Non-Veg"}
+                      </option>
+                    ))}
+                  </select>
+
+                  {selectedMeal && (
+                    <div className="mt-3 rounded-xl bg-slate-50 p-3">
+                      <p className="text-sm font-black text-slate-900">
+                        {selectedMeal.title}
+                      </p>
+
+                      <div className="mt-2 grid grid-cols-4 gap-2 text-xs font-black text-slate-600">
+                        <span>₹{selectedMeal.price || 0}</span>
+                        <span>{selectedMeal.protein || 0}g P</span>
+                        <span>{selectedMeal.calories || 0} Cal</span>
+                        <span>{selectedMeal.carbs || 0}g C</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="mt-6 flex gap-3">

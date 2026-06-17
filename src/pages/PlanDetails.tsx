@@ -41,12 +41,28 @@ type PlanDay = {
   day: number;
   title?: string;
   defaultMeal?: MealCard | null;
+  vegAlternative?: MealCard | null;
+  nonVegAlternative?: MealCard | null;
   availableMeals?: MealCard[];
+};
+
+type MealSetDay = {
+  day: number;
+  title?: string;
+  meal?: MealCard | string | null;
+  isActive?: boolean;
+};
+
+type MealSets = {
+  veg?: MealSetDay[];
+  nonveg?: MealSetDay[];
+  mixed?: MealSetDay[];
 };
 
 type BackendPlan = {
   _id: string;
   planId: string;
+  challengeId?: string;
   title: string;
   subtitle?: string;
   description?: string;
@@ -61,6 +77,7 @@ type BackendPlan = {
   rewards?: string[];
   meals?: string[];
   days?: PlanDay[];
+  mealSets?: MealSets;
   rewardEligible?: boolean;
   rewardUnlocked?: boolean;
 };
@@ -77,6 +94,12 @@ type PlanDaySelection = {
   day: number;
   selectedMealId: string;
   preference: UserPreference;
+};
+
+const getMealId = (meal?: MealCard | string | null) => {
+  if (!meal) return "";
+  if (typeof meal === "string") return meal;
+  return String(meal._id || "");
 };
 
 const getMealDietType = (meal?: MealCard | null) => {
@@ -115,7 +138,47 @@ const getMealById = (meals: MealCard[], id: string) => {
   return meals.find((meal) => String(meal._id) === String(id)) || null;
 };
 
-const pickMealForDay = (
+const preferenceToMealSetKey = (preference: UserPreference) => {
+  if (preference === "veg") return "veg";
+  if (preference === "nonveg") return "nonveg";
+  return "mixed";
+};
+
+const getMealSetDays = (
+  plan: BackendPlan | null,
+  preference: UserPreference
+): MealSetDay[] => {
+  const key = preferenceToMealSetKey(preference);
+  const directSet = plan?.mealSets?.[key];
+
+  if (Array.isArray(directSet) && directSet.length > 0) {
+    return directSet;
+  }
+
+  if (preference === "mixed") {
+    const vegSet = plan?.mealSets?.veg || [];
+    const nonvegSet = plan?.mealSets?.nonveg || [];
+
+    if (vegSet.length || nonvegSet.length) {
+      const maxLength = Math.max(vegSet.length, nonvegSet.length);
+
+      return Array.from({ length: maxLength }, (_, index) => {
+        const picked = index % 2 === 0 ? nonvegSet[index] || vegSet[index] : vegSet[index] || nonvegSet[index];
+
+        return {
+          day: index + 1,
+          title: picked?.title || `Day ${index + 1}`,
+          meal: picked?.meal || null,
+          isActive: picked?.isActive !== false,
+        };
+      });
+    }
+  }
+
+  return [];
+};
+
+const pickMealForOldDay = (
   day: PlanDay,
   preference: UserPreference,
   mealMode: MealMode
@@ -124,6 +187,7 @@ const pickMealForDay = (
 
   if (mealMode === "veg" || preference === "veg") {
     return (
+      day.vegAlternative ||
       availableMeals.find((meal) => getMealDietType(meal) === "veg") ||
       day.defaultMeal ||
       availableMeals[0] ||
@@ -133,6 +197,7 @@ const pickMealForDay = (
 
   if (mealMode === "nonveg" || preference === "nonveg") {
     return (
+      day.nonVegAlternative ||
       availableMeals.find((meal) => getMealDietType(meal) === "nonveg") ||
       day.defaultMeal ||
       availableMeals[0] ||
@@ -187,15 +252,10 @@ export default function PlanDetails() {
     "Choose your MacroBox meal plan, schedule your daily deliveries, and enjoy goal-based healthy meals.";
 
   const displayBadge = plan?.badge || "MacroBox Plan";
-
   const displayPrice = plan?.trialPrice || plan?.price || 99;
-
   const originalPrice = plan?.originalPrice || null;
-
   const durationDays = plan?.durationDays || 7;
-
   const rewardEligible = plan?.rewardEligible !== false;
-
   const mealMode = plan?.mealMode || cartMealsData?.plan?.mealMode || "both";
 
   const availablePreferenceOptions = useMemo(() => {
@@ -204,7 +264,33 @@ export default function PlanDetails() {
     return ["mixed", "veg", "nonveg"] as UserPreference[];
   }, [mealMode]);
 
-  const allMeals = useMemo(() => cartMealsData?.meals || [], [cartMealsData]);
+  const allMeals = useMemo(() => {
+    const fromApi = cartMealsData?.meals || [];
+    const fromMealSets: MealCard[] = [];
+
+    const sets = plan?.mealSets;
+
+    ["veg", "nonveg", "mixed"].forEach((key) => {
+      const days = sets?.[key as keyof MealSets] || [];
+
+      days.forEach((day) => {
+        if (day.meal && typeof day.meal !== "string") {
+          fromMealSets.push(day.meal);
+        }
+      });
+    });
+
+    const merged = [...fromApi, ...fromMealSets];
+    const map = new Map<string, MealCard>();
+
+    merged.forEach((meal) => {
+      if (meal?._id) {
+        map.set(String(meal._id), meal);
+      }
+    });
+
+    return Array.from(map.values());
+  }, [cartMealsData, plan]);
 
   const selectedMeals = useMemo(() => {
     return planDays
@@ -231,12 +317,23 @@ export default function PlanDetails() {
 
   const buildInitialPlanDays = (
     data: CartMealsResponse,
-    selectedPreference: UserPreference
+    selectedPreference: UserPreference,
+    currentPlan: BackendPlan | null
   ) => {
-    const mode = data.plan?.mealMode || "both";
+    const mode = data.plan?.mealMode || currentPlan?.mealMode || "both";
+
+    const mealSetDays = getMealSetDays(currentPlan || data.plan, selectedPreference);
+
+    if (mealSetDays.length > 0) {
+      return mealSetDays.map((day, index) => ({
+        day: day.day || index + 1,
+        selectedMealId: getMealId(day.meal),
+        preference: selectedPreference,
+      }));
+    }
 
     return (data.days || []).map((day) => {
-      const selectedMeal = pickMealForDay(day, selectedPreference, mode);
+      const selectedMeal = pickMealForOldDay(day, selectedPreference, mode);
 
       return {
         day: day.day,
@@ -275,7 +372,6 @@ export default function PlanDetails() {
         mode === "veg" ? "veg" : mode === "nonveg" ? "nonveg" : "mixed";
 
       setPreference(defaultPreference);
-      setPlanDays(buildInitialPlanDays(data, defaultPreference));
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Failed to load plan meals");
     } finally {
@@ -292,11 +388,12 @@ export default function PlanDetails() {
   }, [planId]);
 
   useEffect(() => {
-    if (!cartMealsData?.days?.length) return;
+    if (!cartMealsData) return;
 
-    setPlanDays(buildInitialPlanDays(cartMealsData, preference));
+    const mergedPlan = plan || cartMealsData.plan;
+    setPlanDays(buildInitialPlanDays(cartMealsData, preference, mergedPlan));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preference, cartMealsData]);
+  }, [preference, cartMealsData, plan]);
 
   const addPlanToCart = async () => {
     try {
@@ -346,7 +443,7 @@ export default function PlanDetails() {
         _id: `plan-${planId}`,
         itemType: "plan",
         planId: planId || "",
-        title: `${displayTitle}`,
+        title: displayTitle,
         description: `Includes ${durationDays} meals delivered across ${durationDays} days.`,
         price: Number(displayPrice || totals.price || 0),
         protein: totals.protein,
@@ -463,6 +560,7 @@ export default function PlanDetails() {
                   <p className="text-xs font-black uppercase tracking-wide text-slate-400">
                     Selected Plan Type
                   </p>
+
                   <p className="mt-1 text-lg font-black capitalize text-green-700">
                     {preference === "mixed" ? "Mixed" : preference}
                   </p>
@@ -472,6 +570,7 @@ export default function PlanDetails() {
                   <p className="text-xs font-black uppercase tracking-wide text-slate-400">
                     Selected Meals
                   </p>
+
                   <p className="mt-1 text-sm font-bold text-slate-700">
                     {loadingMeals
                       ? "Loading meals..."
@@ -570,7 +669,7 @@ export default function PlanDetails() {
                   <ShoppingCart size={18} />
                 )}
 
-                Add 7-Day Plan to Cart
+                Add {durationDays}-Day Plan to Cart
                 <ArrowRight size={18} />
               </button>
             </div>
@@ -668,8 +767,14 @@ export default function PlanDetails() {
             <div className="mt-4 space-y-3">
               <Step number="01" text="Choose Veg, Nonveg or Mixed." />
               <Step number="02" text="Add the plan to cart." />
-              <Step number="03" text="Select Day 1 date and daily delivery slots." />
-              <Step number="04" text="Pay once and unlock 10% OFF your next eligible plan." />
+              <Step
+                number="03"
+                text="Select Day 1 date and daily delivery slots."
+              />
+              <Step
+                number="04"
+                text="Pay once and unlock 10% OFF your next eligible plan."
+              />
             </div>
           </div>
         </section>
