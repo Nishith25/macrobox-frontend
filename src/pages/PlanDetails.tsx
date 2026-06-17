@@ -160,7 +160,9 @@ const getPreferenceLabel = (preference: UserPreference) => {
   return "Mixed";
 };
 
-const getSafePreferenceFromUrl = (value: string | null): UserPreference | null => {
+const getSafePreferenceFromUrl = (
+  value: string | null
+): UserPreference | null => {
   if (value === "veg") return "veg";
   if (value === "nonveg") return "nonveg";
   if (value === "mixed") return "mixed";
@@ -305,7 +307,10 @@ export default function PlanDetails() {
   const durationDays = plan?.durationDays || 7;
   const rewardEligible = plan?.rewardEligible !== false;
   const mealMode = plan?.mealMode || cartMealsData?.plan?.mealMode || "both";
-  const displayPrice = getPlanPriceByPreference(plan || cartMealsData?.plan || null, preference);
+  const displayPrice = getPlanPriceByPreference(
+    plan || cartMealsData?.plan || null,
+    preference
+  );
   const originalPrice = plan?.originalPrice || null;
 
   const availablePreferenceOptions = useMemo(() => {
@@ -562,7 +567,7 @@ export default function PlanDetails() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f7f7] px-4 py-8 text-slate-950 sm:px-6">
+    <main className="min-h-screen bg-[#f7f7f7] px-4 py-6 text-slate-950 sm:px-6 sm:py-8">
       <div className="mx-auto max-w-[1180px]">
         <Link
           to="/plans"
@@ -572,35 +577,35 @@ export default function PlanDetails() {
           Back to Plans
         </Link>
 
-        <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        <section className="grid gap-5 lg:grid-cols-[1fr_380px] lg:items-start">
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 bg-gradient-to-br from-green-50 via-white to-white p-6 sm:p-8">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <p className="inline-flex rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-green-700">
-                    {plan.badge || "MacroBox Plan"}
-                  </p>
-
-                  <h1 className="mt-4 text-4xl font-black leading-[0.98] tracking-[-0.06em] text-slate-950 sm:text-6xl">
+            <div className="border-b border-slate-100 bg-gradient-to-br from-green-50 via-white to-white p-5 sm:p-8">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-4xl font-black leading-[0.98] tracking-[-0.06em] text-slate-950 sm:text-6xl">
                     {displayTitle}
                   </h1>
 
-                  <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600">
+                  <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-600 sm:text-base">
                     {displayDescription}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white p-2 shadow-sm">
-                  <div className="flex flex-wrap gap-2">
+                <div className="w-full rounded-2xl border border-green-100 bg-white p-2 shadow-sm sm:w-fit lg:min-w-[220px]">
+                  <p className="mb-2 px-2 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                    Select plan type
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
                     {availablePreferenceOptions.map((option) => (
                       <button
                         key={option}
                         type="button"
                         onClick={() => setPreference(option)}
                         disabled={loadingMeals}
-                        className={`rounded-xl px-4 py-2 text-xs font-black transition disabled:opacity-60 ${
+                        className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition disabled:opacity-60 sm:px-4 ${
                           preference === option
-                            ? "bg-green-600 text-white"
+                            ? "bg-green-600 text-white shadow-[0_10px_22px_rgba(22,163,74,0.18)]"
                             : "bg-green-50 text-green-700 hover:bg-green-100"
                         }`}
                       >
@@ -612,7 +617,7 @@ export default function PlanDetails() {
               </div>
             </div>
 
-            <div className="p-6 sm:p-8">
+            <div className="p-5 sm:p-8">
               <div className="grid gap-3 sm:grid-cols-3">
                 <InfoCard
                   label="Selected Type"
@@ -634,15 +639,14 @@ export default function PlanDetails() {
 
               {selectedMeals.length > 0 && (
                 <section className="mt-6">
-                  <div className="mb-4 flex items-end justify-between gap-3">
-                    <div>
-                      <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                        Meals included
-                      </h2>
-                      <p className="mt-1 text-sm font-semibold text-slate-500">
-                        Your selected {getPreferenceLabel(preference)} plan menu
-                      </p>
-                    </div>
+                  <div className="mb-4">
+                    <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                      Meals included
+                    </h2>
+
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Your selected {getPreferenceLabel(preference)} plan menu
+                    </p>
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-2">
@@ -652,7 +656,7 @@ export default function PlanDetails() {
                         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div>
+                          <div className="min-w-0">
                             <p className="text-xs font-black uppercase tracking-wide text-green-600">
                               Day {index + 1}
                             </p>
@@ -672,9 +676,18 @@ export default function PlanDetails() {
                         </div>
 
                         <div className="mt-4 grid grid-cols-3 gap-2">
-                          <MiniLightStat label="Protein" value={`${meal.protein || 0}g`} />
-                          <MiniLightStat label="Calories" value={`${meal.calories || 0}`} />
-                          <MiniLightStat label="Carbs" value={`${meal.carbs || 0}g`} />
+                          <MiniLightStat
+                            label="Protein"
+                            value={`${meal.protein || 0}g`}
+                          />
+                          <MiniLightStat
+                            label="Calories"
+                            value={`${meal.calories || 0}`}
+                          />
+                          <MiniLightStat
+                            label="Carbs"
+                            value={`${meal.carbs || 0}g`}
+                          />
                         </div>
                       </div>
                     ))}
@@ -684,7 +697,7 @@ export default function PlanDetails() {
             </div>
           </div>
 
-          <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24">
+          <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-24">
             <div className="border-b border-slate-100 pb-5">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-green-600">
                 Plan Price
@@ -709,8 +722,14 @@ export default function PlanDetails() {
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <MiniPriceStat label="Protein" value={`${selectedTotals.protein}g`} />
-              <MiniPriceStat label="Calories" value={`${selectedTotals.calories}`} />
+              <MiniPriceStat
+                label="Protein"
+                value={`${selectedTotals.protein}g`}
+              />
+              <MiniPriceStat
+                label="Calories"
+                value={`${selectedTotals.calories}`}
+              />
               <MiniPriceStat label="Carbs" value={`${selectedTotals.carbs}g`} />
               <MiniPriceStat label="Fat" value={`${selectedTotals.fat}g`} />
             </div>
