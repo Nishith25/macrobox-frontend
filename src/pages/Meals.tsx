@@ -1,6 +1,6 @@
 // frontend/src/pages/Meals.tsx (FRONTEND)
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
@@ -15,7 +15,6 @@ import {
   RotateCcw,
   Search,
   ShoppingCart,
-  SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
 
@@ -69,6 +68,8 @@ const defaultOffers: OfferBanner[] = [
     code: "LAUNCH99",
     ctaText: "Order Now",
     ctaLink: "/meals",
+    isActive: true,
+    sortOrder: 1,
   },
   {
     title: "7-Day Meal Plans",
@@ -77,6 +78,8 @@ const defaultOffers: OfferBanner[] = [
     code: "PLAN10",
     ctaText: "View Plans",
     ctaLink: "/plans",
+    isActive: true,
+    sortOrder: 2,
   },
   {
     title: "High Protein Picks",
@@ -84,6 +87,8 @@ const defaultOffers: OfferBanner[] = [
     badge: "POPULAR",
     ctaText: "Explore",
     ctaLink: "/meals?goal=muscle_gain",
+    isActive: true,
+    sortOrder: 3,
   },
   {
     title: "Clean Eating Meals",
@@ -91,6 +96,8 @@ const defaultOffers: OfferBanner[] = [
     badge: "HEALTHY",
     ctaText: "Explore",
     ctaLink: "/meals?goal=clean_eating",
+    isActive: true,
+    sortOrder: 4,
   },
 ];
 
@@ -114,17 +121,16 @@ const getMealDescription = (meal: MealWithGoals) => {
 };
 
 const getOfferLink = (offer: OfferBanner) => {
-  return offer.ctaLink || offer.linkTo || "/meals";
+  const link = String(offer.ctaLink || offer.linkTo || "").trim();
+  return link || "/meals";
 };
 
 const normalizeOffers = (items: OfferBanner[]) => {
-  const clean = items.filter((item) => item.isActive !== false);
+  const clean = items
+    .filter((item) => item.isActive !== false)
+    .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
 
-  if (clean.length === 0) return defaultOffers;
-
-  return clean.sort(
-    (a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0)
-  );
+  return clean.length > 0 ? clean : defaultOffers;
 };
 
 export default function Meals() {
@@ -132,6 +138,8 @@ export default function Meals() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { cart, addToCart, increaseQty, decreaseQty } = useCart();
+
+  const offersScrollerRef = useRef<HTMLDivElement | null>(null);
 
   const urlGoal = searchParams.get("goal");
   const userGoal = user?.onboarding?.goal;
@@ -151,6 +159,7 @@ export default function Meals() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [offersLoading, setOffersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const welcome = searchParams.get("welcome") === "true";
@@ -194,14 +203,20 @@ export default function Meals() {
 
     const fetchOffers = async () => {
       try {
+        setOffersLoading(true);
+
         const res = await api.get("/offers/public");
+        const data = Array.isArray(res.data) ? res.data : [];
+
         if (!mounted) return;
 
-        const data = Array.isArray(res.data) ? res.data : [];
         setOffers(normalizeOffers(data));
       } catch {
         if (!mounted) return;
         setOffers(defaultOffers);
+      } finally {
+        if (!mounted) return;
+        setOffersLoading(false);
       }
     };
 
@@ -211,6 +226,73 @@ export default function Meals() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const scroller = offersScrollerRef.current;
+    if (!scroller || offers.length === 0) return;
+
+    let rafId = 0;
+    let isPointerDown = false;
+    let lastX = 0;
+    let autoResumeAt = 0;
+
+    const speed = 0.45;
+
+    const step = () => {
+      const now = Date.now();
+
+      if (!isPointerDown && now >= autoResumeAt) {
+        const halfWidth = scroller.scrollWidth / 2;
+
+        scroller.scrollLeft += speed;
+
+        if (halfWidth > 0 && scroller.scrollLeft >= halfWidth) {
+          scroller.scrollLeft = scroller.scrollLeft - halfWidth;
+        }
+      }
+
+      rafId = requestAnimationFrame(step);
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      isPointerDown = true;
+      lastX = event.clientX;
+      autoResumeAt = Date.now() + 900;
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!isPointerDown) return;
+
+      const dx = event.clientX - lastX;
+      lastX = event.clientX;
+      scroller.scrollLeft -= dx;
+      autoResumeAt = Date.now() + 900;
+    };
+
+    const onPointerUp = () => {
+      isPointerDown = false;
+      autoResumeAt = Date.now() + 700;
+    };
+
+    const onScroll = () => {
+      autoResumeAt = Date.now() + 700;
+    };
+
+    scroller.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+
+    rafId = requestAnimationFrame(step);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      scroller.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      scroller.removeEventListener("scroll", onScroll);
+    };
+  }, [offers]);
 
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + (item.qty || 0), 0),
@@ -358,13 +440,7 @@ export default function Meals() {
       return;
     }
 
-    if (
-      value === "protein_high" ||
-      value === "calories_low" ||
-      value === "price_low"
-    ) {
-      setSortBy(value);
-    }
+    setSortBy(value);
   };
 
   const resetFilters = () => {
@@ -377,8 +453,14 @@ export default function Meals() {
 
   const activeTitle = goal ? `${goalLabels[goal]} Meals` : "All Meals";
 
+  const hasActiveFilters =
+    goal !== "" ||
+    filter !== "all" ||
+    sortBy !== "default" ||
+    Boolean(searchQuery.trim());
+
   const firstOffer = offers[0] || defaultOffers[0];
-  const scrollingOffers = offers.length >= 3 ? offers : [...offers, ...defaultOffers];
+  const scrollingOffers = [...offers, ...offers, ...offers];
 
   return (
     <main className="min-h-screen bg-white pb-28 text-slate-950">
@@ -392,7 +474,7 @@ export default function Meals() {
                 <div>
                   <p className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-green-300">
                     <Sparkles size={13} />
-                    MacroBox
+                    MacroBox Meals
                   </p>
 
                   <h1 className="mt-4 text-[30px] font-black leading-[0.98] tracking-[-0.06em] sm:text-[48px]">
@@ -461,7 +543,7 @@ export default function Meals() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search for meals"
-                className="h-13 w-full rounded-[18px] border border-slate-200 bg-slate-50 py-4 pl-12 pr-4 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+                className="h-14 w-full rounded-[18px] border border-slate-200 bg-slate-50 py-4 pl-12 pr-4 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
               />
             </div>
 
@@ -499,6 +581,12 @@ export default function Meals() {
               />
 
               <FilterChip
+                label="Weight Gain"
+                active={goal === "weight_gain"}
+                onClick={() => handleQuickFilter("weight_gain")}
+              />
+
+              <FilterChip
                 label="Clean Eating"
                 active={goal === "clean_eating"}
                 onClick={() => handleQuickFilter("clean_eating")}
@@ -525,7 +613,8 @@ export default function Meals() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 shadow-sm"
+                disabled={!hasActiveFilters}
+                className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 shadow-sm disabled:opacity-40"
               >
                 <RotateCcw size={14} />
                 Reset
@@ -544,22 +633,23 @@ export default function Meals() {
               </h2>
 
               <p className="text-xs font-semibold text-slate-500">
-                Scroll anytime. Auto-scroll continues without stopping.
+                Auto-scrolling offers. You can swipe manually anytime.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate("/admin/meals")}
-              className="hidden text-xs font-black text-green-700 sm:block"
-            >
-              Manage offers
-            </button>
+            {offersLoading ? (
+              <span className="text-xs font-black text-slate-400">
+                Loading
+              </span>
+            ) : null}
           </div>
 
-          <div className="offer-marquee-wrap overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="offer-marquee-track flex w-max gap-3 sm:gap-4">
-              {[...scrollingOffers, ...scrollingOffers].map((offer, index) => (
+          <div
+            ref={offersScrollerRef}
+            className="cursor-grab overflow-x-auto active:cursor-grabbing [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            <div className="flex w-max gap-3 sm:gap-4">
+              {scrollingOffers.map((offer, index) => (
                 <button
                   key={`${offer._id || offer.title}-${index}`}
                   type="button"
@@ -592,11 +682,11 @@ export default function Meals() {
                       {offer.ctaText || "Explore"}
                     </p>
 
-                    {offer.code && (
+                    {offer.code ? (
                       <p className="rounded-full bg-slate-950 px-3 py-1 text-[11px] font-black text-white">
                         {offer.code}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </button>
               ))}
@@ -687,12 +777,7 @@ export default function Meals() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setSortBy("default")}
-              className="hidden h-10 items-center gap-2 rounded-full border border-slate-200 px-4 text-xs font-black text-slate-600 sm:inline-flex"
-            >
-              <SlidersHorizontal size={14} />
+            <p className="hidden rounded-full bg-slate-50 px-4 py-2 text-xs font-black text-slate-500 sm:block">
               Sort:{" "}
               {sortBy === "protein_high"
                 ? "Protein High"
@@ -701,7 +786,7 @@ export default function Meals() {
                 : sortBy === "price_low"
                 ? "Price Low"
                 : "Default"}
-            </button>
+            </p>
           </div>
 
           {loading ? (
@@ -877,42 +962,6 @@ export default function Meals() {
           </div>
         )}
       </section>
-
-      <style>{`
-        .offer-marquee-wrap {
-          cursor: grab;
-        }
-
-        .offer-marquee-wrap:active {
-          cursor: grabbing;
-        }
-
-        .offer-marquee-track {
-          animation: macroboxOfferMarquee 28s linear infinite;
-          will-change: transform;
-        }
-
-        @keyframes macroboxOfferMarquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-
-        @media (max-width: 640px) {
-          .offer-marquee-track {
-            animation-duration: 20s;
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .offer-marquee-track {
-            animation: none;
-          }
-        }
-      `}</style>
     </main>
   );
 }
