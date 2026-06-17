@@ -1,6 +1,6 @@
 // frontend/src/pages/Meals.tsx (FRONTEND)
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
@@ -17,7 +17,6 @@ import {
   Search,
   ShoppingCart,
   Sparkles,
-  Star,
 } from "lucide-react";
 
 type GoalType = "fat_loss" | "muscle_gain" | "weight_gain" | "clean_eating";
@@ -64,12 +63,6 @@ const dietOptions: { key: FilterType; label: string }[] = [
   { key: "all", label: "All" },
   { key: "veg", label: "Veg" },
   { key: "nonveg", label: "Non-Veg" },
-];
-
-const sortChipOptions: { key: SortType; label: string }[] = [
-  { key: "protein_high", label: "Protein High" },
-  { key: "calories_low", label: "Low Calorie" },
-  { key: "price_low", label: "Price Low" },
 ];
 
 const defaultOffers: OfferBanner[] = [
@@ -119,19 +112,13 @@ const getMealDietLabel = (foodType?: string) => {
 const getMealDescription = (meal: MealWithGoals) => {
   return (
     meal.description ||
-    `${meal.protein || 0}g protein • ${
-      meal.calories || 0
-    } kcal • balanced MacroBox meal`
+    `${meal.protein || 0}g protein • ${meal.calories || 0} kcal • balanced MacroBox meal`
   );
 };
 
 const getOfferLink = (offer: OfferBanner) => {
   const link = String(offer.ctaLink || offer.linkTo || "").trim();
   return link || "/meals";
-};
-
-const getOfferCta = (offer: OfferBanner) => {
-  return offer.ctaText || (offer.code ? `Use ${offer.code}` : "Explore");
 };
 
 const normalizeOffers = (items: OfferBanner[]) => {
@@ -147,8 +134,6 @@ export default function Meals() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { cart, addToCart, increaseQty, decreaseQty } = useCart();
-
-  const offersRef = useRef<HTMLDivElement | null>(null);
 
   const urlGoal = searchParams.get("goal");
   const userGoal = user?.onboarding?.goal;
@@ -186,16 +171,13 @@ export default function Meals() {
         });
 
         if (!mounted) return;
-
         setMeals(Array.isArray(res.data) ? res.data : []);
       } catch {
         if (!mounted) return;
-
         setMeals([]);
         setError("Failed to load meals. Please try again.");
       } finally {
         if (!mounted) return;
-
         setLoading(false);
       }
     };
@@ -218,15 +200,12 @@ export default function Meals() {
         const data = Array.isArray(res.data) ? res.data : [];
 
         if (!mounted) return;
-
         setOffers(normalizeOffers(data));
       } catch {
         if (!mounted) return;
-
         setOffers(defaultOffers);
       } finally {
         if (!mounted) return;
-
         setOffersLoading(false);
       }
     };
@@ -237,38 +216,6 @@ export default function Meals() {
       mounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    const el = offersRef.current;
-
-    if (!el || offers.length <= 1) return;
-
-    let frame = 0;
-    let lastTime = performance.now();
-
-    const speed = 0.035;
-
-    const tick = (time: number) => {
-      const delta = time - lastTime;
-      lastTime = time;
-
-      if (el.scrollWidth > el.clientWidth) {
-        el.scrollLeft += delta * speed;
-
-        const oneSetWidth = el.scrollWidth / 3;
-
-        if (el.scrollLeft >= oneSetWidth) {
-          el.scrollLeft = el.scrollLeft - oneSetWidth;
-        }
-      }
-
-      frame = requestAnimationFrame(tick);
-    };
-
-    frame = requestAnimationFrame(tick);
-
-    return () => cancelAnimationFrame(frame);
-  }, [offers.length]);
 
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + (item.qty || 0), 0),
@@ -397,10 +344,6 @@ export default function Meals() {
     setSearchParams(params);
   };
 
-  const toggleSortChip = (nextSort: SortType) => {
-    setSortBy((prev) => (prev === nextSort ? "default" : nextSort));
-  };
-
   const resetFilters = () => {
     setGoal("");
     setFilter("all");
@@ -422,6 +365,59 @@ export default function Meals() {
 
   return (
     <main className="min-h-screen bg-white pb-28 text-slate-950">
+      <style>
+        {`
+          @keyframes macrobox-offer-scroll {
+            0% {
+              transform: translate3d(0, 0, 0);
+            }
+            100% {
+              transform: translate3d(-33.333%, 0, 0);
+            }
+          }
+
+          .macrobox-offer-viewport {
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            touch-action: pan-x;
+            cursor: grab;
+          }
+
+          .macrobox-offer-viewport:active {
+            cursor: grabbing;
+          }
+
+          .macrobox-offer-viewport::-webkit-scrollbar {
+            display: none;
+          }
+
+          .macrobox-offer-viewport {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+
+          .macrobox-offer-track {
+            animation: macrobox-offer-scroll 18s linear infinite;
+            will-change: transform;
+            transform: translate3d(0, 0, 0);
+          }
+
+          @media (max-width: 640px) {
+            .macrobox-offer-track {
+              animation-duration: 14s;
+            }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .macrobox-offer-track {
+              animation: none;
+            }
+          }
+        `}
+      </style>
+
       <section className="border-b border-slate-100 bg-white">
         <div className="mx-auto max-w-[1220px] px-4 pb-5 pt-5 sm:px-6 lg:pb-7 lg:pt-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -453,52 +449,38 @@ export default function Meals() {
       </section>
 
       <section className="mx-auto max-w-[1220px] px-4 py-5 sm:px-6">
-        {offers.length > 0 && (
-          <section className="mb-6 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
-              <div className="flex items-center gap-2">
-                <Sparkles size={18} className="text-green-600" />
+        <section className="mb-6 overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} className="text-green-600" />
 
-                <div>
-                  <h2 className="text-lg font-black tracking-[-0.03em] text-slate-950">
-                    Offers & Updates
-                  </h2>
+              <div>
+                <h2 className="text-lg font-black tracking-[-0.03em] text-slate-950">
+                  Offers & Updates
+                </h2>
 
-                  <p className="text-xs font-semibold text-slate-500">
-                    Latest MacroBox offers selected by admin.
-                  </p>
-                </div>
+                <p className="text-xs font-semibold text-slate-500">
+                  Latest MacroBox offers selected by admin.
+                </p>
               </div>
-
-              {offersLoading && (
-                <span className="text-xs font-black text-slate-400">
-                  Loading
-                </span>
-              )}
             </div>
 
-            <div
-              ref={offersRef}
-              className="flex gap-4 overflow-x-auto scroll-smooth p-4 [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] sm:p-5 [&::-webkit-scrollbar]:hidden"
-            >
+            {offersLoading && (
+              <span className="text-xs font-black text-slate-400">
+                Loading
+              </span>
+            )}
+          </div>
+
+          <div className="macrobox-offer-viewport p-4 sm:p-5">
+            <div className="macrobox-offer-track flex w-max gap-4">
               {scrollingOffers.map((offer, index) => (
                 <button
                   key={`${offer._id || offer.title}-${index}`}
                   type="button"
                   onClick={() => navigate(getOfferLink(offer))}
-                  className="min-w-[260px] overflow-hidden rounded-[24px] border border-green-100 bg-gradient-to-br from-green-50 via-white to-white p-4 text-left transition hover:border-green-300 hover:shadow-md sm:min-w-[360px]"
+                  className="min-w-[260px] border border-green-100 bg-gradient-to-br from-green-50 via-white to-white p-4 text-left transition hover:border-green-300 hover:shadow-md sm:min-w-[360px]"
                 >
-                  {offer.imageUrl ? (
-                    <img
-                      src={offer.imageUrl}
-                      alt={offer.title}
-                      className="mb-4 h-28 w-full rounded-[18px] object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : null}
-
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <span className="rounded-full bg-green-600 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
@@ -513,12 +495,6 @@ export default function Meals() {
                         {offer.subtitle ||
                           "Special MacroBox offer available now."}
                       </p>
-
-                      {offer.code && (
-                        <p className="mt-3 w-fit rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
-                          Code: {offer.code}
-                        </p>
-                      )}
                     </div>
 
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-white sm:h-11 sm:w-11">
@@ -526,31 +502,30 @@ export default function Meals() {
                     </span>
                   </div>
 
-                  <p className="mt-4 text-sm font-black text-green-700">
-                    {getOfferCta(offer)}
-                  </p>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <p className="text-sm font-black text-green-700">
+                      {offer.ctaText || "Explore"}
+                    </p>
+
+                    {offer.code && (
+                      <p className="rounded-full bg-slate-950 px-3 py-1 text-[11px] font-black text-white">
+                        {offer.code}
+                      </p>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
-          </section>
-        )}
+          </div>
+        </section>
 
         {topPicks.length > 0 && (
           <section className="mb-7">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
-                  <Star size={22} className="fill-orange-400 text-orange-400" />
-                  Top Picks
-                </h2>
+            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+              Top Picks
+            </h2>
 
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Admin-selected best meals.
-                </p>
-              </div>
-            </div>
-
-            <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+            <div className="-mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
               {topPicks.map((meal) => {
                 const qty = getCartQty(meal._id);
 
@@ -570,7 +545,7 @@ export default function Meals() {
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
 
-                    <div className="absolute left-3 top-3 rounded-full bg-orange-500 px-3 py-1 text-xs font-black text-white">
+                    <div className="absolute left-3 top-3 rounded-full bg-orange-500 px-3 py-1 text-[10px] font-black text-white">
                       Top Pick
                     </div>
 
@@ -588,10 +563,6 @@ export default function Meals() {
                       <h3 className="mt-2 line-clamp-2 text-lg font-black leading-5 text-white">
                         {meal.title}
                       </h3>
-
-                      <p className="mt-1 text-xs font-bold text-white/80">
-                        {meal.calories || 0} kcal • {meal.protein || 0}g protein
-                      </p>
 
                       <div className="mt-3 flex items-center justify-between gap-3">
                         <p className="text-xl font-black text-white">
@@ -679,20 +650,41 @@ export default function Meals() {
                 </button>
               ))}
 
-              {sortChipOptions.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => toggleSortChip(item.key)}
-                  className={`h-10 shrink-0 rounded-full border px-4 text-sm font-black transition ${
-                    sortBy === item.key
-                      ? "border-green-600 bg-green-600 text-white"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => setSortBy("protein_high")}
+                className={`h-10 shrink-0 rounded-full border px-4 text-sm font-black transition ${
+                  sortBy === "protein_high"
+                    ? "border-green-600 bg-green-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Protein High
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSortBy("calories_low")}
+                className={`h-10 shrink-0 rounded-full border px-4 text-sm font-black transition ${
+                  sortBy === "calories_low"
+                    ? "border-green-600 bg-green-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Low Calorie
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSortBy("price_low")}
+                className={`h-10 shrink-0 rounded-full border px-4 text-sm font-black transition ${
+                  sortBy === "price_low"
+                    ? "border-green-600 bg-green-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Price Low
+              </button>
             </div>
 
             <div className="grid gap-3 rounded-[20px] border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_230px]">
@@ -732,15 +724,15 @@ export default function Meals() {
         </section>
 
         {loading ? (
-          <div className="rounded-[22px] border border-slate-200 bg-white p-10 text-center text-sm font-black text-slate-500 shadow-sm">
+          <div className="border border-slate-200 bg-white p-10 text-center text-sm font-black text-slate-500 shadow-sm">
             Loading meals...
           </div>
         ) : error ? (
-          <div className="rounded-[22px] border border-red-100 bg-red-50 p-10 text-center text-sm font-black text-red-600">
+          <div className="border border-red-100 bg-red-50 p-10 text-center text-sm font-black text-red-600">
             {error}
           </div>
         ) : filteredMeals.length === 0 ? (
-          <div className="rounded-[22px] border border-slate-200 bg-white p-10 text-center shadow-sm">
+          <div className="border border-slate-200 bg-white p-10 text-center shadow-sm">
             <p className="text-lg font-black text-slate-950">
               No meals available
             </p>
@@ -757,10 +749,10 @@ export default function Meals() {
               return (
                 <article
                   key={meal._id}
-                  className="group rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md sm:p-4"
+                  className="group border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md sm:p-4"
                 >
                   <div className="grid grid-cols-[116px_1fr] gap-3 sm:grid-cols-[160px_1fr_auto] sm:gap-5">
-                    <div className="relative h-[112px] overflow-hidden rounded-[18px] bg-slate-100 sm:h-[144px]">
+                    <div className="relative h-[112px] overflow-hidden bg-slate-100 sm:h-[144px]">
                       <img
                         src={meal.imageUrl || "/placeholder-meal.png"}
                         alt={meal.title}
