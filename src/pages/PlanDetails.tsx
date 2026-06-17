@@ -1,17 +1,20 @@
 // frontend/src/pages/PlanDetails.tsx (FRONTEND)
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  Flame,
   Gift,
   Loader2,
   ShoppingCart,
   Sparkles,
-  Trophy,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -20,6 +23,12 @@ import { useCart } from "../context/CartContext";
 
 type MealMode = "veg" | "nonveg" | "both";
 type UserPreference = "veg" | "nonveg" | "mixed";
+
+type PlanPrices = {
+  veg?: number;
+  nonveg?: number;
+  mixed?: number;
+};
 
 type MealCard = {
   _id: string;
@@ -71,6 +80,7 @@ type BackendPlan = {
   badge?: string;
   durationDays?: number;
   price?: number;
+  prices?: PlanPrices;
   trialPrice?: number | null;
   originalPrice?: number | null;
   perks?: string[];
@@ -144,6 +154,41 @@ const preferenceToMealSetKey = (preference: UserPreference) => {
   return "mixed";
 };
 
+const getPreferenceLabel = (preference: UserPreference) => {
+  if (preference === "veg") return "Veg";
+  if (preference === "nonveg") return "Non-Veg";
+  return "Mixed";
+};
+
+const getSafePreferenceFromUrl = (value: string | null): UserPreference | null => {
+  if (value === "veg") return "veg";
+  if (value === "nonveg") return "nonveg";
+  if (value === "mixed") return "mixed";
+  return null;
+};
+
+const getPlanPriceByPreference = (
+  plan: BackendPlan | null,
+  preference: UserPreference
+) => {
+  const fallback =
+    Number(plan?.price || 0) ||
+    Number(plan?.trialPrice || 0) ||
+    Number(plan?.prices?.mixed || 0) ||
+    Number(plan?.prices?.nonveg || 0) ||
+    Number(plan?.prices?.veg || 0);
+
+  if (preference === "veg") {
+    return Number(plan?.prices?.veg || fallback);
+  }
+
+  if (preference === "nonveg") {
+    return Number(plan?.prices?.nonveg || fallback);
+  }
+
+  return Number(plan?.prices?.mixed || fallback);
+};
+
 const getMealSetDays = (
   plan: BackendPlan | null,
   preference: UserPreference
@@ -163,7 +208,10 @@ const getMealSetDays = (
       const maxLength = Math.max(vegSet.length, nonvegSet.length);
 
       return Array.from({ length: maxLength }, (_, index) => {
-        const picked = index % 2 === 0 ? nonvegSet[index] || vegSet[index] : vegSet[index] || nonvegSet[index];
+        const picked =
+          index % 2 === 0
+            ? nonvegSet[index] || vegSet[index]
+            : vegSet[index] || nonvegSet[index];
 
         return {
           day: index + 1,
@@ -230,6 +278,7 @@ const sumMeals = (meals: MealCard[]) => {
 
 export default function PlanDetails() {
   const { planId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
@@ -242,7 +291,9 @@ export default function PlanDetails() {
   const [adding, setAdding] = useState(false);
   const [loadingMeals, setLoadingMeals] = useState(false);
 
-  const [preference, setPreference] = useState<UserPreference>("mixed");
+  const [preference, setPreference] = useState<UserPreference>(
+    getSafePreferenceFromUrl(searchParams.get("type")) || "mixed"
+  );
   const [planDays, setPlanDays] = useState<PlanDaySelection[]>([]);
 
   const displayTitle = plan?.title || "MacroBox Meal Plan";
@@ -251,12 +302,11 @@ export default function PlanDetails() {
     plan?.description ||
     "Choose your MacroBox meal plan, schedule your daily deliveries, and enjoy goal-based healthy meals.";
 
-  const displayBadge = plan?.badge || "MacroBox Plan";
-  const displayPrice = plan?.trialPrice || plan?.price || 99;
-  const originalPrice = plan?.originalPrice || null;
   const durationDays = plan?.durationDays || 7;
   const rewardEligible = plan?.rewardEligible !== false;
   const mealMode = plan?.mealMode || cartMealsData?.plan?.mealMode || "both";
+  const displayPrice = getPlanPriceByPreference(plan || cartMealsData?.plan || null, preference);
+  const originalPrice = plan?.originalPrice || null;
 
   const availablePreferenceOptions = useMemo(() => {
     if (mealMode === "veg") return ["veg"] as UserPreference[];
@@ -304,7 +354,7 @@ export default function PlanDetails() {
     ? plan.perks
     : [
         "Goal-based meals delivered across the plan",
-        "Choose Veg, Nonveg, or Mixed plan",
+        "Choose Veg, Non-Veg, or Mixed plan",
         "Delivery date and slot will be selected in cart",
         "Pay once and get meals scheduled for every plan day",
       ];
@@ -322,7 +372,10 @@ export default function PlanDetails() {
   ) => {
     const mode = data.plan?.mealMode || currentPlan?.mealMode || "both";
 
-    const mealSetDays = getMealSetDays(currentPlan || data.plan, selectedPreference);
+    const mealSetDays = getMealSetDays(
+      currentPlan || data.plan,
+      selectedPreference
+    );
 
     if (mealSetDays.length > 0) {
       return mealSetDays.map((day, index) => ({
@@ -367,9 +420,11 @@ export default function PlanDetails() {
       setCartMealsData(data);
 
       const mode = data.plan?.mealMode || "both";
+      const urlPreference = getSafePreferenceFromUrl(searchParams.get("type"));
 
       const defaultPreference: UserPreference =
-        mode === "veg" ? "veg" : mode === "nonveg" ? "nonveg" : "mixed";
+        urlPreference ||
+        (mode === "veg" ? "veg" : mode === "nonveg" ? "nonveg" : "mixed");
 
       setPreference(defaultPreference);
     } catch (error: any) {
@@ -406,7 +461,6 @@ export default function PlanDetails() {
 
       const invalidDay = planDays.find((day) => {
         const selectedMeal = getMealById(allMeals, day.selectedMealId);
-
         return !day.selectedMealId || !selectedMeal;
       });
 
@@ -440,18 +494,19 @@ export default function PlanDetails() {
       });
 
       addToCart({
-        _id: `plan-${planId}`,
+        _id: `plan-${planId}-${preference}`,
         itemType: "plan",
         planId: planId || "",
-        title: displayTitle,
+        title: `${displayTitle} - ${getPreferenceLabel(preference)}`,
         description: `Includes ${durationDays} meals delivered across ${durationDays} days.`,
-        price: Number(displayPrice || totals.price || 0),
+        price: Number(displayPrice || 0),
         protein: totals.protein,
         calories: totals.calories,
         carbs: totals.carbs,
         fat: totals.fat,
         qty: 1,
         preference,
+        selectedPlanType: preference,
         rewardEligible,
         planItems: selectedMealsForPlan.map((meal, index) => ({
           _id: String(meal._id),
@@ -477,8 +532,8 @@ export default function PlanDetails() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f6f7f8]">
-        <div className="flex items-center gap-3 rounded-[20px] bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f7f7]">
+        <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
           <Loader2 className="animate-spin text-green-600" size={20} />
           Loading plan...
         </div>
@@ -488,8 +543,8 @@ export default function PlanDetails() {
 
   if (!plan) {
     return (
-      <main className="min-h-screen bg-[#f6f7f8] px-4 py-10">
-        <div className="mx-auto max-w-[900px] rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <main className="min-h-screen bg-[#f7f7f7] px-4 py-10">
+        <div className="mx-auto max-w-[900px] rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-3xl font-black text-slate-950">
             Plan not found
           </h1>
@@ -497,7 +552,7 @@ export default function PlanDetails() {
           <button
             type="button"
             onClick={() => navigate("/plans")}
-            className="mt-5 rounded-[16px] bg-green-600 px-6 py-3 text-sm font-black text-white"
+            className="mt-5 rounded-xl bg-green-600 px-6 py-3 text-sm font-black text-white"
           >
             Back to Plans
           </button>
@@ -507,7 +562,7 @@ export default function PlanDetails() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 text-slate-950 sm:px-6">
+    <main className="min-h-screen bg-[#f7f7f7] px-4 py-8 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-[1180px]">
         <Link
           to="/plans"
@@ -517,203 +572,167 @@ export default function PlanDetails() {
           Back to Plans
         </Link>
 
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-[32px] border border-green-100 bg-gradient-to-br from-green-50 via-white to-white p-6 shadow-[0_18px_55px_rgba(15,23,42,0.06)] sm:p-10">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <p className="inline-flex w-fit items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
-                <Trophy size={15} />
-                {displayBadge}
-              </p>
+        <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 bg-gradient-to-br from-green-50 via-white to-white p-6 sm:p-8">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="inline-flex rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-green-700">
+                    {plan.badge || "MacroBox Plan"}
+                  </p>
 
-              <div className="rounded-[18px] bg-green-50 p-2">
-                <div className="flex flex-wrap gap-2">
-                  {availablePreferenceOptions.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setPreference(option)}
-                      disabled={loadingMeals}
-                      className={`rounded-[14px] px-4 py-2 text-xs font-black capitalize transition disabled:opacity-60 ${
-                        preference === option
-                          ? "bg-green-600 text-white"
-                          : "bg-white text-green-700"
-                      }`}
-                    >
-                      {option === "mixed" ? "Mixed" : option}
-                    </button>
-                  ))}
+                  <h1 className="mt-4 text-4xl font-black leading-[0.98] tracking-[-0.06em] text-slate-950 sm:text-6xl">
+                    {displayTitle}
+                  </h1>
+
+                  <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600">
+                    {displayDescription}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-white p-2 shadow-sm">
+                  <div className="flex flex-wrap gap-2">
+                    {availablePreferenceOptions.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setPreference(option)}
+                        disabled={loadingMeals}
+                        className={`rounded-xl px-4 py-2 text-xs font-black transition disabled:opacity-60 ${
+                          preference === option
+                            ? "bg-green-600 text-white"
+                            : "bg-green-50 text-green-700 hover:bg-green-100"
+                        }`}
+                      >
+                        {getPreferenceLabel(option)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <h1 className="mt-5 text-[42px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950 sm:text-[64px]">
-              {displayTitle}
-            </h1>
-
-            <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
-              {displayDescription}
-            </p>
-
-            <div className="mt-5 rounded-[20px] border border-green-100 bg-white p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Selected Plan Type
-                  </p>
-
-                  <p className="mt-1 text-lg font-black capitalize text-green-700">
-                    {preference === "mixed" ? "Mixed" : preference}
-                  </p>
-                </div>
-
-                <div className="text-left sm:text-right">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    Selected Meals
-                  </p>
-
-                  <p className="mt-1 text-sm font-bold text-slate-700">
-                    {loadingMeals
-                      ? "Loading meals..."
-                      : `${selectedMeals.length}/${durationDays} meals ready`}
-                  </p>
-                </div>
+            <div className="p-6 sm:p-8">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <InfoCard
+                  label="Selected Type"
+                  value={getPreferenceLabel(preference)}
+                />
+                <InfoCard
+                  label="Duration"
+                  value={`${durationDays} Day${durationDays > 1 ? "s" : ""}`}
+                />
+                <InfoCard
+                  label="Meals Ready"
+                  value={
+                    loadingMeals
+                      ? "Loading"
+                      : `${selectedMeals.length}/${durationDays}`
+                  }
+                />
               </div>
 
               {selectedMeals.length > 0 && (
-                <div className="mt-4 rounded-[18px] border border-green-100 bg-green-50 p-4">
-                  <p className="mb-3 text-xs font-black uppercase tracking-wide text-green-700">
-                    Meals Included in This Plan
-                  </p>
+                <section className="mt-6">
+                  <div className="mb-4 flex items-end justify-between gap-3">
+                    <div>
+                      <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                        Meals included
+                      </h2>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        Your selected {getPreferenceLabel(preference)} plan menu
+                      </p>
+                    </div>
+                  </div>
 
-                  <div className="grid gap-2 md:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-2">
                     {selectedMeals.map((meal, index) => (
                       <div
                         key={`${meal._id}-${index}`}
-                        className="rounded-[14px] border border-green-100 bg-white p-3"
+                        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-sm font-black text-slate-950">
-                              Day {index + 1}: {meal.title}
+                            <p className="text-xs font-black uppercase tracking-wide text-green-600">
+                              Day {index + 1}
                             </p>
+
+                            <h3 className="mt-1 text-base font-black text-slate-950">
+                              {meal.title}
+                            </h3>
 
                             <p className="mt-1 text-xs font-bold capitalize text-slate-500">
                               {getMealDietType(meal)} meal
                             </p>
                           </div>
 
-                          <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-black text-green-700">
-                            ₹{meal.price}
+                          <span className="shrink-0 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                            ₹{meal.price || 0}
                           </span>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-3 gap-2">
-                          <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
-                            <p className="text-[10px] font-black uppercase text-slate-400">
-                              Protein
-                            </p>
-                            <p className="text-xs font-black text-slate-900">
-                              {meal.protein}g
-                            </p>
-                          </div>
-
-                          <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
-                            <p className="text-[10px] font-black uppercase text-slate-400">
-                              Calories
-                            </p>
-                            <p className="text-xs font-black text-slate-900">
-                              {meal.calories}
-                            </p>
-                          </div>
-
-                          <div className="rounded-[10px] bg-slate-50 px-2 py-1.5">
-                            <p className="text-[10px] font-black uppercase text-slate-400">
-                              Carbs
-                            </p>
-                            <p className="text-xs font-black text-slate-900">
-                              {meal.carbs}g
-                            </p>
-                          </div>
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                          <MiniLightStat label="Protein" value={`${meal.protein || 0}g`} />
+                          <MiniLightStat label="Calories" value={`${meal.calories || 0}`} />
+                          <MiniLightStat label="Carbs" value={`${meal.carbs || 0}g`} />
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
               )}
-            </div>
-
-            <div className="mt-7 grid gap-3 sm:grid-cols-3">
-              <InfoCard
-                label="Duration"
-                value={`${durationDays} Day${durationDays > 1 ? "s" : ""}`}
-              />
-
-              <InfoCard label="Meals" value={`${selectedMeals.length}`} />
-
-              <InfoCard
-                label="Reward"
-                value={rewardEligible ? "10% Next Plan" : "Not Eligible"}
-              />
-            </div>
-
-            <div className="mt-8">
-              <button
-                type="button"
-                onClick={addPlanToCart}
-                disabled={adding || loadingMeals}
-                className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
-              >
-                {adding || loadingMeals ? (
-                  <Loader2 className="animate-spin" size={18} />
-                ) : (
-                  <ShoppingCart size={18} />
-                )}
-
-                Add {durationDays}-Day Plan to Cart
-                <ArrowRight size={18} />
-              </button>
             </div>
           </div>
 
-          <aside className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-[0_18px_55px_rgba(15,23,42,0.06)] sm:p-8">
-            <div className="rounded-[24px] bg-slate-950 p-6 text-white">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-green-300">
+          <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24">
+            <div className="border-b border-slate-100 pb-5">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-green-600">
                 Plan Price
               </p>
 
               <div className="mt-3 flex items-end gap-3">
-                <p className="text-5xl font-black tracking-[-0.06em]">
+                <p className="text-5xl font-black tracking-[-0.06em] text-slate-950">
                   ₹{displayPrice}
                 </p>
 
-                {originalPrice && (
+                {originalPrice && originalPrice > displayPrice && (
                   <p className="mb-2 text-lg font-black text-slate-400 line-through">
                     ₹{originalPrice}
                   </p>
                 )}
               </div>
 
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">
-                Choose Veg, Nonveg or Mixed. Delivery date and slot will be
-                selected in cart for each plan day.
+              <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                {getPreferenceLabel(preference)} plan · {durationDays} days ·{" "}
+                {selectedMeals.length} meals
               </p>
-
-              <div className="mt-5 grid grid-cols-2 gap-2">
-                <MiniDarkStat
-                  label="Protein"
-                  value={`${selectedTotals.protein}g`}
-                />
-                <MiniDarkStat
-                  label="Calories"
-                  value={`${selectedTotals.calories}`}
-                />
-                <MiniDarkStat label="Carbs" value={`${selectedTotals.carbs}g`} />
-                <MiniDarkStat label="Fat" value={`${selectedTotals.fat}g`} />
-              </div>
             </div>
 
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <MiniPriceStat label="Protein" value={`${selectedTotals.protein}g`} />
+              <MiniPriceStat label="Calories" value={`${selectedTotals.calories}`} />
+              <MiniPriceStat label="Carbs" value={`${selectedTotals.carbs}g`} />
+              <MiniPriceStat label="Fat" value={`${selectedTotals.fat}g`} />
+            </div>
+
+            <button
+              type="button"
+              onClick={addPlanToCart}
+              disabled={adding || loadingMeals}
+              className="mt-5 inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
+            >
+              {adding || loadingMeals ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <ShoppingCart size={18} />
+              )}
+
+              Add Plan to Cart
+              <ArrowRight size={18} />
+            </button>
+
             <div className="mt-6">
-              <h2 className="flex items-center gap-2 text-xl font-black tracking-[-0.04em]">
+              <h2 className="flex items-center gap-2 text-xl font-black tracking-[-0.04em] text-slate-950">
                 <Sparkles className="text-green-600" size={21} />
                 What you get
               </h2>
@@ -722,7 +741,7 @@ export default function PlanDetails() {
                 {perks.map((perk: string) => (
                   <div
                     key={perk}
-                    className="flex items-start gap-3 rounded-[18px] border border-slate-100 bg-slate-50 p-4"
+                    className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
                   >
                     <CheckCircle2
                       size={19}
@@ -740,9 +759,9 @@ export default function PlanDetails() {
         </section>
 
         <section className="mt-7 grid gap-5 md:grid-cols-2">
-          <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em]">
-              <Flame className="text-green-600" />
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+              <Gift className="text-green-600" />
               Plan Reward
             </h2>
 
@@ -750,7 +769,7 @@ export default function PlanDetails() {
               {rewards.map((reward: string) => (
                 <div
                   key={reward}
-                  className="rounded-[18px] border border-green-100 bg-green-50 p-4 text-sm font-bold leading-6 text-green-800"
+                  className="rounded-2xl border border-green-100 bg-green-50 p-4 text-sm font-bold leading-6 text-green-800"
                 >
                   {reward}
                 </div>
@@ -758,22 +777,21 @@ export default function PlanDetails() {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em]">
-              <Gift className="text-green-600" />
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
               How it works
             </h2>
 
             <div className="mt-4 space-y-3">
-              <Step number="01" text="Choose Veg, Nonveg or Mixed." />
+              <Step number="01" text="Choose Mixed, Veg or Non-Veg." />
               <Step number="02" text="Add the plan to cart." />
               <Step
                 number="03"
-                text="Select Day 1 date and daily delivery slots."
+                text="Select delivery date and slot for every plan day."
               />
               <Step
                 number="04"
-                text="Pay once and unlock 10% OFF your next eligible plan."
+                text="Pay once and unlock your next-plan reward."
               />
             </div>
           </div>
@@ -785,7 +803,7 @@ export default function PlanDetails() {
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-green-100 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
       <p className="text-xs font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
@@ -795,21 +813,33 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MiniDarkStat({ label, value }: { label: string; value: string }) {
+function MiniLightStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[14px] bg-white/10 px-3 py-2">
+    <div className="rounded-xl bg-slate-50 px-3 py-2">
       <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
 
-      <p className="mt-1 text-sm font-black text-white">{value}</p>
+      <p className="mt-1 text-xs font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function MiniPriceStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
     </div>
   );
 }
 
 function Step({ number, text }: { number: string; text: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-[18px] border border-slate-100 bg-slate-50 p-4">
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-xs font-black text-white">
         {number}
       </span>
