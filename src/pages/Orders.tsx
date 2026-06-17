@@ -5,13 +5,15 @@ import { Link } from "react-router-dom";
 import api from "../api/api";
 import {
   ArrowDownUp,
-  CalendarClock,
   CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
   MapPin,
   Navigation,
   PackageCheck,
   Phone,
-  ReceiptText,
+  RefreshCw,
   Search,
   SlidersHorizontal,
   Truck,
@@ -147,21 +149,17 @@ type SortType = "newest" | "oldest" | "amountHigh" | "amountLow";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-const mapsLinkFromAddress = (addr?: Order["delivery"]["address"]) => {
-  if (!addr) return null;
-  if (addr.mapsUrl) return addr.mapsUrl;
+const isPlanItem = (item?: OrderItem) => {
+  return (
+    item?.itemType === "plan" ||
+    item?.itemType === "challenge_plan" ||
+    Boolean(item?.planId) ||
+    Boolean(item?.challengeId)
+  );
+};
 
-  const text = String(addr.locationText || addr.formattedAddress || "").trim();
-
-  if (!text) return null;
-
-  if (text.startsWith("http://") || text.startsWith("https://")) {
-    return text;
-  }
-
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    text
-  )}`;
+const getPlanId = (item?: OrderItem) => {
+  return String(item?.planId || item?.challengeId || "").trim();
 };
 
 const readableStatus = (status?: string) => {
@@ -243,45 +241,49 @@ const formatAddress = (addr?: Order["delivery"]["address"]) => {
   return parts.length ? parts.join(", ") : "Address not available";
 };
 
+const mapsLinkFromAddress = (addr?: Order["delivery"]["address"]) => {
+  if (!addr) return null;
+  if (addr.mapsUrl) return addr.mapsUrl;
+
+  const text = String(addr.locationText || addr.formattedAddress || "").trim();
+
+  if (!text) return null;
+
+  if (text.startsWith("http://") || text.startsWith("https://")) {
+    return text;
+  }
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    text
+  )}`;
+};
+
 const paymentBadgeClass = (status?: string) => {
   switch (status) {
     case "paid":
-      return "border-green-200 bg-green-50 text-green-700";
+      return "bg-green-50 text-green-700 border-green-200";
     case "failed":
-      return "border-red-200 bg-red-50 text-red-700";
+      return "bg-red-50 text-red-700 border-red-200";
     default:
-      return "border-yellow-200 bg-yellow-50 text-yellow-800";
+      return "bg-yellow-50 text-yellow-800 border-yellow-200";
   }
 };
 
-const deliveryBadgeClass = (status?: string) => {
+const deliveryTextColor = (status?: string) => {
   switch (status) {
-    case "accepted":
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    case "picked_up":
-      return "border-indigo-200 bg-indigo-50 text-indigo-700";
-    case "out_for_delivery":
-      return "border-orange-200 bg-orange-50 text-orange-700";
     case "delivered":
-      return "border-green-200 bg-green-50 text-green-700";
+      return "text-green-700";
+    case "out_for_delivery":
+      return "text-orange-700";
+    case "picked_up":
+      return "text-indigo-700";
+    case "accepted":
+      return "text-blue-700";
     case "cancelled":
-      return "border-red-200 bg-red-50 text-red-700";
+      return "text-red-700";
     default:
-      return "border-slate-200 bg-slate-50 text-slate-700";
+      return "text-slate-600";
   }
-};
-
-const isPlanItem = (item?: OrderItem) => {
-  return (
-    item?.itemType === "plan" ||
-    item?.itemType === "challenge_plan" ||
-    Boolean(item?.planId) ||
-    Boolean(item?.challengeId)
-  );
-};
-
-const getPlanId = (item?: OrderItem) => {
-  return String(item?.planId || item?.challengeId || "").trim();
 };
 
 const getOrderTime = (order: Order) => {
@@ -348,16 +350,54 @@ const getNextPlanDay = (item: OrderItem) => {
   const today = todayISO();
 
   return (
-    planDays.find((day) => day.date === today && day.deliveryStatus !== "delivered") ||
+    planDays.find(
+      (day) => day.date === today && day.deliveryStatus !== "delivered"
+    ) ||
     planDays.find((day) => day.deliveryStatus !== "delivered") ||
     planDays[0] ||
     null
   );
 };
 
+const getPrimaryOrderItemText = (order: Order) => {
+  const items = order.items || [];
+
+  if (!items.length) return "No items";
+
+  const first = items[0];
+  const isPlan = isPlanItem(first);
+
+  if (isPlan) {
+    const planDays = first.planDays || [];
+    const count = planDays.length || first.planItems?.length || first.qty || 1;
+
+    return `${first.title || "Meal Plan"} × ${first.qty || 1} • ${count} day schedule`;
+  }
+
+  const remaining = items.length - 1;
+
+  return `${first.title || "Meal"} × ${first.qty || 1}${
+    remaining > 0 ? ` + ${remaining} more` : ""
+  }`;
+};
+
+const getOrderRestaurantLabel = (order: Order) => {
+  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
+
+  if (hasPlan) return "MacroBox Meal Plan";
+
+  return "MacroBox Meals";
+};
+
+const getOrderImageLabel = (order: Order) => {
+  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
+  return hasPlan ? "MB" : "M";
+};
+
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -422,7 +462,9 @@ export default function Orders() {
                 )
                 .join(" ") || "";
 
-            return `${item.title || "Meal"} ${getPlanId(item)} ${planItems} ${planDays}`;
+            return `${
+              item.title || "Meal"
+            } ${getPlanId(item)} ${planItems} ${planDays}`;
           })
           .join(" ") || "";
 
@@ -501,549 +543,636 @@ export default function Orders() {
 
   return (
     <main className="min-h-screen bg-[#f6f7f8] text-slate-950">
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-[42px] font-black tracking-[-0.07em] text-slate-950 md:text-3xl">
-              My Orders
-            </h1>
-
-            <p className="mt-2 max-w-xl text-base font-semibold leading-7 text-slate-500">
-              View meal orders, plan schedules, payment status and live delivery
-              tracking.
-            </p>
-          </div>
-
-          <div className="w-fit rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600 shadow-sm">
-            {filteredOrders.length} of {orders.length} orders
-          </div>
-        </div>
-
-        <section className="mb-5 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-4 flex items-center gap-3">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
-              <SlidersHorizontal size={20} />
-            </span>
-
+      <section className="bg-[#0f6f82] px-4 pb-20 pt-10 text-white sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-xl font-black text-slate-950">
-                Filter Orders
-              </h2>
-              <p className="text-sm font-semibold leading-6 text-slate-500">
-                Search by meal, plan, order ID, payment, status or address.
+              <p className="text-sm font-black uppercase tracking-[0.22em] text-white/70">
+                My Account
+              </p>
+
+              <h1 className="mt-3 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
+                My Orders
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/80 sm:text-base">
+                View your past orders, plan schedules, billing details and live
+                delivery tracking.
               </p>
             </div>
+
+            <button
+              type="button"
+              onClick={fetchOrders}
+              className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-none border border-white/50 px-5 text-sm font-black text-white transition hover:bg-white/10"
+            >
+              <RefreshCw size={17} />
+              Refresh
+            </button>
           </div>
+        </div>
+      </section>
 
-          <div className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr_0.7fr_0.9fr_0.9fr]">
-            <div className="relative min-w-0">
-              <Search
-                size={17}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search orders..."
-                className="h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
-              />
+      <div className="mx-auto -mt-14 max-w-6xl px-4 pb-10 sm:px-6">
+        <section className="grid gap-0 bg-white shadow-[0_18px_55px_rgba(15,23,42,0.08)] lg:grid-cols-[260px_1fr]">
+          <aside className="hidden border-r border-slate-100 bg-slate-50 p-5 lg:block">
+            <div className="space-y-1">
+              <SideNav active label="Orders" />
+              <SideNav label="Plan Rewards" />
+              <SideNav label="Payments" />
+              <SideNav label="Addresses" />
+              <SideNav label="Settings" />
             </div>
+          </aside>
 
-            <div className="relative min-w-0 overflow-hidden rounded-[16px]">
-              <CalendarDays
-                size={17}
-                className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
-              />
+          <div className="min-w-0 p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                  Past Orders
+                </h2>
 
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(event) => setSelectedDate(event.target.value)}
-                className="h-12 w-full min-w-0 appearance-none rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-3 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
-              />
-            </div>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  {filteredOrders.length} of {orders.length} orders
+                </p>
+              </div>
 
-            <select
-              value={selectedYear}
-              onChange={(event) => setSelectedYear(event.target.value)}
-              className="h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
-            >
-              <option value="all">All Years</option>
-              {availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={rangeFilter}
-              onChange={(event) =>
-                setRangeFilter(event.target.value as RangeFilter)
-              }
-              className="h-12 w-full min-w-0 rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
-            >
-              <option value="all">All Time</option>
-              <option value="30days">Last 30 Days</option>
-              <option value="3months">Last 3 Months</option>
-            </select>
-
-            <div className="relative min-w-0">
-              <ArrowDownUp
-                size={17}
-                className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
-              />
-
-              <select
-                value={sortType}
-                onChange={(event) => setSortType(event.target.value as SortType)}
-                className="h-12 w-full min-w-0 appearance-none rounded-[16px] border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-black text-slate-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+              <button
+                type="button"
+                onClick={() =>
+                  document
+                    .getElementById("order-filters")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 lg:hidden"
               >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="amountHigh">Amount High to Low</option>
-                <option value="amountLow">Amount Low to High</option>
-              </select>
+                <SlidersHorizontal size={16} />
+                Filters
+              </button>
             </div>
-          </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setRangeFilter("30days")}
-              className={`rounded-full border px-4 py-2 text-xs font-black transition ${
-                rangeFilter === "30days"
-                  ? "border-green-600 bg-green-600 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
+            <section
+              id="order-filters"
+              className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-3"
             >
-              Last 30 Days
-            </button>
+              <div className="grid gap-2 lg:grid-cols-[1.3fr_0.8fr_0.7fr_0.8fr_0.8fr_auto]">
+                <div className="relative">
+                  <Search
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
 
-            <button
-              type="button"
-              onClick={() => setRangeFilter("3months")}
-              className={`rounded-full border px-4 py-2 text-xs font-black transition ${
-                rangeFilter === "3months"
-                  ? "border-green-600 bg-green-600 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              Last 3 Months
-            </button>
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search orders..."
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                  />
+                </div>
 
-            <button
-              type="button"
-              onClick={clearFilters}
-              disabled={!hasActiveFilters}
-              className="ml-auto inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <X size={14} />
-              Clear
-            </button>
+                <div className="relative">
+                  <CalendarDays
+                    size={16}
+                    className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400"
+                  />
+
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(event) => setSelectedDate(event.target.value)}
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                  />
+                </div>
+
+                <select
+                  value={selectedYear}
+                  onChange={(event) => setSelectedYear(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                >
+                  <option value="all">All Years</option>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={rangeFilter}
+                  onChange={(event) =>
+                    setRangeFilter(event.target.value as RangeFilter)
+                  }
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                >
+                  <option value="all">All Time</option>
+                  <option value="30days">Last 30 Days</option>
+                  <option value="3months">Last 3 Months</option>
+                </select>
+
+                <div className="relative">
+                  <ArrowDownUp
+                    size={16}
+                    className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400"
+                  />
+
+                  <select
+                    value={sortType}
+                    onChange={(event) =>
+                      setSortType(event.target.value as SortType)
+                    }
+                    className="h-11 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                  >
+                    <option value="newest">Newest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="amountHigh">Amount High</option>
+                    <option value="amountLow">Amount Low</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  disabled={!hasActiveFilters}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <X size={15} />
+                  Clear
+                </button>
+              </div>
+            </section>
+
+            {orders.length === 0 ? (
+              <EmptyState
+                title="No orders yet."
+                description="Your paid meals, plans and live tracking details will appear here."
+              />
+            ) : filteredOrders.length === 0 ? (
+              <EmptyState
+                title="No matching orders."
+                description="Try changing your search, date, year or range filters."
+              />
+            ) : (
+              <div className="space-y-4">
+                {filteredOrders.map((order) => (
+                  <SwiggyOrderCard
+                    key={order._id}
+                    order={order}
+                    onViewDetails={() => setSelectedOrder(order)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </section>
-
-        {orders.length === 0 ? (
-          <EmptyState
-            title="No orders yet."
-            description="Your paid meals, plans and live tracking details will appear here."
-          />
-        ) : filteredOrders.length === 0 ? (
-          <EmptyState
-            title="No matching orders."
-            description="Try changing your search, date, year or range filters."
-          />
-        ) : (
-          <div className="grid gap-5">
-            {filteredOrders.map((order) => {
-              const mapsUrl = mapsLinkFromAddress(order.delivery?.address);
-              const deliveryStatus = order.delivery?.status || "unassigned";
-              const eta = order.delivery?.tracking?.eta;
-              const currentLocation = order.delivery?.tracking?.currentLocation;
-              const agent = order.delivery?.agent;
-
-              const totalCalories = order.totals.totalCalories || 0;
-              const totalProtein = order.totals.totalProtein || 0;
-              const totalCarbs = order.totals.totalCarbs || 0;
-              const totalFat = order.totals.totalFat || 0;
-
-              const splitTotals = getOrderSplitTotals(order);
-
-              const hasPlan = (order.items || []).some((item) =>
-                isPlanItem(item)
-              );
-
-              return (
-                <article
-                  key={order._id}
-                  className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200 sm:p-5"
-                >
-                  <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <ReceiptText size={18} className="text-green-600" />
-
-                        <p className="font-black text-slate-950">
-                          {formatDateTime(order.createdAt)}
-                        </p>
-                      </div>
-
-                      <p className="mt-1 break-all text-xs font-semibold text-slate-500">
-                        Order ID: {order._id}
-                      </p>
-
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {hasPlan && (
-                          <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-                            Plan Order
-                          </span>
-                        )}
-
-                        {order.coupon?.code && (
-                          <span className="inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                            Coupon: {order.coupon.code}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-black ${paymentBadgeClass(
-                          order.payment?.status
-                        )}`}
-                      >
-                        {(order.payment?.status || "created").toUpperCase()}
-                      </span>
-
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-black ${deliveryBadgeClass(
-                          deliveryStatus
-                        )}`}
-                      >
-                        DELIVERY: {readableStatus(deliveryStatus)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-4 sm:space-y-5">
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6">
-                        <MiniStat label="Calories" value={`${totalCalories}`} />
-                        <MiniStat label="Protein" value={`${totalProtein}g`} />
-                        <MiniStat label="Carbs" value={`${totalCarbs}g`} />
-                        <MiniStat label="Fat" value={`${totalFat}g`} />
-                        <MiniStat
-                          label="Plan Discount"
-                          value={`₹${splitTotals.discount}`}
-                        />
-                        <MiniStat
-                          label="Payable"
-                          value={`₹${splitTotals.payable}`}
-                          highlight
-                        />
-                      </div>
-
-                      <InfoCard>
-                        <div className="mb-3 flex items-center gap-2">
-                          <ReceiptText size={16} className="text-green-600" />
-
-                          <p className="text-sm font-black text-slate-950">
-                            Billing Breakdown
-                          </p>
-                        </div>
-
-                        <div className="space-y-2 text-sm font-semibold text-slate-600">
-                          <BillingRow
-                            label="Meals Subtotal"
-                            value={`₹${splitTotals.normalMealsSubtotal}`}
-                          />
-
-                          <BillingRow
-                            label="Plans Subtotal"
-                            value={`₹${splitTotals.planSubtotal}`}
-                          />
-
-                          <BillingRow
-                            label="Plan Discount"
-                            value={`-₹${splitTotals.discount}`}
-                            discount
-                          />
-
-                          <div className="border-t border-slate-200 pt-2">
-                            <BillingRow
-                              label="Total Payable"
-                              value={`₹${splitTotals.payable}`}
-                              highlight
-                            />
-                          </div>
-                        </div>
-
-                        {splitTotals.discount > 0 && (
-                          <p className="mt-3 rounded-[14px] bg-green-50 px-3 py-2 text-xs font-bold leading-5 text-green-700">
-                            Plan reward coupon discount was applied on eligible
-                            plan items.
-                          </p>
-                        )}
-
-                        {hasPlan && order.payment?.status === "paid" && (
-                          <p className="mt-3 rounded-[14px] bg-blue-50 px-3 py-2 text-xs font-bold leading-5 text-blue-700">
-                            Plan payment completed. Your next-plan reward coupon
-                            will be visible in Plan Rewards.
-                          </p>
-                        )}
-                      </InfoCard>
-
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <InfoCard>
-                          <div className="mb-1 flex items-center gap-2">
-                            <CalendarClock
-                              size={16}
-                              className="text-green-600"
-                            />
-
-                            <p className="text-sm font-black text-slate-950">
-                              Main Delivery Slot
-                            </p>
-                          </div>
-
-                          <p className="text-sm font-semibold text-slate-600">
-                            {formatDateOnly(order.delivery?.slot?.date)} •{" "}
-                            {formatSlot(order.delivery?.slot?.time)}
-                          </p>
-                        </InfoCard>
-
-                        <InfoCard>
-                          <div className="mb-1 flex items-center gap-2">
-                            <MapPin size={16} className="text-green-600" />
-
-                            <p className="text-sm font-black text-slate-950">
-                              Delivery Address
-                            </p>
-                          </div>
-
-                          <p className="text-sm font-semibold leading-6 text-slate-600">
-                            {formatAddress(order.delivery?.address)}
-                          </p>
-
-                          {mapsUrl ? (
-                            <a
-                              href={mapsUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 inline-block text-xs font-black text-green-600 hover:underline"
-                            >
-                              Open in Google Maps
-                            </a>
-                          ) : (
-                            <p className="mt-1 text-xs font-semibold text-slate-500">
-                              No map location
-                            </p>
-                          )}
-                        </InfoCard>
-                      </div>
-
-                      {order.items && order.items.length > 0 && (
-                        <InfoCard>
-                          <div className="mb-2 flex items-center gap-2">
-                            <PackageCheck
-                              size={16}
-                              className="text-green-600"
-                            />
-
-                            <p className="text-sm font-black text-slate-950">
-                              Items
-                            </p>
-                          </div>
-
-                          <div className="grid gap-3">
-                            {order.items.map((item, index) => (
-                              <OrderItemCard
-                                key={`${order._id}-${index}`}
-                                item={item}
-                              />
-                            ))}
-                          </div>
-                        </InfoCard>
-                      )}
-                    </div>
-
-                    <LiveDeliveryCard
-                      orderId={order._id}
-                      deliveryStatus={deliveryStatus}
-                      agent={agent}
-                      etaText={eta?.text}
-                      distanceText={eta?.distanceText}
-                      updatedAt={currentLocation?.updatedAt || null}
-                    />
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
       </div>
+
+      {selectedOrder && (
+        <OrderDetailsDrawer
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
     </main>
   );
 }
 
-function OrderItemCard({ item }: { item: OrderItem }) {
-  const isPlan = isPlanItem(item);
-  const planItems = item.planItems || [];
-  const planDays = item.planDays || [];
-  const nextPlanDay = isPlan ? getNextPlanDay(item) : null;
-  const planId = getPlanId(item);
+function SwiggyOrderCard({
+  order,
+  onViewDetails,
+}: {
+  order: Order;
+  onViewDetails: () => void;
+}) {
+  const splitTotals = getOrderSplitTotals(order);
+  const deliveryStatus = order.delivery?.status || "unassigned";
+  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
+  const firstPlanItem = (order.items || []).find((item) => isPlanItem(item));
+  const nextPlanDay = firstPlanItem ? getNextPlanDay(firstPlanItem) : null;
 
   return (
-    <div
-      className={`rounded-[16px] border p-3 ${
-        isPlan ? "border-green-200 bg-green-50" : "border-slate-200 bg-white"
-      }`}
-    >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-black text-slate-950">
-              {item.title || "Meal"} × {item.qty || 1}
-            </p>
-
-            {isPlan && (
-              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-green-700">
-                Meal Plan
-              </span>
-            )}
-
-            {isPlan && planId && (
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black text-blue-700">
-                {planId}
-              </span>
-            )}
-          </div>
-
-          {isPlan && nextPlanDay && (
-            <div className="mt-3 rounded-[14px] border border-orange-100 bg-orange-50 p-3">
-              <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-orange-700">
-                Next Scheduled Delivery
-              </p>
-
-              <p className="text-sm font-black text-slate-950">
-                Day {nextPlanDay.day}: {nextPlanDay.selectedMealTitle}
-              </p>
-
-              <p className="mt-1 text-xs font-bold text-slate-500">
-                {formatDateOnly(nextPlanDay.date)} •{" "}
-                {formatSlot(nextPlanDay.slot)} •{" "}
-                {readableStatus(nextPlanDay.deliveryStatus || "scheduled")}
-              </p>
-
-              {nextPlanDay.alternativeMealTitle && (
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  Alternative: {nextPlanDay.alternativeMealTitle}
-                </p>
-              )}
-            </div>
-          )}
-
-          {isPlan && planDays.length > 0 && (
-            <div className="mt-3 rounded-[14px] border border-blue-100 bg-blue-50 p-3">
-              <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-blue-700">
-                Day-wise Plan Schedule
-              </p>
-
-              <div className="grid gap-2">
-                {planDays.map((day, index) => (
-                  <div
-                    key={`${day.day || index}-${day.date || ""}`}
-                    className="rounded-[12px] bg-white px-3 py-2"
-                  >
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-xs font-black text-slate-950">
-                        Day {day.day}: {day.selectedMealTitle || "Meal"}
-                      </p>
-
-                      <span className="w-fit rounded-full bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-600">
-                        {readableStatus(day.deliveryStatus || "scheduled")}
-                      </span>
-                    </div>
-
-                    <p className="mt-1 text-xs font-bold text-slate-500">
-                      {formatDateOnly(day.date)} • {formatSlot(day.slot)} •{" "}
-                      {day.preference || "mixed"}
-                    </p>
-
-                    {day.alternativeMealTitle && (
-                      <p className="mt-1 text-xs font-bold text-slate-500">
-                        Alternative: {day.alternativeMealTitle}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isPlan && planDays.length === 0 && planItems.length > 0 && (
-            <div className="mt-3 rounded-[14px] border border-green-100 bg-white p-3">
-              <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-green-700">
-                Plan Includes
-              </p>
-
-              <div className="flex flex-wrap gap-2">
-                {planItems.map((planItem, index) => (
-                  <span
-                    key={`${planItem._id || index}`}
-                    className="rounded-full bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700"
-                  >
-                    {planItem.title || "Meal Item"} × {planItem.qty || 1}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+    <article className="border border-slate-200 bg-white p-4 transition hover:border-slate-300 sm:p-5">
+      <div className="flex gap-4">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-green-50 text-2xl font-black text-green-200 sm:h-24 sm:w-24">
+          {getOrderImageLabel(order)}
         </div>
 
-        <p className="text-sm font-black text-slate-950">
-          ₹{Number(item.price || 0) * Number(item.qty || 1)}
-        </p>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h3 className="truncate text-lg font-black text-slate-950">
+                {getOrderRestaurantLabel(order)}
+              </h3>
+
+              <p className="mt-0.5 truncate text-sm font-semibold text-slate-500">
+                {formatAddress(order.delivery?.address)}
+              </p>
+
+              <p className="mt-1 break-all text-xs font-bold text-slate-400">
+                ORDER #{order._id} | {formatDateTime(order.createdAt)}
+              </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              {deliveryStatus === "delivered" ? (
+                <CheckCircle2 size={18} className="text-green-600" />
+              ) : (
+                <Clock size={18} className={deliveryTextColor(deliveryStatus)} />
+              )}
+
+              <p
+                className={`text-xs font-black uppercase ${deliveryTextColor(
+                  deliveryStatus
+                )}`}
+              >
+                {readableStatus(deliveryStatus)}
+              </p>
+            </div>
+          </div>
+
+          <div className="my-4 border-t border-dashed border-slate-200" />
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">
+                {getPrimaryOrderItemText(order)}
+              </p>
+
+              {nextPlanDay && (
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  Next: Day {nextPlanDay.day} •{" "}
+                  {nextPlanDay.selectedMealTitle || "Meal"} •{" "}
+                  {formatDateOnly(nextPlanDay.date)} •{" "}
+                  {formatSlot(nextPlanDay.slot)}
+                </p>
+              )}
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {hasPlan && (
+                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                    Plan Order
+                  </span>
+                )}
+
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-black ${paymentBadgeClass(
+                    order.payment?.status
+                  )}`}
+                >
+                  {(order.payment?.status || "created").toUpperCase()}
+                </span>
+
+                {order.coupon?.code && (
+                  <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+                    Coupon: {order.coupon.code}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
+              <p className="text-sm font-black text-slate-950">
+                Total Paid: ₹{splitTotals.payable}
+              </p>
+
+              <button
+                type="button"
+                onClick={onViewDetails}
+                className="inline-flex items-center gap-1 text-sm font-black uppercase text-orange-600 hover:underline"
+              >
+                View Details
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              to={`/track/${order._id}`}
+              className="inline-flex h-11 items-center justify-center gap-2 bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
+            >
+              <Navigation size={15} />
+              Track
+            </Link>
+
+            <button
+              type="button"
+              onClick={onViewDetails}
+              className="inline-flex h-11 items-center justify-center border border-orange-500 px-5 text-sm font-black text-orange-600 transition hover:bg-orange-50"
+            >
+              Help / Details
+            </button>
+          </div>
+        </div>
       </div>
+    </article>
+  );
+}
+
+function OrderDetailsDrawer({
+  order,
+  onClose,
+}: {
+  order: Order;
+  onClose: () => void;
+}) {
+  const splitTotals = getOrderSplitTotals(order);
+  const mapsUrl = mapsLinkFromAddress(order.delivery?.address);
+  const deliveryStatus = order.delivery?.status || "unassigned";
+  const agent = order.delivery?.agent;
+  const eta = order.delivery?.tracking?.eta;
+  const currentLocation = order.delivery?.tracking?.currentLocation;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/55">
+      <button
+        type="button"
+        aria-label="Close order details"
+        className="hidden flex-1 cursor-default md:block"
+        onClick={onClose}
+      />
+
+      <aside className="h-full w-full overflow-y-auto bg-white shadow-2xl md:max-w-[520px]">
+        <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-100 bg-white px-5 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100"
+          >
+            <X size={22} />
+          </button>
+
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-black text-slate-950">
+              Order #{order._id}
+            </h2>
+
+            <p className="text-xs font-bold text-slate-500">
+              {formatDateTime(order.createdAt)}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-5 px-5 py-5">
+          <section className="space-y-4">
+            <TimelinePoint
+              icon={<MapPin size={20} />}
+              title={getOrderRestaurantLabel(order)}
+              subtitle="MacroBox Kitchen"
+            />
+
+            <TimelinePoint
+              icon={<MapPin size={20} />}
+              title="Delivery Address"
+              subtitle={formatAddress(order.delivery?.address)}
+            />
+
+            <div className="border-t border-slate-200 pt-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2
+                  size={22}
+                  className={
+                    deliveryStatus === "delivered"
+                      ? "text-green-600"
+                      : "text-slate-400"
+                  }
+                />
+
+                <div>
+                  <p
+                    className={`text-sm font-black ${deliveryTextColor(
+                      deliveryStatus
+                    )}`}
+                  >
+                    {readableStatus(deliveryStatus)}
+                  </p>
+
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                    Main slot: {formatDateOnly(order.delivery?.slot?.date)} •{" "}
+                    {formatSlot(order.delivery?.slot?.time)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="border-t border-slate-200 pt-5">
+            <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+              Items
+            </p>
+
+            <div className="space-y-3">
+              {(order.items || []).map((item, index) => (
+                <DrawerOrderItem
+                  key={`${order._id}-${index}`}
+                  item={item}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section className="border-t border-slate-200 pt-5">
+            <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+              Bill Details
+            </p>
+
+            <div className="space-y-3 text-sm font-semibold">
+              <BillingRow
+                label="Meals Subtotal"
+                value={`₹${splitTotals.normalMealsSubtotal}`}
+              />
+
+              <BillingRow
+                label="Plans Subtotal"
+                value={`₹${splitTotals.planSubtotal}`}
+              />
+
+              <BillingRow
+                label="Discount Applied"
+                value={`-₹${splitTotals.discount}`}
+                discount
+              />
+
+              <BillingRow
+                label="Total Protein"
+                value={`${order.totals.totalProtein || 0}g`}
+              />
+
+              <BillingRow
+                label="Total Calories"
+                value={`${order.totals.totalCalories || 0}`}
+              />
+
+              {order.coupon?.code && (
+                <BillingRow label="Coupon" value={order.coupon.code} />
+              )}
+
+              <div className="border-t border-slate-200 pt-3">
+                <BillingRow
+                  label="Bill Total"
+                  value={`₹${splitTotals.payable}`}
+                  highlight
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="border-t border-slate-200 pt-5">
+            <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+              Live Delivery
+            </p>
+
+            <div className="rounded-xl bg-slate-50 p-4 text-sm font-semibold leading-7 text-slate-600">
+              <p>
+                <span className="font-black text-slate-950">Agent:</span>{" "}
+                {agent?.name || "Not assigned yet"}
+              </p>
+
+              <p className="flex items-center gap-1">
+                <Phone size={14} className="text-green-600" />
+                <span className="font-black text-slate-950">Phone:</span>{" "}
+                {agent?.deliveryProfile?.phone || agent?.phone || "N/A"}
+              </p>
+
+              <p>
+                <span className="font-black text-slate-950">ETA:</span>{" "}
+                {eta?.text || "Not available yet"}
+                {eta?.distanceText ? ` (${eta.distanceText})` : ""}
+              </p>
+
+              <p>
+                <span className="font-black text-slate-950">Last update:</span>{" "}
+                {formatDateTime(currentLocation?.updatedAt || null)}
+              </p>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <Link
+                  to={`/track/${order._id}`}
+                  className="inline-flex h-11 items-center justify-center gap-2 bg-green-600 px-4 text-sm font-black text-white"
+                >
+                  <Truck size={15} />
+                  Track Live
+                </Link>
+
+                {mapsUrl && (
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-11 items-center justify-center gap-2 border border-slate-300 px-4 text-sm font-black text-slate-700"
+                  >
+                    <MapPin size={15} />
+                    Open Maps
+                  </a>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+      </aside>
     </div>
   );
 }
 
-function MiniStat({
-  label,
-  value,
-  highlight,
+function DrawerOrderItem({ item }: { item: OrderItem }) {
+  const isPlan = isPlanItem(item);
+  const planDays = item.planDays || [];
+  const planItems = item.planItems || [];
+  const planId = getPlanId(item);
+
+  return (
+    <div className="border-b border-dashed border-slate-200 pb-3 last:border-b-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black text-slate-950">
+            {item.title || "Meal"} × {item.qty || 1}
+          </p>
+
+          <div className="mt-1 flex flex-wrap gap-2">
+            {isPlan && (
+              <span className="rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-black text-green-700">
+                Meal Plan
+              </span>
+            )}
+
+            {planId && (
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black text-blue-700">
+                {planId}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <p className="shrink-0 text-sm font-black text-slate-950">
+          ₹{Number(item.price || 0) * Number(item.qty || 1)}
+        </p>
+      </div>
+
+      {isPlan && planDays.length > 0 && (
+        <div className="mt-3 rounded-xl bg-blue-50 p-3">
+          <p className="mb-2 text-xs font-black uppercase tracking-wide text-blue-700">
+            Day-wise Plan Schedule
+          </p>
+
+          <div className="space-y-2">
+            {planDays.map((day, index) => (
+              <div key={`${day.day || index}`} className="rounded-lg bg-white p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs font-black text-slate-950">
+                    Day {day.day}: {day.selectedMealTitle || "Meal"}
+                  </p>
+
+                  <span className="rounded-full bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-600">
+                    {readableStatus(day.deliveryStatus || "scheduled")}
+                  </span>
+                </div>
+
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  {formatDateOnly(day.date)} • {formatSlot(day.slot)} •{" "}
+                  {day.preference || "mixed"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isPlan && planDays.length === 0 && planItems.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {planItems.map((planItem, index) => (
+            <span
+              key={`${planItem._id || index}`}
+              className="rounded-full bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700"
+            >
+              {planItem.title || "Meal Item"} × {planItem.qty || 1}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TimelinePoint({
+  icon,
+  title,
+  subtitle,
 }: {
-  label: string;
-  value: string;
-  highlight?: boolean;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
 }) {
   return (
-    <div
-      className={`rounded-[14px] border p-2.5 sm:rounded-[16px] sm:p-3 ${
-        highlight
-          ? "border-green-200 bg-green-50"
-          : "border-slate-200 bg-slate-50"
-      }`}
-    >
-      <p
-        className={`text-[10px] font-black uppercase tracking-wide sm:text-[11px] ${
-          highlight ? "text-green-700" : "text-slate-500"
-        }`}
-      >
-        {label}
-      </p>
+    <div className="flex items-start gap-4">
+      <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-950">
+        {icon}
+      </span>
 
-      <p
-        className={`mt-1 text-xs font-black sm:text-sm ${
-          highlight ? "text-green-700" : "text-slate-950"
-        }`}
-      >
-        {value}
-      </p>
+      <div>
+        <p className="text-base font-black text-slate-950">{title}</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+          {subtitle}
+        </p>
+      </div>
     </div>
   );
 }
@@ -1063,7 +1192,9 @@ function BillingRow({
     <p className="flex items-center justify-between gap-3">
       <span
         className={`${
-          highlight ? "font-black text-slate-950" : "text-slate-500"
+          highlight
+            ? "text-sm font-black uppercase text-slate-950"
+            : "text-slate-500"
         }`}
       >
         {label}
@@ -1071,11 +1202,7 @@ function BillingRow({
 
       <span
         className={`font-black ${
-          highlight
-            ? "text-green-700"
-            : discount
-            ? "text-green-700"
-            : "text-slate-950"
+          highlight ? "text-slate-950" : discount ? "text-green-700" : "text-slate-950"
         }`}
       >
         {value}
@@ -1084,10 +1211,19 @@ function BillingRow({
   );
 }
 
-function InfoCard({ children }: { children: React.ReactNode }) {
+function SideNav({ label, active }: { label: string; active?: boolean }) {
   return (
-    <div className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-      {children}
+    <div
+      className={`flex items-center gap-3 px-4 py-4 text-sm font-black ${
+        active ? "bg-white text-slate-950" : "text-slate-600"
+      }`}
+    >
+      <span
+        className={`h-9 w-9 rounded-full ${
+          active ? "bg-slate-950" : "bg-slate-300"
+        }`}
+      />
+      {label}
     </div>
   );
 }
@@ -1100,76 +1236,14 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-8 text-center shadow-sm">
-      <p className="text-lg font-black text-slate-950">{title}</p>
+    <div className="border border-slate-200 bg-white p-8 text-center">
+      <PackageCheck className="mx-auto text-slate-300" size={46} />
+
+      <p className="mt-4 text-lg font-black text-slate-950">{title}</p>
+
       <p className="mt-1 text-sm font-semibold text-slate-500">
         {description}
       </p>
-    </div>
-  );
-}
-
-function LiveDeliveryCard({
-  orderId,
-  deliveryStatus,
-  agent,
-  etaText,
-  distanceText,
-  updatedAt,
-}: {
-  orderId: string;
-  deliveryStatus: string;
-  agent?: DeliveryAgent | null;
-  etaText?: string;
-  distanceText?: string;
-  updatedAt?: string | null;
-}) {
-  return (
-    <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 sm:p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Truck size={18} className="text-green-600" />
-
-          <p className="font-black text-slate-950">Live Delivery</p>
-        </div>
-
-        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-700">
-          {readableStatus(deliveryStatus)}
-        </span>
-      </div>
-
-      <div className="space-y-2 text-sm font-semibold leading-6 text-slate-600">
-        <p>
-          <span className="font-black text-slate-950">Agent:</span>{" "}
-          {agent?.name || "Not assigned yet"}
-        </p>
-
-        <p className="flex items-center gap-1">
-          <Phone size={14} className="text-green-600" />
-
-          <span className="font-black text-slate-950">Phone:</span>{" "}
-          {agent?.deliveryProfile?.phone || agent?.phone || "N/A"}
-        </p>
-
-        <p>
-          <span className="font-black text-slate-950">ETA:</span>{" "}
-          {etaText || "Not available yet"}
-          {distanceText ? ` (${distanceText})` : ""}
-        </p>
-
-        <p>
-          <span className="font-black text-slate-950">Last update:</span>{" "}
-          {formatDateTime(updatedAt || null)}
-        </p>
-      </div>
-
-      <Link
-        to={`/track/${orderId}`}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[16px] bg-green-600 px-4 py-3 text-sm font-black text-white transition hover:bg-green-700"
-      >
-        <Navigation size={16} />
-        Track Live
-      </Link>
     </div>
   );
 }
