@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   Flame,
+  Gift,
   Loader2,
   RefreshCw,
   Search,
@@ -36,8 +37,8 @@ type BackendPlan = {
   subtitle?: string;
   description?: string;
   goal: string;
-  mealMode?: "veg" | "nonveg" | "both" | "mixed" | string;
   badge?: string;
+  mealMode?: "veg" | "nonveg" | "both" | string;
   durationDays?: number;
   price?: number;
   trialPrice?: number | null;
@@ -134,20 +135,23 @@ const getProfessionalMealCount = (plan: BackendPlan) => {
   return plan.durationDays || 7;
 };
 
+const getPlanPrice = (plan: BackendPlan) => {
+  return Number(plan.price || plan.trialPrice || 0);
+};
+
 const getMealModeLabel = (plan: BackendPlan) => {
   const mode = String(plan.mealMode || "").toLowerCase();
 
   if (mode === "veg") return "Veg";
-  if (mode === "nonveg" || mode === "non-veg") return "Non-Veg";
-  if (mode === "mixed") return "Mixed";
-  if (mode === "both") return "Veg / Non-Veg";
+  if (mode === "nonveg") return "Non-Veg";
+  if (mode === "both") return "Mixed";
 
   const vegCount = countMealSet(plan.mealSets?.veg);
   const nonvegCount = countMealSet(plan.mealSets?.nonveg);
   const mixedCount = countMealSet(plan.mealSets?.mixed);
 
   if (mixedCount > 0) return "Mixed";
-  if (vegCount > 0 && nonvegCount > 0) return "Veg / Non-Veg";
+  if (vegCount > 0 && nonvegCount > 0) return "Mixed";
   if (vegCount > 0) return "Veg";
   if (nonvegCount > 0) return "Non-Veg";
 
@@ -214,20 +218,16 @@ export default function Plans() {
   return (
     <main className="min-h-screen bg-[#f7f7f7] text-slate-950">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1180px] px-4 py-7 sm:px-6">
+        <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-green-600">
-                MacroBox
-              </p>
-
-              <h1 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950 sm:text-5xl">
+              <h1 className="text-4xl font-black tracking-[-0.06em] text-slate-950 sm:text-5xl">
                 Meal plans made healthy
               </h1>
 
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:text-base">
-                Choose a goal-based MacroBox meal plan, schedule daily delivery
-                slots, and stay consistent with clean eating.
+              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:text-base">
+                Choose a goal-based MacroBox meal plan and schedule your daily
+                delivery slots.
               </p>
             </div>
 
@@ -298,7 +298,7 @@ export default function Plans() {
 
             <Link
               to="/rewards"
-              className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-green-50"
+              className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-green-700 transition hover:bg-green-50"
             >
               View Rewards
               <ArrowRight size={17} />
@@ -307,20 +307,18 @@ export default function Plans() {
         </section>
 
         <section className="mt-8">
-          <div className="mb-5 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                Recommended meal plans
-              </h2>
+          <div className="mb-5">
+            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+              Recommended meal plans
+            </h2>
 
-              <p className="mt-1 text-sm font-bold text-slate-500">
-                {loading
-                  ? "Loading plans..."
-                  : `${filteredPlans.length} plan${
-                      filteredPlans.length === 1 ? "" : "s"
-                    } available`}
-              </p>
-            </div>
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              {loading
+                ? "Loading plans..."
+                : `${filteredPlans.length} plan${
+                    filteredPlans.length === 1 ? "" : "s"
+                  } available`}
+            </p>
           </div>
 
           {loading ? (
@@ -328,72 +326,60 @@ export default function Plans() {
           ) : filteredPlans.length === 0 ? (
             <EmptyCard
               title="No plans found"
-              text="Try changing the search or filter. Admin can add meal plans from panel."
+              text="Try changing the search or filter."
             />
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredPlans.map((plan) => {
                 const duration = plan.durationDays || 7;
-                const price = Number(plan.trialPrice || plan.price || 0);
-                const originalPrice = Number(plan.originalPrice || 0);
+                const price = getPlanPrice(plan);
                 const planId = getPlanId(plan);
                 const mealsCount = getProfessionalMealCount(plan);
-                const mealModeLabel = getMealModeLabel(plan);
+                const mealMode = getMealModeLabel(plan);
 
                 return (
                   <article
                     key={plan._id}
                     className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
                   >
-                    <div className="relative h-28 bg-gradient-to-br from-green-50 via-white to-slate-50">
-                      <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-black text-slate-900 shadow-sm">
-                        <span className="text-green-600">
-                          {goalIcon(plan.goal)}
-                        </span>
-                        {plan.badge || goalLabel(plan.goal)}
-                      </div>
-
-                      <div className="absolute bottom-4 left-4 rounded-full border border-green-100 bg-green-50 px-3 py-1 text-[11px] font-black text-green-700">
-                        {mealModeLabel}
+                    <div className="relative h-36 bg-gradient-to-br from-green-50 via-white to-slate-50">
+                      <div className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-green-600 shadow-sm">
+                        {goalIcon(plan.goal)}
                       </div>
                     </div>
 
                     <div className="p-5">
-                      <div>
-                        <h3 className="text-xl font-black tracking-[-0.04em] text-slate-950">
-                          {plan.title}
-                        </h3>
+                      <h3 className="text-xl font-black tracking-[-0.04em] text-slate-950">
+                        {plan.title}
+                      </h3>
 
-                        <p className="mt-1 text-xs font-black text-slate-500">
-                          {duration} days • {mealsCount} meals
-                        </p>
-                      </div>
-
-                      <p className="mt-3 line-clamp-2 min-h-[44px] text-sm font-semibold leading-6 text-slate-500">
+                      <p className="mt-2 line-clamp-2 min-h-[44px] text-sm font-semibold leading-6 text-slate-500">
                         {plan.description ||
                           "Choose this MacroBox meal plan and schedule your daily meals."}
                       </p>
 
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        <InfoPill label={`${duration} Days`} />
+                        <InfoPill label={`${mealsCount} Meals`} />
+                        <InfoPill label={goalLabel(plan.goal)} />
+                      </div>
+
                       <div className="mt-5 flex items-end justify-between border-t border-dashed border-slate-200 pt-4">
                         <div>
-                          <div className="flex items-end gap-2">
-                            <p className="text-2xl font-black tracking-[-0.05em] text-slate-950">
-                              ₹{price}
-                            </p>
+                          <p className="text-2xl font-black tracking-[-0.05em] text-slate-950">
+                            ₹{price}
+                          </p>
 
-                            {originalPrice && originalPrice > price ? (
-                              <p className="mb-1 text-sm font-bold text-slate-400 line-through">
-                                ₹{originalPrice}
-                              </p>
-                            ) : null}
-                          </div>
+                          <span className="mt-2 inline-flex rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] font-black text-green-700">
+                            {mealMode}
+                          </span>
                         </div>
 
                         <Link
                           to={`/plans/${planId}`}
                           className="inline-flex h-11 items-center gap-2 rounded-xl border border-green-600 bg-green-600 px-4 text-sm font-black text-white transition hover:bg-green-700"
                         >
-                          VIEW
+                          View
                           <ArrowRight size={16} />
                         </Link>
                       </div>
@@ -425,6 +411,14 @@ function EmptyCard({ title, text }: { title: string; text: string }) {
     <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
       <h2 className="text-2xl font-black text-slate-950">{title}</h2>
       <p className="mt-2 text-sm font-semibold text-slate-500">{text}</p>
+    </div>
+  );
+}
+
+function InfoPill({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-[11px] font-black text-slate-700">
+      {label}
     </div>
   );
 }
