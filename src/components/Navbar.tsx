@@ -9,7 +9,6 @@ import {
   ClipboardList,
   Gift,
   LogIn,
-  LogOut,
   MapPin,
   Menu,
   ReceiptText,
@@ -23,18 +22,12 @@ import {
 } from "lucide-react";
 
 export default function Navbar() {
-  const { isAuthenticated, isAdmin, logout, user } = useAuth();
+  const { isAuthenticated, isAdmin, user } = useAuth();
   const { cartCount } = useCart();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   const isChef = user?.role === "chef";
-
-  const handleLogout = () => {
-    logout();
-    setOpen(false);
-    navigate("/login");
-  };
 
   const closeMenu = () => setOpen(false);
 
@@ -162,37 +155,16 @@ export default function Navbar() {
           </div>
 
           <div className="hidden items-center gap-3 lg:flex">
-            {isAuthenticated ? (
-              <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
-                <button
-                  type="button"
-                  onClick={() => navigate("/my-account")}
-                  className="flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-black text-white transition hover:bg-green-700"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-green-700">
-                    {user?.name?.charAt(0)?.toUpperCase() || "U"}
-                  </span>
-                  {user?.name?.split(" ")[0] || "User"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-[14px] px-3 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="rounded-[14px] px-5 py-2.5 text-sm font-black text-slate-950 transition hover:bg-slate-50"
-              >
-                Login
-              </button>
-            )}
-          </div>
+  {!isAuthenticated && (
+    <button
+      type="button"
+      onClick={() => navigate("/login")}
+      className="rounded-[14px] px-5 py-2.5 text-sm font-black text-slate-950 transition hover:bg-slate-50"
+    >
+      Login
+    </button>
+  )}
+</div>
 
           <div className="flex items-center gap-2 lg:hidden">
             {isAuthenticated && !isChef && (
@@ -594,18 +566,7 @@ export default function Navbar() {
               </div>
             </div>
 
-            {isAuthenticated && (
-              <div className="border-t border-slate-200 p-5">
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="flex w-full items-center justify-center gap-2 rounded-[18px] bg-red-50 px-5 py-4 text-lg font-black text-red-600"
-                >
-                  <LogOut size={20} />
-                  Logout
-                </button>
-              </div>
-            )}
+            
           </aside>
         </div>
       )}

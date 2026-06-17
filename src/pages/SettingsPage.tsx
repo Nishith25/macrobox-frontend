@@ -1,13 +1,18 @@
 // frontend/src/pages/SettingsPage.tsx (FRONTEND)
+// MacroBox My Account Page
+// NOTE:
+// File name can stay SettingsPage.tsx for now because AppRouter imports it.
+// Route should be /my-account. Old /settings can redirect to /my-account.
 
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/api";
 import toast from "react-hot-toast";
+import { useAuth } from "../context/AuthContext";
 import {
   CheckCircle2,
-  CreditCard,
-  Heart,
   Lock,
+  LogOut,
   MapPin,
   Phone,
   Save,
@@ -49,6 +54,9 @@ type CurrentUser = {
 type AccountTab = "profile" | "phone" | "password" | "addresses" | "account";
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
   const [activeTab, setActiveTab] = useState<AccountTab>("profile");
 
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -81,15 +89,15 @@ export default function SettingsPage() {
   const phoneReady = cleanPhone.length === 10;
   const phoneChanged = cleanPhone !== currentSavedPhone;
 
-  const inputClass =
-    "h-12 w-full rounded-none border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
-
   const defaultAddress = useMemo(
     () => addresses.find((item) => item.isDefault),
     [addresses]
   );
 
-  const loadSettings = async () => {
+  const inputClass =
+    "h-12 w-full rounded-none border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 transition focus:border-green-500 focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
+
+  const loadAccount = async () => {
     try {
       setLoading(true);
 
@@ -106,7 +114,7 @@ export default function SettingsPage() {
       }
 
       if (addressRes.status === "fulfilled") {
-        setAddresses(addressRes.value.data || []);
+        setAddresses(Array.isArray(addressRes.value.data) ? addressRes.value.data : []);
       }
     } catch {
       toast.error("Failed to load account");
@@ -116,7 +124,7 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    loadSettings();
+    loadAccount();
   }, []);
 
   const syncLocalUser = (updatedUser: CurrentUser) => {
@@ -136,7 +144,7 @@ export default function SettingsPage() {
         })
       );
     } catch {
-      // ignore
+      // ignore local storage parse errors
     }
   };
 
@@ -146,6 +154,17 @@ export default function SettingsPage() {
     setOtpSent(false);
     setPhoneVerifiedForUpdate(false);
     setPhoneVerificationToken("");
+  };
+
+  const handleLogout = async () => {
+    await logout();
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("macrobox_token");
+    localStorage.removeItem("user");
+
+    toast.success("Logged out successfully");
+    navigate("/login");
   };
 
   const updateProfile = async () => {
@@ -352,7 +371,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-[#f5f6f8] px-4 py-10 text-slate-950">
-        <div className="mx-auto max-w-6xl bg-white p-8 shadow-sm">
+        <div className="mx-auto max-w-6xl border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-sm font-semibold text-slate-500">
             Loading account...
           </p>
@@ -363,10 +382,10 @@ export default function SettingsPage() {
 
   return (
     <main className="min-h-screen bg-[#f5f6f8] text-slate-950">
-      <section className="bg-[#0f7586] px-4 pb-20 pt-10 text-white sm:px-6">
+      <section className="bg-slate-950 px-4 pb-20 pt-10 text-white sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/70">
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/60">
               My Account
             </p>
 
@@ -374,7 +393,7 @@ export default function SettingsPage() {
               {user?.name || "MacroBox User"}
             </h1>
 
-            <p className="mt-2 text-sm font-semibold text-white/85 sm:text-base">
+            <p className="mt-2 text-sm font-semibold text-white/80 sm:text-base">
               {user?.phone || "Phone not added"} • {user?.email || ""}
             </p>
           </div>
@@ -384,10 +403,9 @@ export default function SettingsPage() {
               label="Phone"
               value={user?.isPhoneVerified ? "Verified" : "Pending"}
             />
-            <AccountTopStat
-              label="Addresses"
-              value={`${addresses.length} saved`}
-            />
+
+            <AccountTopStat label="Addresses" value={`${addresses.length} saved`} />
+
             <AccountTopStat
               label="Default"
               value={defaultAddress?.addressLabel || "Not set"}
@@ -406,41 +424,45 @@ export default function SettingsPage() {
                 label="Profile"
                 onClick={() => setActiveTab("profile")}
               />
+
               <AccountNavButton
                 active={activeTab === "phone"}
                 icon={<Phone size={18} />}
                 label="Phone Number"
                 onClick={() => setActiveTab("phone")}
               />
+
               <AccountNavButton
                 active={activeTab === "password"}
                 icon={<Lock size={18} />}
                 label="Password"
                 onClick={() => setActiveTab("password")}
               />
+
               <AccountNavButton
                 active={activeTab === "addresses"}
                 icon={<MapPin size={18} />}
                 label="Addresses"
                 onClick={() => setActiveTab("addresses")}
               />
+
               <AccountNavButton
                 active={activeTab === "account"}
                 icon={<Settings size={18} />}
                 label="Account"
                 onClick={() => setActiveTab("account")}
               />
-            </div>
 
-            <div className="mt-6 hidden space-y-3 rounded-xl bg-white p-4 text-sm font-semibold text-slate-500 lg:block">
-              <p className="flex items-center gap-2">
-                <CreditCard size={16} />
-                Payments coming soon
-              </p>
-              <p className="flex items-center gap-2">
-                <Heart size={16} />
-                Favourites coming soon
-              </p>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 px-4 py-4 text-left text-sm font-black text-red-600 transition hover:bg-red-50"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
+                  <LogOut size={18} />
+                </span>
+                Logout
+              </button>
             </div>
           </aside>
 
@@ -727,10 +749,19 @@ export default function SettingsPage() {
               <AccountPanel
                 icon={<ShieldCheck size={22} />}
                 title="Account"
-                subtitle="Deactivate your account if you no longer want to use MacroBox."
+                subtitle="Logout or deactivate your MacroBox account."
               >
-                <div className="mt-6">
-                  {!showDeactivateConfirm ? (
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="inline-flex h-12 items-center gap-2 bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+
+                  {!showDeactivateConfirm && (
                     <button
                       type="button"
                       onClick={() => setShowDeactivateConfirm(true)}
@@ -738,39 +769,41 @@ export default function SettingsPage() {
                     >
                       Deactivate Account
                     </button>
-                  ) : (
-                    <div className="border border-red-200 bg-red-50 p-4">
-                      <p className="font-black text-red-700">
-                        Are you sure you want to deactivate your account?
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold text-red-600">
-                        You can reactivate later by signing up again with the
-                        same email.
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <button
-                          type="button"
-                          onClick={deactivateAccount}
-                          disabled={deactivating}
-                          className="bg-red-600 px-4 py-2.5 text-sm font-black text-white hover:bg-red-700 disabled:opacity-60"
-                        >
-                          {deactivating ? "Deactivating..." : "Yes, deactivate"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setShowDeactivateConfirm(false)}
-                          disabled={deactivating}
-                          className="border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
                   )}
                 </div>
+
+                {showDeactivateConfirm && (
+                  <div className="mt-5 border border-red-200 bg-red-50 p-4">
+                    <p className="font-black text-red-700">
+                      Are you sure you want to deactivate your account?
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-red-600">
+                      You can reactivate later by signing up again with the same
+                      email.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={deactivateAccount}
+                        disabled={deactivating}
+                        className="bg-red-600 px-4 py-2.5 text-sm font-black text-white hover:bg-red-700 disabled:opacity-60"
+                      >
+                        {deactivating ? "Deactivating..." : "Yes, deactivate"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowDeactivateConfirm(false)}
+                        disabled={deactivating}
+                        className="border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </AccountPanel>
             )}
           </div>
@@ -782,10 +815,11 @@ export default function SettingsPage() {
 
 function AccountTopStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-white/25 bg-white/10 px-4 py-3 text-white backdrop-blur-sm">
-      <p className="text-[10px] font-black uppercase tracking-wide text-white/60">
+    <div className="border border-white/20 bg-white/10 px-4 py-3 text-white backdrop-blur-sm">
+      <p className="text-[10px] font-black uppercase tracking-wide text-white/50">
         {label}
       </p>
+
       <p className="mt-1 text-sm font-black">{value}</p>
     </div>
   );
@@ -817,6 +851,7 @@ function AccountNavButton({
       >
         {icon}
       </span>
+
       {label}
     </button>
   );

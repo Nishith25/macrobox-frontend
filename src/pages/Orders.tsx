@@ -545,12 +545,10 @@ export default function Orders() {
 
   return (
     <main className="min-h-screen bg-[#f5f6f8] text-slate-950">
-      <section className="bg-[#0f7586] px-4 pb-16 pt-10 text-white sm:px-6 lg:pb-20">
+      <section className="bg-slate-950 px-4 pb-20 pt-10 text-white sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/70">
-              Orders
-            </p>
+            
 
             <h1 className="mt-3 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
               My Orders
