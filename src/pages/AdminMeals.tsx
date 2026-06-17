@@ -26,6 +26,8 @@ type Meal = {
   goalTypes?: GoalType[];
   mealCategory?: MealCategory;
   isAvailable?: boolean;
+  isTopPick?: boolean;
+  topPickOrder?: number;
 };
 
 type MealOffer = {
@@ -226,6 +228,12 @@ function MealRow({
               >
                 {meal.isAvailable === false ? "Unavailable" : "Available"}
               </span>
+
+              {meal.isTopPick && (
+                <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
+                  Top Pick #{meal.topPickOrder || 0}
+                </span>
+              )}
             </div>
           </div>
 
@@ -329,6 +337,8 @@ export default function AdminMeals() {
     goalTypes: [] as GoalType[],
     mealCategory: "all_day" as MealCategory,
     isAvailable: true,
+    isTopPick: false,
+    topPickOrder: "0",
   });
 
   const [image, setImage] = useState<File | null>(null);
@@ -478,6 +488,8 @@ export default function AdminMeals() {
       goalTypes: [],
       mealCategory: "all_day",
       isAvailable: true,
+      isTopPick: false,
+      topPickOrder: "0",
     });
 
     setImage(null);
@@ -533,6 +545,8 @@ export default function AdminMeals() {
     data.append("goalTypes", JSON.stringify(form.goalTypes));
     data.append("mealCategory", form.mealCategory);
     data.append("isAvailable", String(form.isAvailable));
+    data.append("isTopPick", String(form.isTopPick));
+    data.append("topPickOrder", form.topPickOrder);
 
     if (image) {
       data.append("image", image);
@@ -592,6 +606,8 @@ export default function AdminMeals() {
       goalTypes: meal.goalTypes || [],
       mealCategory: meal.mealCategory || "all_day",
       isAvailable: meal.isAvailable !== false,
+      isTopPick: meal.isTopPick === true,
+      topPickOrder: String(meal.topPickOrder || 0),
     });
 
     setImage(null);
@@ -606,6 +622,7 @@ export default function AdminMeals() {
     ).length;
     const available = meals.filter((meal) => meal.isAvailable !== false).length;
     const activeOffers = offers.filter((offer) => offer.isActive !== false).length;
+    const topPicks = meals.filter((meal) => meal.isTopPick).length;
 
     return {
       total: meals.length,
@@ -614,6 +631,7 @@ export default function AdminMeals() {
       withoutGoals,
       available,
       activeOffers,
+      topPicks,
     };
   }, [meals, offers]);
 
@@ -625,16 +643,17 @@ export default function AdminMeals() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Manage Meals</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Create MacroBox meals and control the launch offer slider shown on the
-          Meals page.
+          Create MacroBox meals, select Top Picks, and control the launch offer
+          slider shown on the Meals page.
         </p>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-6">
+      <div className="mb-6 grid gap-4 md:grid-cols-7">
         <StatCard label="Total Meals" value={stats.total} />
         <StatCard label="Veg Meals" value={stats.veg} green />
         <StatCard label="Non-Veg Meals" value={stats.nonveg} red />
         <StatCard label="Available" value={stats.available} green />
+        <StatCard label="Top Picks" value={stats.topPicks} yellow />
         <StatCard label="Without Tags" value={stats.withoutGoals} yellow />
         <StatCard label="Active Offers" value={stats.activeOffers} blue />
       </div>
@@ -645,6 +664,7 @@ export default function AdminMeals() {
             <h2 className="text-xl font-black text-slate-950">
               Meals Page Offers
             </h2>
+
             <p className="mt-1 text-sm font-semibold text-slate-500">
               These offers appear in the scrolling offer section on the Meals page.
             </p>
@@ -883,6 +903,37 @@ export default function AdminMeals() {
             <option value="true">Available</option>
             <option value="false">Not Available</option>
           </select>
+
+          <label className="flex items-center gap-3 rounded-lg border px-3 py-2">
+            <input
+              type="checkbox"
+              checked={form.isTopPick}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  isTopPick: e.target.checked,
+                })
+              }
+              className="h-4 w-4 accent-green-600"
+            />
+
+            <span className="text-sm font-bold text-slate-700">
+              Show in Top Picks
+            </span>
+          </label>
+
+          <input
+            placeholder="Top Pick Order"
+            type="number"
+            value={form.topPickOrder}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                topPickOrder: e.target.value,
+              })
+            }
+            className="rounded-lg border px-3 py-2"
+          />
 
           <div className="md:col-span-3">
             <p className="mb-2 text-sm font-bold text-gray-700">Meal Goals</p>
