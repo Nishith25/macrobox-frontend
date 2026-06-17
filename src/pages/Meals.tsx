@@ -11,18 +11,12 @@ import {
   ArrowRight,
   ArrowUpDown,
   CheckCircle2,
-  Flame,
-  Leaf,
   Minus,
   Plus,
   RotateCcw,
   Search,
   ShoppingCart,
-  SlidersHorizontal,
   Sparkles,
-  TrendingUp,
-  Utensils,
-  Zap,
 } from "lucide-react";
 
 type GoalType = "fat_loss" | "muscle_gain" | "weight_gain" | "clean_eating";
@@ -34,6 +28,16 @@ type MealWithGoals = Meal & {
   isAvailable?: boolean;
 };
 
+type OfferBanner = {
+  _id?: string;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  ctaText?: string;
+  ctaLink?: string;
+  isActive?: boolean;
+};
+
 const goalLabels: Record<GoalType, string> = {
   fat_loss: "Fat Loss",
   muscle_gain: "Muscle Gain",
@@ -41,16 +45,36 @@ const goalLabels: Record<GoalType, string> = {
   clean_eating: "Clean Eating",
 };
 
-const goalOptions: {
-  key: GoalType | "";
-  label: string;
-  icon: React.ReactNode;
-}[] = [
-  { key: "", label: "All", icon: <Utensils size={15} /> },
-  { key: "fat_loss", label: "Fat Loss", icon: <Flame size={15} /> },
-  { key: "muscle_gain", label: "Muscle Gain", icon: <Zap size={15} /> },
-  { key: "weight_gain", label: "Weight Gain", icon: <TrendingUp size={15} /> },
-  { key: "clean_eating", label: "Clean Eating", icon: <Leaf size={15} /> },
+const goalOptions: { key: GoalType | ""; label: string }[] = [
+  { key: "", label: "All" },
+  { key: "fat_loss", label: "Fat Loss" },
+  { key: "muscle_gain", label: "Muscle Gain" },
+  { key: "weight_gain", label: "Weight Gain" },
+  { key: "clean_eating", label: "Clean Eating" },
+];
+
+const defaultOffers: OfferBanner[] = [
+  {
+    title: "Launch Day Offer",
+    subtitle: "Try your first MacroBox meal from ₹99. Limited period only.",
+    badge: "New",
+    ctaText: "Order Now",
+    ctaLink: "/meals",
+  },
+  {
+    title: "7-Day Meal Plans",
+    subtitle: "Buy a plan and unlock 10% OFF your next eligible plan.",
+    badge: "Reward",
+    ctaText: "View Plans",
+    ctaLink: "/plans",
+  },
+  {
+    title: "High Protein Picks",
+    subtitle: "Fresh meals for gym, fat loss and clean eating goals.",
+    badge: "Popular",
+    ctaText: "Explore",
+    ctaLink: "/meals?goal=muscle_gain",
+  },
 ];
 
 const isValidGoal = (value: string | null | undefined): value is GoalType =>
@@ -88,12 +112,12 @@ export default function Meals() {
     : "";
 
   const [meals, setMeals] = useState<MealWithGoals[]>([]);
+  const [offers, setOffers] = useState<OfferBanner[]>(defaultOffers);
+
   const [filter, setFilter] = useState<FilterType>("all");
   const [goal, setGoal] = useState<GoalType | "">(initialGoal);
-  const [maxCalories, setMaxCalories] = useState(1000);
   const [sortBy, setSortBy] = useState<SortType>("default");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,18 +137,47 @@ export default function Meals() {
         });
 
         if (!mounted) return;
+
         setMeals(Array.isArray(res.data) ? res.data : []);
       } catch {
         if (!mounted) return;
+
         setMeals([]);
         setError("Failed to load meals. Please try again.");
       } finally {
         if (!mounted) return;
+
         setLoading(false);
       }
     };
 
     fetchMeals();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchOffers = async () => {
+      try {
+        const res = await api.get("/offers/public");
+
+        if (!mounted) return;
+
+        const data = Array.isArray(res.data) ? res.data : [];
+
+        if (data.length > 0) {
+          setOffers(data.filter((item: OfferBanner) => item.isActive !== false));
+        }
+      } catch {
+        setOffers(defaultOffers);
+      }
+    };
+
+    fetchOffers();
 
     return () => {
       mounted = false;
@@ -142,20 +195,6 @@ export default function Meals() {
     [cart]
   );
 
-  const maxMealCalories = useMemo(() => {
-    if (meals.length === 0) return 1000;
-
-    const highest = Math.max(...meals.map((meal) => Number(meal.calories || 0)));
-
-    return Math.max(300, Math.ceil(highest / 100) * 100);
-  }, [meals]);
-
-  useEffect(() => {
-    if (meals.length > 0) {
-      setMaxCalories(maxMealCalories);
-    }
-  }, [maxMealCalories, meals.length]);
-
   const filteredMeals = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -168,8 +207,6 @@ export default function Meals() {
       }
 
       if (filter !== "all" && meal.foodType !== filter) return false;
-
-      if (Number(meal.calories || 0) > maxCalories) return false;
 
       if (query) {
         const searchable = [
@@ -205,13 +242,7 @@ export default function Meals() {
 
       return 0;
     });
-  }, [meals, goal, filter, maxCalories, sortBy, searchQuery]);
-
-  const featuredMeals = useMemo(() => {
-    return meals
-      .filter((meal) => meal.isAvailable !== false)
-      .slice(0, 8);
-  }, [meals]);
+  }, [meals, goal, filter, sortBy, searchQuery]);
 
   const getCartQty = (mealId: string) =>
     cart.find((item) => item._id === mealId)?.qty || 0;
@@ -275,16 +306,15 @@ export default function Meals() {
     setFilter("all");
     setSortBy("default");
     setSearchQuery("");
-    setMaxCalories(maxMealCalories);
     setSearchParams(welcome ? { welcome: "true" } : {});
   };
 
-  const activeGoalLabel = goal ? goalLabels[goal] : "All Meals";
+  const activeTitle = goal ? `${goalLabels[goal]} Meals` : "All Meals";
 
   return (
     <main className="min-h-screen bg-white pb-28 text-slate-950">
       <section className="border-b border-slate-100 bg-white">
-        <div className="mx-auto max-w-[1220px] px-4 pb-4 pt-5 sm:px-6 lg:pb-6 lg:pt-8">
+        <div className="mx-auto max-w-[1220px] px-4 pb-5 pt-5 sm:px-6 lg:pb-7 lg:pt-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
@@ -292,7 +322,7 @@ export default function Meals() {
               </p>
 
               <h1 className="mt-2 text-[34px] font-black tracking-[-0.06em] text-slate-950 sm:text-[46px]">
-                {goal ? `${goalLabels[goal]} Meals` : "Order healthy meals"}
+                Order healthy meals
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:text-base">
@@ -301,110 +331,78 @@ export default function Meals() {
               </p>
             </div>
 
-            <div className="flex w-full rounded-[18px] border border-slate-200 bg-white p-1 shadow-sm lg:w-fit">
-              {(["all", "veg", "nonveg"] as FilterType[]).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setFilter(type)}
-                  className={`flex h-12 flex-1 items-center justify-center rounded-[14px] px-5 text-sm font-black transition lg:min-w-[86px] ${
-                    filter === type
-                      ? "bg-green-600 text-white"
-                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-950"
-                  }`}
-                >
-                  {type === "all" ? "All" : type === "veg" ? "Veg" : "Non-Veg"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-6 flex gap-4 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {goalOptions.map((item) => (
-              <button
-                key={item.key || "all"}
-                type="button"
-                onClick={() => changeGoal(item.key)}
-                className={`flex min-w-[112px] flex-col items-center justify-center gap-2 rounded-[22px] border px-4 py-4 text-center transition ${
-                  goal === item.key
-                    ? "border-green-600 bg-green-50 text-green-700"
-                    : "border-slate-100 bg-white text-slate-700 hover:border-green-200"
-                }`}
-              >
-                <span
-                  className={`flex h-11 w-11 items-center justify-center rounded-full ${
-                    goal === item.key
-                      ? "bg-green-600 text-white"
-                      : "bg-slate-50 text-slate-500"
-                  }`}
-                >
-                  {item.icon}
-                </span>
-
-                <span className="text-xs font-black">{item.label}</span>
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => navigate("/plans")}
+              className="hidden h-12 items-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-black text-white lg:inline-flex"
+            >
+              View Plans
+              <ArrowRight size={16} />
+            </button>
           </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-[1220px] px-4 py-5 sm:px-6">
-        {featuredMeals.length > 0 && (
-          <div className="mb-7">
-            <div className="mb-4 flex items-center justify-between gap-3">
+        <section className="mb-7 overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} className="text-green-600" />
+
               <div>
-                <h2 className="text-xl font-black tracking-[-0.04em] text-slate-950 sm:text-2xl">
-                  What’s on your mind?
+                <h2 className="text-lg font-black tracking-[-0.03em] text-slate-950">
+                  Offers & Updates
                 </h2>
 
-                <p className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
-                  Quick picks from MacroBox meals.
+                <p className="text-xs font-semibold text-slate-500">
+                  Admin offers will show here. Launch offers are shown by
+                  default.
                 </p>
               </div>
-
-              <button
-                type="button"
-                onClick={() => navigate("/plans")}
-                className="hidden items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white sm:inline-flex"
-              >
-                Plans
-                <ArrowRight size={14} />
-              </button>
-            </div>
-
-            <div className="flex gap-4 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {featuredMeals.map((meal) => (
-                <button
-                  key={meal._id}
-                  type="button"
-                  onClick={() => setSearchQuery(meal.title)}
-                  className="group min-w-[116px] text-center sm:min-w-[138px]"
-                >
-                  <div className="mx-auto h-[96px] w-[96px] overflow-hidden rounded-full bg-slate-100 shadow-sm transition group-hover:scale-105 sm:h-[118px] sm:w-[118px]">
-                    <img
-                      src={meal.imageUrl || "/placeholder-meal.png"}
-                      alt={meal.title}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder-meal.png";
-                      }}
-                    />
-                  </div>
-
-                  <p className="mt-3 line-clamp-2 text-sm font-black leading-5 text-slate-700">
-                    {meal.title}
-                  </p>
-                </button>
-              ))}
             </div>
           </div>
-        )}
 
-        <div className="mb-5 border-t border-slate-200 pt-5">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-4 overflow-x-auto p-4 [-ms-overflow-style:none] [scrollbar-width:none] sm:p-5 [&::-webkit-scrollbar]:hidden">
+            {offers.map((offer, index) => (
+              <button
+                key={offer._id || `${offer.title}-${index}`}
+                type="button"
+                onClick={() => navigate(offer.ctaLink || "/meals")}
+                className="min-w-[280px] border border-green-100 bg-gradient-to-br from-green-50 via-white to-white p-4 text-left transition hover:border-green-300 hover:shadow-md sm:min-w-[360px]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="rounded-full bg-green-600 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
+                      {offer.badge || "Offer"}
+                    </span>
+
+                    <h3 className="mt-3 text-xl font-black tracking-[-0.04em] text-slate-950">
+                      {offer.title}
+                    </h3>
+
+                    <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-slate-500">
+                      {offer.subtitle || "Special MacroBox offer available now."}
+                    </p>
+                  </div>
+
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+                    <ArrowRight size={18} />
+                  </span>
+                </div>
+
+                <p className="mt-4 text-sm font-black text-green-700">
+                  {offer.ctaText || "Explore"}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-5">
+          <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                {activeGoalLabel}
+                {activeTitle}
               </h2>
 
               <p className="mt-1 text-sm font-semibold text-slate-500">
@@ -412,22 +410,26 @@ export default function Meals() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowMobileFilters((prev) => !prev)}
-              className="inline-flex h-11 w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm lg:hidden"
-            >
-              <SlidersHorizontal size={16} />
-              Filters
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {goalOptions.map((item) => (
+                <button
+                  key={item.key || "all"}
+                  type="button"
+                  onClick={() => changeGoal(item.key)}
+                  className={`h-10 rounded-full border px-4 text-sm font-black transition ${
+                    goal === item.key
+                      ? "border-slate-950 bg-slate-950 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div
-            className={`mb-5 rounded-[20px] border border-slate-200 bg-white p-3 shadow-sm ${
-              showMobileFilters ? "block" : "hidden lg:block"
-            }`}
-          >
-            <div className="grid gap-3 lg:grid-cols-[1fr_230px_240px_auto] lg:items-center">
+          <div className="rounded-[20px] border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid gap-3 lg:grid-cols-[1fr_auto_220px_auto] lg:items-center">
               <div className="relative">
                 <Search
                   size={17}
@@ -442,25 +444,25 @@ export default function Meals() {
                 />
               </div>
 
-              <div>
-                <div className="mb-2 flex items-center justify-between text-xs font-black">
-                  <span className="flex items-center gap-1.5 text-slate-500">
-                    <SlidersHorizontal size={13} />
-                    Calories ≤
-                  </span>
-
-                  <span className="text-green-700">{maxCalories} kcal</span>
-                </div>
-
-                <input
-                  type="range"
-                  min={100}
-                  max={maxMealCalories}
-                  step={50}
-                  value={maxCalories}
-                  onChange={(e) => setMaxCalories(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer accent-green-600"
-                />
+              <div className="flex rounded-[16px] border border-slate-200 bg-slate-50 p-1">
+                {(["all", "veg", "nonveg"] as FilterType[]).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setFilter(type)}
+                    className={`h-10 rounded-[13px] px-4 text-xs font-black transition sm:text-sm ${
+                      filter === type
+                        ? "bg-green-600 text-white"
+                        : "text-slate-600 hover:bg-white"
+                    }`}
+                  >
+                    {type === "all"
+                      ? "All"
+                      : type === "veg"
+                      ? "Veg"
+                      : "Non-Veg"}
+                  </button>
+                ))}
               </div>
 
               <div className="relative">
@@ -491,7 +493,7 @@ export default function Meals() {
               </button>
             </div>
           </div>
-        </div>
+        </section>
 
         {loading ? (
           <div className="border border-slate-200 bg-white p-10 text-center text-sm font-black text-slate-500 shadow-sm">
@@ -508,7 +510,7 @@ export default function Meals() {
             </p>
 
             <p className="mt-2 text-sm font-semibold text-slate-500">
-              Try changing the goal, diet type, search or calories filter.
+              Try changing the goal, diet type, search or sort filter.
             </p>
           </div>
         ) : (
