@@ -13,7 +13,6 @@ import {
   MapPin,
   Menu,
   ReceiptText,
-  Settings,
   Shield,
   ShoppingCart,
   TicketPercent,
@@ -127,6 +126,7 @@ export default function Navbar() {
                 </NavLink>
 
                 <NavLink to="/orders" className={navLinkClass}>
+                  <ReceiptText size={17} />
                   Orders
                 </NavLink>
 
@@ -140,9 +140,9 @@ export default function Navbar() {
                   )}
                 </NavLink>
 
-                <NavLink to="/settings" className={navLinkClass}>
-                  <Settings size={17} />
-                  Settings
+                <NavLink to="/my-account" className={navLinkClass}>
+                  <UserCircle size={17} />
+                  My Account
                 </NavLink>
 
                 {user?.role === "delivery" && (
@@ -164,12 +164,16 @@ export default function Navbar() {
           <div className="hidden items-center gap-3 lg:flex">
             {isAuthenticated ? (
               <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
-                <div className="flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-black text-white">
+                <button
+                  type="button"
+                  onClick={() => navigate("/my-account")}
+                  className="flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-black text-white transition hover:bg-green-700"
+                >
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs text-green-700">
                     {user?.name?.charAt(0)?.toUpperCase() || "U"}
                   </span>
                   {user?.name?.split(" ")[0] || "User"}
-                </div>
+                </button>
 
                 <button
                   type="button"
@@ -365,13 +369,13 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={() => {
-                      navigate("/settings");
+                      navigate("/my-account");
                       closeMenu();
                     }}
                     className="mt-4 flex w-full items-center justify-center gap-2 rounded-[16px] bg-green-600 px-4 py-3 text-sm font-black text-white"
                   >
                     <UserCircle size={18} />
-                    View Profile
+                    My Account
                   </button>
                 </div>
               )}
@@ -465,11 +469,11 @@ export default function Navbar() {
                     </NavLink>
 
                     <NavLink
-                      to="/settings"
+                      to="/my-account"
                       className={mobileLinkClass}
                       onClick={closeMenu}
                     >
-                      Settings <span>→</span>
+                      My Account <span>→</span>
                     </NavLink>
 
                     {user?.role === "delivery" && (

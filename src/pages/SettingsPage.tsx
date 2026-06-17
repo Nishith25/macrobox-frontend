@@ -5,6 +5,8 @@ import api from "../api/api";
 import toast from "react-hot-toast";
 import {
   CheckCircle2,
+  CreditCard,
+  Heart,
   Lock,
   MapPin,
   Phone,
@@ -13,6 +15,7 @@ import {
   ShieldCheck,
   Trash2,
   User,
+  UserCircle,
 } from "lucide-react";
 
 type SavedAddress = {
@@ -43,7 +46,11 @@ type CurrentUser = {
   savedAddresses?: SavedAddress[];
 };
 
+type AccountTab = "profile" | "phone" | "password" | "addresses" | "account";
+
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<AccountTab>("profile");
+
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,19 +81,13 @@ export default function SettingsPage() {
   const phoneReady = cleanPhone.length === 10;
   const phoneChanged = cleanPhone !== currentSavedPhone;
 
-  const pageClass = "min-h-screen bg-[#f6f7f8] text-slate-950";
-
-  const cardClass =
-    "rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,0.06)]";
-
-  const titleClass = "text-slate-950";
-  const mutedClass = "text-slate-500";
-
   const inputClass =
-    "h-12 w-full rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
+    "h-12 w-full rounded-none border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-green-500 focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
 
-  const compactAddressCardClass =
-    "rounded-[18px] border border-slate-200 bg-slate-50 p-4";
+  const defaultAddress = useMemo(
+    () => addresses.find((item) => item.isDefault),
+    [addresses]
+  );
 
   const loadSettings = async () => {
     try {
@@ -108,7 +109,7 @@ export default function SettingsPage() {
         setAddresses(addressRes.value.data || []);
       }
     } catch {
-      toast.error("Failed to load settings");
+      toast.error("Failed to load account");
     } finally {
       setLoading(false);
     }
@@ -117,11 +118,6 @@ export default function SettingsPage() {
   useEffect(() => {
     loadSettings();
   }, []);
-
-  const defaultAddress = useMemo(
-    () => addresses.find((item) => item.isDefault),
-    [addresses]
-  );
 
   const syncLocalUser = (updatedUser: CurrentUser) => {
     const oldRaw = localStorage.getItem("user");
@@ -140,7 +136,7 @@ export default function SettingsPage() {
         })
       );
     } catch {
-      // ignore local storage parse errors
+      // ignore
     }
   };
 
@@ -341,6 +337,7 @@ export default function SettingsPage() {
       await api.put("/user/deactivate");
 
       localStorage.removeItem("token");
+      localStorage.removeItem("macrobox_token");
       localStorage.removeItem("user");
 
       toast.success("Account deactivated");
@@ -354,420 +351,518 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <main className={pageClass}>
-        <div className="mx-auto max-w-[1240px] px-4 py-10 sm:px-6">
-          <div className={cardClass}>
-            <p className={mutedClass}>Loading settings...</p>
-          </div>
+      <main className="min-h-screen bg-[#f5f6f8] px-4 py-10 text-slate-950">
+        <div className="mx-auto max-w-6xl bg-white p-8 shadow-sm">
+          <p className="text-sm font-semibold text-slate-500">
+            Loading account...
+          </p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className={pageClass}>
-      <div className="mx-auto max-w-[1240px] px-4 py-8 sm:px-6 lg:py-10">
-        <section className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white">
-              <Settings size={23} />
-            </span>
-
-            <div>
-              <h1 className={`text-[32px] font-black tracking-[-0.04em] ${titleClass}`}>
-                Settings
-              </h1>
-
-              <p className={`mt-1 text-sm font-semibold ${mutedClass}`}>
-                Manage your profile, security and saved addresses.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-7 grid gap-5 md:grid-cols-3">
-          <MiniSummary
-            label="Signed in as"
-            value={user?.name || "User"}
-            helper={user?.email || ""}
-          />
-
-          <MiniSummary
-            label="Phone"
-            value={user?.phone || "Not added"}
-            helper={user?.isPhoneVerified ? "Verified" : "Verification required"}
-          />
-
-          <MiniSummary
-            label="Default Address"
-            value={defaultAddress?.addressLabel || "Not selected"}
-            helper={
-              defaultAddress
-                ? `${defaultAddress.area || defaultAddress.city || ""} ${
-                    defaultAddress.pincode ? `- ${defaultAddress.pincode}` : ""
-                  }`
-                : "Set one from saved addresses"
-            }
-          />
-        </section>
-
-        <section className="grid gap-5 lg:grid-cols-2">
-          <div className={cardClass}>
-            <CardHeader
-              icon={<User size={20} />}
-              title="Profile"
-              subtitle="Update your display name and view account status."
-            />
-
-            <div className="mt-5 space-y-4">
-              <Field label="Name">
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Email">
-                <input value={user?.email || ""} disabled className={inputClass} />
-              </Field>
-
-              <div className="flex flex-wrap gap-2">
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-black ${
-                    user?.emailVerified
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
-                >
-                  {user?.emailVerified ? "Email verified" : "Email not verified"}
-                </span>
-              </div>
-
-              <PrimaryButton onClick={updateProfile} loading={savingProfile}>
-                <Save size={16} />
-                {savingProfile ? "Saving..." : "Save Profile"}
-              </PrimaryButton>
-            </div>
-          </div>
-
-          <div className={cardClass}>
-            <CardHeader
-              icon={<Phone size={20} />}
-              title="Phone Number"
-              subtitle="Verify WhatsApp OTP before updating your phone number."
-            />
-
-            <div className="mt-5 space-y-4">
-              <Field label="Phone number">
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    value={phone}
-                    onChange={(e) => {
-                      setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
-                      resetPhoneOtpState();
-                    }}
-                    placeholder="Phone number"
-                    className={inputClass}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={sendPhoneOtp}
-                    disabled={otpLoading || !phoneReady || !phoneChanged}
-                    className="h-12 shrink-0 rounded-[16px] border border-green-600 px-4 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {otpLoading && !otpSent
-                      ? "Sending..."
-                      : otpSent
-                      ? "Resend OTP"
-                      : "Get OTP"}
-                  </button>
-                </div>
-              </Field>
-
-              {!phoneChanged && (
-                <p className={`text-xs font-bold ${mutedClass}`}>
-                  Enter a new phone number to enable OTP verification.
-                </p>
-              )}
-
-              {otpSent && !phoneVerifiedForUpdate && (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    placeholder="Enter 6-digit OTP"
-                    className={inputClass}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={verifyPhoneOtp}
-                    disabled={otpLoading || otp.length !== 6}
-                    className="h-12 shrink-0 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {otpLoading ? "Verifying..." : "Verify"}
-                  </button>
-                </div>
-              )}
-
-              {devOtp && !phoneVerifiedForUpdate && (
-                <p className="rounded-[14px] border border-yellow-300 bg-yellow-50 px-4 py-3 text-xs font-black text-yellow-800">
-                  Dev OTP: {devOtp}
-                </p>
-              )}
-
-              {phoneVerifiedForUpdate && (
-                <p className="flex items-center gap-2 rounded-[14px] bg-green-50 px-4 py-3 text-xs font-black text-green-700">
-                  <CheckCircle2 size={16} />
-                  Phone number verified. You can update now.
-                </p>
-              )}
-
-              <PrimaryButton
-                onClick={updatePhone}
-                loading={savingPhone}
-                disabled={!phoneChanged || !phoneVerifiedForUpdate}
-              >
-                <Save size={16} />
-                {savingPhone ? "Updating..." : "Update Phone"}
-              </PrimaryButton>
-
-              <p
-                className="rounded-[14px] bg-yellow-50 px-4 py-3 text-xs font-bold text-yellow-700"
-              >
-                Note: Phone number update requires WhatsApp OTP verification.
-              </p>
-            </div>
-          </div>
-
-          <div className={cardClass}>
-            <CardHeader
-              icon={<Lock size={20} />}
-              title="Change Password"
-              subtitle="Keep your MacroBox account secure."
-            />
-
-            <div className="mt-5 space-y-4">
-              <Field label="Current password">
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Current password"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="New password">
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="New password"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Confirm new password">
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  className={inputClass}
-                />
-              </Field>
-
-              <PrimaryButton onClick={changePassword} loading={savingPassword}>
-                <ShieldCheck size={16} />
-                {savingPassword ? "Changing..." : "Change Password"}
-              </PrimaryButton>
-            </div>
-          </div>
-
-          <div className={cardClass}>
-            <CardHeader
-              icon={<ShieldCheck size={20} />}
-              title="Account"
-              subtitle="Deactivate your account if you no longer want to use MacroBox."
-            />
-
-            <div className="mt-5">
-              {!showDeactivateConfirm ? (
-                <button
-                  type="button"
-                  onClick={() => setShowDeactivateConfirm(true)}
-                  className="rounded-[16px] border border-red-300 px-5 py-3 text-sm font-black text-red-600 transition hover:bg-red-50"
-                >
-                  Deactivate Account
-                </button>
-              ) : (
-                <div className="rounded-[18px] border border-red-200 bg-red-50 p-4">
-                  <p className="font-black text-red-700">
-                    Are you sure you want to deactivate your account?
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-red-600">
-                    You can reactivate later by signing up again with the same email.
-                  </p>
-
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={deactivateAccount}
-                      disabled={deactivating}
-                      className="rounded-[14px] bg-red-600 px-4 py-2.5 text-sm font-black text-white hover:bg-red-700 disabled:opacity-60"
-                    >
-                      {deactivating ? "Deactivating..." : "Yes, deactivate"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowDeactivateConfirm(false)}
-                      disabled={deactivating}
-                      className="rounded-[14px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section className={`mt-5 ${cardClass}`}>
-          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <CardHeader
-              icon={<MapPin size={20} />}
-              title="Saved Addresses"
-              subtitle="Compact view of your delivery addresses."
-            />
-
-            <span
-              className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
-            >
-              {addresses.length} saved
-            </span>
-          </div>
-
-          {addresses.length === 0 ? (
-            <p
-              className="rounded-[18px] bg-slate-50 p-4 text-sm font-semibold text-slate-500"
-            >
-              No saved addresses yet.
+    <main className="min-h-screen bg-[#f5f6f8] text-slate-950">
+      <section className="bg-[#0f7586] px-4 pb-20 pt-10 text-white sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/70">
+              My Account
             </p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {addresses.map((address) => (
-                <article key={address._id} className={compactAddressCardClass}>
-                  <div className="mb-2 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3
-                          className="truncate text-base font-black text-slate-950"
-                        >
-                          {address.addressLabel || "Address"}
-                        </h3>
 
-                        {address.isDefault && (
-                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-black text-green-700">
-                            Default
-                          </span>
-                        )}
-                      </div>
+            <h1 className="mt-3 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
+              {user?.name || "MacroBox User"}
+            </h1>
 
-                      <p
-                        className="mt-1 line-clamp-1 text-sm font-bold text-slate-700"
-                      >
-                        {[address.flatNo, address.buildingName]
-                          .filter(Boolean)
-                          .join(", ") || "Address details"}
-                      </p>
-                    </div>
+            <p className="mt-2 text-sm font-semibold text-white/85 sm:text-base">
+              {user?.phone || "Phone not added"} • {user?.email || ""}
+            </p>
+          </div>
 
-                    <button
-                      type="button"
-                      onClick={() => deleteAddress(address._id)}
-                      className="shrink-0 rounded-full p-2 text-red-500 hover:bg-red-50"
-                      aria-label="Delete address"
+          <div className="grid gap-2 sm:grid-cols-3">
+            <AccountTopStat
+              label="Phone"
+              value={user?.isPhoneVerified ? "Verified" : "Pending"}
+            />
+            <AccountTopStat
+              label="Addresses"
+              value={`${addresses.length} saved`}
+            />
+            <AccountTopStat
+              label="Default"
+              value={defaultAddress?.addressLabel || "Not set"}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto -mt-12 max-w-6xl px-4 pb-10 sm:px-6">
+        <div className="grid bg-white shadow-[0_18px_55px_rgba(15,23,42,0.08)] lg:grid-cols-[280px_1fr]">
+          <aside className="border-b border-slate-100 bg-slate-50 p-4 lg:border-b-0 lg:border-r lg:p-6">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+              <AccountNavButton
+                active={activeTab === "profile"}
+                icon={<UserCircle size={18} />}
+                label="Profile"
+                onClick={() => setActiveTab("profile")}
+              />
+              <AccountNavButton
+                active={activeTab === "phone"}
+                icon={<Phone size={18} />}
+                label="Phone Number"
+                onClick={() => setActiveTab("phone")}
+              />
+              <AccountNavButton
+                active={activeTab === "password"}
+                icon={<Lock size={18} />}
+                label="Password"
+                onClick={() => setActiveTab("password")}
+              />
+              <AccountNavButton
+                active={activeTab === "addresses"}
+                icon={<MapPin size={18} />}
+                label="Addresses"
+                onClick={() => setActiveTab("addresses")}
+              />
+              <AccountNavButton
+                active={activeTab === "account"}
+                icon={<Settings size={18} />}
+                label="Account"
+                onClick={() => setActiveTab("account")}
+              />
+            </div>
+
+            <div className="mt-6 hidden space-y-3 rounded-xl bg-white p-4 text-sm font-semibold text-slate-500 lg:block">
+              <p className="flex items-center gap-2">
+                <CreditCard size={16} />
+                Payments coming soon
+              </p>
+              <p className="flex items-center gap-2">
+                <Heart size={16} />
+                Favourites coming soon
+              </p>
+            </div>
+          </aside>
+
+          <div className="min-w-0 p-4 sm:p-6 lg:p-8">
+            {activeTab === "profile" && (
+              <AccountPanel
+                icon={<User size={22} />}
+                title="Profile"
+                subtitle="Update your display name and view account status."
+              >
+                <div className="mt-6 grid gap-5">
+                  <Field label="Name">
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field label="Email">
+                    <input
+                      value={user?.email || ""}
+                      disabled
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-black ${
+                        user?.emailVerified
+                          ? "bg-green-100 text-green-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
                     >
-                      <Trash2 size={15} />
-                    </button>
+                      {user?.emailVerified
+                        ? "Email verified"
+                        : "Email not verified"}
+                    </span>
                   </div>
 
-                  <p className={`line-clamp-2 text-xs font-semibold ${mutedClass}`}>
-                    {[address.area, address.city, address.state]
-                      .filter(Boolean)
-                      .join(", ")}
-                    {address.pincode ? ` - ${address.pincode}` : ""}
-                  </p>
+                  <PrimaryButton onClick={updateProfile} loading={savingProfile}>
+                    <Save size={16} />
+                    {savingProfile ? "Saving..." : "Save Profile"}
+                  </PrimaryButton>
+                </div>
+              </AccountPanel>
+            )}
 
-                  <p className={`mt-2 line-clamp-1 text-xs font-semibold ${mutedClass}`}>
-                    {address.fullName || "User"} • {address.phone || "No phone"}
-                  </p>
+            {activeTab === "phone" && (
+              <AccountPanel
+                icon={<Phone size={22} />}
+                title="Phone Number"
+                subtitle="Verify WhatsApp OTP before updating your phone number."
+              >
+                <div className="mt-6 grid gap-5">
+                  <Field label="Phone number">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        value={phone}
+                        onChange={(e) => {
+                          setPhone(
+                            e.target.value.replace(/\D/g, "").slice(0, 10)
+                          );
+                          resetPhoneOtpState();
+                        }}
+                        placeholder="Phone number"
+                        className={inputClass}
+                      />
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {!address.isDefault && (
                       <button
                         type="button"
-                        onClick={() => setDefaultAddress(address._id)}
-                        className="rounded-[12px] border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-white"
+                        onClick={sendPhoneOtp}
+                        disabled={otpLoading || !phoneReady || !phoneChanged}
+                        className="h-12 shrink-0 border border-green-600 px-5 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Set Default
+                        {otpLoading && !otpSent
+                          ? "Sending..."
+                          : otpSent
+                          ? "Resend OTP"
+                          : "Get OTP"}
                       </button>
-                    )}
+                    </div>
+                  </Field>
 
-                    {address.mapsUrl && (
-                      <a
-                        href={address.mapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-[12px] border border-green-600 bg-green-50 px-3 py-2 text-xs font-black text-green-700 hover:bg-green-100"
+                  {!phoneChanged && (
+                    <p className="text-xs font-bold text-slate-500">
+                      Enter a new phone number to enable OTP verification.
+                    </p>
+                  )}
+
+                  {otpSent && !phoneVerifiedForUpdate && (
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        value={otp}
+                        onChange={(e) =>
+                          setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                        }
+                        placeholder="Enter 6-digit OTP"
+                        className={inputClass}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={verifyPhoneOtp}
+                        disabled={otpLoading || otp.length !== 6}
+                        className="h-12 shrink-0 bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700 disabled:opacity-50"
                       >
-                        Open Map
-                      </a>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+                        {otpLoading ? "Verifying..." : "Verify"}
+                      </button>
+                    </div>
+                  )}
+
+                  {devOtp && !phoneVerifiedForUpdate && (
+                    <p className="border border-yellow-300 bg-yellow-50 px-4 py-3 text-xs font-black text-yellow-800">
+                      Dev OTP: {devOtp}
+                    </p>
+                  )}
+
+                  {phoneVerifiedForUpdate && (
+                    <p className="flex items-center gap-2 bg-green-50 px-4 py-3 text-xs font-black text-green-700">
+                      <CheckCircle2 size={16} />
+                      Phone number verified. You can update now.
+                    </p>
+                  )}
+
+                  <PrimaryButton
+                    onClick={updatePhone}
+                    loading={savingPhone}
+                    disabled={!phoneChanged || !phoneVerifiedForUpdate}
+                  >
+                    <Save size={16} />
+                    {savingPhone ? "Updating..." : "Update Phone"}
+                  </PrimaryButton>
+
+                  <p className="bg-yellow-50 px-4 py-3 text-xs font-bold text-yellow-700">
+                    Note: Phone number update requires WhatsApp OTP verification.
+                  </p>
+                </div>
+              </AccountPanel>
+            )}
+
+            {activeTab === "password" && (
+              <AccountPanel
+                icon={<Lock size={22} />}
+                title="Change Password"
+                subtitle="Keep your MacroBox account secure."
+              >
+                <div className="mt-6 grid gap-5">
+                  <Field label="Current password">
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Current password"
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field label="New password">
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="New password"
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field label="Confirm new password">
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <PrimaryButton
+                    onClick={changePassword}
+                    loading={savingPassword}
+                  >
+                    <ShieldCheck size={16} />
+                    {savingPassword ? "Changing..." : "Change Password"}
+                  </PrimaryButton>
+                </div>
+              </AccountPanel>
+            )}
+
+            {activeTab === "addresses" && (
+              <AccountPanel
+                icon={<MapPin size={22} />}
+                title="Saved Addresses"
+                subtitle="Manage your delivery addresses."
+                rightText={`${addresses.length} saved`}
+              >
+                <div className="mt-6">
+                  {addresses.length === 0 ? (
+                    <p className="bg-slate-50 p-5 text-sm font-semibold text-slate-500">
+                      No saved addresses yet.
+                    </p>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {addresses.map((address) => (
+                        <article
+                          key={address._id}
+                          className="border border-slate-200 bg-slate-50 p-4"
+                        >
+                          <div className="mb-2 flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="truncate text-base font-black text-slate-950">
+                                  {address.addressLabel || "Address"}
+                                </h3>
+
+                                {address.isDefault && (
+                                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-black text-green-700">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-700">
+                                {[address.flatNo, address.buildingName]
+                                  .filter(Boolean)
+                                  .join(", ") || "Address details"}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => deleteAddress(address._id)}
+                              className="shrink-0 rounded-full p-2 text-red-500 hover:bg-red-50"
+                              aria-label="Delete address"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+
+                          <p className="line-clamp-2 text-xs font-semibold text-slate-500">
+                            {[address.area, address.city, address.state]
+                              .filter(Boolean)
+                              .join(", ")}
+                            {address.pincode ? ` - ${address.pincode}` : ""}
+                          </p>
+
+                          <p className="mt-2 line-clamp-1 text-xs font-semibold text-slate-500">
+                            {address.fullName || "User"} •{" "}
+                            {address.phone || "No phone"}
+                          </p>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {!address.isDefault && (
+                              <button
+                                type="button"
+                                onClick={() => setDefaultAddress(address._id)}
+                                className="border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                              >
+                                Set Default
+                              </button>
+                            )}
+
+                            {address.mapsUrl && (
+                              <a
+                                href={address.mapsUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="border border-green-600 bg-green-50 px-3 py-2 text-xs font-black text-green-700 hover:bg-green-100"
+                              >
+                                Open Map
+                              </a>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </AccountPanel>
+            )}
+
+            {activeTab === "account" && (
+              <AccountPanel
+                icon={<ShieldCheck size={22} />}
+                title="Account"
+                subtitle="Deactivate your account if you no longer want to use MacroBox."
+              >
+                <div className="mt-6">
+                  {!showDeactivateConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDeactivateConfirm(true)}
+                      className="border border-red-300 px-5 py-3 text-sm font-black text-red-600 transition hover:bg-red-50"
+                    >
+                      Deactivate Account
+                    </button>
+                  ) : (
+                    <div className="border border-red-200 bg-red-50 p-4">
+                      <p className="font-black text-red-700">
+                        Are you sure you want to deactivate your account?
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold text-red-600">
+                        You can reactivate later by signing up again with the
+                        same email.
+                      </p>
+
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={deactivateAccount}
+                          disabled={deactivating}
+                          className="bg-red-600 px-4 py-2.5 text-sm font-black text-white hover:bg-red-700 disabled:opacity-60"
+                        >
+                          {deactivating ? "Deactivating..." : "Yes, deactivate"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowDeactivateConfirm(false)}
+                          disabled={deactivating}
+                          className="border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </AccountPanel>
+            )}
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
 
-function CardHeader({
+function AccountTopStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-white/25 bg-white/10 px-4 py-3 text-white backdrop-blur-sm">
+      <p className="text-[10px] font-black uppercase tracking-wide text-white/60">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-black">{value}</p>
+    </div>
+  );
+}
+
+function AccountNavButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 px-4 py-4 text-left text-sm font-black transition ${
+        active ? "bg-white text-slate-950" : "text-slate-600 hover:bg-white/70"
+      }`}
+    >
+      <span
+        className={`flex h-10 w-10 items-center justify-center rounded-full ${
+          active ? "bg-slate-950 text-white" : "bg-slate-200 text-slate-600"
+        }`}
+      >
+        {icon}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function AccountPanel({
   icon,
   title,
   subtitle,
+  children,
+  rightText,
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
+  children: React.ReactNode;
+  rightText?: string;
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
-        {icon}
-      </span>
+    <section>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+            {icon}
+          </span>
 
-      <div>
-        <h2 className="text-xl font-black tracking-[-0.03em] text-slate-950">
-          {title}
-        </h2>
+          <div>
+            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+              {title}
+            </h2>
 
-        <p className="mt-1 text-sm font-semibold text-slate-500">
-          {subtitle}
-        </p>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              {subtitle}
+            </p>
+          </div>
+        </div>
+
+        {rightText && (
+          <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+            {rightText}
+          </span>
+        )}
       </div>
-    </div>
+
+      <div className="max-w-3xl">{children}</div>
+    </section>
   );
 }
 
@@ -805,35 +900,9 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={loading || disabled}
-      className="inline-flex h-12 items-center gap-2 rounded-[16px] bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex h-12 w-fit items-center gap-2 bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {children}
     </button>
-  );
-}
-
-function MiniSummary({
-  label,
-  value,
-  helper,
-}: {
-  label: string;
-  value: string;
-  helper: string;
-}) {
-  return (
-    <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-
-      <p className="mt-2 truncate text-lg font-black text-slate-950">
-        {value}
-      </p>
-
-      <p className="mt-1 truncate text-xs font-semibold text-slate-500">
-        {helper}
-      </p>
-    </div>
   );
 }

@@ -1,6 +1,12 @@
 // frontend/src/router/AppRouter.tsx (FRONTEND)
 
-import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -146,10 +152,8 @@ export default function AppRouter() {
       {!hideLayout && <Navbar />}
 
       <Routes>
-        {/* ================= PUBLIC LANDING PAGE ================= */}
         <Route path="/" element={<Home />} />
 
-        {/* ================= CUSTOMER AUTH ROUTES ================= */}
         <Route
           path="/login"
           element={
@@ -168,22 +172,21 @@ export default function AppRouter() {
           }
         />
 
-        {/* ================= DELIVERY AUTH ROUTES ================= */}
         <Route path="/deliverylogin" element={<DeliveryLogin />} />
-        <Route path="/deliverysignin" element={<Navigate to="/deliverylogin" replace />} />
+        <Route
+          path="/deliverysignin"
+          element={<Navigate to="/deliverylogin" replace />}
+        />
         <Route path="/deliverysignup" element={<DeliverySignup />} />
 
-        {/* ================= CHEF AUTH ROUTES ================= */}
         <Route path="/cheflogin" element={<ChefLogin />} />
         <Route path="/chefsignup" element={<ChefSignup />} />
 
-        {/* ================= OTHER AUTH ROUTES ================= */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/verify-email/:token" element={<VerifyEmail />} />
         <Route path="/resend-verification" element={<ResendVerification />} />
 
-        {/* ================= ONBOARDING ROUTE ================= */}
         <Route
           path="/onboarding"
           element={
@@ -193,7 +196,6 @@ export default function AppRouter() {
           }
         />
 
-        {/* ================= USER PROTECTED ROUTES ================= */}
         <Route
           path="/meals"
           element={
@@ -248,9 +250,11 @@ export default function AppRouter() {
           }
         />
 
-        {/* Old challenge URLs redirect to new plans URLs */}
         <Route path="/challenges" element={<Navigate to="/plans" replace />} />
-        <Route path="/challenges/:challengeId" element={<ChallengeDetailsRedirect />} />
+        <Route
+          path="/challenges/:challengeId"
+          element={<ChallengeDetailsRedirect />}
+        />
 
         <Route
           path="/rewards"
@@ -298,13 +302,15 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/settings"
+          path="/my-account"
           element={
             <ProtectedRoute>
               <SettingsPage />
             </ProtectedRoute>
           }
         />
+
+        <Route path="/settings" element={<Navigate to="/my-account" replace />} />
 
         <Route
           path="/track/:orderId"
@@ -315,7 +321,6 @@ export default function AppRouter() {
           }
         />
 
-        {/* ================= DELIVERY ROUTES ================= */}
         <Route
           path="/delivery"
           element={
@@ -325,7 +330,6 @@ export default function AppRouter() {
           }
         />
 
-        {/* ================= ADMIN ROUTES ================= */}
         <Route
           path="/admin"
           element={
@@ -407,7 +411,6 @@ export default function AppRouter() {
           }
         />
 
-        {/* Old admin challenge URL redirects to new admin plans URL */}
         <Route
           path="/admin/challenges"
           element={<Navigate to="/admin/plans" replace />}
@@ -422,7 +425,6 @@ export default function AppRouter() {
           }
         />
 
-        {/* ================= CHEF + ADMIN KITCHEN ROUTE ================= */}
         <Route
           path="/orderslist"
           element={
@@ -432,7 +434,6 @@ export default function AppRouter() {
           }
         />
 
-        {/* ================= FALLBACK ================= */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

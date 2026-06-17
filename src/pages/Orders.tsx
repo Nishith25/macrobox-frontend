@@ -261,15 +261,15 @@ const mapsLinkFromAddress = (addr?: Order["delivery"]["address"]) => {
 const paymentBadgeClass = (status?: string) => {
   switch (status) {
     case "paid":
-      return "bg-green-50 text-green-700 border-green-200";
+      return "border-green-200 bg-green-50 text-green-700";
     case "failed":
-      return "bg-red-50 text-red-700 border-red-200";
+      return "border-red-200 bg-red-50 text-red-700";
     default:
-      return "bg-yellow-50 text-yellow-800 border-yellow-200";
+      return "border-yellow-200 bg-yellow-50 text-yellow-800";
   }
 };
 
-const deliveryTextColor = (status?: string) => {
+const deliveryTextClass = (status?: string) => {
   switch (status) {
     case "delivered":
       return "text-green-700";
@@ -359,6 +359,19 @@ const getNextPlanDay = (item: OrderItem) => {
   );
 };
 
+const getOrderKitchenName = (order: Order) => {
+  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
+
+  if (hasPlan) return "MacroBox Meal Plan";
+
+  return "MacroBox Meals";
+};
+
+const getOrderImageText = (order: Order) => {
+  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
+  return hasPlan ? "MB" : "M";
+};
+
 const getPrimaryOrderItemText = (order: Order) => {
   const items = order.items || [];
 
@@ -371,7 +384,9 @@ const getPrimaryOrderItemText = (order: Order) => {
     const planDays = first.planDays || [];
     const count = planDays.length || first.planItems?.length || first.qty || 1;
 
-    return `${first.title || "Meal Plan"} × ${first.qty || 1} • ${count} day schedule`;
+    return `${first.title || "Meal Plan"} × ${
+      first.qty || 1
+    } • ${count} day schedule`;
   }
 
   const remaining = items.length - 1;
@@ -379,19 +394,6 @@ const getPrimaryOrderItemText = (order: Order) => {
   return `${first.title || "Meal"} × ${first.qty || 1}${
     remaining > 0 ? ` + ${remaining} more` : ""
   }`;
-};
-
-const getOrderRestaurantLabel = (order: Order) => {
-  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
-
-  if (hasPlan) return "MacroBox Meal Plan";
-
-  return "MacroBox Meals";
-};
-
-const getOrderImageLabel = (order: Order) => {
-  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
-  return hasPlan ? "MB" : "M";
 };
 
 export default function Orders() {
@@ -533,7 +535,7 @@ export default function Orders() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f6f7f8] px-4 py-10 text-slate-950">
+      <main className="min-h-screen bg-[#f5f6f8] px-4 py-10 text-slate-950">
         <p className="text-center text-sm font-semibold text-slate-500">
           Loading orders...
         </p>
@@ -542,189 +544,169 @@ export default function Orders() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] text-slate-950">
-      <section className="bg-[#0f6f82] px-4 pb-20 pt-10 text-white sm:px-6">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.22em] text-white/70">
-                My Account
-              </p>
+    <main className="min-h-screen bg-[#f5f6f8] text-slate-950">
+      <section className="bg-[#0f7586] px-4 pb-16 pt-10 text-white sm:px-6 lg:pb-20">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/70">
+              Orders
+            </p>
 
-              <h1 className="mt-3 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
-                My Orders
-              </h1>
+            <h1 className="mt-3 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
+              My Orders
+            </h1>
 
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/80 sm:text-base">
-                View your past orders, plan schedules, billing details and live
-                delivery tracking.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={fetchOrders}
-              className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-none border border-white/50 px-5 text-sm font-black text-white transition hover:bg-white/10"
-            >
-              <RefreshCw size={17} />
-              Refresh
-            </button>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/80 sm:text-base">
+              Track your MacroBox meals, plan schedules, bill details and live
+              delivery status.
+            </p>
           </div>
+
+          <button
+            type="button"
+            onClick={fetchOrders}
+            className="inline-flex h-12 w-fit items-center justify-center gap-2 border border-white/50 px-5 text-sm font-black text-white transition hover:bg-white/10"
+          >
+            <RefreshCw size={17} />
+            Refresh
+          </button>
         </div>
       </section>
 
-      <div className="mx-auto -mt-14 max-w-6xl px-4 pb-10 sm:px-6">
-        <section className="grid gap-0 bg-white shadow-[0_18px_55px_rgba(15,23,42,0.08)] lg:grid-cols-[260px_1fr]">
-          <aside className="hidden border-r border-slate-100 bg-slate-50 p-5 lg:block">
-            <div className="space-y-1">
-              <SideNav active label="Orders" />
-              <SideNav label="Plan Rewards" />
-              <SideNav label="Payments" />
-              <SideNav label="Addresses" />
-              <SideNav label="Settings" />
+      <section className="mx-auto -mt-10 max-w-6xl px-4 pb-10 sm:px-6">
+        <div className="bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] sm:p-6 lg:p-8">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                Past Orders
+              </h2>
+
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                {filteredOrders.length} of {orders.length} orders
+              </p>
             </div>
-          </aside>
 
-          <div className="min-w-0 p-4 sm:p-6 lg:p-8">
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                  Past Orders
-                </h2>
+            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-xs font-black text-slate-600">
+              <PackageCheck size={15} />
+              Order history
+            </div>
+          </div>
 
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {filteredOrders.length} of {orders.length} orders
-                </p>
+          <section className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-700 lg:hidden">
+              <SlidersHorizontal size={16} />
+              Filters
+            </div>
+
+            <div className="grid gap-2 lg:grid-cols-[1.3fr_0.8fr_0.7fr_0.8fr_0.8fr_auto]">
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search orders..."
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                />
+              </div>
+
+              <div className="relative">
+                <CalendarDays
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => setSelectedDate(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                />
+              </div>
+
+              <select
+                value={selectedYear}
+                onChange={(event) => setSelectedYear(event.target.value)}
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+              >
+                <option value="all">All Years</option>
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={rangeFilter}
+                onChange={(event) =>
+                  setRangeFilter(event.target.value as RangeFilter)
+                }
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+              >
+                <option value="all">All Time</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="3months">Last 3 Months</option>
+              </select>
+
+              <div className="relative">
+                <ArrowDownUp
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400"
+                />
+
+                <select
+                  value={sortType}
+                  onChange={(event) =>
+                    setSortType(event.target.value as SortType)
+                  }
+                  className="h-11 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                >
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                  <option value="amountHigh">Amount High</option>
+                  <option value="amountLow">Amount Low</option>
+                </select>
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  document
-                    .getElementById("order-filters")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 lg:hidden"
+                onClick={clearFilters}
+                disabled={!hasActiveFilters}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <SlidersHorizontal size={16} />
-                Filters
+                <X size={15} />
+                Clear
               </button>
             </div>
+          </section>
 
-            <section
-              id="order-filters"
-              className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-3"
-            >
-              <div className="grid gap-2 lg:grid-cols-[1.3fr_0.8fr_0.7fr_0.8fr_0.8fr_auto]">
-                <div className="relative">
-                  <Search
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search orders..."
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
-                  />
-                </div>
-
-                <div className="relative">
-                  <CalendarDays
-                    size={16}
-                    className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(event) => setSelectedDate(event.target.value)}
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
-                  />
-                </div>
-
-                <select
-                  value={selectedYear}
-                  onChange={(event) => setSelectedYear(event.target.value)}
-                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
-                >
-                  <option value="all">All Years</option>
-                  {availableYears.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={rangeFilter}
-                  onChange={(event) =>
-                    setRangeFilter(event.target.value as RangeFilter)
-                  }
-                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
-                >
-                  <option value="all">All Time</option>
-                  <option value="30days">Last 30 Days</option>
-                  <option value="3months">Last 3 Months</option>
-                </select>
-
-                <div className="relative">
-                  <ArrowDownUp
-                    size={16}
-                    className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <select
-                    value={sortType}
-                    onChange={(event) =>
-                      setSortType(event.target.value as SortType)
-                    }
-                    className="h-11 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
-                  >
-                    <option value="newest">Newest</option>
-                    <option value="oldest">Oldest</option>
-                    <option value="amountHigh">Amount High</option>
-                    <option value="amountLow">Amount Low</option>
-                  </select>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  disabled={!hasActiveFilters}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <X size={15} />
-                  Clear
-                </button>
-              </div>
-            </section>
-
-            {orders.length === 0 ? (
-              <EmptyState
-                title="No orders yet."
-                description="Your paid meals, plans and live tracking details will appear here."
-              />
-            ) : filteredOrders.length === 0 ? (
-              <EmptyState
-                title="No matching orders."
-                description="Try changing your search, date, year or range filters."
-              />
-            ) : (
-              <div className="space-y-4">
-                {filteredOrders.map((order) => (
-                  <SwiggyOrderCard
-                    key={order._id}
-                    order={order}
-                    onViewDetails={() => setSelectedOrder(order)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
+          {orders.length === 0 ? (
+            <EmptyState
+              title="No orders yet."
+              description="Your paid meals, plans and live tracking details will appear here."
+            />
+          ) : filteredOrders.length === 0 ? (
+            <EmptyState
+              title="No matching orders."
+              description="Try changing your search, date, year or range filters."
+            />
+          ) : (
+            <div className="space-y-4">
+              {filteredOrders.map((order) => (
+                <OrderCard
+                  key={order._id}
+                  order={order}
+                  onViewDetails={() => setSelectedOrder(order)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {selectedOrder && (
         <OrderDetailsDrawer
@@ -736,7 +718,7 @@ export default function Orders() {
   );
 }
 
-function SwiggyOrderCard({
+function OrderCard({
   order,
   onViewDetails,
 }: {
@@ -753,14 +735,14 @@ function SwiggyOrderCard({
     <article className="border border-slate-200 bg-white p-4 transition hover:border-slate-300 sm:p-5">
       <div className="flex gap-4">
         <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-green-50 text-2xl font-black text-green-200 sm:h-24 sm:w-24">
-          {getOrderImageLabel(order)}
+          {getOrderImageText(order)}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h3 className="truncate text-lg font-black text-slate-950">
-                {getOrderRestaurantLabel(order)}
+                {getOrderKitchenName(order)}
               </h3>
 
               <p className="mt-0.5 truncate text-sm font-semibold text-slate-500">
@@ -776,11 +758,11 @@ function SwiggyOrderCard({
               {deliveryStatus === "delivered" ? (
                 <CheckCircle2 size={18} className="text-green-600" />
               ) : (
-                <Clock size={18} className={deliveryTextColor(deliveryStatus)} />
+                <Clock size={18} className={deliveryTextClass(deliveryStatus)} />
               )}
 
               <p
-                className={`text-xs font-black uppercase ${deliveryTextColor(
+                className={`text-xs font-black uppercase ${deliveryTextClass(
                   deliveryStatus
                 )}`}
               >
@@ -792,7 +774,7 @@ function SwiggyOrderCard({
           <div className="my-4 border-t border-dashed border-slate-200" />
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-950">
                 {getPrimaryOrderItemText(order)}
               </p>
@@ -916,7 +898,7 @@ function OrderDetailsDrawer({
           <section className="space-y-4">
             <TimelinePoint
               icon={<MapPin size={20} />}
-              title={getOrderRestaurantLabel(order)}
+              title={getOrderKitchenName(order)}
               subtitle="MacroBox Kitchen"
             />
 
@@ -939,7 +921,7 @@ function OrderDetailsDrawer({
 
                 <div>
                   <p
-                    className={`text-sm font-black ${deliveryTextColor(
+                    className={`text-sm font-black ${deliveryTextClass(
                       deliveryStatus
                     )}`}
                   >
@@ -962,10 +944,7 @@ function OrderDetailsDrawer({
 
             <div className="space-y-3">
               {(order.items || []).map((item, index) => (
-                <DrawerOrderItem
-                  key={`${order._id}-${index}`}
-                  item={item}
-                />
+                <DrawerOrderItem key={`${order._id}-${index}`} item={item} />
               ))}
             </div>
           </section>
@@ -1115,7 +1094,10 @@ function DrawerOrderItem({ item }: { item: OrderItem }) {
 
           <div className="space-y-2">
             {planDays.map((day, index) => (
-              <div key={`${day.day || index}`} className="rounded-lg bg-white p-3">
+              <div
+                key={`${day.day || index}-${day.date || ""}`}
+                className="rounded-lg bg-white p-3"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-xs font-black text-slate-950">
                     Day {day.day}: {day.selectedMealTitle || "Meal"}
@@ -1202,29 +1184,16 @@ function BillingRow({
 
       <span
         className={`font-black ${
-          highlight ? "text-slate-950" : discount ? "text-green-700" : "text-slate-950"
+          highlight
+            ? "text-slate-950"
+            : discount
+            ? "text-green-700"
+            : "text-slate-950"
         }`}
       >
         {value}
       </span>
     </p>
-  );
-}
-
-function SideNav({ label, active }: { label: string; active?: boolean }) {
-  return (
-    <div
-      className={`flex items-center gap-3 px-4 py-4 text-sm font-black ${
-        active ? "bg-white text-slate-950" : "text-slate-600"
-      }`}
-    >
-      <span
-        className={`h-9 w-9 rounded-full ${
-          active ? "bg-slate-950" : "bg-slate-300"
-        }`}
-      />
-      {label}
-    </div>
   );
 }
 
