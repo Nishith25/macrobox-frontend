@@ -53,28 +53,10 @@ const goalOptions: { key: GoalType | ""; label: string }[] = [
   { key: "clean_eating", label: "Clean Eating" },
 ];
 
-const defaultOffers: OfferBanner[] = [
-  {
-    title: "Launch Day Offer",
-    subtitle: "Try your first MacroBox meal from ₹99. Limited period only.",
-    badge: "New",
-    ctaText: "Order Now",
-    ctaLink: "/meals",
-  },
-  {
-    title: "7-Day Meal Plans",
-    subtitle: "Buy a plan and unlock 10% OFF your next eligible plan.",
-    badge: "Reward",
-    ctaText: "View Plans",
-    ctaLink: "/plans",
-  },
-  {
-    title: "High Protein Picks",
-    subtitle: "Fresh meals for gym, fat loss and clean eating goals.",
-    badge: "Popular",
-    ctaText: "Explore",
-    ctaLink: "/meals?goal=muscle_gain",
-  },
+const dietOptions: { key: FilterType; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "veg", label: "Veg" },
+  { key: "nonveg", label: "Non-Veg" },
 ];
 
 const isValidGoal = (value: string | null | undefined): value is GoalType =>
@@ -96,6 +78,11 @@ const getMealDescription = (meal: MealWithGoals) => {
   );
 };
 
+const getOfferLink = (link?: string) => {
+  const clean = String(link || "").trim();
+  return clean || "/meals";
+};
+
 export default function Meals() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -112,7 +99,7 @@ export default function Meals() {
     : "";
 
   const [meals, setMeals] = useState<MealWithGoals[]>([]);
-  const [offers, setOffers] = useState<OfferBanner[]>(defaultOffers);
+  const [offers, setOffers] = useState<OfferBanner[]>([]);
 
   const [filter, setFilter] = useState<FilterType>("all");
   const [goal, setGoal] = useState<GoalType | "">(initialGoal);
@@ -120,6 +107,7 @@ export default function Meals() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [offersLoading, setOffersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const welcome = searchParams.get("welcome") === "true";
@@ -163,17 +151,20 @@ export default function Meals() {
 
     const fetchOffers = async () => {
       try {
+        setOffersLoading(true);
+
         const res = await api.get("/offers/public");
+        const data = Array.isArray(res.data) ? res.data : [];
 
         if (!mounted) return;
 
-        const data = Array.isArray(res.data) ? res.data : [];
-
-        if (data.length > 0) {
-          setOffers(data.filter((item: OfferBanner) => item.isActive !== false));
-        }
+        setOffers(data.filter((item: OfferBanner) => item.isActive !== false));
       } catch {
-        setOffers(defaultOffers);
+        if (!mounted) return;
+        setOffers([]);
+      } finally {
+        if (!mounted) return;
+        setOffersLoading(false);
       }
     };
 
@@ -311,8 +302,37 @@ export default function Meals() {
 
   const activeTitle = goal ? `${goalLabels[goal]} Meals` : "All Meals";
 
+  const hasActiveFilters =
+    goal !== "" || filter !== "all" || sortBy !== "default" || searchQuery.trim();
+
+  const scrollingOffers =
+    offers.length > 1 ? [...offers, ...offers] : offers;
+
   return (
     <main className="min-h-screen bg-white pb-28 text-slate-950">
+      <style>
+        {`
+          @keyframes macrobox-offer-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+
+          .macrobox-offer-track {
+            animation: macrobox-offer-scroll 24s linear infinite;
+          }
+
+          .macrobox-offer-track:hover {
+            animation-play-state: paused;
+          }
+
+          @media (max-width: 640px) {
+            .macrobox-offer-track {
+              animation-duration: 18s;
+            }
+          }
+        `}
+      </style>
+
       <section className="border-b border-slate-100 bg-white">
         <div className="mx-auto max-w-[1220px] px-4 pb-5 pt-5 sm:px-6 lg:pb-7 lg:pt-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -344,79 +364,105 @@ export default function Meals() {
       </section>
 
       <section className="mx-auto max-w-[1220px] px-4 py-5 sm:px-6">
-        <section className="mb-7 overflow-hidden border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
-            <div className="flex items-center gap-2">
-              <Sparkles size={18} className="text-green-600" />
+        {offers.length > 0 && (
+          <section className="mb-6 overflow-hidden border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
+              <div className="flex items-center gap-2">
+                <Sparkles size={18} className="text-green-600" />
 
-              <div>
-                <h2 className="text-lg font-black tracking-[-0.03em] text-slate-950">
-                  Offers & Updates
-                </h2>
+                <div>
+                  <h2 className="text-lg font-black tracking-[-0.03em] text-slate-950">
+                    Offers & Updates
+                  </h2>
 
-                <p className="text-xs font-semibold text-slate-500">
-                  Admin offers will show here. Launch offers are shown by
-                  default.
-                </p>
+                  <p className="text-xs font-semibold text-slate-500">
+                    Latest MacroBox offers selected by admin.
+                  </p>
+                </div>
+              </div>
+
+              {offersLoading && (
+                <span className="text-xs font-black text-slate-400">
+                  Loading
+                </span>
+              )}
+            </div>
+
+            <div className="relative overflow-hidden p-4 sm:p-5">
+              <div
+                className={`flex w-max gap-4 ${
+                  offers.length > 1 ? "macrobox-offer-track" : ""
+                }`}
+              >
+                {scrollingOffers.map((offer, index) => (
+                  <button
+                    key={`${offer._id || offer.title}-${index}`}
+                    type="button"
+                    onClick={() => navigate(getOfferLink(offer.ctaLink))}
+                    className="min-w-[260px] border border-green-100 bg-gradient-to-br from-green-50 via-white to-white p-4 text-left transition hover:border-green-300 hover:shadow-md sm:min-w-[360px]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="rounded-full bg-green-600 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
+                          {offer.badge || "Offer"}
+                        </span>
+
+                        <h3 className="mt-3 line-clamp-1 text-lg font-black tracking-[-0.04em] text-slate-950 sm:text-xl">
+                          {offer.title}
+                        </h3>
+
+                        <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-slate-500">
+                          {offer.subtitle ||
+                            "Special MacroBox offer available now."}
+                        </p>
+                      </div>
+
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-white sm:h-11 sm:w-11">
+                        <ArrowRight size={18} />
+                      </span>
+                    </div>
+
+                    <p className="mt-4 text-sm font-black text-green-700">
+                      {offer.ctaText || "Explore"}
+                    </p>
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
-
-          <div className="flex gap-4 overflow-x-auto p-4 [-ms-overflow-style:none] [scrollbar-width:none] sm:p-5 [&::-webkit-scrollbar]:hidden">
-            {offers.map((offer, index) => (
-              <button
-                key={offer._id || `${offer.title}-${index}`}
-                type="button"
-                onClick={() => navigate(offer.ctaLink || "/meals")}
-                className="min-w-[280px] border border-green-100 bg-gradient-to-br from-green-50 via-white to-white p-4 text-left transition hover:border-green-300 hover:shadow-md sm:min-w-[360px]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="rounded-full bg-green-600 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
-                      {offer.badge || "Offer"}
-                    </span>
-
-                    <h3 className="mt-3 text-xl font-black tracking-[-0.04em] text-slate-950">
-                      {offer.title}
-                    </h3>
-
-                    <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-slate-500">
-                      {offer.subtitle || "Special MacroBox offer available now."}
-                    </p>
-                  </div>
-
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
-                    <ArrowRight size={18} />
-                  </span>
-                </div>
-
-                <p className="mt-4 text-sm font-black text-green-700">
-                  {offer.ctaText || "Explore"}
-                </p>
-              </button>
-            ))}
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="mb-5">
-          <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                {activeTitle}
-              </h2>
+          <div className="mb-4 flex flex-col gap-3">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                  {activeTitle}
+                </h2>
 
-              <p className="mt-1 text-sm font-semibold text-slate-500">
-                {filteredMeals.length} meals available
-              </p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  {filteredMeals.length} meals available
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={!hasActiveFilters}
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 px-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <RotateCcw size={14} />
+                Reset
+              </button>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
               {goalOptions.map((item) => (
                 <button
                   key={item.key || "all"}
                   type="button"
                   onClick={() => changeGoal(item.key)}
-                  className={`h-10 rounded-full border px-4 text-sm font-black transition ${
+                  className={`h-10 shrink-0 rounded-full border px-4 text-sm font-black transition ${
                     goal === item.key
                       ? "border-slate-950 bg-slate-950 text-white"
                       : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -426,10 +472,61 @@ export default function Meals() {
                 </button>
               ))}
             </div>
-          </div>
 
-          <div className="rounded-[20px] border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid gap-3 lg:grid-cols-[1fr_auto_220px_auto] lg:items-center">
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+              {dietOptions.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setFilter(item.key)}
+                  className={`h-10 shrink-0 rounded-full border px-4 text-sm font-black transition ${
+                    filter === item.key
+                      ? "border-green-600 bg-green-600 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setSortBy("protein_high")}
+                className={`h-10 shrink-0 rounded-full border px-4 text-sm font-black transition ${
+                  sortBy === "protein_high"
+                    ? "border-green-600 bg-green-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Protein High
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSortBy("calories_low")}
+                className={`h-10 shrink-0 rounded-full border px-4 text-sm font-black transition ${
+                  sortBy === "calories_low"
+                    ? "border-green-600 bg-green-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Low Calorie
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSortBy("price_low")}
+                className={`h-10 shrink-0 rounded-full border px-4 text-sm font-black transition ${
+                  sortBy === "price_low"
+                    ? "border-green-600 bg-green-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Price Low
+              </button>
+            </div>
+
+            <div className="grid gap-3 rounded-[20px] border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_230px]">
               <div className="relative">
                 <Search
                   size={17}
@@ -444,28 +541,7 @@ export default function Meals() {
                 />
               </div>
 
-              <div className="flex rounded-[16px] border border-slate-200 bg-slate-50 p-1">
-                {(["all", "veg", "nonveg"] as FilterType[]).map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setFilter(type)}
-                    className={`h-10 rounded-[13px] px-4 text-xs font-black transition sm:text-sm ${
-                      filter === type
-                        ? "bg-green-600 text-white"
-                        : "text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    {type === "all"
-                      ? "All"
-                      : type === "veg"
-                      ? "Veg"
-                      : "Non-Veg"}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative">
+              <div className="relative hidden lg:block">
                 <ArrowUpDown
                   size={16}
                   className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -482,15 +558,6 @@ export default function Meals() {
                   <option value="price_low">Price: Low to High</option>
                 </select>
               </div>
-
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-[16px] border border-slate-200 px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50"
-              >
-                <RotateCcw size={15} />
-                Reset
-              </button>
             </div>
           </div>
         </section>
