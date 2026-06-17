@@ -4,9 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 import toast from "react-hot-toast";
 
-type RewardType = "free_item" | "discount" | "free_meal" | "challenge_box";
+type RewardType = "free_item" | "discount" | "free_meal" | "plan_box" | "challenge_box";
 
 type RequiredAction =
+  | "buy_7_day_plan"
+  | "buy_plan"
+  | "next_plan_reward"
   | "join_challenge"
   | "post_3_stories"
   | "complete_7_days"
@@ -26,30 +29,35 @@ type Reward = {
 };
 
 const typeOptions: { key: RewardType; label: string }[] = [
-  { key: "free_item", label: "Free Item" },
   { key: "discount", label: "Discount" },
+  { key: "plan_box", label: "Plan Box" },
+  { key: "free_item", label: "Free Item" },
   { key: "free_meal", label: "Free Meal" },
-  { key: "challenge_box", label: "Challenge Box" },
 ];
 
 const actionOptions: { key: RequiredAction; label: string }[] = [
-  { key: "join_challenge", label: "Join Challenge" },
-  { key: "post_3_stories", label: "Post 3 Stories" },
-  { key: "complete_7_days", label: "Complete 7 Days" },
-  { key: "refer_2_friends", label: "Refer 2 Friends" },
+  { key: "buy_7_day_plan", label: "Buy 7-Day Plan" },
+  { key: "buy_plan", label: "Buy Plan" },
+  { key: "next_plan_reward", label: "Next Plan Reward" },
 ];
 
 const typeLabelMap: Record<RewardType, string> = {
   free_item: "Free Item",
   discount: "Discount",
   free_meal: "Free Meal",
-  challenge_box: "Challenge Box",
+  plan_box: "Plan Box",
+  challenge_box: "Plan Box",
 };
 
 const actionLabelMap: Record<RequiredAction, string> = {
-  join_challenge: "Join Challenge",
+  buy_7_day_plan: "Buy 7-Day Plan",
+  buy_plan: "Buy Plan",
+  next_plan_reward: "Next Plan Reward",
+
+  // Old compatibility labels
+  join_challenge: "Buy Plan",
   post_3_stories: "Post 3 Stories",
-  complete_7_days: "Complete 7 Days",
+  complete_7_days: "Buy 7-Day Plan",
   refer_2_friends: "Refer 2 Friends",
 };
 
@@ -60,6 +68,18 @@ const slugify = (value: string) =>
     .replace(/₹/g, "rs")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+const normalizeRewardForUI = (reward: Reward): Reward => {
+  return {
+    ...reward,
+    type: reward.type === "challenge_box" ? "plan_box" : reward.type,
+    requiredAction:
+      reward.requiredAction === "join_challenge" ||
+      reward.requiredAction === "complete_7_days"
+        ? "buy_7_day_plan"
+        : reward.requiredAction,
+  };
+};
 
 function RewardRow({
   reward,
@@ -72,53 +92,57 @@ function RewardRow({
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const normalizedReward = normalizeRewardForUI(reward);
+
   return (
     <div className="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h3 className="text-lg font-bold text-gray-900">{reward.title}</h3>
+          <h3 className="text-lg font-bold text-gray-900">
+            {normalizedReward.title}
+          </h3>
 
           <p className="mt-1 text-xs font-bold text-gray-400">
-            ID: {reward.rewardId}
+            ID: {normalizedReward.rewardId}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <span
             className={`rounded-full px-3 py-1 text-xs font-bold ${
-              reward.isActive
+              normalizedReward.isActive
                 ? "bg-green-50 text-green-700"
                 : "bg-gray-100 text-gray-600"
             }`}
           >
-            {reward.isActive ? "Active" : "Inactive"}
+            {normalizedReward.isActive ? "Active" : "Inactive"}
           </span>
 
           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-            {typeLabelMap[reward.type]}
+            {typeLabelMap[normalizedReward.type]}
           </span>
         </div>
       </div>
 
       <p className="mt-3 text-sm font-semibold text-slate-600">
-        {reward.description || "No description"}
+        {normalizedReward.description || "No description"}
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-          {reward.valueText || "Reward"}
+          {normalizedReward.valueText || "Reward"}
         </span>
 
         <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
-          {actionLabelMap[reward.requiredAction]}
+          {actionLabelMap[normalizedReward.requiredAction]}
         </span>
 
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-          Coupon: {reward.couponCode || "-"}
+          Coupon: {normalizedReward.couponCode || "-"}
         </span>
 
         <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
-          Sort: {reward.sortOrder || 0}
+          Sort: {normalizedReward.sortOrder || 0}
         </span>
       </div>
 
@@ -135,12 +159,12 @@ function RewardRow({
           type="button"
           onClick={onToggle}
           className={`rounded-lg border px-3 py-1 text-sm font-medium ${
-            reward.isActive
+            normalizedReward.isActive
               ? "border-yellow-300 text-yellow-700 hover:bg-yellow-50"
               : "border-green-300 text-green-700 hover:bg-green-50"
           }`}
         >
-          {reward.isActive ? "Deactivate" : "Activate"}
+          {normalizedReward.isActive ? "Deactivate" : "Activate"}
         </button>
 
         <button
@@ -166,12 +190,12 @@ export default function AdminRewards() {
     title: "",
     rewardId: "",
     description: "",
-    type: "free_item" as RewardType,
-    valueText: "",
-    requiredAction: "join_challenge" as RequiredAction,
-    couponCode: "",
+    type: "discount" as RewardType,
+    valueText: "10% OFF",
+    requiredAction: "buy_7_day_plan" as RequiredAction,
+    couponCode: "PLAN10",
     isActive: true,
-    sortOrder: "0",
+    sortOrder: "1",
   });
 
   const fetchRewards = async () => {
@@ -179,7 +203,7 @@ export default function AdminRewards() {
 
     try {
       const res = await api.get("/admin/rewards");
-      setRewards(res.data || []);
+      setRewards(Array.isArray(res.data) ? res.data : []);
     } catch {
       toast.error("Failed to load rewards");
     } finally {
@@ -198,13 +222,32 @@ export default function AdminRewards() {
       title: "",
       rewardId: "",
       description: "",
-      type: "free_item",
-      valueText: "",
-      requiredAction: "join_challenge",
-      couponCode: "",
+      type: "discount",
+      valueText: "10% OFF",
+      requiredAction: "buy_7_day_plan",
+      couponCode: "PLAN10",
       isActive: true,
-      sortOrder: "0",
+      sortOrder: "1",
     });
+  };
+
+  const fillDefaultPlanReward = () => {
+    setEditingId(null);
+
+    setForm({
+      title: "10% OFF Next Plan",
+      rewardId: "next-plan-10",
+      description:
+        "Buy any eligible 7-day MacroBox plan and get 10% OFF your next eligible plan.",
+      type: "discount",
+      valueText: "10% OFF",
+      requiredAction: "buy_7_day_plan",
+      couponCode: "PLAN10",
+      isActive: true,
+      sortOrder: "1",
+    });
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const updateTitle = (value: string) => {
@@ -231,13 +274,22 @@ export default function AdminRewards() {
       return;
     }
 
+    const normalizedType =
+      form.type === "challenge_box" ? "plan_box" : form.type;
+
+    const normalizedAction =
+      form.requiredAction === "join_challenge" ||
+      form.requiredAction === "complete_7_days"
+        ? "buy_7_day_plan"
+        : form.requiredAction;
+
     const payload = {
       title: form.title.trim(),
       rewardId: slugify(form.rewardId),
       description: form.description.trim(),
-      type: form.type,
+      type: normalizedType,
       valueText: form.valueText.trim(),
-      requiredAction: form.requiredAction,
+      requiredAction: normalizedAction,
       couponCode: form.couponCode.trim().toUpperCase(),
       isActive: form.isActive,
       sortOrder: Number(form.sortOrder || 0),
@@ -271,18 +323,20 @@ export default function AdminRewards() {
   };
 
   const handleEdit = (reward: Reward) => {
+    const normalizedReward = normalizeRewardForUI(reward);
+
     setEditingId(reward._id);
 
     setForm({
-      title: reward.title,
-      rewardId: reward.rewardId,
-      description: reward.description || "",
-      type: reward.type,
-      valueText: reward.valueText || "",
-      requiredAction: reward.requiredAction,
-      couponCode: reward.couponCode || "",
-      isActive: reward.isActive !== false,
-      sortOrder: String(reward.sortOrder || 0),
+      title: normalizedReward.title,
+      rewardId: normalizedReward.rewardId,
+      description: normalizedReward.description || "",
+      type: normalizedReward.type,
+      valueText: normalizedReward.valueText || "",
+      requiredAction: normalizedReward.requiredAction,
+      couponCode: normalizedReward.couponCode || "",
+      isActive: normalizedReward.isActive !== false,
+      sortOrder: String(normalizedReward.sortOrder || 0),
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -320,25 +374,42 @@ export default function AdminRewards() {
     const active = rewards.filter((item) => item.isActive).length;
     const inactive = rewards.filter((item) => !item.isActive).length;
     const discounts = rewards.filter((item) => item.type === "discount").length;
-    const freeMeals = rewards.filter((item) => item.type === "free_meal").length;
+    const planRewards = rewards.filter((item) =>
+      ["buy_7_day_plan", "buy_plan", "next_plan_reward"].includes(
+        item.requiredAction
+      )
+    ).length;
 
     return {
       total: rewards.length,
       active,
       inactive,
       discounts,
-      freeMeals,
+      planRewards,
     };
   }, [rewards]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Manage Rewards</h1>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Manage Plan Rewards
+          </h1>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Create and manage reward cards used in the MacroBox rewards page.
-        </p>
+          <p className="mt-1 text-sm text-gray-500">
+            Create and manage the 10% next-plan reward used on the MacroBox
+            rewards page.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={fillDefaultPlanReward}
+          className="rounded-xl bg-green-600 px-5 py-3 text-sm font-bold text-white hover:bg-green-700"
+        >
+          Fill 10% Plan Reward
+        </button>
       </div>
 
       <div className="mb-6 grid gap-4 md:grid-cols-5">
@@ -369,16 +440,16 @@ export default function AdminRewards() {
         </div>
 
         <div className="rounded-2xl border bg-orange-50 p-4 shadow-sm">
-          <p className="text-sm text-orange-700">Free Meals</p>
+          <p className="text-sm text-orange-700">Plan Rewards</p>
           <p className="mt-1 text-2xl font-bold text-orange-700">
-            {stats.freeMeals}
+            {stats.planRewards}
           </p>
         </div>
       </div>
 
       <div className="mb-10 rounded-2xl border bg-white p-6 shadow-sm">
         <h2 className="mb-4 font-semibold">
-          {editingId ? "Update reward" : "Create a new reward"}
+          {editingId ? "Update reward" : "Create a new plan reward"}
         </h2>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -401,9 +472,7 @@ export default function AdminRewards() {
           <textarea
             placeholder="Reward description"
             value={form.description}
-            onChange={(e) =>
-              setForm({ ...form, description: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
             rows={3}
             className="rounded-lg border px-3 py-2 md:col-span-3"
           />
@@ -440,14 +509,14 @@ export default function AdminRewards() {
           </select>
 
           <input
-            placeholder="Value text e.g. 20% OFF"
+            placeholder="Value text e.g. 10% OFF"
             value={form.valueText}
             onChange={(e) => setForm({ ...form, valueText: e.target.value })}
             className="rounded-lg border px-3 py-2"
           />
 
           <input
-            placeholder="Coupon code e.g. GLOWUP20"
+            placeholder="Coupon code e.g. PLAN10"
             value={form.couponCode}
             onChange={(e) =>
               setForm({ ...form, couponCode: e.target.value.toUpperCase() })

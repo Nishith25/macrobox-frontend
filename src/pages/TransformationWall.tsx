@@ -27,7 +27,8 @@ type TransformationPost = {
   goal?: string;
   story: string;
   imageUrl?: string;
-  challengeName?: string;
+  challengeName?: string; // kept for backend compatibility
+  planName?: string;
   status?: "pending" | "approved" | "rejected";
   likes?: number;
   createdAt?: string;
@@ -36,7 +37,7 @@ type TransformationPost = {
 type StoryForm = {
   story: string;
   goal: string;
-  challengeName: string;
+  planName: string;
   imageUrl: string;
 };
 
@@ -45,7 +46,7 @@ const goalOptions = [
   "Muscle Gain",
   "Weight Gain",
   "Clean Eating",
-  "7-Day Challenge",
+  "7-Day Plan",
 ];
 
 export default function TransformationWall() {
@@ -56,8 +57,8 @@ export default function TransformationWall() {
 
   const [form, setForm] = useState<StoryForm>({
     story: "",
-    goal: "7-Day Challenge",
-    challengeName: "",
+    goal: "7-Day Plan",
+    planName: "",
     imageUrl: "",
   });
 
@@ -105,10 +106,13 @@ export default function TransformationWall() {
     try {
       setPosting(true);
 
+      const cleanPlanName = form.planName.trim();
+
       const res = await api.post("/transformation-wall", {
         story: form.story.trim(),
         goal: form.goal,
-        challengeName: form.challengeName.trim(),
+        planName: cleanPlanName,
+        challengeName: cleanPlanName, // backend compatibility
         imageUrl: form.imageUrl.trim(),
       });
 
@@ -122,8 +126,8 @@ export default function TransformationWall() {
 
       setForm({
         story: "",
-        goal: "7-Day Challenge",
-        challengeName: "",
+        goal: "7-Day Plan",
+        planName: "",
         imageUrl: "",
       });
 
@@ -160,6 +164,10 @@ export default function TransformationWall() {
     }
   };
 
+  const getPostPlanName = (post: TransformationPost) => {
+    return post.planName || post.challengeName || "";
+  };
+
   return (
     <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-[1120px]">
@@ -178,8 +186,8 @@ export default function TransformationWall() {
               </h1>
 
               <p className="mt-5 max-w-2xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
-                Share your MacroBox challenge journey, progress, protein goals
-                and healthy routine story with the community.
+                Share your MacroBox plan journey, progress, protein goals and
+                healthy routine story with the community.
               </p>
             </div>
 
@@ -214,8 +222,8 @@ export default function TransformationWall() {
             </h2>
 
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              Add your challenge name, goal and progress story. Image URL is
-              optional for now.
+              Add your plan name, goal and progress story. Image URL is optional
+              for now.
             </p>
 
             <form onSubmit={submitStory} className="mt-6 space-y-4">
@@ -239,14 +247,12 @@ export default function TransformationWall() {
 
               <div>
                 <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-400">
-                  Challenge Name
+                  Plan Name
                 </label>
 
                 <input
-                  value={form.challengeName}
-                  onChange={(e) =>
-                    updateForm("challengeName", e.target.value)
-                  }
+                  value={form.planName}
+                  onChange={(e) => updateForm("planName", e.target.value)}
                   placeholder="Example: 7-Day Lean Box"
                   className="h-12 w-full rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition focus:border-green-500 focus:ring-4 focus:ring-green-100"
                 />
@@ -324,81 +330,85 @@ export default function TransformationWall() {
               </div>
             ) : (
               <div className="grid gap-5">
-                {posts.map((post) => (
-                  <article
-                    key={post._id}
-                    className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_14px_35px_rgba(15,23,42,0.05)]"
-                  >
-                    {post.imageUrl ? (
-                      <img
-                        src={post.imageUrl}
-                        alt={post.challengeName || "Transformation story"}
-                        className="h-64 w-full rounded-[22px] object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    ) : (
-                      <div className="flex h-52 items-center justify-center rounded-[22px] bg-slate-100">
-                        <Camera size={42} className="text-slate-300" />
-                      </div>
-                    )}
+                {posts.map((post) => {
+                  const postPlanName = getPostPlanName(post);
 
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                        {post.goal || "MacroBox Journey"}
-                      </span>
-
-                      {post.challengeName && (
-                        <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                          {post.challengeName}
-                        </span>
+                  return (
+                    <article
+                      key={post._id}
+                      className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_14px_35px_rgba(15,23,42,0.05)]"
+                    >
+                      {post.imageUrl ? (
+                        <img
+                          src={post.imageUrl}
+                          alt={postPlanName || "Transformation story"}
+                          className="h-64 w-full rounded-[22px] object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-52 items-center justify-center rounded-[22px] bg-slate-100">
+                          <Camera size={42} className="text-slate-300" />
+                        </div>
                       )}
-                    </div>
 
-                    <div className="mt-4 flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white">
-                        <UserCircle size={24} />
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                          {post.goal || "MacroBox Journey"}
+                        </span>
+
+                        {postPlanName && (
+                          <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                            {postPlanName}
+                          </span>
+                        )}
                       </div>
 
-                      <div className="min-w-0">
-                        <h2 className="truncate text-lg font-black text-slate-950">
-                          {post.name || post.user?.name || "MacroBox User"}
-                        </h2>
+                      <div className="mt-4 flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white">
+                          <UserCircle size={24} />
+                        </div>
 
-                        <p className="text-xs font-bold text-slate-400">
-                          {post.createdAt
-                            ? new Date(post.createdAt).toLocaleDateString()
-                            : "Today"}
+                        <div className="min-w-0">
+                          <h2 className="truncate text-lg font-black text-slate-950">
+                            {post.name || post.user?.name || "MacroBox User"}
+                          </h2>
+
+                          <p className="text-xs font-bold text-slate-400">
+                            {post.createdAt
+                              ? new Date(post.createdAt).toLocaleDateString()
+                              : "Today"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <p className="mt-4 text-sm font-medium leading-7 text-slate-600">
+                        {post.story}
+                      </p>
+
+                      <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                        <button
+                          type="button"
+                          disabled={likingId === post._id}
+                          onClick={() => likePost(post._id)}
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-[16px] bg-green-50 px-4 text-sm font-black text-green-700 transition hover:bg-green-100 disabled:opacity-60"
+                        >
+                          {likingId === post._id ? (
+                            <Loader2 className="animate-spin" size={17} />
+                          ) : (
+                            <Heart size={17} />
+                          )}
+                          Like
+                        </button>
+
+                        <p className="text-sm font-black text-slate-500">
+                          {Number(post.likes || 0)} likes
                         </p>
                       </div>
-                    </div>
-
-                    <p className="mt-4 text-sm font-medium leading-7 text-slate-600">
-                      {post.story}
-                    </p>
-
-                    <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-                      <button
-                        type="button"
-                        disabled={likingId === post._id}
-                        onClick={() => likePost(post._id)}
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-[16px] bg-green-50 px-4 text-sm font-black text-green-700 transition hover:bg-green-100 disabled:opacity-60"
-                      >
-                        {likingId === post._id ? (
-                          <Loader2 className="animate-spin" size={17} />
-                        ) : (
-                          <Heart size={17} />
-                        )}
-                        Like
-                      </button>
-
-                      <p className="text-sm font-black text-slate-500">
-                        {Number(post.likes || 0)} likes
-                      </p>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>
