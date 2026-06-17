@@ -2,19 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowRight,
-  Flame,
-  Loader2,
-  RefreshCw,
-  Search,
-  Sparkles,
-  Users,
-  Zap,
-} from "lucide-react";
+import { ArrowRight, Loader2, RefreshCw, Search } from "lucide-react";
 import toast from "react-hot-toast";
 
 import api from "../api/api";
+
+type PlanMode = "veg" | "nonveg" | "mixed";
 
 type MealSetDay = {
   day?: number;
@@ -37,11 +30,40 @@ type BackendPlan = {
   description?: string;
   goal: string;
   badge?: string;
-  mealMode?: "veg" | "nonveg" | "both" | string;
+  mealMode?: "veg" | "nonveg" | "both" | "mixed" | string;
+
   durationDays?: number;
+
   price?: number;
   trialPrice?: number | null;
   originalPrice?: number | null;
+
+  vegPrice?: number;
+  nonVegPrice?: number;
+  nonvegPrice?: number;
+  mixedPrice?: number;
+
+  prices?: {
+    veg?: number;
+    nonveg?: number;
+    nonVeg?: number;
+    mixed?: number;
+  };
+
+  planPrices?: {
+    veg?: number;
+    nonveg?: number;
+    nonVeg?: number;
+    mixed?: number;
+  };
+
+  modePrices?: {
+    veg?: number;
+    nonveg?: number;
+    nonVeg?: number;
+    mixed?: number;
+  };
+
   perks?: string[];
   rewards?: string[];
   meals?: string[];
@@ -62,13 +84,6 @@ type BackendPlan = {
   completedAttemptsCount?: number;
   latestCompletedAt?: string | null;
   completedDaysCount?: number;
-};
-
-const goalIcon = (goal: string) => {
-  if (goal === "couple") return <Users size={18} />;
-  if (goal === "muscle_gain") return <Zap size={18} />;
-  if (goal === "clean_eating") return <Sparkles size={18} />;
-  return <Flame size={18} />;
 };
 
 const goalLabel = (goal: string) => {
@@ -108,10 +123,14 @@ const countMealSet = (items?: MealSetDay[]) => {
   return items.filter(hasMeal).length;
 };
 
-const getProfessionalMealCount = (plan: BackendPlan) => {
+const getProfessionalMealCount = (plan: BackendPlan, mode?: PlanMode) => {
   const vegCount = countMealSet(plan.mealSets?.veg);
   const nonvegCount = countMealSet(plan.mealSets?.nonveg);
   const mixedCount = countMealSet(plan.mealSets?.mixed);
+
+  if (mode === "veg" && vegCount > 0) return vegCount;
+  if (mode === "nonveg" && nonvegCount > 0) return nonvegCount;
+  if (mode === "mixed" && mixedCount > 0) return mixedCount;
 
   const bestMealSetCount = Math.max(vegCount, nonvegCount, mixedCount);
 
@@ -134,46 +153,95 @@ const getProfessionalMealCount = (plan: BackendPlan) => {
   return plan.durationDays || 7;
 };
 
-const getPlanPrice = (plan: BackendPlan) => {
+const getBasePlanPrice = (plan: BackendPlan) => {
   return Number(plan.price || plan.trialPrice || 0);
 };
 
-const getMealModeLabel = (plan: BackendPlan) => {
+const getModePrice = (plan: BackendPlan, mode: PlanMode) => {
+  const basePrice = getBasePlanPrice(plan);
+
+  const prices = plan.prices || plan.planPrices || plan.modePrices || {};
+
+  if (mode === "veg") {
+    return Number(plan.vegPrice || prices.veg || basePrice);
+  }
+
+  if (mode === "nonveg") {
+    return Number(
+      plan.nonVegPrice || plan.nonvegPrice || prices.nonVeg || prices.nonveg || basePrice
+    );
+  }
+
+  return Number(plan.mixedPrice || prices.mixed || basePrice);
+};
+
+const hasModePrice = (plan: BackendPlan, mode: PlanMode) => {
+  const prices = plan.prices || plan.planPrices || plan.modePrices || {};
+
+  if (mode === "veg") {
+    return Boolean(plan.vegPrice || prices.veg);
+  }
+
+  if (mode === "nonveg") {
+    return Boolean(plan.nonVegPrice || plan.nonvegPrice || prices.nonVeg || prices.nonveg);
+  }
+
+  return Boolean(plan.mixedPrice || prices.mixed);
+};
+
+const hasModeMeals = (plan: BackendPlan, mode: PlanMode) => {
+  if (mode === "veg") return countMealSet(plan.mealSets?.veg) > 0;
+  if (mode === "nonveg") return countMealSet(plan.mealSets?.nonveg) > 0;
+  return countMealSet(plan.mealSets?.mixed) > 0;
+};
+
+const getAvailableModes = (plan: BackendPlan): PlanMode[] => {
   const mode = String(plan.mealMode || "").toLowerCase();
 
+  if (mode === "veg") return ["veg"];
+  if (mode === "nonveg" || mode === "non-veg") return ["nonveg"];
+  if (mode === "mixed") return ["mixed"];
+
+  const modes: PlanMode[] = [];
+
+  if (hasModeMeals(plan, "veg") || hasModePrice(plan, "veg")) {
+    modes.push("veg");
+  }
+
+  if (hasModeMeals(plan, "nonveg") || hasModePrice(plan, "nonveg")) {
+    modes.push("nonveg");
+  }
+
+  if (hasModeMeals(plan, "mixed") || hasModePrice(plan, "mixed")) {
+    modes.push("mixed");
+  }
+
+  if (modes.length > 0) {
+    return modes;
+  }
+
+  if (mode === "both") {
+    return ["veg", "nonveg", "mixed"];
+  }
+
+  return ["veg", "nonveg", "mixed"];
+};
+
+const getDefaultMode = (plan: BackendPlan): PlanMode => {
+  const modes = getAvailableModes(plan);
+
+  if (modes.includes("mixed")) return "mixed";
+  if (modes.includes("nonveg")) return "nonveg";
+  return modes[0] || "mixed";
+};
+
+const getModeLabel = (mode: PlanMode) => {
   if (mode === "veg") return "Veg";
   if (mode === "nonveg") return "Non-Veg";
-  if (mode === "both") return "Mixed";
-
-  const vegCount = countMealSet(plan.mealSets?.veg);
-  const nonvegCount = countMealSet(plan.mealSets?.nonveg);
-  const mixedCount = countMealSet(plan.mealSets?.mixed);
-
-  if (mixedCount > 0) return "Mixed";
-  if (vegCount > 0 && nonvegCount > 0) return "Mixed";
-  if (vegCount > 0) return "Veg";
-  if (nonvegCount > 0) return "Non-Veg";
-
   return "Mixed";
 };
 
-const getPlanImageGradient = (goal: string) => {
-  if (goal === "muscle_gain") {
-    return "from-green-50 via-white to-slate-50";
-  }
-
-  if (goal === "clean_eating") {
-    return "from-green-100 via-white to-slate-50";
-  }
-
-  if (goal === "couple") {
-    return "from-green-50 via-white to-slate-50";
-  }
-
-  if (goal === "office_fit") {
-    return "from-green-50 via-white to-slate-50";
-  }
-
+const getPlanImageGradient = () => {
   return "from-green-50 via-white to-slate-50";
 };
 
@@ -181,14 +249,32 @@ export default function Plans() {
   const [plans, setPlans] = useState<BackendPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedModes, setSelectedModes] = useState<Record<string, PlanMode>>(
+    {}
+  );
 
   const loadPlans = async () => {
     try {
       setLoading(true);
 
       const planRes = await api.get("/plans");
+      const apiPlans = Array.isArray(planRes.data) ? planRes.data : [];
 
-      setPlans(Array.isArray(planRes.data) ? planRes.data : []);
+      setPlans(apiPlans);
+
+      setSelectedModes((current) => {
+        const next = { ...current };
+
+        apiPlans.forEach((plan: BackendPlan) => {
+          const key = String(plan._id);
+
+          if (!next[key]) {
+            next[key] = getDefaultMode(plan);
+          }
+        });
+
+        return next;
+      });
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Failed to load plans");
     } finally {
@@ -204,13 +290,15 @@ export default function Plans() {
     const term = searchTerm.trim().toLowerCase();
 
     return plans.filter((plan) => {
+      const modesText = getAvailableModes(plan).map(getModeLabel).join(" ");
+
       const searchableText = [
         plan.title,
         plan.subtitle,
         plan.description,
         plan.badge,
         goalLabel(plan.goal),
-        getMealModeLabel(plan),
+        modesText,
       ]
         .filter(Boolean)
         .join(" ")
@@ -219,6 +307,13 @@ export default function Plans() {
       return !term || searchableText.includes(term);
     });
   }, [plans, searchTerm]);
+
+  const handleModeChange = (planId: string, mode: PlanMode) => {
+    setSelectedModes((current) => ({
+      ...current,
+      [planId]: mode,
+    }));
+  };
 
   return (
     <main className="min-h-screen bg-[#f7f7f7] text-slate-950">
@@ -310,16 +405,27 @@ export default function Plans() {
           ) : filteredPlans.length === 0 ? (
             <EmptyCard
               title="No plans found"
-              text="Try searching with another plan name or goal."
+              text="Try searching with another plan name, type, or goal."
             />
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredPlans.map((plan) => {
+                const planKey = String(plan._id);
+                const availableModes = getAvailableModes(plan);
+                const selectedMode =
+                  selectedModes[planKey] || getDefaultMode(plan);
+
+                const safeSelectedMode = availableModes.includes(selectedMode)
+                  ? selectedMode
+                  : availableModes[0] || "mixed";
+
                 const duration = plan.durationDays || 7;
-                const price = getPlanPrice(plan);
+                const price = getModePrice(plan, safeSelectedMode);
                 const planId = getPlanId(plan);
-                const mealsCount = getProfessionalMealCount(plan);
-                const mealMode = getMealModeLabel(plan);
+                const mealsCount = getProfessionalMealCount(
+                  plan,
+                  safeSelectedMode
+                );
 
                 return (
                   <article
@@ -327,17 +433,28 @@ export default function Plans() {
                     className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
                   >
                     <div
-                      className={`relative h-44 bg-gradient-to-br ${getPlanImageGradient(
-                        plan.goal
-                      )}`}
+                      className={`relative h-44 bg-gradient-to-br ${getPlanImageGradient()}`}
                     >
-                      <div className="absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-green-600 shadow-sm">
-                        {goalIcon(plan.goal)}
-                      </div>
+                      <div className="absolute bottom-4 left-4 flex flex-wrap gap-2">
+                        {availableModes.map((mode) => {
+                          const isActive = safeSelectedMode === mode;
 
-                      <span className="absolute bottom-4 left-4 rounded-full border border-green-200 bg-white px-3 py-1 text-[11px] font-black text-green-700 shadow-sm">
-                        {mealMode}
-                      </span>
+                          return (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => handleModeChange(planKey, mode)}
+                              className={`rounded-full border px-3 py-1 text-[11px] font-black transition ${
+                                isActive
+                                  ? "border-green-600 bg-green-600 text-white"
+                                  : "border-green-200 bg-white text-green-700 hover:border-green-500"
+                              }`}
+                            >
+                              {getModeLabel(mode)}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <div className="p-5">
@@ -364,12 +481,12 @@ export default function Plans() {
                           </div>
 
                           <p className="mt-1 text-xs font-bold text-slate-500">
-                            {mealMode} plan
+                            {getModeLabel(safeSelectedMode)} plan
                           </p>
                         </div>
 
                         <Link
-                          to={`/plans/${planId}`}
+                          to={`/plans/${planId}?type=${safeSelectedMode}`}
                           className="inline-flex h-11 items-center gap-2 rounded-xl border border-green-600 bg-green-600 px-4 text-sm font-black text-white transition hover:bg-green-700"
                         >
                           View
