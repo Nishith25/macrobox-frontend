@@ -38,9 +38,9 @@ type OfferBanner = {
   badge?: string;
   code?: string;
   imageUrl?: string;
-  linkTo?: string;
   ctaText?: string;
   ctaLink?: string;
+  linkTo?: string;
   isActive?: boolean;
   sortOrder?: number;
 };
@@ -72,6 +72,38 @@ const sortChipOptions: { key: SortType; label: string }[] = [
   { key: "price_low", label: "Price Low" },
 ];
 
+const defaultOffers: OfferBanner[] = [
+  {
+    title: "Launch Day Offer",
+    subtitle: "Try your first MacroBox meal from ₹99. Limited period only.",
+    badge: "NEW",
+    code: "LAUNCH99",
+    ctaText: "Order Now",
+    ctaLink: "/meals",
+    isActive: true,
+    sortOrder: 1,
+  },
+  {
+    title: "7-Day Meal Plans",
+    subtitle: "Buy a plan and unlock 10% OFF your next eligible plan.",
+    badge: "REWARD",
+    code: "PLAN10",
+    ctaText: "View Plans",
+    ctaLink: "/plans",
+    isActive: true,
+    sortOrder: 2,
+  },
+  {
+    title: "High Protein Picks",
+    subtitle: "Fresh meals for gym, fat loss and clean eating goals.",
+    badge: "POPULAR",
+    ctaText: "Explore",
+    ctaLink: "/meals?goal=muscle_gain",
+    isActive: true,
+    sortOrder: 3,
+  },
+];
+
 const isValidGoal = (value: string | null | undefined): value is GoalType =>
   value === "fat_loss" ||
   value === "muscle_gain" ||
@@ -87,17 +119,27 @@ const getMealDietLabel = (foodType?: string) => {
 const getMealDescription = (meal: MealWithGoals) => {
   return (
     meal.description ||
-    `${meal.protein || 0}g protein • ${meal.calories || 0} kcal • balanced MacroBox meal`
+    `${meal.protein || 0}g protein • ${
+      meal.calories || 0
+    } kcal • balanced MacroBox meal`
   );
 };
 
 const getOfferLink = (offer: OfferBanner) => {
-  const link = offer.ctaLink || offer.linkTo || "/meals";
-  return String(link || "/meals").trim() || "/meals";
+  const link = String(offer.ctaLink || offer.linkTo || "").trim();
+  return link || "/meals";
 };
 
 const getOfferCta = (offer: OfferBanner) => {
   return offer.ctaText || (offer.code ? `Use ${offer.code}` : "Explore");
+};
+
+const normalizeOffers = (items: OfferBanner[]) => {
+  const activeOffers = items
+    .filter((item) => item.isActive !== false)
+    .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+
+  return activeOffers.length > 0 ? activeOffers : defaultOffers;
 };
 
 export default function Meals() {
@@ -118,7 +160,7 @@ export default function Meals() {
     : "";
 
   const [meals, setMeals] = useState<MealWithGoals[]>([]);
-  const [offers, setOffers] = useState<OfferBanner[]>([]);
+  const [offers, setOffers] = useState<OfferBanner[]>(defaultOffers);
 
   const [filter, setFilter] = useState<FilterType>("all");
   const [goal, setGoal] = useState<GoalType | "">(initialGoal);
@@ -177,19 +219,14 @@ export default function Meals() {
 
         if (!mounted) return;
 
-        setOffers(
-          data
-            .filter((item: OfferBanner) => item.isActive !== false)
-            .sort(
-              (a: OfferBanner, b: OfferBanner) =>
-                Number(a.sortOrder || 0) - Number(b.sortOrder || 0)
-            )
-        );
+        setOffers(normalizeOffers(data));
       } catch {
         if (!mounted) return;
-        setOffers([]);
+
+        setOffers(defaultOffers);
       } finally {
         if (!mounted) return;
+
         setOffersLoading(false);
       }
     };
@@ -203,33 +240,34 @@ export default function Meals() {
 
   useEffect(() => {
     const el = offersRef.current;
+
     if (!el || offers.length <= 1) return;
 
-    let animationFrame = 0;
+    let frame = 0;
     let lastTime = performance.now();
 
     const speed = 0.035;
 
-    const animate = (time: number) => {
+    const tick = (time: number) => {
       const delta = time - lastTime;
       lastTime = time;
 
       if (el.scrollWidth > el.clientWidth) {
         el.scrollLeft += delta * speed;
 
-        const halfScroll = el.scrollWidth / 2;
+        const oneSetWidth = el.scrollWidth / 3;
 
-        if (el.scrollLeft >= halfScroll) {
-          el.scrollLeft = el.scrollLeft - halfScroll;
+        if (el.scrollLeft >= oneSetWidth) {
+          el.scrollLeft = el.scrollLeft - oneSetWidth;
         }
       }
 
-      animationFrame = requestAnimationFrame(animate);
+      frame = requestAnimationFrame(tick);
     };
 
-    animationFrame = requestAnimationFrame(animate);
+    frame = requestAnimationFrame(tick);
 
-    return () => cancelAnimationFrame(animationFrame);
+    return () => cancelAnimationFrame(frame);
   }, [offers.length]);
 
   const cartCount = useMemo(
@@ -242,16 +280,6 @@ export default function Meals() {
       cart.reduce((sum, item) => sum + (item.price || 0) * (item.qty || 0), 0),
     [cart]
   );
-
-  const topPicks = useMemo(() => {
-    return meals
-      .filter((meal) => meal.isAvailable !== false && meal.isTopPick === true)
-      .sort(
-        (a, b) =>
-          Number(a.topPickOrder || 0) - Number(b.topPickOrder || 0) ||
-          String(a.title || "").localeCompare(String(b.title || ""))
-      );
-  }, [meals]);
 
   const filteredMeals = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -301,6 +329,16 @@ export default function Meals() {
       return 0;
     });
   }, [meals, goal, filter, sortBy, searchQuery]);
+
+  const topPicks = useMemo(() => {
+    return meals
+      .filter((meal) => meal.isAvailable !== false && meal.isTopPick === true)
+      .sort(
+        (a, b) =>
+          Number(a.topPickOrder || 0) - Number(b.topPickOrder || 0) ||
+          String(a.title || "").localeCompare(String(b.title || ""))
+      );
+  }, [meals]);
 
   const getCartQty = (mealId: string) =>
     cart.find((item) => item._id === mealId)?.qty || 0;
@@ -373,14 +411,14 @@ export default function Meals() {
 
   const activeTitle = goal ? `${goalLabels[goal]} Meals` : "All Meals";
 
-  const hasActiveFilters =
-    goal !== "" ||
-    filter !== "all" ||
-    sortBy !== "default" ||
-    Boolean(searchQuery.trim());
+  const hasActiveFilters = Boolean(
+    goal !== "" || filter !== "all" || sortBy !== "default" || searchQuery.trim()
+  );
 
-  const scrollingOffers =
-    offers.length > 1 ? [...offers, ...offers, ...offers] : offers;
+  const scrollingOffers = useMemo(() => {
+    const base = offers.length > 0 ? offers : defaultOffers;
+    return [...base, ...base, ...base];
+  }, [offers]);
 
   return (
     <main className="min-h-screen bg-white pb-28 text-slate-950">
@@ -441,7 +479,7 @@ export default function Meals() {
 
             <div
               ref={offersRef}
-              className="flex gap-4 overflow-x-auto scroll-smooth p-4 [-ms-overflow-style:none] [scrollbar-width:none] sm:p-5 [&::-webkit-scrollbar]:hidden"
+              className="flex gap-4 overflow-x-auto scroll-smooth p-4 [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] sm:p-5 [&::-webkit-scrollbar]:hidden"
             >
               {scrollingOffers.map((offer, index) => (
                 <button
@@ -519,35 +557,45 @@ export default function Meals() {
                 return (
                   <article
                     key={`top-${meal._id}`}
-                    className="relative h-[250px] min-w-[260px] overflow-hidden rounded-[26px] bg-slate-950 shadow-sm sm:min-w-[320px]"
+                    className="relative h-[245px] min-w-[230px] overflow-hidden rounded-[26px] bg-slate-200 shadow-sm sm:h-[275px] sm:min-w-[270px]"
                   >
                     <img
                       src={meal.imageUrl || "/placeholder-meal.png"}
                       alt={meal.title}
-                      className="h-full w-full object-cover opacity-90"
+                      className="h-full w-full object-cover"
                       onError={(e) => {
                         e.currentTarget.src = "/placeholder-meal.png";
                       }}
                     />
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
 
-                    <div className="absolute left-4 top-4 rounded-full bg-orange-500 px-3 py-1 text-xs font-black text-white">
+                    <div className="absolute left-3 top-3 rounded-full bg-orange-500 px-3 py-1 text-xs font-black text-white">
                       Top Pick
                     </div>
 
-                    <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                      <h3 className="line-clamp-2 text-xl font-black tracking-[-0.04em]">
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                          meal.foodType === "veg"
+                            ? "bg-green-50 text-green-700"
+                            : "bg-red-50 text-red-700"
+                        }`}
+                      >
+                        {getMealDietLabel(meal.foodType)}
+                      </span>
+
+                      <h3 className="mt-2 line-clamp-2 text-lg font-black leading-5 text-white">
                         {meal.title}
                       </h3>
 
-                      <p className="mt-1 text-sm font-bold text-white/80">
-                        ₹{meal.price || 0} • {meal.calories || 0} kcal
+                      <p className="mt-1 text-xs font-bold text-white/80">
+                        {meal.calories || 0} kcal • {meal.protein || 0}g protein
                       </p>
 
-                      <div className="mt-4 flex items-center justify-between gap-3">
-                        <p className="text-sm font-black">
-                          {meal.protein || 0}g protein
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <p className="text-xl font-black text-white">
+                          ₹{meal.price || 0}
                         </p>
 
                         {qty > 0 ? (
@@ -560,7 +608,7 @@ export default function Meals() {
                           <button
                             type="button"
                             onClick={() => handleAdd(meal)}
-                            className="h-11 rounded-[14px] bg-white px-6 text-sm font-black text-green-700"
+                            className="h-11 rounded-[14px] bg-white px-6 text-sm font-black text-green-700 shadow-lg"
                           >
                             ADD
                           </button>
