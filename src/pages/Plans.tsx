@@ -20,6 +20,18 @@ import toast from "react-hot-toast";
 
 import api from "../api/api";
 
+type MealSetDay = {
+  day?: number;
+  meal?: any;
+  isActive?: boolean;
+};
+
+type MealSets = {
+  veg?: MealSetDay[];
+  nonveg?: MealSetDay[];
+  mixed?: MealSetDay[];
+};
+
 type BackendPlan = {
   _id: string;
 
@@ -37,6 +49,8 @@ type BackendPlan = {
   perks?: string[];
   rewards?: string[];
   meals?: string[];
+  mealSets?: MealSets;
+  days?: any[];
   planItems?: any[];
   isPurchased?: boolean;
   rewardEligible?: boolean;
@@ -123,6 +137,49 @@ const formatDate = (value?: string | null) => {
 
 const getPlanId = (plan: BackendPlan) => {
   return plan.planId || plan.challengeId || plan._id;
+};
+
+const hasMeal = (item?: MealSetDay) => {
+  if (!item || item.isActive === false) return false;
+
+  if (!item.meal) return false;
+
+  if (typeof item.meal === "string") {
+    return item.meal.trim().length > 0;
+  }
+
+  return Boolean(item.meal?._id);
+};
+
+const countMealSet = (items?: MealSetDay[]) => {
+  if (!Array.isArray(items)) return 0;
+  return items.filter(hasMeal).length;
+};
+
+const getProfessionalMealCount = (plan: BackendPlan) => {
+  const vegCount = countMealSet(plan.mealSets?.veg);
+  const nonvegCount = countMealSet(plan.mealSets?.nonveg);
+  const mixedCount = countMealSet(plan.mealSets?.mixed);
+
+  const bestMealSetCount = Math.max(vegCount, nonvegCount, mixedCount);
+
+  if (bestMealSetCount > 0) {
+    return bestMealSetCount;
+  }
+
+  if (Array.isArray(plan.days) && plan.days.length > 0) {
+    return plan.days.filter((day) => day?.isActive !== false).length;
+  }
+
+  if (Array.isArray(plan.planItems) && plan.planItems.length > 0) {
+    return plan.planItems.length;
+  }
+
+  if (Array.isArray(plan.meals) && plan.meals.length > 0) {
+    return plan.meals.length;
+  }
+
+  return plan.durationDays || 7;
 };
 
 export default function Plans() {
@@ -261,22 +318,15 @@ export default function Plans() {
                 const price = plan.trialPrice || plan.price || 99;
                 const originalPrice = plan.originalPrice || null;
                 const planId = getPlanId(plan);
-
-                const mealsCount =
-                  Array.isArray(plan.planItems) && plan.planItems.length > 0
-                    ? plan.planItems.length
-                    : Array.isArray(plan.meals)
-                    ? plan.meals.length
-                    : duration;
+                const mealsCount = getProfessionalMealCount(plan);
 
                 const purchasedBefore =
                   plan.isPurchased ||
                   plan.isJoined ||
                   Boolean(plan.completedAttemptsCount);
 
-                const rewardText = plan.rewardEligible === false
-                  ? "No reward"
-                  : "10% next plan";
+                const rewardText =
+                  plan.rewardEligible === false ? "No reward" : "10% next plan";
 
                 return (
                   <article
