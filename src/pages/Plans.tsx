@@ -5,7 +5,6 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   Flame,
-  Gift,
   Loader2,
   RefreshCw,
   Search,
@@ -158,19 +157,9 @@ const getMealModeLabel = (plan: BackendPlan) => {
   return "Mixed";
 };
 
-const goalFilters = [
-  { label: "All", value: "all" },
-  { label: "Fat Loss", value: "fat_loss" },
-  { label: "Muscle Gain", value: "muscle_gain" },
-  { label: "Clean Eating", value: "clean_eating" },
-  { label: "Couple", value: "couple" },
-  { label: "Office Fit", value: "office_fit" },
-];
-
 export default function Plans() {
   const [plans, setPlans] = useState<BackendPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeGoal, setActiveGoal] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   const loadPlans = async () => {
@@ -195,8 +184,6 @@ export default function Plans() {
     const term = searchTerm.trim().toLowerCase();
 
     return plans.filter((plan) => {
-      const matchesGoal = activeGoal === "all" || plan.goal === activeGoal;
-
       const searchableText = [
         plan.title,
         plan.subtitle,
@@ -209,11 +196,9 @@ export default function Plans() {
         .join(" ")
         .toLowerCase();
 
-      const matchesSearch = !term || searchableText.includes(term);
-
-      return matchesGoal && matchesSearch;
+      return !term || searchableText.includes(term);
     });
-  }, [plans, activeGoal, searchTerm]);
+  }, [plans, searchTerm]);
 
   return (
     <main className="min-h-screen bg-[#f7f7f7] text-slate-950">
@@ -250,55 +235,32 @@ export default function Plans() {
 
       <section className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto max-w-[1180px] px-4 py-4 sm:px-6">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative w-full lg:max-w-md">
-              <Search
-                size={18}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+          <div className="relative w-full lg:max-w-md">
+            <Search
+              size={18}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+            />
 
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search meal plans"
-                className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white"
-              />
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
-              {goalFilters.map((filter) => {
-                const isActive = activeGoal === filter.value;
-
-                return (
-                  <button
-                    key={filter.value}
-                    type="button"
-                    onClick={() => setActiveGoal(filter.value)}
-                    className={`shrink-0 rounded-full border px-4 py-2 text-xs font-black transition ${
-                      isActive
-                        ? "border-green-600 bg-green-600 text-white shadow-[0_10px_22px_rgba(22,163,74,0.22)]"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-green-300 hover:text-green-700"
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                );
-              })}
-            </div>
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search meal plans"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white"
+            />
           </div>
         </div>
       </section>
 
       <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6">
-        <section className="overflow-hidden rounded-3xl bg-slate-950 p-5 text-white shadow-[0_18px_45px_rgba(15,23,42,0.18)] sm:p-7">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <h2 className="max-w-3xl text-2xl font-black tracking-[-0.04em] sm:text-4xl">
+            <h2 className="max-w-3xl text-2xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">
               Buy a 7-day plan, unlock 10% OFF next plan
             </h2>
 
             <Link
               to="/rewards"
-              className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-green-700 transition hover:bg-green-50"
+              className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-xl bg-green-600 px-5 text-sm font-black text-white shadow-[0_12px_24px_rgba(22,163,74,0.22)] transition hover:bg-green-700"
             >
               View Rewards
               <ArrowRight size={17} />
@@ -326,7 +288,7 @@ export default function Plans() {
           ) : filteredPlans.length === 0 ? (
             <EmptyCard
               title="No plans found"
-              text="Try changing the search or filter."
+              text="Try searching with another plan name or goal."
             />
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -346,6 +308,10 @@ export default function Plans() {
                       <div className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-green-600 shadow-sm">
                         {goalIcon(plan.goal)}
                       </div>
+
+                      <span className="absolute bottom-4 left-4 rounded-full border border-green-200 bg-white px-3 py-1 text-[11px] font-black text-green-700 shadow-sm">
+                        {mealMode}
+                      </span>
                     </div>
 
                     <div className="p-5">
@@ -358,10 +324,9 @@ export default function Plans() {
                           "Choose this MacroBox meal plan and schedule your daily meals."}
                       </p>
 
-                      <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="mt-4 grid grid-cols-2 gap-2">
                         <InfoPill label={`${duration} Days`} />
                         <InfoPill label={`${mealsCount} Meals`} />
-                        <InfoPill label={goalLabel(plan.goal)} />
                       </div>
 
                       <div className="mt-5 flex items-end justify-between border-t border-dashed border-slate-200 pt-4">
@@ -370,9 +335,9 @@ export default function Plans() {
                             ₹{price}
                           </p>
 
-                          <span className="mt-2 inline-flex rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] font-black text-green-700">
-                            {mealMode}
-                          </span>
+                          <p className="mt-1 text-xs font-bold text-slate-500">
+                            {mealMode} plan
+                          </p>
                         </div>
 
                         <Link
