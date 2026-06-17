@@ -4,15 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  CheckCircle2,
   Flame,
-  Gift,
   Loader2,
   RefreshCw,
   Search,
   Sparkles,
-  Star,
-  Trophy,
   Users,
   Zap,
 } from "lucide-react";
@@ -40,6 +36,7 @@ type BackendPlan = {
   subtitle?: string;
   description?: string;
   goal: string;
+  mealMode?: "veg" | "nonveg" | "both" | "mixed" | string;
   badge?: string;
   durationDays?: number;
   price?: number;
@@ -68,10 +65,10 @@ type BackendPlan = {
 };
 
 const goalIcon = (goal: string) => {
-  if (goal === "couple") return <Users size={18} />;
-  if (goal === "muscle_gain") return <Zap size={18} />;
-  if (goal === "clean_eating") return <Sparkles size={18} />;
-  return <Flame size={18} />;
+  if (goal === "couple") return <Users size={17} />;
+  if (goal === "muscle_gain") return <Zap size={17} />;
+  if (goal === "clean_eating") return <Sparkles size={17} />;
+  return <Flame size={17} />;
 };
 
 const goalLabel = (goal: string) => {
@@ -86,7 +83,7 @@ const goalLabel = (goal: string) => {
   if (goal === "lean") return "Lean";
   if (goal === "mixed") return "Mixed";
   if (goal === "veg") return "Veg";
-  if (goal === "nonveg") return "Nonveg";
+  if (goal === "nonveg") return "Non-Veg";
   return "MacroBox";
 };
 
@@ -137,9 +134,24 @@ const getProfessionalMealCount = (plan: BackendPlan) => {
   return plan.durationDays || 7;
 };
 
-const getDiscountPercent = (price: number, originalPrice?: number | null) => {
-  if (!originalPrice || originalPrice <= price) return null;
-  return Math.round(((originalPrice - price) / originalPrice) * 100);
+const getMealModeLabel = (plan: BackendPlan) => {
+  const mode = String(plan.mealMode || "").toLowerCase();
+
+  if (mode === "veg") return "Veg";
+  if (mode === "nonveg" || mode === "non-veg") return "Non-Veg";
+  if (mode === "mixed") return "Mixed";
+  if (mode === "both") return "Veg / Non-Veg";
+
+  const vegCount = countMealSet(plan.mealSets?.veg);
+  const nonvegCount = countMealSet(plan.mealSets?.nonveg);
+  const mixedCount = countMealSet(plan.mealSets?.mixed);
+
+  if (mixedCount > 0) return "Mixed";
+  if (vegCount > 0 && nonvegCount > 0) return "Veg / Non-Veg";
+  if (vegCount > 0) return "Veg";
+  if (nonvegCount > 0) return "Non-Veg";
+
+  return "Mixed";
 };
 
 const goalFilters = [
@@ -187,6 +199,7 @@ export default function Plans() {
         plan.description,
         plan.badge,
         goalLabel(plan.goal),
+        getMealModeLabel(plan),
       ]
         .filter(Boolean)
         .join(" ")
@@ -279,21 +292,9 @@ export default function Plans() {
       <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6">
         <section className="overflow-hidden rounded-3xl bg-slate-950 p-5 text-white shadow-[0_18px_45px_rgba(15,23,42,0.18)] sm:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-green-300">
-                <Gift size={14} />
-                MacroBox Reward
-              </p>
-
-              <h2 className="mt-3 text-2xl font-black tracking-[-0.04em] sm:text-4xl">
-                Buy a 7-day plan, unlock 10% OFF next plan
-              </h2>
-
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/70">
-                Complete your plan payment and get a reward for your next
-                eligible MacroBox plan.
-              </p>
-            </div>
+            <h2 className="max-w-3xl text-2xl font-black tracking-[-0.04em] sm:text-4xl">
+              Buy a 7-day plan, unlock 10% OFF next plan
+            </h2>
 
             <Link
               to="/rewards"
@@ -333,26 +334,18 @@ export default function Plans() {
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredPlans.map((plan) => {
                 const duration = plan.durationDays || 7;
-                const price = plan.trialPrice || plan.price || 99;
-                const originalPrice = plan.originalPrice || null;
+                const price = Number(plan.trialPrice || plan.price || 0);
+                const originalPrice = Number(plan.originalPrice || 0);
                 const planId = getPlanId(plan);
                 const mealsCount = getProfessionalMealCount(plan);
-                const discountPercent = getDiscountPercent(price, originalPrice);
-
-                const purchasedBefore =
-                  plan.isPurchased ||
-                  plan.isJoined ||
-                  Boolean(plan.completedAttemptsCount);
-
-                const rewardText =
-                  plan.rewardEligible === false ? "No reward" : "10% OFF next";
+                const mealModeLabel = getMealModeLabel(plan);
 
                 return (
                   <article
                     key={plan._id}
                     className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
                   >
-                    <div className="relative h-44 bg-gradient-to-br from-green-50 via-white to-slate-50">
+                    <div className="relative h-28 bg-gradient-to-br from-green-50 via-white to-slate-50">
                       <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-black text-slate-900 shadow-sm">
                         <span className="text-green-600">
                           {goalIcon(plan.goal)}
@@ -360,78 +353,30 @@ export default function Plans() {
                         {plan.badge || goalLabel(plan.goal)}
                       </div>
 
-                      {discountPercent ? (
-                        <div className="absolute bottom-4 left-4 rounded-xl bg-slate-950 px-3 py-2 text-white shadow-lg">
-                          <p className="text-xs font-black uppercase tracking-wide text-green-300">
-                            Save
-                          </p>
-                          <p className="text-xl font-black leading-none">
-                            {discountPercent}% OFF
-                          </p>
-                        </div>
-                      ) : null}
-
-                      <div className="absolute bottom-4 right-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-green-600 shadow-lg">
-                        <Trophy size={30} />
+                      <div className="absolute bottom-4 left-4 rounded-full border border-green-100 bg-green-50 px-3 py-1 text-[11px] font-black text-green-700">
+                        {mealModeLabel}
                       </div>
                     </div>
 
                     <div className="p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-xl font-black tracking-[-0.04em] text-slate-950">
-                            {plan.title}
-                          </h3>
+                      <div>
+                        <h3 className="text-xl font-black tracking-[-0.04em] text-slate-950">
+                          {plan.title}
+                        </h3>
 
-                          <div className="mt-1 flex items-center gap-1 text-xs font-black text-slate-500">
-                            <Star
-                              size={14}
-                              className="fill-green-600 text-green-600"
-                            />
-                            4.8 • {duration} days • {mealsCount} meals
-                          </div>
-                        </div>
-
-                        <div className="rounded-lg bg-green-600 px-2 py-1 text-xs font-black text-white">
-                          HEALTHY
-                        </div>
+                        <p className="mt-1 text-xs font-black text-slate-500">
+                          {duration} days • {mealsCount} meals
+                        </p>
                       </div>
 
                       <p className="mt-3 line-clamp-2 min-h-[44px] text-sm font-semibold leading-6 text-slate-500">
                         {plan.description ||
-                          "Choose this MacroBox meal plan, schedule your daily meals, and unlock a reward after payment."}
+                          "Choose this MacroBox meal plan and schedule your daily meals."}
                       </p>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Pill>{goalLabel(plan.goal)}</Pill>
-                        <Pill>{rewardText}</Pill>
-                        <Pill>Daily slots</Pill>
-                      </div>
-
-                      {purchasedBefore ? (
-                        <div className="mt-4 flex items-center gap-2 rounded-xl border border-green-100 bg-green-50 p-3 text-xs font-black text-green-700">
-                          <CheckCircle2 size={16} />
-                          Purchased before
-                          {plan.completedAttemptsCount
-                            ? ` × ${plan.completedAttemptsCount}`
-                            : ""}
-                        </div>
-                      ) : null}
-
-                      {plan.rewardUnlocked ? (
-                        <div className="mt-4 flex items-center gap-2 rounded-xl border border-green-100 bg-green-50 p-3 text-xs font-black text-green-700">
-                          <Gift size={16} />
-                          10% next plan reward unlocked
-                        </div>
-                      ) : null}
 
                       <div className="mt-5 flex items-end justify-between border-t border-dashed border-slate-200 pt-4">
                         <div>
-                          <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                            Starting at
-                          </p>
-
-                          <div className="mt-1 flex items-end gap-2">
+                          <div className="flex items-end gap-2">
                             <p className="text-2xl font-black tracking-[-0.05em] text-slate-950">
                               ₹{price}
                             </p>
@@ -481,13 +426,5 @@ function EmptyCard({ title, text }: { title: string; text: string }) {
       <h2 className="text-2xl font-black text-slate-950">{title}</h2>
       <p className="mt-2 text-sm font-semibold text-slate-500">{text}</p>
     </div>
-  );
-}
-
-function Pill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-black text-slate-600">
-      {children}
-    </span>
   );
 }
