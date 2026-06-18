@@ -1,6 +1,6 @@
 // frontend/src/pages/Orders.tsx (FRONTEND)
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
 import {
@@ -9,13 +9,13 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Filter,
   MapPin,
   Navigation,
   PackageCheck,
   Phone,
   RefreshCw,
   Search,
-  SlidersHorizontal,
   Truck,
   X,
 } from "lucide-react";
@@ -328,7 +328,6 @@ const getOrderSplitTotals = (order: Order) => {
     savedPlanSubtotal > 0 ? savedPlanSubtotal : fallbackPlanSubtotal;
 
   const subtotal = Number(order.totals.subtotal || 0);
-
   const savedNormalMealsSubtotal = Number(order.totals.normalMealsSubtotal || 0);
 
   const normalMealsSubtotal =
@@ -400,6 +399,7 @@ export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -518,6 +518,11 @@ export default function Orders() {
     return filtered;
   }, [orders, searchQuery, selectedDate, selectedYear, rangeFilter, sortType]);
 
+  const paidOrders = orders.filter((order) => order.payment?.status === "paid");
+  const planOrders = orders.filter((order) =>
+    (order.items || []).some((item) => isPlanItem(item))
+  );
+
   const hasActiveFilters =
     searchQuery.trim() ||
     selectedDate ||
@@ -535,100 +540,183 @@ export default function Orders() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f5f6f8] px-4 py-10 text-slate-950">
-        <p className="text-center text-sm font-semibold text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-white px-4">
+        <div className="border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
           Loading orders...
-        </p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f6f8] text-slate-950">
-      <section className="bg-slate-950 px-4 pb-20 pt-10 text-white sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            
-
-            <h1 className="mt-3 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
-              My Orders
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/80 sm:text-base">
-              Track your MacroBox meals, plan schedules, bill details and live
-              delivery status.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={fetchOrders}
-            className="inline-flex h-12 w-fit items-center justify-center gap-2 border border-white/50 px-5 text-sm font-black text-white transition hover:bg-white/10"
-          >
-            <RefreshCw size={17} />
-            Refresh
-          </button>
-        </div>
-      </section>
-
-      <section className="mx-auto -mt-10 max-w-6xl px-4 pb-10 sm:px-6">
-        <div className="bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] sm:p-6 lg:p-8">
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <main className="min-h-screen bg-white pb-10 text-slate-950">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6 sm:py-10">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                Past Orders
-              </h2>
+              <p className="text-xs font-black uppercase tracking-[0.38em] text-slate-400 sm:tracking-[0.45em]">
+                MacroBox Orders
+              </p>
 
-              <p className="mt-1 text-sm font-semibold text-slate-500">
-                {filteredOrders.length} of {orders.length} orders
+              <h1 className="mt-5 text-4xl font-black leading-[0.95] tracking-[-0.06em] text-slate-950 sm:mt-6 sm:text-6xl">
+                Track your
+                <br />
+                meal orders
+              </h1>
+
+              <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:mt-5 sm:text-base sm:leading-7">
+                Track your MacroBox meals, plan schedules, bill details and live
+                delivery status.
               </p>
             </div>
 
-            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-xs font-black text-slate-600">
-              <PackageCheck size={15} />
-              Order history
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+              <HeaderBox label="Orders" value={`${orders.length}`} />
+              <HeaderBox label="Paid" value={`${paidOrders.length}`} />
+              <HeaderBox label="Plans" value={`${planOrders.length}`} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1180px] px-4 py-5 sm:px-6 sm:py-6">
+        <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-xl font-black tracking-[-0.04em] text-slate-950 sm:text-2xl">
+                  Past Orders
+                </h2>
+
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  {filteredOrders.length} of {orders.length} orders
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                <button
+                  type="button"
+                  onClick={fetchOrders}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                >
+                  <RefreshCw size={16} />
+                  Refresh
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(true)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-4 text-sm font-black text-white transition hover:bg-green-700"
+                >
+                  <Filter size={16} />
+                  Filters
+                </button>
+              </div>
             </div>
           </div>
 
-          <section className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-700 lg:hidden">
-              <SlidersHorizontal size={16} />
-              Filters
+          <div className="border-b border-slate-200 p-4 sm:p-5">
+            <div className="relative">
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search orders, coupon, address, order id..."
+                className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white"
+              />
             </div>
 
-            <div className="grid gap-2 lg:grid-cols-[1.3fr_0.8fr_0.7fr_0.8fr_0.8fr_auto]">
+            {hasActiveFilters && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                  Filters active
+                </span>
+
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-600 hover:bg-slate-50"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 sm:p-5">
+            {orders.length === 0 ? (
+              <EmptyState
+                title="No orders yet."
+                description="Your paid meals, plans and live tracking details will appear here."
+              />
+            ) : filteredOrders.length === 0 ? (
+              <EmptyState
+                title="No matching orders."
+                description="Try changing your search, date, year or range filters."
+              />
+            ) : (
+              <div className="grid gap-4">
+                {filteredOrders.map((order) => (
+                  <OrderCard
+                    key={order._id}
+                    order={order}
+                    onViewDetails={() => setSelectedOrder(order)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {showFilters && (
+        <Drawer
+          title="Filter Orders"
+          subtitle="Search, sort and filter your order history."
+          onClose={() => setShowFilters(false)}
+        >
+          <div className="grid gap-4">
+            <Field label="SEARCH">
               <div className="relative">
                 <Search
                   size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
                 />
 
                 <input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search orders..."
-                  className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                  className="input-clean pl-11"
                 />
               </div>
+            </Field>
 
+            <Field label="ORDER DATE">
               <div className="relative">
                 <CalendarDays
                   size={16}
-                  className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400"
+                  className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
                 />
 
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(event) => setSelectedDate(event.target.value)}
-                  className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                  className="input-clean pl-11"
                 />
               </div>
+            </Field>
 
+            <Field label="YEAR">
               <select
                 value={selectedYear}
                 onChange={(event) => setSelectedYear(event.target.value)}
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                className="input-clean"
               >
                 <option value="all">All Years</option>
                 {availableYears.map((year) => (
@@ -637,23 +725,27 @@ export default function Orders() {
                   </option>
                 ))}
               </select>
+            </Field>
 
+            <Field label="RANGE">
               <select
                 value={rangeFilter}
                 onChange={(event) =>
                   setRangeFilter(event.target.value as RangeFilter)
                 }
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                className="input-clean"
               >
                 <option value="all">All Time</option>
                 <option value="30days">Last 30 Days</option>
                 <option value="3months">Last 3 Months</option>
               </select>
+            </Field>
 
+            <Field label="SORT BY">
               <div className="relative">
                 <ArrowDownUp
                   size={16}
-                  className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400"
+                  className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
                 />
 
                 <select
@@ -661,7 +753,7 @@ export default function Orders() {
                   onChange={(event) =>
                     setSortType(event.target.value as SortType)
                   }
-                  className="h-11 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm font-black text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                  className="input-clean pl-11"
                 >
                   <option value="newest">Newest</option>
                   <option value="oldest">Oldest</option>
@@ -669,42 +761,30 @@ export default function Orders() {
                   <option value="amountLow">Amount Low</option>
                 </select>
               </div>
+            </Field>
+          </div>
 
-              <button
-                type="button"
-                onClick={clearFilters}
-                disabled={!hasActiveFilters}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <X size={15} />
-                Clear
-              </button>
-            </div>
-          </section>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={clearFilters}
+              disabled={!hasActiveFilters}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <X size={16} />
+              Clear
+            </button>
 
-          {orders.length === 0 ? (
-            <EmptyState
-              title="No orders yet."
-              description="Your paid meals, plans and live tracking details will appear here."
-            />
-          ) : filteredOrders.length === 0 ? (
-            <EmptyState
-              title="No matching orders."
-              description="Try changing your search, date, year or range filters."
-            />
-          ) : (
-            <div className="space-y-4">
-              {filteredOrders.map((order) => (
-                <OrderCard
-                  key={order._id}
-                  order={order}
-                  onViewDetails={() => setSelectedOrder(order)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+            <button
+              type="button"
+              onClick={() => setShowFilters(false)}
+              className="inline-flex h-12 items-center justify-center rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
+            >
+              Apply
+            </button>
+          </div>
+        </Drawer>
+      )}
 
       {selectedOrder && (
         <OrderDetailsDrawer
@@ -730,25 +810,33 @@ function OrderCard({
   const nextPlanDay = firstPlanItem ? getNextPlanDay(firstPlanItem) : null;
 
   return (
-    <article className="border border-slate-200 bg-white p-4 transition hover:border-slate-300 sm:p-5">
-      <div className="flex gap-4">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-green-50 text-2xl font-black text-green-200 sm:h-24 sm:w-24">
+    <article className="border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-green-50 text-2xl font-black text-green-600 sm:h-24 sm:w-24">
           {getOrderImageText(order)}
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <h3 className="truncate text-lg font-black text-slate-950">
-                {getOrderKitchenName(order)}
-              </h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-xl font-black tracking-[-0.04em] text-slate-950">
+                  {getOrderKitchenName(order)}
+                </h3>
 
-              <p className="mt-0.5 truncate text-sm font-semibold text-slate-500">
+                {hasPlan && (
+                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                    Plan Order
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-500">
                 {formatAddress(order.delivery?.address)}
               </p>
 
               <p className="mt-1 break-all text-xs font-bold text-slate-400">
-                ORDER #{order._id} | {formatDateTime(order.createdAt)}
+                #{order._id} · {formatDateTime(order.createdAt)}
               </p>
             </div>
 
@@ -771,28 +859,22 @@ function OrderCard({
 
           <div className="my-4 border-t border-dashed border-slate-200" />
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-950">
+              <p className="text-sm font-black text-slate-950">
                 {getPrimaryOrderItemText(order)}
               </p>
 
               {nextPlanDay && (
                 <p className="mt-1 text-xs font-bold text-slate-500">
-                  Next: Day {nextPlanDay.day} •{" "}
-                  {nextPlanDay.selectedMealTitle || "Meal"} •{" "}
-                  {formatDateOnly(nextPlanDay.date)} •{" "}
+                  Next: Day {nextPlanDay.day} ·{" "}
+                  {nextPlanDay.selectedMealTitle || "Meal"} ·{" "}
+                  {formatDateOnly(nextPlanDay.date)} ·{" "}
                   {formatSlot(nextPlanDay.slot)}
                 </p>
               )}
 
-              <div className="mt-2 flex flex-wrap gap-2">
-                {hasPlan && (
-                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                    Plan Order
-                  </span>
-                )}
-
+              <div className="mt-3 flex flex-wrap gap-2">
                 <span
                   className={`rounded-full border px-3 py-1 text-xs font-black ${paymentBadgeClass(
                     order.payment?.status
@@ -802,45 +884,35 @@ function OrderCard({
                 </span>
 
                 {order.coupon?.code && (
-                  <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
                     Coupon: {order.coupon.code}
                   </span>
                 )}
+
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                  ₹{splitTotals.payable}
+                </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
-              <p className="text-sm font-black text-slate-950">
-                Total Paid: ₹{splitTotals.payable}
-              </p>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
+              <Link
+                to={`/track/${order._id}`}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
+              >
+                <Navigation size={15} />
+                Track
+              </Link>
 
               <button
                 type="button"
                 onClick={onViewDetails}
-                className="inline-flex items-center gap-1 text-sm font-black uppercase text-orange-600 hover:underline"
+                className="inline-flex h-11 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
               >
-                View Details
+                Details
                 <ChevronRight size={16} />
               </button>
             </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Link
-              to={`/track/${order._id}`}
-              className="inline-flex h-11 items-center justify-center gap-2 bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
-            >
-              <Navigation size={15} />
-              Track
-            </Link>
-
-            <button
-              type="button"
-              onClick={onViewDetails}
-              className="inline-flex h-11 items-center justify-center border border-orange-500 px-5 text-sm font-black text-orange-600 transition hover:bg-orange-50"
-            >
-              Help / Details
-            </button>
           </div>
         </div>
       </div>
@@ -863,37 +935,19 @@ function OrderDetailsDrawer({
   const currentLocation = order.delivery?.tracking?.currentLocation;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/55">
-      <button
-        type="button"
-        aria-label="Close order details"
-        className="hidden flex-1 cursor-default md:block"
-        onClick={onClose}
-      />
+    <Drawer
+      title="Order Details"
+      subtitle={`#${order._id}`}
+      onClose={onClose}
+      wide
+    >
+      <div className="space-y-5">
+        <section className="border border-slate-200 bg-white p-4">
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+            Order Timeline
+          </p>
 
-      <aside className="h-full w-full overflow-y-auto bg-white shadow-2xl md:max-w-[520px]">
-        <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-100 bg-white px-5 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100"
-          >
-            <X size={22} />
-          </button>
-
-          <div className="min-w-0">
-            <h2 className="truncate text-xl font-black text-slate-950">
-              Order #{order._id}
-            </h2>
-
-            <p className="text-xs font-bold text-slate-500">
-              {formatDateTime(order.createdAt)}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-5 px-5 py-5">
-          <section className="space-y-4">
+          <div className="space-y-4">
             <TimelinePoint
               icon={<MapPin size={20} />}
               title={getOrderKitchenName(order)}
@@ -927,126 +981,126 @@ function OrderDetailsDrawer({
                   </p>
 
                   <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-                    Main slot: {formatDateOnly(order.delivery?.slot?.date)} •{" "}
+                    Main slot: {formatDateOnly(order.delivery?.slot?.date)} ·{" "}
                     {formatSlot(order.delivery?.slot?.time)}
                   </p>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="border-t border-slate-200 pt-5">
-            <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
-              Items
-            </p>
+        <section className="border border-slate-200 bg-white p-4">
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+            Items
+          </p>
 
-            <div className="space-y-3">
-              {(order.items || []).map((item, index) => (
-                <DrawerOrderItem key={`${order._id}-${index}`} item={item} />
-              ))}
+          <div className="space-y-3">
+            {(order.items || []).map((item, index) => (
+              <DrawerOrderItem key={`${order._id}-${index}`} item={item} />
+            ))}
+          </div>
+        </section>
+
+        <section className="border border-slate-200 bg-white p-4">
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+            Bill Details
+          </p>
+
+          <div className="space-y-3 text-sm font-semibold">
+            <BillingRow
+              label="Meals Subtotal"
+              value={`₹${splitTotals.normalMealsSubtotal}`}
+            />
+
+            <BillingRow
+              label="Plans Subtotal"
+              value={`₹${splitTotals.planSubtotal}`}
+            />
+
+            <BillingRow
+              label="Discount Applied"
+              value={`-₹${splitTotals.discount}`}
+              discount
+            />
+
+            <BillingRow
+              label="Total Protein"
+              value={`${order.totals.totalProtein || 0}g`}
+            />
+
+            <BillingRow
+              label="Total Calories"
+              value={`${order.totals.totalCalories || 0}`}
+            />
+
+            {order.coupon?.code && (
+              <BillingRow label="Coupon" value={order.coupon.code} />
+            )}
+
+            <div className="border-t border-slate-200 pt-3">
+              <BillingRow
+                label="Bill Total"
+                value={`₹${splitTotals.payable}`}
+                highlight
+              />
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="border-t border-slate-200 pt-5">
-            <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
-              Bill Details
+        <section className="border border-slate-200 bg-white p-4">
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+            Live Delivery
+          </p>
+
+          <div className="bg-slate-50 p-4 text-sm font-semibold leading-7 text-slate-600">
+            <p>
+              <span className="font-black text-slate-950">Agent:</span>{" "}
+              {agent?.name || "Not assigned yet"}
             </p>
 
-            <div className="space-y-3 text-sm font-semibold">
-              <BillingRow
-                label="Meals Subtotal"
-                value={`₹${splitTotals.normalMealsSubtotal}`}
-              />
-
-              <BillingRow
-                label="Plans Subtotal"
-                value={`₹${splitTotals.planSubtotal}`}
-              />
-
-              <BillingRow
-                label="Discount Applied"
-                value={`-₹${splitTotals.discount}`}
-                discount
-              />
-
-              <BillingRow
-                label="Total Protein"
-                value={`${order.totals.totalProtein || 0}g`}
-              />
-
-              <BillingRow
-                label="Total Calories"
-                value={`${order.totals.totalCalories || 0}`}
-              />
-
-              {order.coupon?.code && (
-                <BillingRow label="Coupon" value={order.coupon.code} />
-              )}
-
-              <div className="border-t border-slate-200 pt-3">
-                <BillingRow
-                  label="Bill Total"
-                  value={`₹${splitTotals.payable}`}
-                  highlight
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="border-t border-slate-200 pt-5">
-            <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
-              Live Delivery
+            <p className="flex items-center gap-1">
+              <Phone size={14} className="text-green-600" />
+              <span className="font-black text-slate-950">Phone:</span>{" "}
+              {agent?.deliveryProfile?.phone || agent?.phone || "N/A"}
             </p>
 
-            <div className="rounded-xl bg-slate-50 p-4 text-sm font-semibold leading-7 text-slate-600">
-              <p>
-                <span className="font-black text-slate-950">Agent:</span>{" "}
-                {agent?.name || "Not assigned yet"}
-              </p>
+            <p>
+              <span className="font-black text-slate-950">ETA:</span>{" "}
+              {eta?.text || "Not available yet"}
+              {eta?.distanceText ? ` (${eta.distanceText})` : ""}
+            </p>
 
-              <p className="flex items-center gap-1">
-                <Phone size={14} className="text-green-600" />
-                <span className="font-black text-slate-950">Phone:</span>{" "}
-                {agent?.deliveryProfile?.phone || agent?.phone || "N/A"}
-              </p>
+            <p>
+              <span className="font-black text-slate-950">Last update:</span>{" "}
+              {formatDateTime(currentLocation?.updatedAt || null)}
+            </p>
 
-              <p>
-                <span className="font-black text-slate-950">ETA:</span>{" "}
-                {eta?.text || "Not available yet"}
-                {eta?.distanceText ? ` (${eta.distanceText})` : ""}
-              </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Link
+                to={`/track/${order._id}`}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-4 text-sm font-black text-white"
+              >
+                <Truck size={15} />
+                Track Live
+              </Link>
 
-              <p>
-                <span className="font-black text-slate-950">Last update:</span>{" "}
-                {formatDateTime(currentLocation?.updatedAt || null)}
-              </p>
-
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <Link
-                  to={`/track/${order._id}`}
-                  className="inline-flex h-11 items-center justify-center gap-2 bg-green-600 px-4 text-sm font-black text-white"
+              {mapsUrl && (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-300 px-4 text-sm font-black text-slate-700"
                 >
-                  <Truck size={15} />
-                  Track Live
-                </Link>
-
-                {mapsUrl && (
-                  <a
-                    href={mapsUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-11 items-center justify-center gap-2 border border-slate-300 px-4 text-sm font-black text-slate-700"
-                  >
-                    <MapPin size={15} />
-                    Open Maps
-                  </a>
-                )}
-              </div>
+                  <MapPin size={15} />
+                  Open Maps
+                </a>
+              )}
             </div>
-          </section>
-        </div>
-      </aside>
-    </div>
+          </div>
+        </section>
+      </div>
+    </Drawer>
   );
 }
 
@@ -1064,7 +1118,7 @@ function DrawerOrderItem({ item }: { item: OrderItem }) {
             {item.title || "Meal"} × {item.qty || 1}
           </p>
 
-          <div className="mt-1 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             {isPlan && (
               <span className="rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-black text-green-700">
                 Meal Plan
@@ -1085,8 +1139,8 @@ function DrawerOrderItem({ item }: { item: OrderItem }) {
       </div>
 
       {isPlan && planDays.length > 0 && (
-        <div className="mt-3 rounded-xl bg-blue-50 p-3">
-          <p className="mb-2 text-xs font-black uppercase tracking-wide text-blue-700">
+        <div className="mt-3 bg-green-50 p-3">
+          <p className="mb-2 text-xs font-black uppercase tracking-wide text-green-700">
             Day-wise Plan Schedule
           </p>
 
@@ -1094,7 +1148,7 @@ function DrawerOrderItem({ item }: { item: OrderItem }) {
             {planDays.map((day, index) => (
               <div
                 key={`${day.day || index}-${day.date || ""}`}
-                className="rounded-lg bg-white p-3"
+                className="bg-white p-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-xs font-black text-slate-950">
@@ -1107,7 +1161,7 @@ function DrawerOrderItem({ item }: { item: OrderItem }) {
                 </div>
 
                 <p className="mt-1 text-xs font-bold text-slate-500">
-                  {formatDateOnly(day.date)} • {formatSlot(day.slot)} •{" "}
+                  {formatDateOnly(day.date)} · {formatSlot(day.slot)} ·{" "}
                   {day.preference || "mixed"}
                 </p>
               </div>
@@ -1121,7 +1175,7 @@ function DrawerOrderItem({ item }: { item: OrderItem }) {
           {planItems.map((planItem, index) => (
             <span
               key={`${planItem._id || index}`}
-              className="rounded-full bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700"
+              className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700"
             >
               {planItem.title || "Meal Item"} × {planItem.qty || 1}
             </span>
@@ -1132,18 +1186,102 @@ function DrawerOrderItem({ item }: { item: OrderItem }) {
   );
 }
 
+function Drawer({
+  title,
+  subtitle,
+  onClose,
+  children,
+  wide,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Close drawer"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/35"
+      />
+
+      <aside
+        className={`absolute bottom-0 right-0 flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:bottom-auto sm:top-0 sm:h-full sm:max-h-full sm:rounded-none ${
+          wide ? "sm:w-[560px]" : "sm:w-[430px]"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+          <div className="min-w-0">
+            <h2 className="truncate text-2xl font-black tracking-[-0.04em] text-slate-950">
+              {title}
+            </h2>
+
+            <p className="mt-1 break-all text-sm font-bold text-slate-500">
+              {subtitle}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+      </aside>
+    </div>
+  );
+}
+
+function HeaderBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-slate-200 bg-white px-4 py-3 shadow-sm sm:min-w-[140px]">
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+  className = "",
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
 function TimelinePoint({
   icon,
   title,
   subtitle,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   subtitle: string;
 }) {
   return (
     <div className="flex items-start gap-4">
-      <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-950">
+      <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
         {icon}
       </span>
 
@@ -1203,7 +1341,7 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="border border-slate-200 bg-white p-8 text-center">
+    <div className="border border-slate-200 bg-slate-50 p-8 text-center">
       <PackageCheck className="mx-auto text-slate-300" size={46} />
 
       <p className="mt-4 text-lg font-black text-slate-950">{title}</p>
