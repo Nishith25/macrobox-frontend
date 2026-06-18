@@ -1,6 +1,7 @@
 // frontend/src/pages/Rewards.tsx (FRONTEND)
 
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertCircle,
   ArrowRight,
@@ -30,10 +31,8 @@ type BackendReward = {
     | "plan_discount";
   valueText: string;
 
-  // New preferred actions
   requiredAction?: "buy_plan" | "buy_7_day_plan" | "next_plan_reward";
 
-  // Old actions kept for backend compatibility
   baseCouponCode?: string;
   couponCode?: string;
   couponExpiresAt?: string | null;
@@ -205,94 +204,125 @@ export default function Rewards() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f7f7f7] text-slate-950">
+    <main className="min-h-screen bg-white text-slate-950">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto max-w-[1180px] px-4 py-10 sm:px-6">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-4xl font-black tracking-[-0.06em] text-slate-950 sm:text-5xl">
-                Plan rewards
+              <p className="text-xs font-black uppercase tracking-[0.45em] text-slate-400">
+                MacroBox Rewards
+              </p>
+
+              <h1 className="mt-6 text-4xl font-black leading-[0.95] tracking-[-0.06em] text-slate-950 sm:text-6xl">
+                Save on your
+                <br />
+                next meal plan
               </h1>
 
-              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:text-base">
-                Buy an eligible 7-day MacroBox plan and unlock 10% OFF your
-                next plan.
+              <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-slate-500">
+                Buy an eligible 7-day MacroBox plan and unlock a user-specific
+                10% OFF coupon for your next plan.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={loadRewards}
-              disabled={loading}
-              className="inline-flex h-11 w-fit items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-900 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              {loading ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <RefreshCw size={16} />
-              )}
-              Refresh
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/plans"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-slate-950 px-6 text-sm font-black text-white transition hover:bg-slate-800"
+              >
+                View Plans
+                <ArrowRight size={17} />
+              </Link>
+
+              <button
+                type="button"
+                onClick={loadRewards}
+                disabled={loading}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                {loading ? (
+                  <Loader2 className="animate-spin" size={17} />
+                ) : (
+                  <RefreshCw size={17} />
+                )}
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6">
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="max-w-3xl text-2xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">
-                Buy a 7-day plan, unlock 10% OFF next plan
-              </h2>
+        <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 p-5">
+            <div className="flex items-start gap-3">
+              <span className="mt-1 text-green-600">
+                <Gift size={24} />
+              </span>
 
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-                Rewards are user-specific, one-time use, and expire within 7
-                days after claiming.
-              </p>
-            </div>
+              <div>
+                <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                  Rewards & Coupons
+                </h2>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[420px]">
-              <SmallStat label="Active" value={`${activeRewardsCount}`} />
-              <SmallStat label="Used" value={`${usedRewardsCount}`} />
-              <SmallStat label="Expired" value={`${expiredRewardsCount}`} />
-              <SmallStat label="Best" value={bestCoupon} />
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  Claim your unlocked plan rewards and use them before expiry.
+                </p>
+              </div>
             </div>
+          </div>
+
+          <div className="grid gap-0 divide-y divide-slate-200 md:grid-cols-4 md:divide-x md:divide-y-0">
+            <RewardStat label="Active Rewards" value={`${activeRewardsCount}`} />
+            <RewardStat label="Used Rewards" value={`${usedRewardsCount}`} />
+            <RewardStat label="Expired Rewards" value={`${expiredRewardsCount}`} />
+            <RewardStat label="Best Coupon" value={bestCoupon} />
           </div>
         </section>
 
         {loading ? (
-          <section className="mt-8 flex min-h-[280px] items-center justify-center rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <section className="mt-8 flex min-h-[280px] items-center justify-center border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center gap-3 text-sm font-black text-slate-600">
               <Loader2 className="animate-spin text-green-600" size={22} />
               Loading plan rewards...
             </div>
           </section>
         ) : rewards.length === 0 ? (
-          <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <AlertCircle className="mx-auto text-slate-400" size={40} />
+          <section className="mt-8 border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <AlertCircle className="mx-auto text-slate-400" size={42} />
 
             <h2 className="mt-4 text-2xl font-black tracking-[-0.04em] text-slate-950">
               No plan rewards found
             </h2>
 
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+            <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-500">
               Buy an eligible 7-day MacroBox plan to unlock your next-plan
               coupon.
             </p>
+
+            <Link
+              to="/plans"
+              className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-green-600 px-6 text-sm font-black text-white transition hover:bg-green-700"
+            >
+              Explore Plans
+              <ArrowRight size={17} />
+            </Link>
           </section>
         ) : (
           <section className="mt-8">
-            <div className="mb-5">
-              <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                Available rewards
-              </h2>
+            <div className="mb-5 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
+                  Available rewards
+                </h2>
 
-              <p className="mt-1 text-sm font-bold text-slate-500">
-                {rewards.length} reward{rewards.length === 1 ? "" : "s"} found
-              </p>
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  {rewards.length} reward{rewards.length === 1 ? "" : "s"} found
+                </p>
+              </div>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-4">
               {rewards.map((item) => {
                 const status = getRewardStatus(item);
                 const isClaimed = Boolean(item.claimed);
@@ -312,64 +342,77 @@ export default function Rewards() {
                 return (
                   <article
                     key={item.rewardId}
-                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.1)]"
+                    className="border border-slate-200 bg-white p-5 shadow-sm transition hover:border-green-200 hover:shadow-md"
                   >
-                    <div className="border-b border-slate-100 bg-gradient-to-br from-green-50 via-white to-white p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
-                              isUnlocked || isClaimed
-                                ? "bg-green-600 text-white"
-                                : "bg-slate-100 text-slate-400"
-                            }`}
-                          >
-                            <Trophy size={21} />
-                          </div>
-
-                          <div>
-                            <p className="text-xs font-black uppercase tracking-wide text-green-600">
-                              MacroBox Reward
-                            </p>
-
-                            <h3 className="mt-1 text-xl font-black tracking-[-0.04em] text-slate-950">
-                              {title}
-                            </h3>
-                          </div>
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex min-w-0 flex-1 gap-4">
+                        <div
+                          className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl ${
+                            isUnlocked || isClaimed
+                              ? "bg-green-50 text-green-700"
+                              : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {isUnlocked || isClaimed ? (
+                            <Trophy size={30} />
+                          ) : (
+                            <Lock size={28} />
+                          )}
                         </div>
 
-                        <RewardStatus
-                          used={used}
-                          expired={expired}
-                          active={active}
-                          isUnlocked={isUnlocked}
-                        />
-                      </div>
+                        <div className="min-w-0">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <RewardStatus
+                              used={used}
+                              expired={expired}
+                              active={active}
+                              isUnlocked={isUnlocked}
+                            />
 
-                      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="text-4xl font-black tracking-[-0.06em] text-slate-950">
-                            {valueText}
-                          </p>
+                            <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                              {valueText}
+                            </span>
+                          </div>
 
-                          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                          <h3 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                            {title}
+                          </h3>
+
+                          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
                             {description}
                           </p>
-                        </div>
 
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <MiniTag>{formatRequirement()}</MiniTag>
+
+                            {(isClaimed || active || expired || used) &&
+                            expireDate ? (
+                              <MiniTag>
+                                {used
+                                  ? "Already used"
+                                  : expired
+                                  ? `Expired on ${expireDate}`
+                                  : `Expires on ${expireDate}`}
+                              </MiniTag>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="w-full shrink-0 lg:w-[290px]">
                         <div
-                          className={`rounded-2xl border px-4 py-3 text-center ${
+                          className={`mb-3 rounded-2xl border px-4 py-3 ${
                             isClaimed && !expired && !used
                               ? "border-green-200 bg-green-50"
-                              : "border-slate-200 bg-white"
+                              : "border-slate-200 bg-slate-50"
                           }`}
                         >
                           <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                            Coupon
+                            Coupon Code
                           </p>
 
                           <p
-                            className={`mt-1 text-sm font-black ${
+                            className={`mt-1 text-lg font-black ${
                               isClaimed && !expired && !used
                                 ? "text-green-700"
                                 : "text-slate-400"
@@ -378,40 +421,7 @@ export default function Rewards() {
                             {isClaimed ? item.couponCode || "CLAIMED" : "Hidden"}
                           </p>
                         </div>
-                      </div>
-                    </div>
 
-                    <div className="p-5">
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                          Unlock Requirement
-                        </p>
-
-                        <p className="mt-1 text-sm font-black text-slate-800">
-                          {formatRequirement()}
-                        </p>
-
-                        {(isClaimed || active || expired || used) &&
-                        expireDate ? (
-                          <p
-                            className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-black ${
-                              used
-                                ? "bg-slate-100 text-slate-500"
-                                : expired
-                                ? "bg-red-50 text-red-600"
-                                : "bg-green-50 text-green-700"
-                            }`}
-                          >
-                            {used
-                              ? "Already used"
-                              : expired
-                              ? `Expired on ${expireDate}`
-                              : `Expires on ${expireDate}`}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                         <button
                           type="button"
                           disabled={
@@ -425,7 +435,7 @@ export default function Rewards() {
                               ? copyCoupon(item.couponCode, expired, used)
                               : claimReward(item)
                           }
-                          className={`inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                          className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                             isClaimed && !expired && !used
                               ? "border border-green-200 bg-white text-green-700 hover:bg-green-50"
                               : isUnlocked
@@ -453,18 +463,6 @@ export default function Rewards() {
                             ? "Get Coupon"
                             : "Locked"}
                         </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            copyCoupon(item.couponCode, expired, used)
-                          }
-                          disabled={!isClaimed || expired || used}
-                          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Copy
-                          <ArrowRight size={16} />
-                        </button>
                       </div>
                     </div>
                   </article>
@@ -474,13 +472,13 @@ export default function Rewards() {
           </section>
         )}
 
-        <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="mt-8 border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
             <Star className="text-green-600" />
             How plan rewards work
           </h2>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
             <HowStep
               number="01"
               title="Buy Plan"
@@ -489,14 +487,14 @@ export default function Rewards() {
 
             <HowStep
               number="02"
-              title="Claim Reward"
-              text="Unlock and claim your 10% OFF coupon."
+              title="Claim Coupon"
+              text="Unlock and claim your 10% OFF reward coupon."
             />
 
             <HowStep
               number="03"
-              title="Use Next"
-              text="Apply it on your next eligible MacroBox plan."
+              title="Use on Next Plan"
+              text="Apply the coupon on your next eligible MacroBox plan."
             />
           </div>
         </section>
@@ -505,14 +503,16 @@ export default function Rewards() {
   );
 }
 
-function SmallStat({ label, value }: { label: string; value: string }) {
+function RewardStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+    <div className="bg-white p-5">
+      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
 
-      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
+      <p className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+        {value}
+      </p>
     </div>
   );
 }
@@ -570,6 +570,14 @@ function RewardStatus({
   );
 }
 
+function MiniTag({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+      {children}
+    </span>
+  );
+}
+
 function HowStep({
   number,
   title,
@@ -580,7 +588,7 @@ function HowStep({
   text: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="border border-slate-200 bg-slate-50 p-4">
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-xs font-black text-white">
         {number}
       </span>
