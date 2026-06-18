@@ -307,10 +307,12 @@ export default function PlanDetails() {
   const durationDays = plan?.durationDays || 7;
   const rewardEligible = plan?.rewardEligible !== false;
   const mealMode = plan?.mealMode || cartMealsData?.plan?.mealMode || "both";
+
   const displayPrice = getPlanPriceByPreference(
     plan || cartMealsData?.plan || null,
     preference
   );
+
   const originalPrice = plan?.originalPrice || null;
 
   const availablePreferenceOptions = useMemo(() => {
@@ -537,8 +539,8 @@ export default function PlanDetails() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7f7f7]">
-        <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
+      <main className="flex min-h-screen items-center justify-center bg-white">
+        <div className="flex items-center gap-3 border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
           <Loader2 className="animate-spin text-green-600" size={20} />
           Loading plan...
         </div>
@@ -548,8 +550,8 @@ export default function PlanDetails() {
 
   if (!plan) {
     return (
-      <main className="min-h-screen bg-[#f7f7f7] px-4 py-10">
-        <div className="mx-auto max-w-[900px] rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <main className="min-h-screen bg-white px-4 py-10">
+        <div className="mx-auto max-w-[900px] border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-3xl font-black text-slate-950">
             Plan not found
           </h1>
@@ -557,7 +559,7 @@ export default function PlanDetails() {
           <button
             type="button"
             onClick={() => navigate("/plans")}
-            className="mt-5 rounded-xl bg-green-600 px-6 py-3 text-sm font-black text-white"
+            className="mt-5 rounded-full bg-green-600 px-6 py-3 text-sm font-black text-white"
           >
             Back to Plans
           </button>
@@ -567,138 +569,151 @@ export default function PlanDetails() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f7f7] px-4 py-6 text-slate-950 sm:px-6 sm:py-8">
-      <div className="mx-auto max-w-[1180px]">
-        <Link
-          to="/plans"
-          className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 shadow-sm transition hover:bg-slate-50"
-        >
-          <ArrowLeft size={17} />
-          Back to Plans
-        </Link>
+    <main className="min-h-screen bg-white text-slate-950">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6">
+          <Link
+            to="/plans"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <ArrowLeft size={17} />
+            Back to Plans
+          </Link>
 
-        <section className="grid gap-5 lg:grid-cols-[1fr_380px] lg:items-start">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 bg-gradient-to-br from-green-50 via-white to-white p-5 sm:p-8">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-4xl font-black leading-[0.98] tracking-[-0.06em] text-slate-950 sm:text-6xl">
-                    {displayTitle}
-                  </h1>
+          <div className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.45em] text-slate-400">
+                MacroBox Plan
+              </p>
 
-                  <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-600 sm:text-base">
-                    {displayDescription}
-                  </p>
-                </div>
+              <h1 className="mt-6 text-4xl font-black leading-[0.95] tracking-[-0.06em] text-slate-950 sm:text-6xl">
+                {displayTitle}
+              </h1>
 
-                <div className="w-full rounded-2xl border border-green-100 bg-white p-2 shadow-sm sm:w-fit lg:min-w-[220px]">
-                  <p className="mb-2 px-2 text-[11px] font-black uppercase tracking-wide text-slate-400">
-                    Select plan type
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-                    {availablePreferenceOptions.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setPreference(option)}
-                        disabled={loadingMeals}
-                        className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition disabled:opacity-60 sm:px-4 ${
-                          preference === option
-                            ? "bg-green-600 text-white shadow-[0_10px_22px_rgba(22,163,74,0.18)]"
-                            : "bg-green-50 text-green-700 hover:bg-green-100"
-                        }`}
-                      >
-                        {getPreferenceLabel(option)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-slate-500">
+                {displayDescription}
+              </p>
             </div>
 
-            <div className="p-5 sm:p-8">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <InfoCard
-                  label="Selected Type"
-                  value={getPreferenceLabel(preference)}
-                />
-                <InfoCard
-                  label="Duration"
-                  value={`${durationDays} Day${durationDays > 1 ? "s" : ""}`}
-                />
-                <InfoCard
-                  label="Meals Ready"
-                  value={
-                    loadingMeals
-                      ? "Loading"
-                      : `${selectedMeals.length}/${durationDays}`
-                  }
-                />
+            <div className="w-full border border-slate-200 bg-white p-4 shadow-sm sm:w-fit lg:min-w-[310px]">
+              <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+                Select plan type
+              </p>
+
+              <div className="grid grid-cols-3 gap-2">
+                {availablePreferenceOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setPreference(option)}
+                    disabled={loadingMeals}
+                    className={`min-h-11 rounded-full border px-3 py-2 text-xs font-black transition disabled:opacity-60 ${
+                      preference === option
+                        ? "border-green-600 bg-green-600 text-white"
+                        : "border-green-200 bg-white text-green-700 hover:bg-green-50"
+                    }`}
+                  >
+                    {getPreferenceLabel(option)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6">
+        <section className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
+          <div className="border border-slate-200 bg-white shadow-sm">
+            <div className="grid gap-0 divide-y divide-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              <InfoCard
+                label="Selected Type"
+                value={getPreferenceLabel(preference)}
+              />
+              <InfoCard
+                label="Duration"
+                value={`${durationDays} Day${durationDays > 1 ? "s" : ""}`}
+              />
+              <InfoCard
+                label="Meals Ready"
+                value={
+                  loadingMeals
+                    ? "Loading"
+                    : `${selectedMeals.length}/${durationDays}`
+                }
+              />
+            </div>
+
+            <div className="border-t border-slate-200 p-5 sm:p-6">
+              <div className="mb-5">
+                <h2 className="text-3xl font-black tracking-[-0.05em] text-slate-950">
+                  Meals included
+                </h2>
+
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  Your selected {getPreferenceLabel(preference)} plan menu
+                </p>
               </div>
 
-              {selectedMeals.length > 0 && (
-                <section className="mt-6">
-                  <div className="mb-4">
-                    <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                      Meals included
-                    </h2>
-
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      Your selected {getPreferenceLabel(preference)} plan menu
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {selectedMeals.map((meal, index) => (
-                      <div
-                        key={`${meal._id}-${index}`}
-                        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-black uppercase tracking-wide text-green-600">
+              {selectedMeals.length === 0 ? (
+                <div className="border border-slate-200 bg-slate-50 p-6 text-center">
+                  <p className="text-sm font-black text-slate-600">
+                    {loadingMeals
+                      ? "Loading meals..."
+                      : "No meals selected for this plan type."}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {selectedMeals.map((meal, index) => (
+                    <div
+                      key={`${meal._id}-${index}`}
+                      className="border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200"
+                    >
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
                               Day {index + 1}
-                            </p>
+                            </span>
 
-                            <h3 className="mt-1 text-base font-black text-slate-950">
-                              {meal.title}
-                            </h3>
-
-                            <p className="mt-1 text-xs font-bold capitalize text-slate-500">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black capitalize text-slate-600">
                               {getMealDietType(meal)} meal
-                            </p>
+                            </span>
                           </div>
 
-                          <span className="shrink-0 rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                            ₹{meal.price || 0}
-                          </span>
+                          <h3 className="text-xl font-black tracking-[-0.04em] text-slate-950">
+                            {meal.title}
+                          </h3>
+
+                          <p className="mt-2 text-sm font-bold text-slate-500">
+                            {meal.calories || 0} kcal · {meal.protein || 0}g
+                            protein · {meal.carbs || 0}g carbs ·{" "}
+                            {meal.fat || 0}g fat
+                          </p>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-3 gap-2">
-                          <MiniLightStat
-                            label="Protein"
-                            value={`${meal.protein || 0}g`}
-                          />
-                          <MiniLightStat
-                            label="Calories"
-                            value={`${meal.calories || 0}`}
-                          />
-                          <MiniLightStat
-                            label="Carbs"
-                            value={`${meal.carbs || 0}g`}
-                          />
+                        <div className="flex items-center justify-between gap-4 sm:block sm:text-right">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                              Price
+                            </p>
+
+                            <p className="mt-1 text-2xl font-black tracking-[-0.05em] text-slate-950">
+                              ₹{meal.price || 0}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </section>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
 
-          <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-24">
-            <div className="border-b border-slate-100 pb-5">
+          <aside className="h-fit border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
+            <div className="border-b border-slate-200 pb-5">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-green-600">
                 Plan Price
               </p>
@@ -738,7 +753,7 @@ export default function PlanDetails() {
               type="button"
               onClick={addPlanToCart}
               disabled={adding || loadingMeals}
-              className="mt-5 inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
+              className="mt-5 inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-6 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:opacity-60"
             >
               {adding || loadingMeals ? (
                 <Loader2 className="animate-spin" size={18} />
@@ -749,36 +764,36 @@ export default function PlanDetails() {
               Add Plan to Cart
               <ArrowRight size={18} />
             </button>
-
-            <div className="mt-6">
-              <h2 className="flex items-center gap-2 text-xl font-black tracking-[-0.04em] text-slate-950">
-                <Sparkles className="text-green-600" size={21} />
-                What you get
-              </h2>
-
-              <div className="mt-4 space-y-3">
-                {perks.map((perk: string) => (
-                  <div
-                    key={perk}
-                    className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
-                  >
-                    <CheckCircle2
-                      size={19}
-                      className="mt-0.5 shrink-0 text-green-600"
-                    />
-
-                    <p className="text-sm font-bold leading-6 text-slate-700">
-                      {perk}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
           </aside>
         </section>
 
         <section className="mt-7 grid gap-5 md:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+              <Sparkles className="text-green-600" />
+              What you get
+            </h2>
+
+            <div className="mt-4 space-y-3">
+              {perks.map((perk: string) => (
+                <div
+                  key={perk}
+                  className="flex items-start gap-3 border border-slate-100 bg-slate-50 p-4"
+                >
+                  <CheckCircle2
+                    size={19}
+                    className="mt-0.5 shrink-0 text-green-600"
+                  />
+
+                  <p className="text-sm font-bold leading-6 text-slate-700">
+                    {perk}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
               <Gift className="text-green-600" />
               Plan Reward
@@ -788,31 +803,25 @@ export default function PlanDetails() {
               {rewards.map((reward: string) => (
                 <div
                   key={reward}
-                  className="rounded-2xl border border-green-100 bg-green-50 p-4 text-sm font-bold leading-6 text-green-800"
+                  className="border border-green-100 bg-green-50 p-4 text-sm font-bold leading-6 text-green-800"
                 >
                   {reward}
                 </div>
               ))}
             </div>
           </div>
+        </section>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-              How it works
-            </h2>
+        <section className="mt-7 border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+            How it works
+          </h2>
 
-            <div className="mt-4 space-y-3">
-              <Step number="01" text="Choose Mixed, Veg or Non-Veg." />
-              <Step number="02" text="Add the plan to cart." />
-              <Step
-                number="03"
-                text="Select delivery date and slot for every plan day."
-              />
-              <Step
-                number="04"
-                text="Pay once and unlock your next-plan reward."
-              />
-            </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-4">
+            <Step number="01" text="Choose Mixed, Veg or Non-Veg." />
+            <Step number="02" text="Add the plan to cart." />
+            <Step number="03" text="Select delivery date and daily slots." />
+            <Step number="04" text="Pay once and unlock your reward." />
           </div>
         </section>
       </div>
@@ -822,31 +831,21 @@ export default function PlanDetails() {
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="bg-white p-5">
       <p className="text-xs font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
 
-      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
-    </div>
-  );
-}
-
-function MiniLightStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-slate-50 px-3 py-2">
-      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-        {label}
+      <p className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+        {value}
       </p>
-
-      <p className="mt-1 text-xs font-black text-slate-950">{value}</p>
     </div>
   );
 }
 
 function MiniPriceStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+    <div className="border border-slate-200 bg-slate-50 p-3">
       <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
@@ -858,12 +857,12 @@ function MiniPriceStat({ label, value }: { label: string; value: string }) {
 
 function Step({ number, text }: { number: string; text: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+    <div className="border border-slate-200 bg-slate-50 p-4">
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-xs font-black text-white">
         {number}
       </span>
 
-      <p className="text-sm font-bold text-slate-700">{text}</p>
+      <p className="mt-3 text-sm font-bold leading-6 text-slate-700">{text}</p>
     </div>
   );
 }
