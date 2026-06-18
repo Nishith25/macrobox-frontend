@@ -387,7 +387,7 @@ export default function Plans() {
           <div className="mb-5 flex items-end justify-between gap-3">
             <div>
               <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                Recommended meal plans
+                Plans
               </h2>
 
               <p className="mt-1 text-sm font-bold text-slate-500">
