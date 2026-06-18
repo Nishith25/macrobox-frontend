@@ -1051,7 +1051,7 @@ function Input({
   return (
     <Field label={label}>
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-500">
+        <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-green-600">
           {icon}
         </span>
 
@@ -1059,7 +1059,7 @@ function Input({
           type="number"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className="input-clean pl-11"
+          className="input-clean input-clean-icon"
         />
       </div>
     </Field>

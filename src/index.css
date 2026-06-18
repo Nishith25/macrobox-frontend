@@ -246,10 +246,14 @@ textarea {
   padding-left: 1rem;
   padding-right: 1rem;
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #0f172a;
   outline: none;
   transition: 0.2s ease;
+}
+
+.input-clean-icon {
+  padding-left: 3rem !important;
 }
 
 .input-clean::placeholder {
