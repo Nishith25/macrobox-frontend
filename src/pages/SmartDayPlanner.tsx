@@ -75,6 +75,13 @@ const timeLabels: Record<MealTime, string> = {
   dinner: "Dinner",
 };
 
+const shortTimeLabels: Record<MealTime, string> = {
+  breakfast: "B",
+  lunch: "L",
+  snack: "S",
+  dinner: "D",
+};
+
 const activityMultipliers: Record<string, number> = {
   sedentary: 1.2,
   light: 1.375,
@@ -533,25 +540,34 @@ export default function SmartDayPlanner() {
       <div className="mx-auto max-w-[1180px] px-4 py-5 sm:px-6 sm:py-6">
         <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-4 sm:p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-xl font-black tracking-[-0.04em] text-slate-950 sm:text-2xl">
-                  Planner Controls
+                  Smart Plan Builder
                 </h2>
                 <p className="mt-1 text-sm font-bold text-slate-500">
-                  Set your goal, auto-generate, clear, or save your selected
-                  plan.
+                  Generate a full day plan or manually choose meals below.
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowGoalDrawer(true)}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-green-600 bg-white px-5 text-sm font-black text-green-700 transition hover:bg-green-50 sm:w-auto"
-              >
-                <Pencil size={16} />
-                Change Goal
-              </button>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setShowGoalDrawer(true)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-green-600 bg-white px-4 text-sm font-black text-green-700 transition hover:bg-green-50"
+                >
+                  <Pencil size={16} />
+                  Goal
+                </button>
+
+                <button
+                  onClick={autoSmartDayPlanner}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-4 text-sm font-black text-white transition hover:bg-green-700"
+                >
+                  <Sparkles size={17} />
+                  Auto Plan
+                </button>
+              </div>
             </div>
           </div>
 
@@ -560,42 +576,6 @@ export default function SmartDayPlanner() {
             <ControlBox label="Selected" value={`${plannedTotals.items} Items`} />
             <ControlBox label="Meals" value={`${meals.length} Available`} />
             <ControlBox label="Saved" value={`${history.length} Plans`} />
-          </div>
-
-          <div className="grid gap-3 border-t border-slate-200 p-4 sm:flex sm:flex-wrap sm:p-5">
-            <button
-              onClick={autoSmartDayPlanner}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
-            >
-              <Sparkles size={17} />
-              Auto Plan
-            </button>
-
-            <button
-              onClick={clearPlan}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-            >
-              <X size={17} />
-              Clear
-            </button>
-
-            <button
-              onClick={() => setShowSaveDrawer(true)}
-              disabled={selectedEntries.length === 0}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Save size={17} />
-              Save Plan
-            </button>
-
-            <button
-              onClick={addSelectedPlanToCart}
-              disabled={selectedEntries.length === 0}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-green-600 bg-white px-5 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ShoppingCart size={17} />
-              Add to Cart
-            </button>
           </div>
         </section>
 
@@ -644,15 +624,24 @@ export default function SmartDayPlanner() {
           </div>
         )}
 
-        <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_360px]">
+        <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_350px]">
           <div>
-            <div className="mb-4">
-              <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
-                Choose Meals
-              </h2>
-              <p className="mt-1 text-sm font-bold text-slate-500">
-                Select breakfast, lunch, snack or dinner for each meal.
-              </p>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                  Choose Meals
+                </h2>
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  Tap B, L, S, D to select Breakfast, Lunch, Snack or Dinner.
+                </p>
+              </div>
+
+              <div className="flex gap-2 text-xs font-black text-slate-500">
+                <span className="rounded-full bg-slate-100 px-3 py-1">B Breakfast</span>
+                <span className="rounded-full bg-slate-100 px-3 py-1">L Lunch</span>
+                <span className="rounded-full bg-slate-100 px-3 py-1">S Snack</span>
+                <span className="rounded-full bg-slate-100 px-3 py-1">D Dinner</span>
+              </div>
             </div>
 
             {meals.length === 0 ? (
@@ -661,74 +650,76 @@ export default function SmartDayPlanner() {
                 description="Add meals from admin to use Smart Day Planner."
               />
             ) : (
-              <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {meals.map((m) => {
                   const selectedTimes = selected[m._id] || [];
+                  const isSelected = selectedTimes.length > 0;
 
                   return (
                     <article
                       key={m._id}
-                      className={`border bg-white shadow-sm transition hover:border-green-200 ${
-                        selectedTimes.length
-                          ? "border-green-400"
-                          : "border-slate-200"
+                      className={`overflow-hidden border bg-white shadow-sm transition hover:border-green-300 ${
+                        isSelected ? "border-green-500" : "border-slate-200"
                       }`}
                     >
-                      <div className="flex min-h-[118px]">
-                        <div className="h-[118px] w-[104px] shrink-0 overflow-hidden bg-slate-100 sm:w-[130px]">
-                          <img
-                            src={m.imageUrl || "/placeholder-meal.png"}
-                            alt={m.title}
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.src = "/placeholder-meal.png";
-                            }}
-                          />
+                      <div className="relative h-28 overflow-hidden bg-slate-100 sm:h-32">
+                        <img
+                          src={m.imageUrl || "/placeholder-meal.png"}
+                          alt={m.title}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder-meal.png";
+                          }}
+                        />
+
+                        {isSelected && (
+                          <div className="absolute left-2 top-2 rounded-full bg-green-600 px-2.5 py-1 text-[10px] font-black text-white">
+                            Selected
+                          </div>
+                        )}
+
+                        <div className="absolute bottom-2 right-2 rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-950 shadow-sm">
+                          ₹{n(m.price)}
+                        </div>
+                      </div>
+
+                      <div className="p-3">
+                        <h3 className="line-clamp-2 min-h-[38px] text-sm font-black leading-5 text-slate-950">
+                          {m.title}
+                        </h3>
+
+                        <p className="mt-2 text-xs font-bold text-slate-500">
+                          {n(m.calories)} kcal · {n(m.protein)}g P
+                        </p>
+
+                        <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px] font-black text-slate-600">
+                          <span className="rounded bg-slate-100 px-2 py-1">
+                            {n(m.carbs)}g C
+                          </span>
+                          <span className="rounded bg-slate-100 px-2 py-1">
+                            {n(m.fat)}g F
+                          </span>
                         </div>
 
-                        <div className="min-w-0 flex-1 p-3 sm:p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <h3 className="line-clamp-1 text-base font-black text-slate-950 sm:text-lg">
-                                {m.title}
-                              </h3>
+                        <div className="mt-3 grid grid-cols-4 gap-1.5">
+                          {TIMES.map((t) => {
+                            const active = selectedTimes.includes(t);
 
-                              <p className="mt-1 text-sm font-bold text-slate-500">
-                                {n(m.calories)} kcal · {n(m.protein)}g protein
-                              </p>
-                            </div>
-
-                            <p className="shrink-0 text-lg font-black text-slate-950">
-                              ₹{n(m.price)}
-                            </p>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2">
-                            <Badge>{n(m.calories)} kcal</Badge>
-                            <Badge>{n(m.protein)}g P</Badge>
-                            <Badge>{n(m.carbs)}g C</Badge>
-                            <Badge>{n(m.fat)}g F</Badge>
-                          </div>
-
-                          <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                            {TIMES.map((t) => {
-                              const active = selectedTimes.includes(t);
-
-                              return (
-                                <button
-                                  key={t}
-                                  onClick={() => toggleSelect(m._id, t)}
-                                  className={`rounded-full border px-3 py-2 text-[11px] font-black transition sm:text-xs ${
-                                    active
-                                      ? "border-green-600 bg-green-600 text-white"
-                                      : "border-green-200 bg-white text-green-700 hover:bg-green-50"
-                                  }`}
-                                >
-                                  {timeLabels[t]}
-                                </button>
-                              );
-                            })}
-                          </div>
+                            return (
+                              <button
+                                key={t}
+                                title={timeLabels[t]}
+                                onClick={() => toggleSelect(m._id, t)}
+                                className={`h-8 rounded-full border text-xs font-black transition ${
+                                  active
+                                    ? "border-green-600 bg-green-600 text-white"
+                                    : "border-green-200 bg-white text-green-700 hover:bg-green-50"
+                                }`}
+                              >
+                                {shortTimeLabels[t]}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </article>
@@ -755,7 +746,7 @@ export default function SmartDayPlanner() {
 
             {selectedEntries.length === 0 ? (
               <div className="border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
-                No meals selected yet. Use Auto Plan or choose manually.
+                No meals selected yet. Click Auto Plan or choose manually.
               </div>
             ) : (
               <div className="space-y-3">
@@ -808,6 +799,32 @@ export default function SmartDayPlanner() {
                     {plannedTotals.calories} kcal · {plannedTotals.protein}g
                     protein
                   </p>
+                </div>
+
+                <div className="grid gap-2 pt-2">
+                  <button
+                    onClick={() => setShowSaveDrawer(true)}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800"
+                  >
+                    <Save size={16} />
+                    Save Plan
+                  </button>
+
+                  <button
+                    onClick={addSelectedPlanToCart}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-green-600 bg-white px-5 text-sm font-black text-green-700 transition hover:bg-green-50"
+                  >
+                    <ShoppingCart size={16} />
+                    Add to Cart
+                  </button>
+
+                  <button
+                    onClick={clearPlan}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <X size={16} />
+                    Clear Plan
+                  </button>
                 </div>
               </div>
             )}
@@ -1119,14 +1136,6 @@ function GoalCard({
         left
       </p>
     </div>
-  );
-}
-
-function Badge({ children }: { children: ReactNode }) {
-  return (
-    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
-      {children}
-    </span>
   );
 }
 
