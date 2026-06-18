@@ -1,6 +1,6 @@
 // frontend/src/pages/SmartDayPlanner.tsx (FRONTEND)
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -8,8 +8,12 @@ import toast from "react-hot-toast";
 import {
   Beef,
   CalendarDays,
+  Check,
   CheckSquare,
   Flame,
+  ListChecks,
+  Loader2,
+  Pencil,
   Save,
   ShoppingCart,
   Sparkles,
@@ -124,6 +128,8 @@ export default function SmartDayPlanner() {
 
   const [goal, setGoal] = useState<GoalType>("fat_loss");
   const [bodyMetrics, setBodyMetrics] = useState<BodyMetrics | null>(null);
+  const [showGoalDrawer, setShowGoalDrawer] = useState(false);
+  const [showSaveDrawer, setShowSaveDrawer] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -251,9 +257,11 @@ export default function SmartDayPlanner() {
         acc.protein += n(item.meal.protein) * count;
         acc.carbs += n(item.meal.carbs) * count;
         acc.fat += n(item.meal.fat) * count;
+        acc.price += n(item.meal.price) * count;
+        acc.items += count;
         return acc;
       },
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      { calories: 0, protein: 0, carbs: 0, fat: 0, price: 0, items: 0 }
     );
   }, [selectedEntries]);
 
@@ -396,6 +404,7 @@ export default function SmartDayPlanner() {
 
       setSelected({});
       setPlanName("");
+      setShowSaveDrawer(false);
       await fetchHistory();
       toast.success("Plan saved");
     } catch {
@@ -467,8 +476,9 @@ export default function SmartDayPlanner() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 sm:py-10">
-        <div className="mx-auto max-w-[1240px] rounded-[24px] border bg-white p-8 text-slate-500 shadow-sm">
+      <main className="flex min-h-screen items-center justify-center bg-white px-4">
+        <div className="border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
+          <Loader2 className="mr-2 inline animate-spin text-green-600" size={18} />
           Loading Smart Day Planner...
         </div>
       </main>
@@ -476,252 +486,279 @@ export default function SmartDayPlanner() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f8] px-4 py-8 sm:px-6 sm:py-10">
-      <div className="mx-auto max-w-[1240px]">
-        <section className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
-                <CalendarDays size={20} />
-              </span>
+    <main className="min-h-screen bg-white pb-10 text-slate-950">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6 sm:py-10">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.38em] text-slate-400 sm:tracking-[0.45em]">
+                MacroBox Planner
+              </p>
 
-              <h1 className="text-[30px] font-black tracking-[-0.04em] text-slate-950">
-                Smart Day Planner
+              <h1 className="mt-5 text-4xl font-black leading-[0.95] tracking-[-0.06em] text-slate-950 sm:mt-6 sm:text-6xl">
+                Plan your
+                <br />
+                full day meals
               </h1>
+
+              <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:mt-5 sm:text-base sm:leading-7">
+                Build a full-day meal plan based on calories, protein, carbs and
+                fat.
+              </p>
             </div>
 
-            <p className="text-base font-medium leading-7 text-slate-500">
-              Build a full day meal plan based on calories, protein, carbs and
-              fat.
-            </p>
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+              <div className="border border-slate-200 bg-white px-4 py-3 shadow-sm sm:min-w-[170px]">
+                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                  Current Goal
+                </p>
+                <p className="mt-1 text-lg font-black text-green-700">
+                  {goalLabels[goal]}
+                </p>
+              </div>
+
+              <div className="border border-slate-200 bg-white px-4 py-3 shadow-sm sm:min-w-[170px]">
+                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                  Today
+                </p>
+                <p className="mt-1 text-lg font-black text-slate-950">
+                  {todayText()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1180px] px-4 py-5 sm:px-6 sm:py-6">
+        <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-black tracking-[-0.04em] text-slate-950 sm:text-2xl">
+                  Planner Controls
+                </h2>
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  Set your goal, auto-generate, clear, or save your selected
+                  plan.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowGoalDrawer(true)}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-green-600 bg-white px-5 text-sm font-black text-green-700 transition hover:bg-green-50 sm:w-auto"
+              >
+                <Pencil size={16} />
+                Change Goal
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <div className="rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-black text-green-700">
-              ↗ {goalLabels[goal]}
-            </div>
-
-            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-500">
-              {todayText()}
-            </div>
+          <div className="grid grid-cols-2 gap-0 divide-x divide-y divide-slate-200 sm:grid-cols-4">
+            <ControlBox label="Goal" value={goalLabels[goal]} />
+            <ControlBox label="Selected" value={`${plannedTotals.items} Items`} />
+            <ControlBox label="Meals" value={`${meals.length} Available`} />
+            <ControlBox label="Saved" value={`${history.length} Plans`} />
           </div>
-        </section>
 
-        <section className="mb-8 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_35px_rgba(15,23,42,0.06)] sm:p-6">
-          <label className="mb-3 block text-xs font-black uppercase tracking-wide text-slate-500">
-            Your Goal
-          </label>
-
-          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
-            <select
-              value={goal}
-              onChange={(e) => setGoal(e.target.value as GoalType)}
-              className="input-ui"
+          <div className="grid gap-3 border-t border-slate-200 p-4 sm:flex sm:flex-wrap sm:p-5">
+            <button
+              onClick={autoSmartDayPlanner}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
             >
-              <option value="fat_loss">Fat Loss</option>
-              <option value="weight_loss">Weight Loss</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="weight_gain">Weight Gain</option>
-              <option value="muscle_gain">Muscle Gain</option>
-            </select>
+              <Sparkles size={17} />
+              Auto Plan
+            </button>
 
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
-              <button
-                onClick={autoSmartDayPlanner}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700 sm:px-5"
-              >
-                <Sparkles size={17} />
-                Auto Plan
-              </button>
+            <button
+              onClick={clearPlan}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            >
+              <X size={17} />
+              Clear
+            </button>
 
-              <button
-                onClick={clearPlan}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-slate-100 px-4 text-sm font-black text-slate-700 hover:bg-slate-200 sm:px-5"
-              >
-                <X size={17} />
-                Clear
-              </button>
-            </div>
+            <button
+              onClick={() => setShowSaveDrawer(true)}
+              disabled={selectedEntries.length === 0}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Save size={17} />
+              Save Plan
+            </button>
+
+            <button
+              onClick={addSelectedPlanToCart}
+              disabled={selectedEntries.length === 0}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-green-600 bg-white px-5 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ShoppingCart size={17} />
+              Add to Cart
+            </button>
           </div>
         </section>
 
-        <section className="mb-8">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-black text-slate-950">
-              Daily Macro Targets
-            </h2>
+        <section className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 xl:grid-cols-4">
+          <GoalCard
+            icon={<Flame size={18} />}
+            title="Calories"
+            planned={plannedTotals.calories}
+            target={macroGoals.calories}
+            remaining={remaining.calories}
+            unit="kcal"
+          />
 
-            <span className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-bold text-slate-500">
-              {selectedEntries.length} meals selected
-            </span>
-          </div>
+          <GoalCard
+            icon={<Beef size={18} />}
+            title="Protein"
+            planned={plannedTotals.protein}
+            target={macroGoals.protein}
+            remaining={remaining.protein}
+            unit="g"
+          />
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <GoalCard
-              icon={<Flame size={20} />}
-              title="Calories"
-              planned={plannedTotals.calories}
-              target={macroGoals.calories}
-              remaining={remaining.calories}
-              unit="kcal"
-              color="orange"
-            />
+          <GoalCard
+            icon={<Target size={18} />}
+            title="Carbs"
+            planned={plannedTotals.carbs}
+            target={macroGoals.carbs}
+            remaining={remaining.carbs}
+            unit="g"
+          />
 
-            <GoalCard
-              icon={<Beef size={20} />}
-              title="Protein"
-              planned={plannedTotals.protein}
-              target={macroGoals.protein}
-              remaining={remaining.protein}
-              unit="g"
-              color="green"
-            />
-
-            <GoalCard
-              icon={<Target size={20} />}
-              title="Carbs"
-              planned={plannedTotals.carbs}
-              target={macroGoals.carbs}
-              remaining={remaining.carbs}
-              unit="g"
-              color="yellow"
-            />
-
-            <GoalCard
-              icon={<Utensils size={20} />}
-              title="Fat"
-              planned={plannedTotals.fat}
-              target={macroGoals.fat}
-              remaining={remaining.fat}
-              unit="g"
-              color="blue"
-            />
-          </div>
+          <GoalCard
+            icon={<Utensils size={18} />}
+            title="Fat"
+            planned={plannedTotals.fat}
+            target={macroGoals.fat}
+            remaining={remaining.fat}
+            unit="g"
+          />
         </section>
 
         {!macroGoals.calories && (
-          <div className="mb-8 rounded-[18px] border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
+          <div className="mt-5 border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
             Complete your body details in MacroTrack first to get accurate macro
             targets.
           </div>
         )}
 
-        <section className="mb-8">
-          <div className="mb-5">
-            <h2 className="text-xl font-black text-slate-950">
-              Choose Meals for Each Time
-            </h2>
-
-            <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
-              Select breakfast, lunch, snack, or dinner for each meal.
-            </p>
-          </div>
-
-          {meals.length === 0 ? (
-            <div className="rounded-[24px] border bg-white p-10 text-center text-slate-500">
-              No meals available.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {meals.map((m) => {
-                const selectedTimes = selected[m._id] || [];
-
-                return (
-                  <article
-                    key={m._id}
-                    className={`overflow-hidden rounded-[20px] border bg-white shadow-sm transition ${
-                      selectedTimes.length
-                        ? "border-green-400 bg-green-50/40"
-                        : "border-slate-200 hover:border-green-200"
-                    }`}
-                  >
-                    <div className="flex min-h-[122px]">
-                      <div className="h-[122px] w-[112px] shrink-0 overflow-hidden bg-slate-100 sm:w-[130px]">
-                        <img
-                          src={m.imageUrl || "/placeholder-meal.png"}
-                          alt={m.title}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = "/placeholder-meal.png";
-                          }}
-                        />
-                      </div>
-
-                      <div className="min-w-0 flex-1 p-3 sm:p-4">
-                        <h3 className="truncate text-base font-black text-slate-950">
-                          {m.title}
-                        </h3>
-
-                        <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
-                          <Badge color="orange">🔥 {n(m.calories)} kcal</Badge>
-                          <Badge color="green">🥩 {n(m.protein)}g</Badge>
-                          <Badge color="yellow">🌾 {n(m.carbs)}g</Badge>
-                          <Badge color="blue">💧 {n(m.fat)}g</Badge>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2">
-                          {TIMES.map((t) => {
-                            const active = selectedTimes.includes(t);
-
-                            return (
-                              <button
-                                key={t}
-                                onClick={() => toggleSelect(m._id, t)}
-                                className={`rounded-full border px-2.5 py-1 text-[11px] font-black sm:px-3 sm:text-xs ${
-                                  active
-                                    ? "border-green-600 bg-green-600 text-white"
-                                    : "border-slate-200 bg-white text-slate-600 hover:border-green-500"
-                                }`}
-                              >
-                                {timeLabels[t]}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section className="mb-8 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-4 py-5 sm:px-6">
-            <div className="flex items-center gap-3">
-              <CheckSquare size={20} className="text-green-600" />
-              <h2 className="text-xl font-black text-slate-950">
-                Selected Day Plan
+        <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_360px]">
+          <div>
+            <div className="mb-4">
+              <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                Choose Meals
               </h2>
-            </div>
-          </div>
-
-          <div className="p-4 sm:p-6">
-            <div className="mb-5">
-              <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
-                Plan Name <span className="text-red-500">*</span>
-              </label>
-
-              <input
-                value={planName}
-                onChange={(e) => setPlanName(e.target.value)}
-                placeholder="Example: Muscle Gain Monday Plan"
-                className="input-ui"
-              />
-
-              <p className="mt-2 text-xs font-semibold text-slate-500">
-                A plan name is compulsory before saving.
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                Select breakfast, lunch, snack or dinner for each meal.
               </p>
             </div>
 
-            {selectedEntries.length === 0 ? (
+            {meals.length === 0 ? (
               <EmptyState
-                title="No meals selected yet"
-                description="Use Auto Plan or choose meals manually to build your day."
+                title="No meals available"
+                description="Add meals from admin to use Smart Day Planner."
               />
             ) : (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-4">
+                {meals.map((m) => {
+                  const selectedTimes = selected[m._id] || [];
+
+                  return (
+                    <article
+                      key={m._id}
+                      className={`border bg-white shadow-sm transition hover:border-green-200 ${
+                        selectedTimes.length
+                          ? "border-green-400"
+                          : "border-slate-200"
+                      }`}
+                    >
+                      <div className="flex min-h-[118px]">
+                        <div className="h-[118px] w-[104px] shrink-0 overflow-hidden bg-slate-100 sm:w-[130px]">
+                          <img
+                            src={m.imageUrl || "/placeholder-meal.png"}
+                            alt={m.title}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder-meal.png";
+                            }}
+                          />
+                        </div>
+
+                        <div className="min-w-0 flex-1 p-3 sm:p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="line-clamp-1 text-base font-black text-slate-950 sm:text-lg">
+                                {m.title}
+                              </h3>
+
+                              <p className="mt-1 text-sm font-bold text-slate-500">
+                                {n(m.calories)} kcal · {n(m.protein)}g protein
+                              </p>
+                            </div>
+
+                            <p className="shrink-0 text-lg font-black text-slate-950">
+                              ₹{n(m.price)}
+                            </p>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2">
+                            <Badge>{n(m.calories)} kcal</Badge>
+                            <Badge>{n(m.protein)}g P</Badge>
+                            <Badge>{n(m.carbs)}g C</Badge>
+                            <Badge>{n(m.fat)}g F</Badge>
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                            {TIMES.map((t) => {
+                              const active = selectedTimes.includes(t);
+
+                              return (
+                                <button
+                                  key={t}
+                                  onClick={() => toggleSelect(m._id, t)}
+                                  className={`rounded-full border px-3 py-2 text-[11px] font-black transition sm:text-xs ${
+                                    active
+                                      ? "border-green-600 bg-green-600 text-white"
+                                      : "border-green-200 bg-white text-green-700 hover:bg-green-50"
+                                  }`}
+                                >
+                                  {timeLabels[t]}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <aside className="h-fit border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-24">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-black tracking-[-0.04em] text-slate-950">
+                  Selected Plan
+                </h2>
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  {plannedTotals.items} item
+                  {plannedTotals.items === 1 ? "" : "s"} selected
+                </p>
+              </div>
+
+              <ListChecks className="text-green-600" size={22} />
+            </div>
+
+            {selectedEntries.length === 0 ? (
+              <div className="border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
+                No meals selected yet. Use Auto Plan or choose manually.
+              </div>
+            ) : (
+              <div className="space-y-3">
                 {TIMES.map((time) => {
                   const items = selectedEntries.filter((entry) =>
                     entry.times.includes(time)
@@ -730,14 +767,14 @@ export default function SmartDayPlanner() {
                   return (
                     <div
                       key={time}
-                      className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"
+                      className="border border-slate-200 bg-slate-50 p-3"
                     >
-                      <p className="mb-3 text-sm font-black uppercase tracking-wide text-slate-500">
+                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">
                         {timeLabels[time]}
                       </p>
 
                       {items.length === 0 ? (
-                        <p className="text-sm font-medium text-slate-400">
+                        <p className="text-sm font-bold text-slate-400">
                           No meal selected
                         </p>
                       ) : (
@@ -745,15 +782,15 @@ export default function SmartDayPlanner() {
                           {items.map(({ meal }) => (
                             <div
                               key={`${time}-${meal._id}`}
-                              className="rounded-[14px] bg-white p-3"
+                              className="border border-slate-200 bg-white p-3"
                             >
-                              <p className="font-black text-slate-950">
+                              <p className="line-clamp-1 text-sm font-black text-slate-950">
                                 {meal.title}
                               </p>
 
-                              <p className="mt-1 text-xs font-semibold text-slate-500">
-                                {n(meal.calories)} kcal · {n(meal.protein)}g
-                                protein · ₹{n(meal.price)}
+                              <p className="mt-1 text-xs font-bold text-slate-500">
+                                {n(meal.calories)} kcal · {n(meal.protein)}g P ·
+                                ₹{n(meal.price)}
                               </p>
                             </div>
                           ))}
@@ -762,48 +799,39 @@ export default function SmartDayPlanner() {
                     </div>
                   );
                 })}
+
+                <div className="border-t border-slate-200 pt-4">
+                  <p className="text-sm font-black text-slate-950">
+                    Total: ₹{plannedTotals.price}
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    {plannedTotals.calories} kcal · {plannedTotals.protein}g
+                    protein
+                  </p>
+                </div>
               </div>
             )}
-
-            <div className="mt-6 grid gap-3 sm:flex sm:flex-wrap">
-              <button
-                onClick={handleSavePlan}
-                disabled={saving}
-                className="inline-flex h-13 items-center justify-center gap-2 rounded-[18px] bg-green-600 px-6 text-sm font-black text-white hover:bg-green-700 disabled:opacity-60"
-              >
-                <Save size={17} />
-                {saving ? "Saving..." : "Save Plan"}
-              </button>
-
-              <button
-                onClick={addSelectedPlanToCart}
-                className="inline-flex h-13 items-center justify-center gap-2 rounded-[18px] border border-green-600 px-6 text-sm font-black text-green-700 hover:bg-green-50"
-              >
-                <ShoppingCart size={17} />
-                Add Selected Meals to Cart
-              </button>
-            </div>
-          </div>
+          </aside>
         </section>
 
-        <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-4 py-5 sm:px-6">
+        <section className="mt-6 overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 p-4 sm:p-5">
             <div className="flex items-center gap-3">
               <Save size={20} className="text-green-600" />
-              <h2 className="text-xl font-black text-slate-950">
+              <h2 className="text-xl font-black tracking-[-0.04em] text-slate-950 sm:text-2xl">
                 Saved Plans
               </h2>
             </div>
           </div>
 
-          <div className="p-4 sm:p-6">
+          <div className="p-4 sm:p-5">
             {history.length === 0 ? (
               <EmptyState
                 title="No saved plans yet"
                 description="Create a plan, give it a name, and save it here."
               />
             ) : (
-              <div className="space-y-4">
+              <div className="grid gap-4">
                 {history.map((plan) => {
                   const totals = plan.items.reduce(
                     (acc, item) => {
@@ -829,9 +857,9 @@ export default function SmartDayPlanner() {
                   return (
                     <div
                       key={plan._id}
-                      className="rounded-[20px] border border-slate-200 p-4 sm:p-5"
+                      className="border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200"
                     >
-                      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div>
                           <h3 className="text-lg font-black text-slate-950">
                             {savedPlanName(plan)}
@@ -843,15 +871,14 @@ export default function SmartDayPlanner() {
 
                           <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
                             {totals.items} items · {totals.calories} kcal ·{" "}
-                            {totals.protein}g protein · {totals.carbs}g carbs ·{" "}
-                            {totals.fat}g fat · ₹{totals.price}
+                            {totals.protein}g protein · ₹{totals.price}
                           </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                           <button
                             onClick={() => addSavedPlanToCart(plan)}
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-[14px] bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700"
                           >
                             <ShoppingCart size={15} />
                             Cart
@@ -859,7 +886,7 @@ export default function SmartDayPlanner() {
 
                           <button
                             onClick={() => deletePlan(plan._id)}
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-[14px] bg-red-50 px-4 text-sm font-black text-red-600 hover:bg-red-100"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-red-50 px-4 text-sm font-black text-red-600 hover:bg-red-100"
                           >
                             <Trash2 size={15} />
                             Delete
@@ -867,13 +894,13 @@ export default function SmartDayPlanner() {
                         </div>
                       </div>
 
-                      <div className="grid gap-3 md:grid-cols-2">
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
                         {plan.items.map((item, idx) => (
                           <div
                             key={`${plan._id}-${item.meal?._id}-${idx}`}
-                            className="rounded-[16px] bg-slate-50 p-4"
+                            className="border border-slate-200 bg-slate-50 p-3"
                           >
-                            <p className="font-black text-slate-900">
+                            <p className="line-clamp-1 font-black text-slate-900">
                               {item.meal?.title || "Meal"}
                             </p>
 
@@ -899,7 +926,134 @@ export default function SmartDayPlanner() {
           </div>
         </section>
       </div>
+
+      {showGoalDrawer && (
+        <Drawer
+          title="Change Goal"
+          subtitle="Select your fitness goal for smart planning."
+          onClose={() => setShowGoalDrawer(false)}
+        >
+          <Field label="YOUR GOAL">
+            <select
+              value={goal}
+              onChange={(e) => setGoal(e.target.value as GoalType)}
+              className="input-clean"
+            >
+              <option value="fat_loss">Fat Loss</option>
+              <option value="weight_loss">Weight Loss</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="weight_gain">Weight Gain</option>
+              <option value="muscle_gain">Muscle Gain</option>
+            </select>
+          </Field>
+
+          <button
+            type="button"
+            onClick={() => setShowGoalDrawer(false)}
+            className="mt-6 inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-3 text-sm font-black text-white transition hover:bg-green-700"
+          >
+            <Check size={18} />
+            Save Goal
+          </button>
+        </Drawer>
+      )}
+
+      {showSaveDrawer && (
+        <Drawer
+          title="Save Day Plan"
+          subtitle="Name this plan so you can reuse it later."
+          onClose={() => setShowSaveDrawer(false)}
+        >
+          <Field label="PLAN NAME *">
+            <input
+              value={planName}
+              onChange={(e) => setPlanName(e.target.value)}
+              placeholder="Example: Muscle Gain Monday Plan"
+              className="input-clean"
+            />
+          </Field>
+
+          <div className="mt-5 border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+              Selected Summary
+            </p>
+
+            <p className="mt-2 text-sm font-black text-slate-950">
+              {plannedTotals.items} items · {plannedTotals.calories} kcal ·{" "}
+              {plannedTotals.protein}g protein · ₹{plannedTotals.price}
+            </p>
+          </div>
+
+          <button
+            onClick={handleSavePlan}
+            disabled={saving}
+            className="mt-6 inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-3 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
+          >
+            <Save size={18} />
+            {saving ? "Saving..." : "Save Plan"}
+          </button>
+        </Drawer>
+      )}
     </main>
+  );
+}
+
+function Drawer({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Close drawer"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/35"
+      />
+
+      <aside className="absolute bottom-0 right-0 flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:bottom-auto sm:top-0 sm:h-full sm:max-h-full sm:w-[430px] sm:rounded-none">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+          <div>
+            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+              {title}
+            </h2>
+
+            <p className="mt-1 text-sm font-bold text-slate-500">{subtitle}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+      </aside>
+    </div>
+  );
+}
+
+function ControlBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-white p-4 sm:p-5">
+      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400 sm:text-xs">
+        {label}
+      </p>
+
+      <p className="mt-2 text-lg font-black text-slate-950 sm:text-xl">
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -910,96 +1064,67 @@ function GoalCard({
   target,
   remaining,
   unit,
-  color,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   planned: number;
   target: number;
   remaining: number;
   unit: string;
-  color: "orange" | "green" | "yellow" | "blue";
 }) {
   const percent = target > 0 ? clamp((planned / target) * 100, 0, 100) : 0;
 
-  const colorClass =
-    color === "orange"
-      ? "border-orange-100 bg-orange-50 text-orange-600"
-      : color === "green"
-      ? "border-green-100 bg-green-50 text-green-700"
-      : color === "yellow"
-      ? "border-yellow-100 bg-yellow-50 text-yellow-600"
-      : "border-blue-100 bg-blue-50 text-blue-600";
-
-  const fill =
-    color === "orange"
-      ? "bg-orange-500"
-      : color === "green"
-      ? "bg-green-600"
-      : color === "yellow"
-      ? "bg-yellow-500"
-      : "bg-blue-500";
-
   return (
-    <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <span
-          className={`flex h-10 w-10 items-center justify-center rounded-full border sm:h-11 sm:w-11 ${colorClass}`}
-        >
-          {icon}
-        </span>
+    <div className="border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700 sm:h-10 sm:w-10">
+            {icon}
+          </span>
 
-        <span
-          className={`rounded-full px-2.5 py-1 text-[11px] font-black sm:px-3 sm:text-xs ${colorClass}`}
-        >
+          <div>
+            <p className="text-sm font-black text-slate-950 sm:text-base">
+              {title}
+            </p>
+            <p className="text-[11px] font-bold text-slate-500 sm:text-xs">
+              {unit}
+            </p>
+          </div>
+        </div>
+
+        <p className="text-xs font-black text-green-700 sm:text-sm">
           {Math.round(percent)}%
-        </span>
+        </p>
       </div>
 
-      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">
-        {title}
-      </p>
+      <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200 sm:h-2.5">
+        <div
+          className="h-full rounded-full bg-green-600"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
 
-      <p className="mt-3 text-xl font-black text-slate-950 sm:text-2xl">
+      <p className="text-lg font-black leading-none text-slate-950 sm:text-2xl">
         {planned}
-        <span className="text-sm font-bold text-slate-400 sm:text-base">
+        <span className="text-xs font-bold text-slate-400 sm:text-base">
           {" "}
           / {target || "—"} {unit}
         </span>
       </p>
 
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className={`h-full rounded-full ${fill}`}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-
-      <p className="mt-3 text-xs font-bold text-slate-500 sm:text-sm">
-        {remaining} {unit} remaining
+      <p className="mt-2 text-xs font-semibold text-slate-500 sm:text-sm">
+        <span className="font-black text-green-700">
+          {remaining} {unit}
+        </span>{" "}
+        left
       </p>
     </div>
   );
 }
 
-function Badge({
-  color,
-  children,
-}: {
-  color: "orange" | "green" | "yellow" | "blue";
-  children: React.ReactNode;
-}) {
-  const className =
-    color === "orange"
-      ? "bg-orange-50 text-orange-600"
-      : color === "green"
-      ? "bg-green-50 text-green-700"
-      : color === "yellow"
-      ? "bg-yellow-50 text-yellow-700"
-      : "bg-blue-50 text-blue-600";
-
+function Badge({ children }: { children: ReactNode }) {
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-black ${className}`}>
+    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
       {children}
     </span>
   );
@@ -1013,14 +1138,33 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-[20px] bg-slate-50 p-8 text-center sm:p-10">
+    <div className="border border-slate-200 bg-slate-50 p-8 text-center sm:p-10">
       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm">
         <CheckSquare size={24} />
       </div>
 
       <p className="text-base font-black text-slate-950">{title}</p>
 
-      <p className="mt-2 text-sm font-medium text-slate-500">{description}</p>
+      <p className="mt-2 text-sm font-bold text-slate-500">{description}</p>
     </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+  className = "",
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+      {children}
+    </label>
   );
 }
