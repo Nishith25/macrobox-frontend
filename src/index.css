@@ -305,3 +305,42 @@ textarea {
   cursor: not-allowed;
   opacity: 0.7;
 }
+
+.admin-input {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #0f172a;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.admin-input::placeholder {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.admin-input:focus {
+  border-color: #22c55e;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+}
+
+.admin-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+textarea.admin-input {
+  height: auto;
+  resize: vertical;
+}
