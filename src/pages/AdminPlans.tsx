@@ -1,8 +1,36 @@
 // frontend/src/pages/AdminPlans.tsx (FRONTEND)
 
-import { useEffect, useMemo, useState } from "react";
-import api from "../api/api";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  BadgePercent,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  CirclePlus,
+  Copy,
+  Edit3,
+  Eye,
+  Gift,
+  IndianRupee,
+  Layers3,
+  Leaf,
+  Loader2,
+  PackageCheck,
+  RefreshCw,
+  Search,
+  Star,
+  Trash2,
+  Utensils,
+  X,
+} from "lucide-react";
 import toast from "react-hot-toast";
+
+import api from "../api/api";
 
 type PlanGoal =
   | "fat_loss"
@@ -15,6 +43,7 @@ type PlanGoal =
 
 type MealMode = "veg" | "nonveg" | "both";
 type MealSetKey = "veg" | "nonveg" | "mixed";
+type PlanFilter = "all" | "active" | "inactive" | "reward";
 
 type MealOption = {
   _id: string;
@@ -72,6 +101,29 @@ type Plan = {
   sortOrder?: number;
 };
 
+type PlanForm = {
+  title: string;
+  planId: string;
+  subtitle: string;
+  description: string;
+  goal: PlanGoal;
+  mealMode: MealMode;
+  badge: string;
+  durationDays: string;
+  vegPrice: string;
+  nonVegPrice: string;
+  mixedPrice: string;
+  trialPrice: string;
+  originalPrice: string;
+  imageUrl: string;
+  perksText: string;
+  rewardsText: string;
+  rewardEligible: boolean;
+  isActive: boolean;
+  sortOrder: string;
+  mealSets: PlanMealSets;
+};
+
 const goalOptions: { key: PlanGoal; label: string }[] = [
   { key: "fat_loss", label: "Fat Loss" },
   { key: "muscle_gain", label: "Muscle Gain" },
@@ -93,35 +145,40 @@ const goalLabelMap: Record<PlanGoal, string> = {
 };
 
 const mealModeOptions: { key: MealMode; label: string }[] = [
-  { key: "both", label: "Veg + Non-Veg + Mixed" },
+  { key: "both", label: "Veg, Non-Veg and Mixed" },
   { key: "veg", label: "Veg Only" },
   { key: "nonveg", label: "Non-Veg Only" },
 ];
 
 const mealModeLabelMap: Record<MealMode, string> = {
-  both: "Veg + Non-Veg + Mixed",
+  both: "All Plan Types",
   veg: "Veg Only",
   nonveg: "Non-Veg Only",
 };
 
-const mealSetTabs: { key: MealSetKey; label: string; short: string; hint: string }[] = [
+const mealSetTabs: {
+  key: MealSetKey;
+  label: string;
+  short: string;
+  hint: string;
+}[] = [
   {
     key: "veg",
     label: "Veg Plan Meals",
     short: "Veg",
-    hint: "Meals shown when customer selects Veg plan.",
+    hint: "These meals appear when the customer selects Veg.",
   },
   {
     key: "nonveg",
     label: "Non-Veg Plan Meals",
     short: "Non-Veg",
-    hint: "Meals shown when customer selects Non-Veg plan.",
+    hint: "These meals appear when the customer selects Non-Veg.",
   },
   {
     key: "mixed",
     label: "Mixed Plan Meals",
     short: "Mixed",
-    hint: "Meals shown when customer selects Mixed plan.",
+    hint: "These meals appear when the customer selects Mixed.",
   },
 ];
 
@@ -144,7 +201,8 @@ const textToArray = (text: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-const getPlanId = (plan: Plan) => plan.planId || plan.challengeId || "";
+const getPlanId = (plan: Plan) =>
+  plan.planId || plan.challengeId || plan._id;
 
 const getMealId = (meal?: string | MealOption | null) => {
   if (!meal) return "";
@@ -153,14 +211,18 @@ const getMealId = (meal?: string | MealOption | null) => {
 };
 
 const getMealTitle = (meal?: string | MealOption | null) => {
-  if (!meal) return "";
-  if (typeof meal === "string") return "";
+  if (!meal || typeof meal === "string") return "";
   return meal.title || "";
 };
 
-const getBasePlanPrice = (prices: PlanPrices = {}, fallback = 0) => {
-  return Number(prices.mixed || prices.nonveg || prices.veg || fallback || 0);
-};
+const getBasePlanPrice = (prices: PlanPrices = {}, fallback = 0) =>
+  Number(
+    prices.mixed ||
+      prices.nonveg ||
+      prices.veg ||
+      fallback ||
+      0
+  );
 
 const createMealSetDays = (durationDays: number): PlanMealDay[] =>
   Array.from({ length: durationDays }, (_, index) => ({
@@ -169,6 +231,12 @@ const createMealSetDays = (durationDays: number): PlanMealDay[] =>
     meal: null,
     isActive: true,
   }));
+
+const createEmptyMealSets = (durationDays: number): PlanMealSets => ({
+  veg: createMealSetDays(durationDays),
+  nonveg: createMealSetDays(durationDays),
+  mixed: createMealSetDays(durationDays),
+});
 
 const normalizeMealSetDays = (
   days: PlanMealDay[] | undefined,
@@ -188,12 +256,6 @@ const normalizeMealSetDays = (
   });
 };
 
-const createEmptyMealSets = (durationDays: number): PlanMealSets => ({
-  veg: createMealSetDays(durationDays),
-  nonveg: createMealSetDays(durationDays),
-  mixed: createMealSetDays(durationDays),
-});
-
 const normalizeMealSets = (
   mealSets: PlanMealSets | undefined,
   durationDays: number
@@ -203,265 +265,82 @@ const normalizeMealSets = (
   mixed: normalizeMealSetDays(mealSets?.mixed, durationDays),
 });
 
-const countSelectedMeals = (mealSets?: PlanMealSets) => {
-  if (!mealSets) return 0;
+const countSelectedMealsInSet = (
+  mealSets: PlanMealSets | undefined,
+  key: MealSetKey
+) =>
+  (mealSets?.[key] || []).filter((item) => getMealId(item.meal))
+    .length;
 
-  return ["veg", "nonveg", "mixed"].reduce((total, key) => {
-    const set = mealSets[key as MealSetKey] || [];
-    return total + set.filter((item) => getMealId(item.meal)).length;
-  }, 0);
-};
-
-const countSelectedMealsInSet = (mealSets: PlanMealSets | undefined, key: MealSetKey) => {
-  if (!mealSets) return 0;
-  return (mealSets[key] || []).filter((item) => getMealId(item.meal)).length;
-};
-
-function PlanRow({
-  plan,
-  onEdit,
-  onDelete,
-  onToggle,
-}: {
-  plan: Plan;
-  onEdit: () => void;
-  onDelete: () => void;
-  onToggle: () => void;
-}) {
-  const [showMore, setShowMore] = useState(false);
-  const planId = getPlanId(plan);
-  const selectedMealsCount = countSelectedMeals(plan.mealSets);
-  const prices = {
-    veg: Number(plan.prices?.veg || plan.price || 0),
-    nonveg: Number(plan.prices?.nonveg || plan.price || 0),
-    mixed: Number(plan.prices?.mixed || plan.price || 0),
-  };
-
-  return (
-    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:border-green-200 hover:shadow-md">
-      <div className="p-5">
-        <div className="flex flex-col gap-5 lg:flex-row">
-          <div className="flex h-32 w-full shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-green-50 to-white lg:w-36">
-            {plan.imageUrl ? (
-              <img
-                src={plan.imageUrl}
-                alt={plan.title}
-                className="h-full w-full rounded-2xl object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            ) : (
-              <span className="text-3xl font-black text-green-200">MB</span>
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-xl font-black tracking-[-0.03em] text-slate-950">
-                    {plan.title}
-                  </h3>
-
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-black ${
-                      plan.isActive
-                        ? "bg-green-50 text-green-700"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {plan.isActive ? "Active" : "Inactive"}
-                  </span>
-                </div>
-
-                <p className="mt-1 text-xs font-bold text-slate-400">
-                  Plan ID: {planId || "N/A"}
-                </p>
-
-                <p className="mt-2 text-sm font-semibold text-slate-600">
-                  {plan.subtitle || "No subtitle added"}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-                  {goalLabelMap[plan.goal]}
-                </span>
-
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                  {mealModeLabelMap[plan.mealMode || "both"]}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
-              <PriceBadge label="Veg" price={prices.veg} />
-              <PriceBadge label="Non-Veg" price={prices.nonveg} />
-              <PriceBadge label="Mixed" price={prices.mixed} />
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <MiniBadge>Duration: {plan.durationDays} days</MiniBadge>
-              <MiniBadge>Sort: {plan.sortOrder || 0}</MiniBadge>
-              <MiniBadge>Selected Meals: {selectedMealsCount}</MiniBadge>
-              <MiniBadge>Perks: {plan.perks?.length || 0}</MiniBadge>
-              <MiniBadge>Rewards: {plan.rewards?.length || 0}</MiniBadge>
-
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  plan.rewardEligible !== false
-                    ? "bg-green-50 text-green-700"
-                    : "bg-red-50 text-red-600"
-                }`}
-              >
-                {plan.rewardEligible !== false ? "Reward Eligible" : "No Reward"}
-              </span>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={onEdit}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-800 hover:bg-slate-50"
-              >
-                Edit
-              </button>
-
-              <button
-                type="button"
-                onClick={onToggle}
-                className={`rounded-xl border px-4 py-2 text-sm font-black ${
-                  plan.isActive
-                    ? "border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-                    : "border-green-300 text-green-700 hover:bg-green-50"
-                }`}
-              >
-                {plan.isActive ? "Deactivate" : "Activate"}
-              </button>
-
-              <button
-                type="button"
-                onClick={onDelete}
-                className="rounded-xl border border-red-300 px-4 py-2 text-sm font-black text-red-600 hover:bg-red-50"
-              >
-                Delete
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowMore((prev) => !prev)}
-                className="rounded-xl border border-green-200 px-4 py-2 text-sm font-black text-green-700 hover:bg-green-50"
-              >
-                {showMore ? "Hide Details" : "View Details"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {showMore && (
-        <div className="border-t border-slate-100 bg-slate-50 p-5">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border bg-white p-4">
-              <p className="font-black text-slate-950">Description</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                {plan.description || "No description added."}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border bg-white p-4">
-              <p className="font-black text-slate-950">Plan Benefits</p>
-
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <TextList title="Perks" items={plan.perks || []} />
-                <TextList title="Rewards" items={plan.rewards || []} />
-              </div>
-            </div>
-          </div>
-
-          {plan.mealSets && (
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {mealSetTabs.map((tab) => (
-                <div key={tab.key} className="rounded-2xl border bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-black text-slate-950">{tab.short}</p>
-                    <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                      {countSelectedMealsInSet(plan.mealSets, tab.key)}/
-                      {plan.durationDays}
-                    </span>
-                  </div>
-
-                  <ul className="mt-3 space-y-1 text-xs font-semibold text-slate-600">
-                    {(plan.mealSets?.[tab.key] || []).map((item) => (
-                      <li key={`${tab.key}-${item.day}`}>
-                        Day {item.day}: {getMealTitle(item.meal) || "No meal selected"}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+const countSelectedMeals = (mealSets?: PlanMealSets) =>
+  mealSetTabs.reduce(
+    (total, tab) =>
+      total + countSelectedMealsInSet(mealSets, tab.key),
+    0
   );
-}
+
+const emptyPlanForm = (): PlanForm => ({
+  title: "",
+  planId: "",
+  subtitle: "",
+  description: "",
+  goal: "fat_loss",
+  mealMode: "both",
+  badge: "",
+  durationDays: "7",
+  vegPrice: "",
+  nonVegPrice: "",
+  mixedPrice: "",
+  trialPrice: "",
+  originalPrice: "",
+  imageUrl: "",
+  perksText: "",
+  rewardsText: DEFAULT_PLAN_REWARD,
+  rewardEligible: true,
+  isActive: true,
+  sortOrder: "0",
+  mealSets: createEmptyMealSets(7),
+});
 
 export default function AdminPlans() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [mealOptions, setMealOptions] = useState<MealOption[]>([]);
-  const [loading, setLoading] = useState(false);
+
+  const [loading, setLoading] = useState(true);
   const [loadingMeals, setLoadingMeals] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<PlanFilter>("all");
+
+  const [showDrawer, setShowDrawer] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
   const [activeMealSetTab, setActiveMealSetTab] =
     useState<MealSetKey>("mixed");
 
-  const [form, setForm] = useState({
-    title: "",
-    planId: "",
-    subtitle: "",
-    description: "",
-    goal: "fat_loss" as PlanGoal,
-    mealMode: "both" as MealMode,
-    badge: "",
-    durationDays: "7",
-    vegPrice: "",
-    nonVegPrice: "",
-    mixedPrice: "",
-    trialPrice: "",
-    originalPrice: "",
-    imageUrl: "",
-    perksText: "",
-    rewardsText: DEFAULT_PLAN_REWARD,
-    rewardEligible: true,
-    isActive: true,
-    sortOrder: "0",
-    mealSets: createEmptyMealSets(7),
-  });
+  const [form, setForm] = useState<PlanForm>(emptyPlanForm());
 
   const fetchPlans = async () => {
-    setLoading(true);
-
     try {
-      const res = await api.get("/admin/plans");
-      setPlans(Array.isArray(res.data) ? res.data : []);
+      const response = await api.get("/admin/plans");
+      setPlans(Array.isArray(response.data) ? response.data : []);
     } catch {
       toast.error("Failed to load plans");
-    } finally {
-      setLoading(false);
     }
   };
 
   const fetchMealOptions = async () => {
-    setLoadingMeals(true);
-
     try {
-      const res = await api.get("/admin/plans/meal-options");
-      setMealOptions(Array.isArray(res.data) ? res.data : []);
+      setLoadingMeals(true);
+
+      const response = await api.get(
+        "/admin/plans/meal-options"
+      );
+
+      setMealOptions(
+        Array.isArray(response.data) ? response.data : []
+      );
     } catch {
       toast.error("Failed to load meal options");
     } finally {
@@ -469,66 +348,224 @@ export default function AdminPlans() {
     }
   };
 
+  const loadPage = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([fetchPlans(), fetchMealOptions()]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchPlans();
-    fetchMealOptions();
+    loadPage();
   }, []);
+
+  const stats = useMemo(() => {
+    const active = plans.filter((plan) => plan.isActive).length;
+
+    const rewardEligible = plans.filter(
+      (plan) => plan.rewardEligible !== false
+    ).length;
+
+    const avgPrice =
+      plans.length > 0
+        ? Math.round(
+            plans.reduce(
+              (sum, plan) =>
+                sum +
+                getBasePlanPrice(plan.prices, plan.price),
+              0
+            ) / plans.length
+          )
+        : 0;
+
+    return {
+      total: plans.length,
+      active,
+      inactive: plans.length - active,
+      rewardEligible,
+      avgPrice,
+    };
+  }, [plans]);
+
+  const filteredPlans = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return [...plans]
+      .filter((plan) => {
+        const searchableText = [
+          plan.title,
+          plan.subtitle,
+          plan.description,
+          getPlanId(plan),
+          goalLabelMap[plan.goal],
+          mealModeLabelMap[plan.mealMode || "both"],
+          plan.badge,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        const matchesSearch =
+          !term || searchableText.includes(term);
+
+        if (!matchesSearch) return false;
+
+        if (filter === "active") return plan.isActive;
+        if (filter === "inactive") return !plan.isActive;
+
+        if (filter === "reward") {
+          return plan.rewardEligible !== false;
+        }
+
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          Number(a.sortOrder || 0) -
+          Number(b.sortOrder || 0)
+      );
+  }, [plans, search, filter]);
+
+  const availableMealSets = useMemo<MealSetKey[]>(() => {
+    if (form.mealMode === "veg") return ["veg"];
+    if (form.mealMode === "nonveg") return ["nonveg"];
+
+    return ["veg", "nonveg", "mixed"];
+  }, [form.mealMode]);
 
   const mealOptionsByTab = useMemo(() => {
     if (activeMealSetTab === "veg") {
-      return mealOptions.filter((meal) => meal.foodType === "veg");
+      return mealOptions.filter(
+        (meal) => meal.foodType === "veg"
+      );
     }
 
     if (activeMealSetTab === "nonveg") {
-      return mealOptions.filter((meal) => meal.foodType === "nonveg");
+      return mealOptions.filter(
+        (meal) => meal.foodType === "nonveg"
+      );
     }
 
     return mealOptions;
   }, [mealOptions, activeMealSetTab]);
 
-  const resetForm = () => {
+  const activeMealSetDays =
+    form.mealSets[activeMealSetTab] || [];
+
+  const openCreateDrawer = () => {
     setEditingId(null);
+    setForm(emptyPlanForm());
     setActiveMealSetTab("mixed");
+    setShowDrawer(true);
+  };
+
+  const openEditDrawer = (plan: Plan) => {
+    const durationDays = Math.max(
+      1,
+      Number(plan.durationDays || 7)
+    );
+
+    const mealMode = plan.mealMode || "both";
+
+    setEditingId(plan._id);
+    setActiveMealSetTab(
+      mealMode === "veg"
+        ? "veg"
+        : mealMode === "nonveg"
+        ? "nonveg"
+        : "mixed"
+    );
 
     setForm({
-      title: "",
-      planId: "",
-      subtitle: "",
-      description: "",
-      goal: "fat_loss",
-      mealMode: "both",
-      badge: "",
-      durationDays: "7",
-      vegPrice: "",
-      nonVegPrice: "",
-      mixedPrice: "",
-      trialPrice: "",
-      originalPrice: "",
-      imageUrl: "",
-      perksText: "",
-      rewardsText: DEFAULT_PLAN_REWARD,
-      rewardEligible: true,
-      isActive: true,
-      sortOrder: "0",
-      mealSets: createEmptyMealSets(7),
+      title: plan.title || "",
+      planId: getPlanId(plan),
+      subtitle: plan.subtitle || "",
+      description: plan.description || "",
+      goal: plan.goal,
+      mealMode,
+      badge: plan.badge || "",
+      durationDays: String(durationDays),
+      vegPrice: String(
+        plan.prices?.veg || plan.price || ""
+      ),
+      nonVegPrice: String(
+        plan.prices?.nonveg || plan.price || ""
+      ),
+      mixedPrice: String(
+        plan.prices?.mixed || plan.price || ""
+      ),
+      trialPrice:
+        plan.trialPrice === null ||
+        plan.trialPrice === undefined
+          ? ""
+          : String(plan.trialPrice),
+      originalPrice:
+        plan.originalPrice === null ||
+        plan.originalPrice === undefined
+          ? ""
+          : String(plan.originalPrice),
+      imageUrl: plan.imageUrl || "",
+      perksText: arrayToText(plan.perks),
+      rewardsText:
+        arrayToText(plan.rewards) || DEFAULT_PLAN_REWARD,
+      rewardEligible: plan.rewardEligible !== false,
+      isActive: plan.isActive !== false,
+      sortOrder: String(plan.sortOrder || 0),
+      mealSets: normalizeMealSets(
+        plan.mealSets,
+        durationDays
+      ),
     });
+
+    setShowDrawer(true);
+  };
+
+  const closeDrawer = () => {
+    if (saving) return;
+
+    setShowDrawer(false);
+    setEditingId(null);
+    setActiveMealSetTab("mixed");
+    setForm(emptyPlanForm());
   };
 
   const updateTitle = (value: string) => {
-    setForm((prev) => ({
-      ...prev,
+    setForm((current) => ({
+      ...current,
       title: value,
-      planId: editingId ? prev.planId : slugify(value),
+      planId: editingId
+        ? current.planId
+        : slugify(value),
     }));
   };
 
-  const updateDurationDays = (value: string) => {
-    const nextDuration = Math.max(1, Number(value || 7));
+  const updateMealMode = (mealMode: MealMode) => {
+    setForm((current) => ({
+      ...current,
+      mealMode,
+    }));
 
-    setForm((prev) => ({
-      ...prev,
+    if (mealMode === "veg") {
+      setActiveMealSetTab("veg");
+    } else if (mealMode === "nonveg") {
+      setActiveMealSetTab("nonveg");
+    } else {
+      setActiveMealSetTab("mixed");
+    }
+  };
+
+  const updateDurationDays = (value: string) => {
+    const duration = Math.max(1, Number(value || 1));
+
+    setForm((current) => ({
+      ...current,
       durationDays: value,
-      mealSets: normalizeMealSets(prev.mealSets, nextDuration),
+      mealSets: normalizeMealSets(
+        current.mealSets,
+        duration
+      ),
     }));
   };
 
@@ -537,99 +574,129 @@ export default function AdminPlans() {
     dayIndex: number,
     mealId: string
   ) => {
-    setForm((prev) => {
-      const durationDays = Math.max(1, Number(prev.durationDays || 7));
-      const normalizedSets = normalizeMealSets(prev.mealSets, durationDays);
+    setForm((current) => {
+      const duration = Math.max(
+        1,
+        Number(current.durationDays || 7)
+      );
 
-      normalizedSets[setKey] = normalizedSets[setKey].map((item, index) =>
-        index === dayIndex
-          ? {
-              ...item,
-              meal: mealId || null,
-            }
-          : item
+      const mealSets = normalizeMealSets(
+        current.mealSets,
+        duration
       );
 
       return {
-        ...prev,
-        mealSets: normalizedSets,
+        ...current,
+        mealSets: {
+          ...mealSets,
+          [setKey]: mealSets[setKey].map(
+            (item, index) =>
+              index === dayIndex
+                ? {
+                    ...item,
+                    meal: mealId || null,
+                  }
+                : item
+          ),
+        },
       };
     });
   };
 
-  const copyMealSet = (from: MealSetKey, to: MealSetKey) => {
-    setForm((prev) => {
-      const durationDays = Math.max(1, Number(prev.durationDays || 7));
-      const normalizedSets = normalizeMealSets(prev.mealSets, durationDays);
+  const copyMealSet = (
+    from: MealSetKey,
+    to: MealSetKey
+  ) => {
+    setForm((current) => {
+      const duration = Math.max(
+        1,
+        Number(current.durationDays || 7)
+      );
+
+      const mealSets = normalizeMealSets(
+        current.mealSets,
+        duration
+      );
 
       return {
-        ...prev,
+        ...current,
         mealSets: {
-          ...normalizedSets,
-          [to]: normalizedSets[from].map((item) => ({ ...item })),
+          ...mealSets,
+          [to]: mealSets[from].map((item) => ({
+            ...item,
+          })),
         },
       };
     });
 
-    toast.success(`Copied ${from} meals to ${to}`);
+    toast.success(
+      `${mealSetTabs.find((tab) => tab.key === from)?.short} meals copied`
+    );
   };
 
   const validatePrices = () => {
-    const vegPrice = Number(form.vegPrice || 0);
-    const nonVegPrice = Number(form.nonVegPrice || 0);
-    const mixedPrice = Number(form.mixedPrice || 0);
+    const veg = Number(form.vegPrice || 0);
+    const nonveg = Number(form.nonVegPrice || 0);
+    const mixed = Number(form.mixedPrice || 0);
 
-    if (form.mealMode === "veg" && vegPrice <= 0) {
-      toast.error("Veg price is required");
+    if (
+      (form.mealMode === "veg" ||
+        form.mealMode === "both") &&
+      veg <= 0
+    ) {
+      toast.error("Enter a valid Veg price");
       return false;
     }
 
-    if (form.mealMode === "nonveg" && nonVegPrice <= 0) {
-      toast.error("Non-Veg price is required");
+    if (
+      (form.mealMode === "nonveg" ||
+        form.mealMode === "both") &&
+      nonveg <= 0
+    ) {
+      toast.error("Enter a valid Non-Veg price");
       return false;
     }
 
-    if (form.mealMode === "both") {
-      if (vegPrice <= 0) {
-        toast.error("Veg price is required");
-        return false;
-      }
-
-      if (nonVegPrice <= 0) {
-        toast.error("Non-Veg price is required");
-        return false;
-      }
-
-      if (mixedPrice <= 0) {
-        toast.error("Mixed price is required");
-        return false;
-      }
+    if (form.mealMode === "both" && mixed <= 0) {
+      toast.error("Enter a valid Mixed price");
+      return false;
     }
 
     return true;
   };
 
   const validateMealSets = () => {
-    const durationDays = Math.max(1, Number(form.durationDays || 7));
-    const sets = normalizeMealSets(form.mealSets, durationDays);
+    const duration = Math.max(
+      1,
+      Number(form.durationDays || 7)
+    );
 
-    const requiredTabs: MealSetKey[] =
+    const mealSets = normalizeMealSets(
+      form.mealSets,
+      duration
+    );
+
+    const requiredSets: MealSetKey[] =
       form.mealMode === "veg"
         ? ["veg"]
         : form.mealMode === "nonveg"
         ? ["nonveg"]
         : ["veg", "nonveg", "mixed"];
 
-    for (const key of requiredTabs) {
-      const missingDay = sets[key].find((item) => !getMealId(item.meal));
+    for (const key of requiredSets) {
+      const missingDay = mealSets[key].find(
+        (item) => !getMealId(item.meal)
+      );
 
       if (missingDay) {
-        toast.error(
-          `Select ${mealSetTabs.find((tab) => tab.key === key)?.label} for Day ${
-            missingDay.day
-          }`
-        );
         setActiveMealSetTab(key);
+
+        toast.error(
+          `Select a ${mealSetTabs.find(
+            (tab) => tab.key === key
+          )?.short} meal for Day ${missingDay.day}`
+        );
+
         return false;
       }
     }
@@ -648,17 +715,19 @@ export default function AdminPlans() {
       return;
     }
 
-    if (!validatePrices()) {
+    if (!validatePrices() || !validateMealSets()) {
       return;
     }
 
-    if (!validateMealSets()) {
-      return;
-    }
+    const durationDays = Math.max(
+      1,
+      Number(form.durationDays || 7)
+    );
 
-    const cleanPlanId = slugify(form.planId);
-    const durationDays = Math.max(1, Number(form.durationDays || 7));
-    const normalizedMealSets = normalizeMealSets(form.mealSets, durationDays);
+    const mealSets = normalizeMealSets(
+      form.mealSets,
+      durationDays
+    );
 
     const prices = {
       veg: Number(form.vegPrice || 0),
@@ -666,7 +735,7 @@ export default function AdminPlans() {
       mixed: Number(form.mixedPrice || 0),
     };
 
-    const basePrice = getBasePlanPrice(prices);
+    const cleanPlanId = slugify(form.planId);
 
     const payload = {
       title: form.title.trim(),
@@ -678,788 +747,1522 @@ export default function AdminPlans() {
       mealMode: form.mealMode,
       badge: form.badge.trim(),
       durationDays,
-      price: basePrice,
+      price: getBasePlanPrice(prices),
       prices,
-      trialPrice: form.trialPrice ? Number(form.trialPrice) : null,
-      originalPrice: form.originalPrice ? Number(form.originalPrice) : null,
+      trialPrice: form.trialPrice
+        ? Number(form.trialPrice)
+        : null,
+      originalPrice: form.originalPrice
+        ? Number(form.originalPrice)
+        : null,
       imageUrl: form.imageUrl.trim(),
       perks: textToArray(form.perksText),
       rewards:
         textToArray(form.rewardsText).length > 0
           ? textToArray(form.rewardsText)
           : [DEFAULT_PLAN_REWARD],
+      rewardEligible: form.rewardEligible,
+      isActive: form.isActive,
+      sortOrder: Number(form.sortOrder || 0),
+      meals: [],
       mealSets: {
-        veg: normalizedMealSets.veg.map((item) => ({
+        veg: mealSets.veg.map((item) => ({
           day: item.day,
           title: item.title || `Day ${item.day}`,
           meal: getMealId(item.meal) || null,
           isActive: item.isActive !== false,
         })),
-        nonveg: normalizedMealSets.nonveg.map((item) => ({
+        nonveg: mealSets.nonveg.map((item) => ({
           day: item.day,
           title: item.title || `Day ${item.day}`,
           meal: getMealId(item.meal) || null,
           isActive: item.isActive !== false,
         })),
-        mixed: normalizedMealSets.mixed.map((item) => ({
+        mixed: mealSets.mixed.map((item) => ({
           day: item.day,
           title: item.title || `Day ${item.day}`,
           meal: getMealId(item.meal) || null,
           isActive: item.isActive !== false,
         })),
       },
-      meals: [],
-      rewardEligible: form.rewardEligible,
-      isActive: form.isActive,
-      sortOrder: Number(form.sortOrder || 0),
     };
 
     try {
       setSaving(true);
 
       if (editingId) {
-        const res = await api.put(`/admin/plans/${editingId}`, payload);
+        const response = await api.put(
+          `/admin/plans/${editingId}`,
+          payload
+        );
 
-        setPlans((prev) =>
-          prev.map((item) => (item._id === editingId ? res.data : item))
+        setPlans((current) =>
+          current.map((plan) =>
+            plan._id === editingId
+              ? response.data
+              : plan
+          )
         );
 
         toast.success("Plan updated");
       } else {
-        const res = await api.post("/admin/plans", payload);
+        const response = await api.post(
+          "/admin/plans",
+          payload
+        );
 
-        setPlans((prev) => [res.data, ...prev]);
+        setPlans((current) => [
+          response.data,
+          ...current,
+        ]);
 
-        toast.success("Plan added");
+        toast.success("Plan created");
       }
 
-      resetForm();
+      closeDrawer();
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Save failed");
+      toast.error(
+        error?.response?.data?.message ||
+          "Failed to save plan"
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const handleEdit = (plan: Plan) => {
-    const durationDays = Math.max(1, Number(plan.durationDays || 7));
-
-    setEditingId(plan._id);
-    setActiveMealSetTab("mixed");
-
-    setForm({
-      title: plan.title,
-      planId: getPlanId(plan),
-      subtitle: plan.subtitle || "",
-      description: plan.description || "",
-      goal: plan.goal,
-      mealMode: plan.mealMode || "both",
-      badge: plan.badge || "",
-      durationDays: String(durationDays),
-      vegPrice: String(plan.prices?.veg || plan.price || ""),
-      nonVegPrice: String(plan.prices?.nonveg || plan.price || ""),
-      mixedPrice: String(plan.prices?.mixed || plan.price || ""),
-      trialPrice:
-        plan.trialPrice === null || plan.trialPrice === undefined
-          ? ""
-          : String(plan.trialPrice),
-      originalPrice:
-        plan.originalPrice === null || plan.originalPrice === undefined
-          ? ""
-          : String(plan.originalPrice),
-      imageUrl: plan.imageUrl || "",
-      perksText: arrayToText(plan.perks),
-      rewardsText: arrayToText(plan.rewards) || DEFAULT_PLAN_REWARD,
-      rewardEligible: plan.rewardEligible !== false,
-      isActive: plan.isActive !== false,
-      sortOrder: String(plan.sortOrder || 0),
-      mealSets: normalizeMealSets(plan.mealSets, durationDays),
-    });
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleToggle = async (plan: Plan) => {
+  const togglePlan = async (plan: Plan) => {
     try {
-      const res = await api.patch(`/admin/plans/${plan._id}/toggle`);
-
-      setPlans((prev) =>
-        prev.map((item) => (item._id === plan._id ? res.data : item))
+      const response = await api.patch(
+        `/admin/plans/${plan._id}/toggle`
       );
 
-      toast.success(res.data.isActive ? "Plan activated" : "Plan deactivated");
+      setPlans((current) =>
+        current.map((item) =>
+          item._id === plan._id
+            ? response.data
+            : item
+        )
+      );
+
+      toast.success(
+        response.data.isActive
+          ? "Plan activated"
+          : "Plan deactivated"
+      );
     } catch {
-      toast.error("Status update failed");
+      toast.error("Failed to update plan status");
     }
   };
 
-  const handleDelete = async (plan: Plan) => {
-    if (!window.confirm(`Delete "${plan.title}"?`)) return;
+  const deletePlan = async (plan: Plan) => {
+    if (!window.confirm(`Delete "${plan.title}"?`)) {
+      return;
+    }
 
     try {
       await api.delete(`/admin/plans/${plan._id}`);
 
-      setPlans((prev) => prev.filter((item) => item._id !== plan._id));
+      setPlans((current) =>
+        current.filter(
+          (item) => item._id !== plan._id
+        )
+      );
 
       toast.success("Plan deleted");
     } catch {
-      toast.error("Delete failed");
+      toast.error("Failed to delete plan");
     }
   };
 
-  const stats = useMemo(() => {
-    const active = plans.filter((item) => item.isActive).length;
-    const inactive = plans.filter((item) => !item.isActive).length;
-    const rewardEligible = plans.filter(
-      (item) => item.rewardEligible !== false
-    ).length;
-
-    const avgPrice =
-      plans.length > 0
-        ? Math.round(
-            plans.reduce(
-              (sum, item) =>
-                sum +
-                getBasePlanPrice(
-                  {
-                    veg: item.prices?.veg,
-                    nonveg: item.prices?.nonveg,
-                    mixed: item.prices?.mixed,
-                  },
-                  item.price
-                ),
-              0
-            ) / plans.length
-          )
-        : 0;
-
-    return {
-      total: plans.length,
-      active,
-      inactive,
-      rewardEligible,
-      avgPrice,
-    };
-  }, [plans]);
-
-  const activeMealSetDays = form.mealSets[activeMealSetTab] || [];
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f7f7] px-4">
+        <div className="flex items-center gap-3 border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
+          <Loader2
+            className="animate-spin text-green-600"
+            size={20}
+          />
+          Loading plans...
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#f7f7f7]">
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <main className="min-h-screen bg-[#f7f7f7] pb-12 text-slate-950">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1220px] px-4 py-8 sm:px-6 sm:py-10">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-green-600">
-                Admin Panel
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-slate-400">
+                MacroBox Admin
               </p>
 
-              <h1 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
-                Manage Meal Plans
+              <h1 className="mt-4 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
+                Meal Plans
               </h1>
 
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-                Create MacroBox plans with separate Veg, Non-Veg, and Mixed
-                prices. Assign actual meals day-wise for each version.
+              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:text-base">
+                Create plan variants, set individual prices and assign
+                meals for every delivery day.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                fetchPlans();
-                fetchMealOptions();
-              }}
-              className="inline-flex h-11 w-fit items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-900 shadow-sm hover:bg-slate-50"
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <button
+                type="button"
+                onClick={loadPage}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+              >
+                <RefreshCw size={16} />
+                Refresh
+              </button>
+
+              <button
+                type="button"
+                onClick={openCreateDrawer}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white shadow-[0_12px_25px_rgba(22,163,74,0.2)] transition hover:bg-green-700"
+              >
+                <CirclePlus size={17} />
+                Add Plan
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <DashboardStat
+              label="Total Plans"
+              value={stats.total}
+              icon={<Layers3 size={18} />}
+            />
+
+            <DashboardStat
+              label="Active"
+              value={stats.active}
+              icon={<PackageCheck size={18} />}
+              accent
+            />
+
+            <DashboardStat
+              label="Inactive"
+              value={stats.inactive}
+              icon={<Eye size={18} />}
+            />
+
+            <DashboardStat
+              label="Reward Plans"
+              value={stats.rewardEligible}
+              icon={<Gift size={18} />}
+            />
+
+            <DashboardStat
+              label="Average Price"
+              value={`₹${stats.avgPrice}`}
+              icon={<IndianRupee size={18} />}
+            />
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1220px] px-4 py-6 sm:px-6">
+        <section className="border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative flex-1">
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+
+              <input
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                placeholder="Search plans, goals or plan IDs..."
+                className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+              />
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
+              <FilterButton
+                active={filter === "all"}
+                onClick={() => setFilter("all")}
+              >
+                All
+              </FilterButton>
+
+              <FilterButton
+                active={filter === "active"}
+                onClick={() => setFilter("active")}
+              >
+                Active
+              </FilterButton>
+
+              <FilterButton
+                active={filter === "inactive"}
+                onClick={() => setFilter("inactive")}
+              >
+                Inactive
+              </FilterButton>
+
+              <FilterButton
+                active={filter === "reward"}
+                onClick={() => setFilter("reward")}
+              >
+                Rewards
+              </FilterButton>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-6">
+          <div className="mb-4">
+            <h2 className="text-2xl font-black tracking-[-0.04em]">
+              Available Plans
+            </h2>
+
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              {filteredPlans.length} plan
+              {filteredPlans.length === 1 ? "" : "s"} shown
+            </p>
+          </div>
+
+          {filteredPlans.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div className="grid gap-4">
+              {filteredPlans.map((plan) => (
+                <PlanCard
+                  key={plan._id}
+                  plan={plan}
+                  onEdit={() => openEditDrawer(plan)}
+                  onToggle={() => togglePlan(plan)}
+                  onDelete={() => deletePlan(plan)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {showDrawer && (
+        <PlanDrawer
+          title={editingId ? "Edit Plan" : "Add New Plan"}
+          subtitle={
+            editingId
+              ? "Update prices, settings and day-wise meals."
+              : "Create a new MacroBox meal plan."
+          }
+          onClose={closeDrawer}
+        >
+          <div className="space-y-6">
+            <DrawerSection
+              number="01"
+              title="Basic Information"
+              description="Plan identity, goal and availability."
             >
-              Refresh Data
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-6 grid gap-4 md:grid-cols-5">
-          <StatCard label="Total Plans" value={stats.total} />
-          <StatCard label="Active" value={stats.active} tone="green" />
-          <StatCard label="Inactive" value={stats.inactive} />
-          <StatCard label="Reward Plans" value={stats.rewardEligible} tone="green" />
-          <StatCard label="Avg Price" value={`₹${stats.avgPrice}`} />
-        </div>
-
-        <div className="mb-8 rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 p-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-xl font-black text-slate-950">
-                  {editingId ? "Update Plan" : "Create New Plan"}
-                </h2>
-
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Fill basic details, prices, and day-wise meals.
-                </p>
-              </div>
-
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="w-fit rounded-xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field
+                  label="Plan title"
+                  required
+                  className="sm:col-span-2"
                 >
-                  Cancel Editing
-                </button>
-              )}
-            </div>
-          </div>
+                  <input
+                    value={form.title}
+                    onChange={(event) =>
+                      updateTitle(event.target.value)
+                    }
+                    placeholder="Example: 7-Day Lean Meal Plan"
+                    className="admin-input"
+                  />
+                </Field>
 
-          <div className="p-6">
-            <SectionTitle number="1" title="Basic Plan Details" />
+                <Field label="Plan ID" required>
+                  <input
+                    value={form.planId}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        planId: slugify(
+                          event.target.value
+                        ),
+                      }))
+                    }
+                    placeholder="7-day-lean-plan"
+                    className="admin-input"
+                  />
+                </Field>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <Field label="Plan Title" className="md:col-span-2">
-                <input
-                  placeholder="Example: 7-Day Lean Box"
-                  value={form.title}
-                  onChange={(e) => updateTitle(e.target.value)}
-                  className="input"
-                />
-              </Field>
+                <Field label="Duration days" required>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.durationDays}
+                    onChange={(event) =>
+                      updateDurationDays(
+                        event.target.value
+                      )
+                    }
+                    className="admin-input"
+                  />
+                </Field>
 
-              <Field label="Plan ID">
-                <input
-                  placeholder="lean-box"
-                  value={form.planId}
-                  onChange={(e) =>
-                    setForm({ ...form, planId: slugify(e.target.value) })
-                  }
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Subtitle" className="md:col-span-2">
-                <input
-                  placeholder="Example: Fat loss plan"
-                  value={form.subtitle}
-                  onChange={(e) =>
-                    setForm({ ...form, subtitle: e.target.value })
-                  }
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Goal">
-                <select
-                  value={form.goal}
-                  onChange={(e) =>
-                    setForm({ ...form, goal: e.target.value as PlanGoal })
-                  }
-                  className="input"
+                <Field
+                  label="Subtitle"
+                  className="sm:col-span-2"
                 >
-                  {goalOptions.map((goal) => (
-                    <option key={goal.key} value={goal.key}>
-                      {goal.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Available Plan Types">
-                <select
-                  value={form.mealMode}
-                  onChange={(e) =>
-                    setForm({ ...form, mealMode: e.target.value as MealMode })
-                  }
-                  className="input"
-                >
-                  {mealModeOptions.map((mode) => (
-                    <option key={mode.key} value={mode.key}>
-                      {mode.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Badge">
-                <input
-                  placeholder="Example: Best Seller"
-                  value={form.badge}
-                  onChange={(e) => setForm({ ...form, badge: e.target.value })}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Duration Days">
-                <input
-                  placeholder="7"
-                  type="number"
-                  min={1}
-                  value={form.durationDays}
-                  onChange={(e) => updateDurationDays(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Sort Order">
-                <input
-                  placeholder="0"
-                  type="number"
-                  value={form.sortOrder}
-                  onChange={(e) =>
-                    setForm({ ...form, sortOrder: e.target.value })
-                  }
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Description" className="md:col-span-3">
-                <textarea
-                  placeholder="Explain what this plan is for..."
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                  rows={3}
-                  className="input min-h-[96px]"
-                />
-              </Field>
-            </div>
-
-            <div className="mt-8">
-              <SectionTitle number="2" title="Plan Prices" />
-
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <Field label="Veg Price ₹">
                   <input
-                    placeholder="Example: 1199"
-                    type="number"
-                    value={form.vegPrice}
-                    onChange={(e) =>
-                      setForm({ ...form, vegPrice: e.target.value })
+                    value={form.subtitle}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        subtitle: event.target.value,
+                      }))
                     }
-                    className="input"
+                    placeholder="Short customer-facing subtitle"
+                    className="admin-input"
                   />
                 </Field>
 
-                <Field label="Non-Veg Price ₹">
-                  <input
-                    placeholder="Example: 1399"
-                    type="number"
-                    value={form.nonVegPrice}
-                    onChange={(e) =>
-                      setForm({ ...form, nonVegPrice: e.target.value })
-                    }
-                    className="input"
-                  />
-                </Field>
-
-                <Field label="Mixed Price ₹">
-                  <input
-                    placeholder="Example: 1299"
-                    type="number"
-                    value={form.mixedPrice}
-                    onChange={(e) =>
-                      setForm({ ...form, mixedPrice: e.target.value })
-                    }
-                    className="input"
-                  />
-                </Field>
-
-                <Field label="Original Price ₹">
-                  <input
-                    placeholder="Optional MRP"
-                    type="number"
-                    value={form.originalPrice}
-                    onChange={(e) =>
-                      setForm({ ...form, originalPrice: e.target.value })
-                    }
-                    className="input"
-                  />
-                </Field>
-
-                <Field label="Trial Price ₹">
-                  <input
-                    placeholder="Optional trial price"
-                    type="number"
-                    value={form.trialPrice}
-                    onChange={(e) =>
-                      setForm({ ...form, trialPrice: e.target.value })
-                    }
-                    className="input"
-                  />
-                </Field>
-
-                <Field label="Image URL">
-                  <input
-                    placeholder="Optional image URL"
-                    value={form.imageUrl}
-                    onChange={(e) =>
-                      setForm({ ...form, imageUrl: e.target.value })
-                    }
-                    className="input"
-                  />
-                </Field>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <SectionTitle number="3" title="Settings and Benefits" />
-
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <Field label="Plan Status">
+                <Field label="Goal">
                   <select
-                    value={form.isActive ? "true" : "false"}
-                    onChange={(e) =>
-                      setForm({ ...form, isActive: e.target.value === "true" })
+                    value={form.goal}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        goal: event.target
+                          .value as PlanGoal,
+                      }))
                     }
-                    className="input"
+                    className="admin-input"
+                  >
+                    {goalOptions.map((goal) => (
+                      <option
+                        key={goal.key}
+                        value={goal.key}
+                      >
+                        {goal.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Plan types">
+                  <select
+                    value={form.mealMode}
+                    onChange={(event) =>
+                      updateMealMode(
+                        event.target.value as MealMode
+                      )
+                    }
+                    className="admin-input"
+                  >
+                    {mealModeOptions.map((mode) => (
+                      <option
+                        key={mode.key}
+                        value={mode.key}
+                      >
+                        {mode.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Badge">
+                  <input
+                    value={form.badge}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        badge: event.target.value,
+                      }))
+                    }
+                    placeholder="Best Seller"
+                    className="admin-input"
+                  />
+                </Field>
+
+                <Field label="Sort order">
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.sortOrder}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        sortOrder: event.target.value,
+                      }))
+                    }
+                    className="admin-input"
+                  />
+                </Field>
+
+                <Field
+                  label="Description"
+                  className="sm:col-span-2"
+                >
+                  <textarea
+                    rows={4}
+                    value={form.description}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        description:
+                          event.target.value,
+                      }))
+                    }
+                    placeholder="Explain who this plan is for and what it includes."
+                    className="admin-input min-h-[110px] resize-y py-3"
+                  />
+                </Field>
+
+                <Field
+                  label="Image URL"
+                  className="sm:col-span-2"
+                >
+                  <input
+                    value={form.imageUrl}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        imageUrl: event.target.value,
+                      }))
+                    }
+                    placeholder="https://..."
+                    className="admin-input"
+                  />
+                </Field>
+              </div>
+            </DrawerSection>
+
+            <DrawerSection
+              number="02"
+              title="Plan Prices"
+              description="Set individual prices for each customer selection."
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                <PriceInput
+                  label="Veg"
+                  value={form.vegPrice}
+                  disabled={form.mealMode === "nonveg"}
+                  onChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      vegPrice: value,
+                    }))
+                  }
+                />
+
+                <PriceInput
+                  label="Non-Veg"
+                  value={form.nonVegPrice}
+                  disabled={form.mealMode === "veg"}
+                  onChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      nonVegPrice: value,
+                    }))
+                  }
+                />
+
+                <PriceInput
+                  label="Mixed"
+                  value={form.mixedPrice}
+                  disabled={form.mealMode !== "both"}
+                  onChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      mixedPrice: value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Original price">
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.originalPrice}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        originalPrice:
+                          event.target.value,
+                      }))
+                    }
+                    placeholder="Optional MRP"
+                    className="admin-input"
+                  />
+                </Field>
+
+                <Field label="Trial price">
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.trialPrice}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        trialPrice:
+                          event.target.value,
+                      }))
+                    }
+                    placeholder="Optional trial price"
+                    className="admin-input"
+                  />
+                </Field>
+              </div>
+            </DrawerSection>
+
+            <DrawerSection
+              number="03"
+              title="Benefits and Settings"
+              description="Configure visibility, rewards and customer benefits."
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Plan status">
+                  <select
+                    value={
+                      form.isActive ? "true" : "false"
+                    }
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        isActive:
+                          event.target.value === "true",
+                      }))
+                    }
+                    className="admin-input"
                   >
                     <option value="true">Active</option>
-                    <option value="false">Inactive</option>
+                    <option value="false">
+                      Inactive
+                    </option>
                   </select>
                 </Field>
 
-                <Field label="Reward Eligibility">
+                <Field label="Reward eligibility">
                   <select
-                    value={form.rewardEligible ? "true" : "false"}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        rewardEligible: e.target.value === "true",
-                      })
+                    value={
+                      form.rewardEligible
+                        ? "true"
+                        : "false"
                     }
-                    className="input"
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        rewardEligible:
+                          event.target.value === "true",
+                      }))
+                    }
+                    className="admin-input"
                   >
-                    <option value="true">Reward Eligible</option>
-                    <option value="false">No Reward</option>
+                    <option value="true">
+                      Reward Eligible
+                    </option>
+
+                    <option value="false">
+                      No Reward
+                    </option>
                   </select>
                 </Field>
 
-                <div className="hidden md:block" />
-
-                <Field label="Perks - one per line">
+                <Field label="Perks — one per line">
                   <textarea
-                    placeholder="Example: High protein meals"
+                    rows={5}
                     value={form.perksText}
-                    onChange={(e) =>
-                      setForm({ ...form, perksText: e.target.value })
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        perksText:
+                          event.target.value,
+                      }))
                     }
-                    rows={5}
-                    className="input min-h-[130px]"
+                    placeholder={"High-protein meals\nDaily delivery"}
+                    className="admin-input min-h-[130px] resize-y py-3"
                   />
                 </Field>
 
-                <Field label="Rewards - one per line" className="md:col-span-2">
+                <Field label="Rewards — one per line">
                   <textarea
-                    placeholder="Reward text"
-                    value={form.rewardsText}
-                    onChange={(e) =>
-                      setForm({ ...form, rewardsText: e.target.value })
-                    }
                     rows={5}
-                    className="input min-h-[130px]"
+                    value={form.rewardsText}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        rewardsText:
+                          event.target.value,
+                      }))
+                    }
+                    className="admin-input min-h-[130px] resize-y py-3"
                   />
                 </Field>
               </div>
-            </div>
+            </DrawerSection>
 
-            <div className="mt-8 rounded-3xl border border-green-100 bg-green-50/40 p-5">
-              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <SectionTitle number="4" title="Meals Included in This Plan" />
+            <DrawerSection
+              number="04"
+              title="Day-wise Meals"
+              description="Select the exact meal delivered on every plan day."
+            >
+              <div className="grid grid-cols-3 gap-2">
+                {mealSetTabs
+                  .filter((tab) =>
+                    availableMealSets.includes(tab.key)
+                  )
+                  .map((tab) => {
+                    const active =
+                      activeMealSetTab === tab.key;
 
-                  <p className="mt-2 text-sm font-semibold text-slate-500">
-                    Select actual meals from your Meals collection for each day.
-                  </p>
-                </div>
+                    const selected =
+                      countSelectedMealsInSet(
+                        form.mealSets,
+                        tab.key
+                      );
 
-                <div className="rounded-full bg-white px-4 py-2 text-sm font-black text-slate-600 shadow-sm">
-                  {loadingMeals
-                    ? "Loading meals..."
-                    : `${mealOptions.length} meals available`}
-                </div>
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() =>
+                          setActiveMealSetTab(tab.key)
+                        }
+                        className={`min-w-0 border p-3 text-left transition ${
+                          active
+                            ? "border-green-600 bg-green-600 text-white"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-green-300"
+                        }`}
+                      >
+                        <p className="truncate text-xs font-black sm:text-sm">
+                          {tab.short}
+                        </p>
+
+                        <p className="mt-1 truncate text-[10px] font-bold opacity-80 sm:text-xs">
+                          {selected}/
+                          {form.durationDays || 7}
+                        </p>
+                      </button>
+                    );
+                  })}
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                {mealSetTabs.map((tab) => {
-                  const selectedCount = countSelectedMealsInSet(
-                    form.mealSets,
-                    tab.key
-                  );
-
-                  return (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      onClick={() => setActiveMealSetTab(tab.key)}
-                      className={`rounded-2xl border px-4 py-3 text-left transition ${
-                        activeMealSetTab === tab.key
-                          ? "border-green-600 bg-green-600 text-white shadow-[0_10px_22px_rgba(22,163,74,0.18)]"
-                          : "border-green-100 bg-white text-green-800 hover:bg-green-50"
-                      }`}
-                    >
-                      <p className="text-sm font-black">{tab.short}</p>
-                      <p className="mt-1 text-xs font-bold opacity-80">
-                        {selectedCount}/{form.durationDays || 7} meals selected
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <p className="mt-3 text-xs font-bold text-slate-500">
-                {mealSetTabs.find((tab) => tab.key === activeMealSetTab)?.hint}
+              <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
+                {
+                  mealSetTabs.find(
+                    (tab) =>
+                      tab.key === activeMealSetTab
+                  )?.hint
+                }
               </p>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {activeMealSetTab !== "veg" && (
-                  <CopyButton onClick={() => copyMealSet("veg", activeMealSetTab)}>
-                    Copy Veg meals here
-                  </CopyButton>
-                )}
-
-                {activeMealSetTab !== "nonveg" && (
-                  <CopyButton
-                    onClick={() => copyMealSet("nonveg", activeMealSetTab)}
-                  >
-                    Copy Non-Veg meals here
-                  </CopyButton>
-                )}
-
-                {activeMealSetTab !== "mixed" && (
-                  <CopyButton
-                    onClick={() => copyMealSet("mixed", activeMealSetTab)}
-                  >
-                    Copy Mixed meals here
-                  </CopyButton>
-                )}
-              </div>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {activeMealSetDays.map((item, index) => {
-                  const selectedMealId = getMealId(item.meal);
-                  const selectedMeal = mealOptions.find(
-                    (meal) => meal._id === selectedMealId
-                  );
-
-                  return (
-                    <div
-                      key={`${activeMealSetTab}-${item.day}`}
-                      className="rounded-2xl border bg-white p-4 shadow-sm"
-                    >
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black text-gray-900">
-                            Day {item.day}
-                          </p>
-
-                          <p className="text-xs font-bold text-slate-400">
-                            Choose meal for this day
-                          </p>
-                        </div>
-
-                        {selectedMeal?.foodType && (
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-black ${
-                              selectedMeal.foodType === "veg"
-                                ? "bg-green-50 text-green-700"
-                                : "bg-red-50 text-red-600"
-                            }`}
-                          >
-                            {selectedMeal.foodType === "veg" ? "Veg" : "Non-Veg"}
-                          </span>
-                        )}
-                      </div>
-
-                      <select
-                        value={selectedMealId}
-                        onChange={(e) =>
-                          updateMealForDay(
-                            activeMealSetTab,
-                            index,
-                            e.target.value
+              {form.mealMode === "both" && (
+                <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                  {mealSetTabs
+                    .filter(
+                      (tab) =>
+                        tab.key !== activeMealSetTab
+                    )
+                    .map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() =>
+                          copyMealSet(
+                            tab.key,
+                            activeMealSetTab
                           )
                         }
-                        className="h-12 w-full rounded-xl border px-3 text-sm font-bold outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                        className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-black text-slate-700 hover:bg-slate-50"
                       >
-                        <option value="">Select meal</option>
-
-                        {mealOptionsByTab.map((meal) => (
-                          <option key={meal._id} value={meal._id}>
-                            {meal.title} · ₹{meal.price || 0} ·{" "}
-                            {meal.foodType === "veg" ? "Veg" : "Non-Veg"}
-                          </option>
-                        ))}
-                      </select>
-
-                      {selectedMeal && (
-                        <div className="mt-3 rounded-xl bg-slate-50 p-3">
-                          <p className="text-sm font-black text-slate-900">
-                            {selectedMeal.title}
-                          </p>
-
-                          <div className="mt-2 grid grid-cols-4 gap-2 text-xs font-black text-slate-600">
-                            <span>₹{selectedMeal.price || 0}</span>
-                            <span>{selectedMeal.protein || 0}g P</span>
-                            <span>{selectedMeal.calories || 0} Cal</span>
-                            <span>{selectedMeal.carbs || 0}g C</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-black hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
+                        <Copy size={13} />
+                        Copy {tab.short}
+                      </button>
+                    ))}
+                </div>
               )}
+
+              {loadingMeals ? (
+                <div className="mt-5 flex items-center gap-2 border border-slate-200 bg-slate-50 p-4 text-sm font-black text-slate-600">
+                  <Loader2
+                    size={17}
+                    className="animate-spin text-green-600"
+                  />
+                  Loading meals...
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {activeMealSetDays.map(
+                    (item, index) => {
+                      const selectedMealId =
+                        getMealId(item.meal);
+
+                      const selectedMeal =
+                        mealOptions.find(
+                          (meal) =>
+                            meal._id === selectedMealId
+                        );
+
+                      return (
+                        <MealDaySelector
+                          key={`${activeMealSetTab}-${item.day}`}
+                          item={item}
+                          mealOptions={mealOptionsByTab}
+                          selectedMeal={selectedMeal}
+                          selectedMealId={
+                            selectedMealId
+                          }
+                          onChange={(mealId) =>
+                            updateMealForDay(
+                              activeMealSetTab,
+                              index,
+                              mealId
+                            )
+                          }
+                        />
+                      );
+                    }
+                  )}
+                </div>
+              )}
+            </DrawerSection>
+
+            <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:-mx-6 sm:px-6">
+              <button
+                type="button"
+                onClick={closeDrawer}
+                disabled={saving}
+                className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
 
               <button
                 type="button"
                 onClick={savePlan}
                 disabled={saving}
-                className="rounded-xl bg-green-600 px-6 py-3 text-sm font-black text-white shadow-[0_12px_24px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:opacity-60"
+                className="inline-flex h-12 flex-[1.4] items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
               >
-                {saving ? "Saving..." : editingId ? "Save Changes" : "Add Plan"}
+                {saving ? (
+                  <Loader2
+                    size={17}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Check size={17} />
+                )}
+
+                {saving
+                  ? "Saving..."
+                  : editingId
+                  ? "Save Changes"
+                  : "Add Plan"}
               </button>
             </div>
           </div>
-        </div>
+        </PlanDrawer>
+      )}
+    </main>
+  );
+}
 
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-black text-slate-950">
-            Plans {loading ? "(loading...)" : `(${plans.length})`}
-          </h2>
-        </div>
+function PlanCard({
+  plan,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  plan: Plan;
+  onEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
 
-        <div className="grid gap-4">
-          {plans.length === 0 && !loading ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-              <h3 className="text-xl font-black text-slate-950">No plans yet</h3>
-              <p className="mt-2 text-sm font-semibold text-slate-500">
-                Create your first MacroBox meal plan above.
-              </p>
-            </div>
+  const prices = {
+    veg: Number(
+      plan.prices?.veg || plan.price || 0
+    ),
+    nonveg: Number(
+      plan.prices?.nonveg || plan.price || 0
+    ),
+    mixed: Number(
+      plan.prices?.mixed || plan.price || 0
+    ),
+  };
+
+  return (
+    <article className="overflow-hidden border border-slate-200 bg-white shadow-sm transition hover:border-green-200">
+      <div className="flex flex-col sm:flex-row">
+        <div className="relative h-48 w-full shrink-0 overflow-hidden bg-gradient-to-br from-green-50 via-white to-slate-50 sm:h-auto sm:w-[210px]">
+          {plan.imageUrl ? (
+            <img
+              src={plan.imageUrl}
+              alt={plan.title}
+              className="h-full w-full object-cover"
+              onError={(event) => {
+                event.currentTarget.style.display =
+                  "none";
+              }}
+            />
           ) : (
-            plans.map((plan) => (
-              <PlanRow
-                key={plan._id}
-                plan={plan}
-                onEdit={() => handleEdit(plan)}
-                onToggle={() => handleToggle(plan)}
-                onDelete={() => handleDelete(plan)}
+            <div className="flex h-full min-h-[180px] items-center justify-center">
+              <Layers3
+                size={42}
+                className="text-green-200"
               />
-            ))
+            </div>
+          )}
+
+          {plan.badge && (
+            <span className="absolute left-3 top-3 rounded-full bg-orange-500 px-3 py-1 text-[11px] font-black text-white">
+              {plan.badge}
+            </span>
           )}
         </div>
+
+        <div className="min-w-0 flex-1 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full px-3 py-1 text-[11px] font-black ${
+                    plan.isActive
+                      ? "bg-green-50 text-green-700"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {plan.isActive
+                    ? "Active"
+                    : "Inactive"}
+                </span>
+
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black text-blue-700">
+                  {goalLabelMap[plan.goal]}
+                </span>
+
+                {plan.rewardEligible !== false && (
+                  <span className="rounded-full bg-purple-50 px-3 py-1 text-[11px] font-black text-purple-700">
+                    Reward
+                  </span>
+                )}
+              </div>
+
+              <h3 className="mt-3 text-xl font-black tracking-[-0.04em]">
+                {plan.title}
+              </h3>
+
+              <p className="mt-1 text-xs font-bold text-slate-400">
+                ID: {getPlanId(plan)}
+              </p>
+
+              <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-slate-500">
+                {plan.subtitle ||
+                  plan.description ||
+                  "No plan description added."}
+              </p>
+            </div>
+
+            <div className="shrink-0 lg:text-right">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                Starting From
+              </p>
+
+              <p className="mt-1 text-3xl font-black tracking-[-0.05em]">
+                ₹
+                {Math.min(
+                  ...[
+                    prices.veg,
+                    prices.nonveg,
+                    prices.mixed,
+                  ].filter((price) => price > 0)
+                ) || plan.price}
+              </p>
+            </div>
+          </div>
+
+          <div className="my-4 border-t border-dashed border-slate-200" />
+
+          <div className="grid grid-cols-3 gap-2">
+            <PlanPriceTile
+              label="Veg"
+              price={prices.veg}
+              enabled={
+                plan.mealMode !== "nonveg"
+              }
+            />
+
+            <PlanPriceTile
+              label="Non-Veg"
+              price={prices.nonveg}
+              enabled={plan.mealMode !== "veg"}
+            />
+
+            <PlanPriceTile
+              label="Mixed"
+              price={prices.mixed}
+              enabled={
+                (plan.mealMode || "both") === "both"
+              }
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <PlanMetric
+              label="Duration"
+              value={`${plan.durationDays} days`}
+            />
+
+            <PlanMetric
+              label="Meal Slots"
+              value={`${countSelectedMeals(
+                plan.mealSets
+              )}`}
+            />
+
+            <PlanMetric
+              label="Plan Types"
+              value={
+                mealModeLabelMap[
+                  plan.mealMode || "both"
+                ]
+              }
+            />
+
+            <PlanMetric
+              label="Sort Order"
+              value={`${plan.sortOrder || 0}`}
+            />
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              <Edit3 size={15} />
+              Edit
+            </button>
+
+            <button
+              type="button"
+              onClick={onToggle}
+              className={`inline-flex h-10 items-center rounded-full border px-4 text-sm font-black ${
+                plan.isActive
+                  ? "border-yellow-200 text-yellow-700 hover:bg-yellow-50"
+                  : "border-green-200 text-green-700 hover:bg-green-50"
+              }`}
+            >
+              {plan.isActive
+                ? "Deactivate"
+                : "Activate"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setExpanded((current) => !current)
+              }
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              {expanded ? (
+                <ChevronUp size={15} />
+              ) : (
+                <ChevronDown size={15} />
+              )}
+
+              Details
+            </button>
+
+            <button
+              type="button"
+              onClick={onDelete}
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-red-200 px-4 text-sm font-black text-red-600 hover:bg-red-50"
+            >
+              <Trash2 size={15} />
+              Delete
+            </button>
+          </div>
+        </div>
       </div>
+
+      {expanded && (
+        <div className="border-t border-slate-200 bg-slate-50 p-4 sm:p-5">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <DetailPanel title="Description">
+              <p className="text-sm font-semibold leading-6 text-slate-600">
+                {plan.description ||
+                  "No description added."}
+              </p>
+            </DetailPanel>
+
+            <DetailPanel title="Benefits">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextList
+                  title="Perks"
+                  items={plan.perks || []}
+                />
+
+                <TextList
+                  title="Rewards"
+                  items={plan.rewards || []}
+                />
+              </div>
+            </DetailPanel>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {mealSetTabs.map((tab) => (
+              <div
+                key={tab.key}
+                className="border border-slate-200 bg-white p-4"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-black">
+                    {tab.short}
+                  </p>
+
+                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                    {countSelectedMealsInSet(
+                      plan.mealSets,
+                      tab.key
+                    )}
+                    /{plan.durationDays}
+                  </span>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {(plan.mealSets?.[tab.key] || []).map(
+                    (item) => (
+                      <div
+                        key={`${tab.key}-${item.day}`}
+                        className="flex gap-2 text-xs font-bold"
+                      >
+                        <span className="shrink-0 text-slate-400">
+                          Day {item.day}
+                        </span>
+
+                        <span className="truncate text-slate-700">
+                          {getMealTitle(item.meal) ||
+                            "No meal"}
+                        </span>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function MealDaySelector({
+  item,
+  mealOptions,
+  selectedMeal,
+  selectedMealId,
+  onChange,
+}: {
+  item: PlanMealDay;
+  mealOptions: MealOption[];
+  selectedMeal?: MealOption;
+  selectedMealId: string;
+  onChange: (mealId: string) => void;
+}) {
+  return (
+    <div className="border border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-black">
+            Day {item.day}
+          </p>
+
+          <p className="text-[11px] font-bold text-slate-400">
+            Select delivery meal
+          </p>
+        </div>
+
+        {selectedMeal?.foodType && (
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+              selectedMeal.foodType === "veg"
+                ? "bg-green-50 text-green-700"
+                : "bg-red-50 text-red-700"
+            }`}
+          >
+            {selectedMeal.foodType === "veg"
+              ? "Veg"
+              : "Non-Veg"}
+          </span>
+        )}
+      </div>
+
+      <select
+        value={selectedMealId}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="admin-input mt-3"
+      >
+        <option value="">Select meal</option>
+
+        {mealOptions.map((meal) => (
+          <option
+            key={meal._id}
+            value={meal._id}
+          >
+            {meal.title} · ₹{meal.price || 0}
+          </option>
+        ))}
+      </select>
+
+      {selectedMeal && (
+        <div className="mt-3 flex gap-3 bg-slate-50 p-3">
+          {selectedMeal.imageUrl && (
+            <img
+              src={selectedMeal.imageUrl}
+              alt={selectedMeal.title}
+              className="h-14 w-14 shrink-0 object-cover"
+            />
+          )}
+
+          <div className="min-w-0">
+            <p className="truncate text-xs font-black">
+              {selectedMeal.title}
+            </p>
+
+            <p className="mt-1 text-[11px] font-bold leading-5 text-slate-500">
+              {selectedMeal.calories || 0} kcal ·{" "}
+              {selectedMeal.protein || 0}g protein
+            </p>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function PlanDrawer({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Close plan editor"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/45"
+      />
+
+      <aside className="absolute bottom-0 right-0 flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:bottom-auto sm:top-0 sm:h-full sm:max-h-full sm:w-[680px] sm:rounded-none">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 sm:p-6">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-black tracking-[-0.04em]">
+              {title}
+            </h2>
+
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              {subtitle}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+          {children}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function DrawerSection({
+  number,
+  title,
+  description,
+  children,
+}: {
+  number: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="border border-slate-200 bg-white">
+      <div className="flex gap-3 border-b border-slate-200 bg-slate-50 p-4">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-600 text-xs font-black text-white">
+          {number}
+        </span>
+
+        <div>
+          <h3 className="text-base font-black">
+            {title}
+          </h3>
+
+          <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+            {description}
+          </p>
+        </div>
+      </div>
+
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
+function PriceInput({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label
+      className={`border p-3 ${
+        disabled
+          ? "border-slate-200 bg-slate-100 opacity-60"
+          : "border-green-100 bg-green-50"
+      }`}
+    >
+      <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+
+      <div className="mt-2 flex items-center border border-slate-200 bg-white">
+        <span className="px-3 font-black text-slate-500">
+          ₹
+        </span>
+
+        <input
+          type="number"
+          min="0"
+          value={value}
+          disabled={disabled}
+          onChange={(event) =>
+            onChange(event.target.value)
+          }
+          placeholder="0"
+          className="h-11 min-w-0 flex-1 bg-transparent pr-3 text-base font-black outline-none"
+        />
+      </div>
+    </label>
   );
 }
 
 function Field({
   label,
   children,
+  required,
   className = "",
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
+  required?: boolean;
   className?: string;
 }) {
   return (
     <label className={`block ${className}`}>
       <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
         {label}
+
+        {required && (
+          <span className="ml-1 text-red-500">
+            *
+          </span>
+        )}
       </span>
+
       {children}
     </label>
   );
 }
 
-function SectionTitle({ number, title }: { number: string; title: string }) {
+function DashboardStat({
+  label,
+  value,
+  icon,
+  accent,
+}: {
+  label: string;
+  value: string | number;
+  icon: ReactNode;
+  accent?: boolean;
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-sm font-black text-white">
-        {number}
-      </span>
-      <h3 className="text-lg font-black tracking-[-0.03em] text-slate-950">
-        {title}
-      </h3>
+    <div
+      className={`border p-4 shadow-sm ${
+        accent
+          ? "border-green-200 bg-green-50"
+          : "border-slate-200 bg-white"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className={`flex h-9 w-9 items-center justify-center rounded-full ${
+            accent
+              ? "bg-green-600 text-white"
+              : "bg-slate-100 text-slate-600"
+          }`}
+        >
+          {icon}
+        </span>
+
+        <p className="text-xl font-black tracking-[-0.05em] sm:text-2xl">
+          {value}
+        </p>
+      </div>
+
+      <p className="mt-3 text-[11px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
     </div>
   );
 }
 
-function StatCard({
+function FilterButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-10 shrink-0 rounded-full px-4 text-xs font-black transition ${
+        active
+          ? "bg-green-600 text-white"
+          : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PlanPriceTile({
   label,
-  value,
-  tone = "default",
+  price,
+  enabled,
 }: {
   label: string;
-  value: string | number;
-  tone?: "default" | "green";
+  price: number;
+  enabled: boolean;
 }) {
   return (
     <div
-      className={`rounded-2xl border p-4 shadow-sm ${
-        tone === "green"
-          ? "border-green-100 bg-green-50"
-          : "border-slate-200 bg-white"
+      className={`p-3 ${
+        enabled
+          ? "bg-green-50"
+          : "bg-slate-100 opacity-50"
       }`}
     >
-      <p
-        className={`text-sm font-bold ${
-          tone === "green" ? "text-green-700" : "text-slate-500"
-        }`}
-      >
+      <p className="truncate text-[10px] font-black uppercase tracking-wide text-slate-400">
         {label}
       </p>
-      <p
-        className={`mt-1 text-2xl font-black ${
-          tone === "green" ? "text-green-700" : "text-slate-950"
-        }`}
-      >
+
+      <p className="mt-1 text-sm font-black sm:text-base">
+        {enabled ? `₹${price || 0}` : "N/A"}
+      </p>
+    </div>
+  );
+}
+
+function PlanMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 bg-slate-50 px-3 py-2">
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 truncate text-xs font-black text-slate-800">
         {value}
       </p>
     </div>
   );
 }
 
-function PriceBadge({ label, price }: { label: string; price: number }) {
+function DetailPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-        {label}
+    <div className="border border-slate-200 bg-white p-4">
+      <p className="text-sm font-black">
+        {title}
       </p>
-      <p className="mt-1 text-lg font-black text-slate-950">₹{price || 0}</p>
+
+      <div className="mt-3">{children}</div>
     </div>
   );
 }
 
-function MiniBadge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-      {children}
-    </span>
-  );
-}
-
-function TextList({ title, items }: { title: string; items: string[] }) {
+function TextList({
+  title,
+  items,
+}: {
+  title: string;
+  items: string[];
+}) {
   return (
     <div>
-      <p className="text-sm font-black text-slate-900">{title}</p>
+      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+        {title}
+      </p>
 
       {items.length === 0 ? (
-        <p className="mt-1 text-xs font-semibold text-slate-400">No items</p>
+        <p className="mt-2 text-xs font-bold text-slate-400">
+          No items
+        </p>
       ) : (
-        <ul className="mt-1 list-inside list-disc text-xs font-semibold text-slate-600">
+        <ul className="mt-2 space-y-1 text-xs font-semibold leading-5 text-slate-600">
           {items.map((item) => (
-            <li key={item}>{item}</li>
+            <li
+              key={item}
+              className="flex gap-2"
+            >
+              <span className="text-green-600">
+                •
+              </span>
+
+              {item}
+            </li>
           ))}
         </ul>
       )}
@@ -1467,20 +2270,20 @@ function TextList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function CopyButton({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
+function EmptyState() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
-    >
-      {children}
-    </button>
+    <div className="border border-slate-200 bg-white p-10 text-center shadow-sm">
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-600">
+        <Utensils size={25} />
+      </span>
+
+      <h3 className="mt-4 text-xl font-black">
+        No plans found
+      </h3>
+
+      <p className="mt-2 text-sm font-bold text-slate-500">
+        Change the filters or create a new meal plan.
+      </p>
+    </div>
   );
 }
