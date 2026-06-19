@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  BadgePercent,
   Check,
   ChevronDown,
   ChevronUp,
@@ -18,12 +17,10 @@ import {
   Gift,
   IndianRupee,
   Layers3,
-  Leaf,
   Loader2,
   PackageCheck,
   RefreshCw,
   Search,
-  Star,
   Trash2,
   Utensils,
   X,
