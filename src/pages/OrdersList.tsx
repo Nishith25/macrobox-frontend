@@ -1,17 +1,28 @@
 // frontend/src/pages/OrdersList.tsx (FRONTEND)
 
-import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
-import api from "../api/api";
 import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  CheckCircle2,
   ChefHat,
   Clock,
-  CheckCircle2,
+  Flame,
   Loader2,
   PackageCheck,
+  RefreshCw,
   Search,
-  RefreshCcw,
+  ShoppingBag,
+  User,
+  X,
+  type LucideIcon,
 } from "lucide-react";
+import toast from "react-hot-toast";
+
+import api from "../api/api";
 
 type KitchenStatus = "pending" | "started_preparing" | "prepared";
 
@@ -123,11 +134,12 @@ type Order = {
   createdAt?: string;
 };
 
-const kitchenStatuses: {
+type StatusOption = {
   value: KitchenStatus;
   label: string;
-  icon: any;
-}[] = [
+  icon: LucideIcon;
+};
+const kitchenStatuses: StatusOption[] = [
   {
     value: "pending",
     label: "Pending",
@@ -135,7 +147,7 @@ const kitchenStatuses: {
   },
   {
     value: "started_preparing",
-    label: "Started Preparing",
+    label: "Preparing",
     icon: ChefHat,
   },
   {
@@ -147,14 +159,15 @@ const kitchenStatuses: {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-const formatCurrency = (value?: number) => `₹${Number(value || 0).toFixed(0)}`;
+const formatCurrency = (value?: number) =>
+  `₹${Number(value || 0).toFixed(0)}`;
 
 const readableStatus = (value?: string) => {
   if (!value) return "N/A";
 
   return value
     .replaceAll("_", " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 };
 
 const formatDateOnly = (value?: string) => {
@@ -162,13 +175,15 @@ const formatDateOnly = (value?: string) => {
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [year, month, day] = value.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
 
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return new Date(year, month - 1, day).toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
   }
 
   const date = new Date(value);
@@ -179,6 +194,19 @@ const formatDateOnly = (value?: string) => {
     day: "2-digit",
     month: "short",
     year: "numeric",
+  });
+};
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
   });
 };
 
@@ -195,18 +223,14 @@ const formatSlot = (slot?: string) => {
   return `${displayHour}:00 ${period}`;
 };
 
-const isPlanItem = (item?: OrderItem) => {
-  return (
-    item?.itemType === "plan" ||
-    item?.itemType === "challenge_plan" ||
-    Boolean(item?.planId) ||
-    Boolean(item?.challengeId)
-  );
-};
+const isPlanItem = (item?: OrderItem) =>
+  item?.itemType === "plan" ||
+  item?.itemType === "challenge_plan" ||
+  Boolean(item?.planId) ||
+  Boolean(item?.challengeId);
 
-const getPlanId = (item?: OrderItem) => {
-  return String(item?.planId || item?.challengeId || "").trim();
-};
+const getPlanId = (item?: OrderItem) =>
+  String(item?.planId || item?.challengeId || "").trim();
 
 const getNextPlanDay = (item: OrderItem) => {
   const planDays = item.planDays || [];
@@ -214,9 +238,13 @@ const getNextPlanDay = (item: OrderItem) => {
 
   return (
     planDays.find(
-      (day) => day.date === today && day.deliveryStatus !== "delivered"
+      (day) =>
+        day.date === today &&
+        day.deliveryStatus !== "delivered"
     ) ||
-    planDays.find((day) => day.deliveryStatus !== "delivered") ||
+    planDays.find(
+      (day) => day.deliveryStatus !== "delivered"
+    ) ||
     planDays[0] ||
     null
   );
@@ -226,21 +254,26 @@ const getSplitTotals = (order: Order) => {
   const items = order.items || [];
 
   const fallbackPlanSubtotal = items
-    .filter((item) => isPlanItem(item))
+    .filter(isPlanItem)
     .reduce(
       (sum, item) =>
-        sum + Number(item.price || 0) * Number(item.qty || item.quantity || 1),
+        sum +
+        Number(item.price || 0) *
+          Number(item.qty || item.quantity || 1),
       0
     );
 
   const subtotal = Number(order.totals?.subtotal || 0);
 
+  const savedPlanSubtotal = Number(
+    order.totals?.planSubtotal ||
+      order.totals?.challengePlanSubtotal ||
+      0
+  );
+
   const planSubtotal =
-    Number(order.totals?.planSubtotal || order.totals?.challengePlanSubtotal || 0) >
-    0
-      ? Number(
-          order.totals?.planSubtotal || order.totals?.challengePlanSubtotal || 0
-        )
+    savedPlanSubtotal > 0
+      ? savedPlanSubtotal
       : Math.round(fallbackPlanSubtotal);
 
   const normalMealsSubtotal =
@@ -257,27 +290,68 @@ const getSplitTotals = (order: Order) => {
   };
 };
 
+const getAddressText = (order: Order) => {
+  const address = order.delivery?.address;
+
+  if (!address) return "Address not available";
+  if (address.formattedAddress) return address.formattedAddress;
+  if (address.locationText) return address.locationText;
+
+  return (
+    [
+      address.flatNo,
+      address.floor,
+      address.buildingName,
+      address.area,
+      address.landmark,
+      address.city,
+      address.state,
+      address.pincode,
+    ]
+      .filter(Boolean)
+      .join(", ") || "Address not available"
+  );
+};
+
+const getStatusClass = (status: KitchenStatus) => {
+  if (status === "prepared") {
+    return "border-green-200 bg-green-50 text-green-700";
+  }
+
+  if (status === "started_preparing") {
+    return "border-orange-200 bg-orange-50 text-orange-700";
+  }
+
+  return "border-slate-200 bg-slate-100 text-slate-600";
+};
+
 export default function OrdersList() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState("");
+
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] =
+    useState<"all" | KitchenStatus>("all");
+
+  const [selectedOrder, setSelectedOrder] =
+    useState<Order | null>(null);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
 
-      const res = await api.get("/orderslist");
+      const response = await api.get("/orderslist");
 
-      const list = res.data?.orders || [];
-
-      setOrders(list);
-      setFilteredOrders(list);
+      setOrders(
+        Array.isArray(response.data?.orders)
+          ? response.data.orders
+          : []
+      );
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message || "Failed to load kitchen orders."
+        error?.response?.data?.message ||
+          "Failed to load kitchen orders."
       );
     } finally {
       setLoading(false);
@@ -288,64 +362,88 @@ export default function OrdersList() {
     fetchOrders();
   }, []);
 
-  useEffect(() => {
-    let list = [...orders];
+  const stats = useMemo(() => {
+    const pending = orders.filter(
+      (order) => (order.kitchenStatus || "pending") === "pending"
+    ).length;
 
-    if (search.trim()) {
-      const query = search.toLowerCase();
+    const preparing = orders.filter(
+      (order) =>
+        order.kitchenStatus === "started_preparing"
+    ).length;
 
-      list = list.filter((order) => {
-        const customerName = order.user?.name || "";
-        const phone = order.user?.phone || order.delivery?.address?.phone || "";
-        const email = order.user?.email || "";
-        const id = order._id || "";
-        const coupon = order.coupon?.code || "";
+    const prepared = orders.filter(
+      (order) => order.kitchenStatus === "prepared"
+    ).length;
 
-        const itemTitles =
-          order.items
-            ?.map((item) => {
-              const title =
-                item.title || item.meal?.title || item.meal?.name || "";
-              const planId = getPlanId(item);
+    const planOrders = orders.filter((order) =>
+      (order.items || []).some(isPlanItem)
+    ).length;
 
-              const planItems =
-                item.planItems
-                  ?.map((planItem) => planItem.title || "")
-                  .join(" ") || "";
+    return {
+      total: orders.length,
+      pending,
+      preparing,
+      prepared,
+      planOrders,
+    };
+  }, [orders]);
 
-              const planDays =
-                item.planDays
-                  ?.map(
-                    (day) =>
-                      `${day.selectedMealTitle || ""} ${
-                        day.alternativeMealTitle || ""
-                      } ${day.date || ""} ${day.slot || ""}`
-                  )
-                  .join(" ") || "";
+  const filteredOrders = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-              return `${title} ${planId} ${planItems} ${planDays}`;
-            })
-            .join(" ") || "";
+    return orders.filter((order) => {
+      const itemText = (order.items || [])
+        .map((item) => {
+          const title =
+            item.title ||
+            item.meal?.title ||
+            item.meal?.name ||
+            "";
 
-        return (
-          customerName.toLowerCase().includes(query) ||
-          phone.toLowerCase().includes(query) ||
-          email.toLowerCase().includes(query) ||
-          id.toLowerCase().includes(query) ||
-          coupon.toLowerCase().includes(query) ||
-          itemTitles.toLowerCase().includes(query)
-        );
-      });
-    }
+          const planItems = (item.planItems || [])
+            .map((planItem) => planItem.title || "")
+            .join(" ");
 
-    if (statusFilter !== "all") {
-      list = list.filter(
-        (order) => (order.kitchenStatus || "pending") === statusFilter
-      );
-    }
+          const planDays = (item.planDays || [])
+            .map(
+              (day) =>
+                `${day.selectedMealTitle || ""} ${
+                  day.date || ""
+                } ${day.slot || ""}`
+            )
+            .join(" ");
 
-    setFilteredOrders(list);
-  }, [search, statusFilter, orders]);
+          return `${title} ${getPlanId(
+            item
+          )} ${planItems} ${planDays}`;
+        })
+        .join(" ");
+
+      const matchesSearch =
+        !query ||
+        [
+          order._id,
+          order.user?.name,
+          order.user?.email,
+          order.user?.phone,
+          order.delivery?.address?.phone,
+          order.coupon?.code,
+          itemText,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+
+      const status = order.kitchenStatus || "pending";
+
+      const matchesStatus =
+        statusFilter === "all" || status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, search, statusFilter]);
 
   const updateKitchenStatus = async (
     orderId: string,
@@ -354,489 +452,758 @@ export default function OrdersList() {
     try {
       setUpdatingId(orderId);
 
-      const res = await api.patch(`/orderslist/${orderId}/kitchen-status`, {
-        kitchenStatus,
-      });
+      const response = await api.patch(
+        `/orderslist/${orderId}/kitchen-status`,
+        { kitchenStatus }
+      );
 
-      toast.success(res.data?.message || "Kitchen status updated.");
+      toast.success(
+        response.data?.message || "Kitchen status updated."
+      );
 
-      setOrders((prev) =>
-        prev.map((order) =>
+      setOrders((current) =>
+        current.map((order) =>
           order._id === orderId
             ? {
                 ...order,
                 kitchenStatus,
-                items: (order.items || []).map((item) => {
-                  if (!isPlanItem(item)) return item;
-
-                  return {
-                    ...item,
-                    planDays: (item.planDays || []).map((day) =>
-                      day.date === todayISO()
-                        ? {
-                            ...day,
-                            kitchenStatus,
-                          }
-                        : day
-                    ),
-                  };
-                }),
+                items: (order.items || []).map((item) =>
+                  !isPlanItem(item)
+                    ? item
+                    : {
+                        ...item,
+                        planDays: (item.planDays || []).map(
+                          (day) =>
+                            day.date === todayISO()
+                              ? {
+                                  ...day,
+                                  kitchenStatus,
+                                }
+                              : day
+                        ),
+                      }
+                ),
               }
             : order
         )
       );
+
+      setSelectedOrder((current) =>
+        current?._id === orderId
+          ? {
+              ...current,
+              kitchenStatus,
+            }
+          : current
+      );
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message || "Failed to update kitchen status."
+        error?.response?.data?.message ||
+          "Failed to update kitchen status."
       );
     } finally {
       setUpdatingId("");
     }
   };
 
-  const getAddressText = (order: Order) => {
-    const address = order.delivery?.address;
-
-    if (!address) return "No address available";
-
-    if (address.formattedAddress) return address.formattedAddress;
-    if (address.locationText) return address.locationText;
-
-    const parts = [
-      address.flatNo,
-      address.floor,
-      address.buildingName,
-      address.area,
-      address.landmark,
-      address.city,
-      address.state,
-      address.pincode,
-    ].filter(Boolean);
-
-    return parts.length ? parts.join(", ") : "Address available";
-  };
-
-  const getStatusLabel = (status?: KitchenStatus) => {
-    if (status === "started_preparing") return "Started Preparing";
-    if (status === "prepared") return "Prepared";
-    return "Pending";
-  };
-
-  const getStatusClass = (status?: KitchenStatus) => {
-    if (status === "prepared") {
-      return "border-green-200 bg-green-100 text-green-700";
-    }
-
-    if (status === "started_preparing") {
-      return "border-orange-200 bg-orange-100 text-orange-700";
-    }
-
-    return "border-gray-200 bg-gray-100 text-gray-700";
-  };
-
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-green-50">
-        <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-4 shadow">
-          <Loader2 className="animate-spin text-green-600" />
-          <span className="font-semibold text-gray-700">
-            Loading kitchen orders...
-          </span>
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f7f7] px-4">
+        <div className="flex items-center gap-3 border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-700">
+          <Loader2 className="animate-spin text-green-600" size={20} />
+          Loading kitchen orders...
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-green-50 px-4 py-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-8 rounded-3xl border bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <main className="min-h-screen bg-[#f7f7f7] pb-12 text-slate-950">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1220px] px-4 py-8 sm:px-6 sm:py-10">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="mb-2 inline-flex rounded-full bg-orange-100 px-4 py-2 text-sm font-bold text-orange-700">
-                Kitchen Dashboard
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-orange-500">
+                MacroBox Kitchen
               </p>
 
-              <h1 className="text-3xl font-extrabold text-gray-900">
+              <h1 className="mt-4 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
                 Kitchen Orders
               </h1>
 
-              <p className="mt-2 text-sm text-gray-500">
-                Chef and admin can view today&apos;s meals, plan meals and
-                update preparation status.
+              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:text-base">
+                View today&apos;s meal requirements and update preparation
+                progress before pickup.
               </p>
             </div>
 
             <button
+              type="button"
               onClick={fetchOrders}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-bold text-white hover:bg-green-700"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700"
             >
-              <RefreshCcw size={17} />
+              <RefreshCw size={16} />
               Refresh Orders
             </button>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-[1fr_240px]">
+          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <DashboardStat
+              label="Total Orders"
+              value={stats.total}
+              icon={<ShoppingBag size={18} />}
+            />
+
+            <DashboardStat
+              label="Pending"
+              value={stats.pending}
+              icon={<Clock size={18} />}
+            />
+
+            <DashboardStat
+              label="Preparing"
+              value={stats.preparing}
+              icon={<Flame size={18} />}
+            />
+
+            <DashboardStat
+              label="Prepared"
+              value={stats.prepared}
+              icon={<PackageCheck size={18} />}
+              accent
+            />
+
+            <DashboardStat
+              label="Plan Orders"
+              value={stats.planOrders}
+              icon={<ChefHat size={18} />}
+            />
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1220px] px-4 py-6 sm:px-6">
+        <section className="border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="grid gap-3 md:grid-cols-[1fr_220px]">
             <div className="relative">
               <Search
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                size={17}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
 
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by customer, phone, email, coupon, item, plan or order ID"
-                className="h-12 w-full rounded-xl border bg-white pl-11 pr-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                placeholder="Search order, customer, coupon or meal..."
+                className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-11 text-sm font-bold outline-none focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
               />
+
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100"
+                >
+                  <X size={15} />
+                </button>
+              )}
             </div>
 
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-12 rounded-xl border bg-white px-4 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value as "all" | KitchenStatus
+                )
+              }
+              className="admin-input"
             >
-              <option value="all">All statuses</option>
+              <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
-              <option value="started_preparing">Started Preparing</option>
+              <option value="started_preparing">
+                Started Preparing
+              </option>
               <option value="prepared">Prepared</option>
             </select>
           </div>
-        </div>
+        </section>
 
-        {filteredOrders.length === 0 ? (
-          <div className="rounded-3xl border bg-white p-10 text-center shadow-sm">
-            <ChefHat className="mx-auto mb-4 text-orange-600" size={42} />
-
-            <h2 className="text-xl font-bold text-gray-900">
-              No kitchen orders found
+        <section className="mt-6">
+          <div className="mb-4">
+            <h2 className="text-2xl font-black tracking-[-0.04em]">
+              Preparation Queue
             </h2>
 
-            <p className="mt-2 text-sm text-gray-500">
-              Paid customer orders and plan meals will appear here.
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              {filteredOrders.length} order
+              {filteredOrders.length === 1 ? "" : "s"} shown
             </p>
           </div>
-        ) : (
-          <div className="grid gap-5">
-            {filteredOrders.map((order) => {
-              const currentKitchenStatus = order.kitchenStatus || "pending";
-              const items = order.items || [];
-              const splitTotals = getSplitTotals(order);
-              const customerName =
-                order.user?.name ||
-                order.delivery?.address?.fullName ||
-                "Customer";
-              const phone =
-                order.user?.phone ||
-                order.delivery?.address?.phone ||
-                "No phone";
+
+          {filteredOrders.length === 0 ? (
+            <EmptyKitchen />
+          ) : (
+            <div className="grid gap-4">
+              {filteredOrders.map((order) => (
+                <KitchenOrderCard
+                  key={order._id}
+                  order={order}
+                  updating={updatingId === order._id}
+                  onView={() => setSelectedOrder(order)}
+                  onUpdate={(status) =>
+                    updateKitchenStatus(order._id, status)
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {selectedOrder && (
+        <KitchenOrderDrawer
+          order={selectedOrder}
+          updating={updatingId === selectedOrder._id}
+          onClose={() => setSelectedOrder(null)}
+          onUpdate={(status) =>
+            updateKitchenStatus(selectedOrder._id, status)
+          }
+        />
+      )}
+    </main>
+  );
+}
+
+function KitchenOrderCard({
+  order,
+  updating,
+  onView,
+  onUpdate,
+}: {
+  order: Order;
+  updating: boolean;
+  onView: () => void;
+  onUpdate: (status: KitchenStatus) => void;
+}) {
+  const status = order.kitchenStatus || "pending";
+  const totals = getSplitTotals(order);
+  const items = order.items || [];
+
+  const customerName =
+    order.user?.name ||
+    order.delivery?.address?.fullName ||
+    "Customer";
+
+  return (
+    <article className="border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200 sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center bg-orange-50 text-orange-600">
+          <ChefHat size={28} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-black">
+                  {customerName}
+                </h3>
+
+                <span
+                  className={`rounded-full border px-3 py-1 text-[11px] font-black ${getStatusClass(
+                    status
+                  )}`}
+                >
+                  {readableStatus(status)}
+                </span>
+
+                {order.payment?.status && (
+                  <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-black text-blue-700">
+                    Payment: {readableStatus(order.payment.status)}
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-2 break-all text-xs font-bold text-slate-400">
+                #{order._id}
+              </p>
+
+              <p className="mt-2 line-clamp-1 text-sm font-bold text-slate-500">
+                {getAddressText(order)}
+              </p>
+            </div>
+
+            <div className="shrink-0 lg:text-right">
+              <p className="text-3xl font-black tracking-[-0.05em]">
+                {formatCurrency(totals.payable)}
+              </p>
+
+              <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                Total Payable
+              </p>
+            </div>
+          </div>
+
+          <div className="my-4 border-t border-dashed border-slate-200" />
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Metric
+              label="Kitchen Items"
+              value={String(items.length)}
+            />
+
+            <Metric
+              label="Delivery Date"
+              value={formatDateOnly(
+                order.delivery?.slot?.date
+              )}
+            />
+
+            <Metric
+              label="Delivery Time"
+              value={formatSlot(order.delivery?.slot?.time)}
+            />
+
+            <Metric
+              label="Ordered"
+              value={formatDateTime(order.createdAt)}
+            />
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {kitchenStatuses.map((option) => {
+                const Icon = option.icon;
+                const active = status === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onUpdate(option.value)}
+                    disabled={updating || active}
+                    className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-xs font-black transition disabled:opacity-60 ${
+                      active
+                        ? "border-green-600 bg-green-600 text-white"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-green-300"
+                    }`}
+                  >
+                    {updating ? (
+                      <Loader2
+                        size={15}
+                        className="animate-spin"
+                      />
+                    ) : active ? (
+                      <CheckCircle2 size={15} />
+                    ) : (
+                      <Icon size={15} />
+                    )}
+
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={onView}
+              className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 px-5 text-xs font-black text-slate-700 hover:bg-slate-50"
+            >
+              View Items
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function KitchenOrderDrawer({
+  order,
+  updating,
+  onClose,
+  onUpdate,
+}: {
+  order: Order;
+  updating: boolean;
+  onClose: () => void;
+  onUpdate: (status: KitchenStatus) => void;
+}) {
+  const totals = getSplitTotals(order);
+  const status = order.kitchenStatus || "pending";
+
+  const customerName =
+    order.user?.name ||
+    order.delivery?.address?.fullName ||
+    "Customer";
+
+  const phone =
+    order.user?.phone ||
+    order.delivery?.address?.phone ||
+    "No phone";
+
+  return (
+    <Drawer
+      title="Kitchen Order"
+      subtitle={`Order #${order._id}`}
+      onClose={onClose}
+    >
+      <div className="space-y-5">
+        <section className="border border-slate-200 p-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-50 text-orange-600">
+              <User size={20} />
+            </span>
+
+            <div>
+              <p className="font-black">{customerName}</p>
+
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                {phone}
+              </p>
+
+              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+                {getAddressText(order)}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid grid-cols-2 gap-3">
+          <DetailBox
+            label="Status"
+            value={readableStatus(status)}
+          />
+
+          <DetailBox
+            label="Payable"
+            value={formatCurrency(totals.payable)}
+          />
+
+          <DetailBox
+            label="Delivery Date"
+            value={formatDateOnly(order.delivery?.slot?.date)}
+          />
+
+          <DetailBox
+            label="Delivery Time"
+            value={formatSlot(order.delivery?.slot?.time)}
+          />
+        </div>
+
+        <section className="border border-slate-200 p-4">
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+            Billing
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <DetailBox
+              label="Meals"
+              value={formatCurrency(
+                totals.normalMealsSubtotal
+              )}
+            />
+
+            <DetailBox
+              label="Plans"
+              value={formatCurrency(totals.planSubtotal)}
+            />
+
+            <DetailBox
+              label="Discount"
+              value={`-${formatCurrency(totals.discount)}`}
+            />
+
+            <DetailBox
+              label="Payable"
+              value={formatCurrency(totals.payable)}
+            />
+          </div>
+        </section>
+
+        <section className="border border-slate-200 p-4">
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+            Today&apos;s Kitchen Items
+          </p>
+
+          <div className="space-y-3">
+            {(order.items || []).map((item, index) => (
+              <KitchenItemCard
+                key={item._id || index}
+                item={item}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="border border-slate-200 p-4">
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+            Preparation Status
+          </p>
+
+          <div className="grid gap-2">
+            {kitchenStatuses.map((option) => {
+              const Icon = option.icon;
+              const active = status === option.value;
 
               return (
-                <div
-                  key={order._id}
-                  className="rounded-3xl border bg-white p-5 shadow-sm"
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onUpdate(option.value)}
+                  disabled={updating || active}
+                  className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border text-sm font-black ${
+                    active
+                      ? "border-green-600 bg-green-600 text-white"
+                      : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
                 >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-xl font-extrabold text-gray-900">
-                          #{order._id.slice(-8).toUpperCase()}
-                        </h2>
+                  {updating ? (
+                    <Loader2
+                      className="animate-spin"
+                      size={16}
+                    />
+                  ) : active ? (
+                    <CheckCircle2 size={16} />
+                  ) : (
+                    <Icon size={16} />
+                  )}
 
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-bold ${getStatusClass(
-                            currentKitchenStatus
-                          )}`}
-                        >
-                          {getStatusLabel(currentKitchenStatus)}
-                        </span>
-
-                        {order.payment?.status && (
-                          <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                            Payment: {order.payment.status}
-                          </span>
-                        )}
-
-                        {order.delivery?.status && (
-                          <span className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
-                            Delivery: {readableStatus(order.delivery.status)}
-                          </span>
-                        )}
-
-                        {order.coupon?.code && (
-                          <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-                            Coupon: {order.coupon.code}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-3 grid gap-1 text-sm text-gray-600">
-                        <p>
-                          <span className="font-semibold text-gray-900">
-                            Customer:
-                          </span>{" "}
-                          {customerName}
-                        </p>
-
-                        <p>
-                          <span className="font-semibold text-gray-900">
-                            Phone:
-                          </span>{" "}
-                          {phone}
-                        </p>
-
-                        <p>
-                          <span className="font-semibold text-gray-900">
-                            Address:
-                          </span>{" "}
-                          {getAddressText(order)}
-                        </p>
-
-                        <p>
-                          <span className="font-semibold text-gray-900">
-                            Main Slot:
-                          </span>{" "}
-                          {order.delivery?.slot?.date || "N/A"}{" "}
-                          {order.delivery?.slot?.time || ""}
-                        </p>
-
-                        <p>
-                          <span className="font-semibold text-gray-900">
-                            Ordered:
-                          </span>{" "}
-                          {order.createdAt
-                            ? new Date(order.createdAt).toLocaleString()
-                            : "N/A"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-green-50 px-5 py-4 text-right">
-                      <p className="text-xs font-semibold text-gray-500">
-                        Total Payable
-                      </p>
-
-                      <p className="text-2xl font-extrabold text-green-700">
-                        {formatCurrency(splitTotals.payable)}
-                      </p>
-
-                      {splitTotals.discount > 0 && (
-                        <p className="mt-1 text-xs font-bold text-green-700">
-                          Plan discount -₹{splitTotals.discount}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border bg-gray-50 p-4">
-                    <h3 className="mb-3 font-bold text-gray-900">
-                      Billing Breakdown
-                    </h3>
-
-                    <div className="grid gap-3 md:grid-cols-4">
-                      <BillingBox
-                        label="Meals"
-                        value={formatCurrency(splitTotals.normalMealsSubtotal)}
-                      />
-
-                      <BillingBox
-                        label="Plans"
-                        value={formatCurrency(splitTotals.planSubtotal)}
-                      />
-
-                      <BillingBox
-                        label="Plan Discount"
-                        value={`-₹${splitTotals.discount}`}
-                        green
-                      />
-
-                      <BillingBox
-                        label="Payable"
-                        value={formatCurrency(splitTotals.payable)}
-                        bold
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border bg-gray-50 p-4">
-                    <h3 className="mb-3 font-bold text-gray-900">
-                      Today&apos;s Kitchen Items
-                    </h3>
-
-                    {items.length === 0 ? (
-                      <p className="text-sm text-gray-500">No items found.</p>
-                    ) : (
-                      <div className="grid gap-3">
-                        {items.map((item, index) => (
-                          <KitchenItemCard key={item._id || index} item={item} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    {kitchenStatuses.map((status) => {
-                      const Icon = status.icon;
-                      const isActive = currentKitchenStatus === status.value;
-
-                      return (
-                        <button
-                          key={status.value}
-                          onClick={() =>
-                            updateKitchenStatus(order._id, status.value)
-                          }
-                          disabled={updatingId === order._id || isActive}
-                          className={`inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition ${
-                            isActive
-                              ? "border-green-600 bg-green-600 text-white"
-                              : "border-gray-200 bg-white text-gray-700 hover:border-green-500 hover:text-green-700"
-                          } disabled:cursor-not-allowed disabled:opacity-70`}
-                        >
-                          {updatingId === order._id ? (
-                            <Loader2 size={17} className="animate-spin" />
-                          ) : isActive ? (
-                            <CheckCircle2 size={17} />
-                          ) : (
-                            <Icon size={17} />
-                          )}
-
-                          {status.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                  {option.label}
+                </button>
               );
             })}
           </div>
-        )}
+        </section>
       </div>
-    </div>
+    </Drawer>
   );
 }
 
 function KitchenItemCard({ item }: { item: OrderItem }) {
-  const isPlan = isPlanItem(item);
-  const nextPlanDay = isPlan ? getNextPlanDay(item) : null;
+  const plan = isPlanItem(item);
+  const nextPlanDay = plan ? getNextPlanDay(item) : null;
   const planId = getPlanId(item);
 
-  if (isPlan && nextPlanDay) {
+  if (plan && nextPlanDay) {
     return (
-      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="border border-green-200 bg-green-50 p-3">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-bold text-gray-900">
-                Day {nextPlanDay.day}:{" "}
-                {nextPlanDay.selectedMealTitle || "Plan Meal"}
-              </p>
+            <p className="text-sm font-black">
+              Day {nextPlanDay.day}:{" "}
+              {nextPlanDay.selectedMealTitle || "Plan Meal"}
+            </p>
 
-              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-green-700">
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-green-700">
                 Meal Plan
               </span>
 
               {planId && (
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">
+                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-700">
                   {planId}
                 </span>
               )}
-
-              <span className="rounded-full bg-orange-50 px-3 py-1 text-[11px] font-bold text-orange-700">
-                {readableStatus(nextPlanDay.kitchenStatus || "pending")}
-              </span>
             </div>
+          </div>
 
-            <p className="mt-1 text-xs font-semibold text-gray-500">
-              Delivery: {formatDateOnly(nextPlanDay.date)} •{" "}
-              {formatSlot(nextPlanDay.slot)}
-            </p>
-
-            <p className="mt-1 text-xs font-semibold text-gray-500">
-              Preference: {nextPlanDay.preference || "mixed"}
-            </p>
-
-            {nextPlanDay.alternativeMealTitle && (
-              <p className="mt-1 text-xs font-semibold text-gray-500">
-                Alternative: {nextPlanDay.alternativeMealTitle}
-              </p>
+          <p className="text-sm font-black">
+            {formatCurrency(
+              nextPlanDay.selectedMealPrice
             )}
-          </div>
-
-          <div className="text-left md:text-right">
-            <p className="font-bold text-gray-900">
-              {formatCurrency(nextPlanDay.selectedMealPrice)}
-            </p>
-
-            <p className="text-xs text-gray-500">
-              {nextPlanDay.selectedMealCalories || 0} kcal |{" "}
-              {nextPlanDay.selectedMealProtein || 0}g protein
-            </p>
-          </div>
+          </p>
         </div>
+
+        <p className="mt-3 text-xs font-bold text-slate-500">
+          {formatDateOnly(nextPlanDay.date)} ·{" "}
+          {formatSlot(nextPlanDay.slot)} ·{" "}
+          {nextPlanDay.preference || "mixed"}
+        </p>
+
+        <p className="mt-1 text-xs font-bold text-slate-500">
+          {nextPlanDay.selectedMealCalories || 0} kcal ·{" "}
+          {nextPlanDay.selectedMealProtein || 0}g protein
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl bg-white px-4 py-3 text-sm md:flex-row md:items-center md:justify-between">
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="font-bold text-gray-800">
-            {item.title || item.meal?.title || item.meal?.name || "Meal Item"}
+    <div className="border border-slate-200 bg-slate-50 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-black">
+            {item.title ||
+              item.meal?.title ||
+              item.meal?.name ||
+              "Meal Item"}
           </p>
 
-          {isPlan && (
-            <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-bold text-green-700">
-              Meal Plan
-            </span>
-          )}
-
-          {isPlan && planId && (
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">
-              {planId}
-            </span>
-          )}
+          <p className="mt-1 text-xs font-bold text-slate-500">
+            Quantity: {item.qty || item.quantity || 1}
+          </p>
         </div>
 
-        <p className="mt-1 text-xs text-gray-500">
-          Qty: {item.qty || item.quantity || 1}
+        <p className="text-sm font-black">
+          {formatCurrency(item.price)}
         </p>
       </div>
 
-      <div className="text-left md:text-right">
-        <p className="font-bold text-gray-900">
-          ₹{Number(item.price || 0).toFixed(2)}
-        </p>
-
-        <p className="text-xs text-gray-500">
-          {item.calories || 0} kcal | {item.protein || 0}g protein
-        </p>
-      </div>
+      <p className="mt-2 text-xs font-bold text-slate-500">
+        {item.calories || 0} kcal · {item.protein || 0}g protein
+      </p>
     </div>
   );
 }
 
-function BillingBox({
+/* Shared components */
+
+function DashboardStat({
   label,
   value,
-  green,
-  bold,
+  icon,
+  accent,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`border p-4 shadow-sm ${
+        accent
+          ? "border-green-200 bg-green-50"
+          : "border-slate-200 bg-white"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className={`flex h-9 w-9 items-center justify-center rounded-full ${
+            accent
+              ? "bg-green-600 text-white"
+              : "bg-slate-100 text-slate-600"
+          }`}
+        >
+          {icon}
+        </span>
+
+        <p className="text-2xl font-black tracking-[-0.05em]">
+          {value}
+        </p>
+      </div>
+
+      <p className="mt-3 text-[11px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
 }: {
   label: string;
   value: string;
-  green?: boolean;
-  bold?: boolean;
 }) {
   return (
-    <div className="rounded-xl bg-white p-3">
-      <p className="text-xs font-medium text-gray-500">{label}</p>
+    <div className="min-w-0 bg-slate-50 p-3">
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
 
-      <p
-        className={`mt-1 text-base ${
-          bold ? "font-extrabold" : "font-bold"
-        } ${green ? "text-green-700" : "text-gray-900"}`}
-      >
+      <p className="mt-1 line-clamp-2 text-xs font-black">
         {value}
+      </p>
+    </div>
+  );
+}
+
+function DetailBox({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="border border-slate-200 bg-slate-50 p-3">
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 text-sm font-black">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function Drawer({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/45"
+      />
+
+      <aside className="absolute bottom-0 right-0 flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:bottom-auto sm:top-0 sm:h-full sm:max-h-full sm:w-[620px] sm:rounded-none">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-black tracking-[-0.04em]">
+              {title}
+            </h2>
+
+            <p className="mt-1 break-all text-sm font-bold text-slate-500">
+              {subtitle}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5">
+          {children}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function EmptyKitchen() {
+  return (
+    <div className="border border-slate-200 bg-white p-10 text-center">
+      <ChefHat
+        className="mx-auto text-orange-500"
+        size={42}
+      />
+
+      <h3 className="mt-4 text-xl font-black">
+        No kitchen orders found
+      </h3>
+
+      <p className="mt-2 text-sm font-bold text-slate-500">
+        Paid meal and plan orders will appear here.
       </p>
     </div>
   );
