@@ -1,18 +1,27 @@
 // frontend/src/pages/DeliveryDashboard.tsx (FRONTEND)
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
 import {
   CalendarClock,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleDot,
+  Clock,
   IndianRupee,
+  Loader2,
   MapPin,
   Navigation,
   PackageCheck,
+  Phone,
   RefreshCw,
   Route,
   Search,
+  Truck,
   User,
+  X,
 } from "lucide-react";
 
 type PlanDay = {
@@ -170,6 +179,13 @@ const LOCATION_SEND_THROTTLE_MS = 10000;
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+const todayText = () =>
+  new Date().toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
 function formatCurrency(amount?: number) {
   return `₹${Number(amount || 0).toFixed(0)}`;
 }
@@ -178,6 +194,7 @@ function formatDateTime(value?: string | null) {
   if (!value) return "N/A";
 
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) return "N/A";
 
   return date.toLocaleString("en-IN", {
@@ -201,6 +218,7 @@ function formatDateOnly(value?: string) {
   }
 
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) return value;
 
   return date.toLocaleDateString("en-IN", {
@@ -224,7 +242,7 @@ function formatSlot(slot?: string) {
 }
 
 function readableStatus(status?: string) {
-  if (!status) return "N/A";
+  if (!status) return "Unassigned";
 
   return status
     .replaceAll("_", " ")
@@ -234,33 +252,33 @@ function readableStatus(status?: string) {
 function getStatusBadgeClass(status?: string) {
   switch (status) {
     case "accepted":
-      return "bg-blue-50 text-blue-700 border-blue-100";
+      return "border-blue-200 bg-blue-50 text-blue-700";
     case "picked_up":
-      return "bg-indigo-50 text-indigo-700 border-indigo-100";
+      return "border-indigo-200 bg-indigo-50 text-indigo-700";
     case "out_for_delivery":
-      return "bg-orange-50 text-orange-700 border-orange-100";
+      return "border-orange-200 bg-orange-50 text-orange-700";
     case "delivered":
-      return "bg-green-50 text-green-700 border-green-100";
+      return "border-green-200 bg-green-50 text-green-700";
     case "cancelled":
-      return "bg-red-50 text-red-700 border-red-100";
+      return "border-red-200 bg-red-50 text-red-700";
     default:
-      return "bg-gray-50 text-gray-700 border-gray-100";
+      return "border-slate-200 bg-slate-50 text-slate-600";
   }
 }
 
 function getPaymentBadgeClass(status?: string) {
   switch (status) {
     case "paid":
-      return "bg-green-50 text-green-700 border-green-100";
+      return "border-green-200 bg-green-50 text-green-700";
     case "failed":
-      return "bg-red-50 text-red-700 border-red-100";
+      return "border-red-200 bg-red-50 text-red-700";
     default:
-      return "bg-yellow-50 text-yellow-700 border-yellow-100";
+      return "border-yellow-200 bg-yellow-50 text-yellow-700";
   }
 }
 
 function formatAddress(address?: DeliveryAddress) {
-  if (!address) return "N/A";
+  if (!address) return "Address not available";
 
   if (address.formattedAddress) return address.formattedAddress;
 
@@ -275,7 +293,7 @@ function formatAddress(address?: DeliveryAddress) {
     address.pincode,
   ].filter(Boolean);
 
-  return parts.join(", ") || "N/A";
+  return parts.join(", ") || "Address not available";
 }
 
 function getMapsUrl(address?: DeliveryAddress) {
@@ -284,6 +302,7 @@ function getMapsUrl(address?: DeliveryAddress) {
   if (address.mapsUrl) return address.mapsUrl;
 
   const query = address.formattedAddress || address.locationText;
+
   if (!query) return "";
 
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -330,17 +349,24 @@ function getSplitTotals(order: Order) {
 
   const subtotal = Number(order.totals?.subtotal || 0);
 
+  const savedPlanSubtotal = Number(
+    order.totals?.planSubtotal ||
+      order.totals?.challengePlanSubtotal ||
+      0
+  );
+
   const planSubtotal =
-    Number(order.totals?.planSubtotal || order.totals?.challengePlanSubtotal || 0) >
-    0
-      ? Number(
-          order.totals?.planSubtotal || order.totals?.challengePlanSubtotal || 0
-        )
+    savedPlanSubtotal > 0
+      ? savedPlanSubtotal
       : Math.round(fallbackPlanSubtotal);
 
+  const savedNormalMealsSubtotal = Number(
+    order.totals?.normalMealsSubtotal || 0
+  );
+
   const normalMealsSubtotal =
-    Number(order.totals?.normalMealsSubtotal || 0) > 0
-      ? Number(order.totals?.normalMealsSubtotal || 0)
+    savedNormalMealsSubtotal > 0
+      ? savedNormalMealsSubtotal
       : Math.max(subtotal - planSubtotal, 0);
 
   return {
@@ -354,6 +380,7 @@ function getSplitTotals(order: Order) {
 
 function matchesSearch(order: Order, query: string) {
   const q = query.trim().toLowerCase();
+
   if (!q) return true;
 
   const address = formatAddress(order.delivery?.address);
@@ -363,6 +390,7 @@ function matchesSearch(order: Order, query: string) {
       ?.map((item) => {
         const title = item.title || "";
         const planId = getPlanId(item);
+
         const planItems =
           item.planItems?.map((planItem) => planItem.title || "").join(" ") ||
           "";
@@ -401,6 +429,28 @@ function matchesSearch(order: Order, query: string) {
   return haystack.includes(q);
 }
 
+function getOrderItemCount(order: Order) {
+  return (order.items || []).reduce(
+    (sum, item) => sum + Number(item.qty || 1),
+    0
+  );
+}
+
+function getNextDeliveryText(order: Order) {
+  const planItem = (order.items || []).find((item) => isPlanItem(item));
+  const planDay = planItem ? getNextPlanDay(planItem) : null;
+
+  if (planDay) {
+    return `Day ${planDay.day || 1} · ${
+      planDay.selectedMealTitle || "Plan Meal"
+    }`;
+  }
+
+  const firstItem = order.items?.[0];
+
+  return firstItem?.title || "Meal Delivery";
+}
+
 export default function DeliveryDashboard() {
   const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
@@ -410,6 +460,11 @@ export default function DeliveryDashboard() {
   const [loading, setLoading] = useState(true);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+
+  const [selectedAvailableOrder, setSelectedAvailableOrder] =
+    useState<Order | null>(null);
+
+  const [selectedMyOrder, setSelectedMyOrder] = useState<Order | null>(null);
 
   const watchIdsRef = useRef<Record<string, number>>({});
   const lastSentRef = useRef<Record<string, number>>({});
@@ -426,6 +481,7 @@ export default function DeliveryDashboard() {
       setAvailableOrders(
         Array.isArray(availableRes.data) ? availableRes.data : []
       );
+
       setMyOrders(Array.isArray(myOrdersRes.data) ? myOrdersRes.data : []);
     } catch (error) {
       console.error("Failed to fetch delivery orders:", error);
@@ -456,15 +512,34 @@ export default function DeliveryDashboard() {
     return myOrders.filter((order) => matchesSearch(order, search));
   }, [myOrders, search]);
 
+  const activeDeliveries = useMemo(() => {
+    return myOrders.filter(
+      (order) =>
+        order.delivery?.status !== "delivered" &&
+        order.delivery?.status !== "cancelled"
+    ).length;
+  }, [myOrders]);
+
+  const completedDeliveries = useMemo(() => {
+    return myOrders.filter(
+      (order) => order.delivery?.status === "delivered"
+    ).length;
+  }, [myOrders]);
+
   const acceptOrder = async (orderId: string) => {
     try {
       setBusyOrderId(orderId);
+
       await api.post(`/delivery/${orderId}/accept`);
       await fetchOrders();
+
+      setSelectedAvailableOrder(null);
       setActiveTab("my");
+
       alert("Order accepted successfully.");
     } catch (error: any) {
       console.error("Accept order error:", error);
+
       alert(error?.response?.data?.message || "Failed to accept order.");
     } finally {
       setBusyOrderId(null);
@@ -474,6 +549,7 @@ export default function DeliveryDashboard() {
   const updateStatus = async (orderId: string, status: string) => {
     try {
       setBusyOrderId(orderId);
+
       await api.post(`/delivery/${orderId}/status`, { status });
 
       if (status === "delivered" || status === "cancelled") {
@@ -481,16 +557,32 @@ export default function DeliveryDashboard() {
 
         if (watchId) {
           navigator.geolocation.clearWatch(watchId);
+
           delete watchIdsRef.current[orderId];
           delete lastSentRef.current[orderId];
         }
 
-        setTrackingOrderId((current) => (current === orderId ? null : current));
+        setTrackingOrderId((current) =>
+          current === orderId ? null : current
+        );
       }
 
       await fetchOrders();
+
+      setSelectedMyOrder((current) =>
+        current?._id === orderId
+          ? {
+              ...current,
+              delivery: {
+                ...current.delivery,
+                status,
+              },
+            }
+          : current
+      );
     } catch (error: any) {
       console.error("Update status error:", error);
+
       alert(error?.response?.data?.message || "Failed to update status.");
     } finally {
       setBusyOrderId(null);
@@ -540,15 +632,22 @@ export default function DeliveryDashboard() {
       },
       (error) => {
         console.error("Geolocation watch error:", error);
+
         alert("Unable to get live location. Please allow location access.");
 
         if (watchIdsRef.current[orderId]) {
-          navigator.geolocation.clearWatch(watchIdsRef.current[orderId]);
+          navigator.geolocation.clearWatch(
+            watchIdsRef.current[orderId]
+          );
+
           delete watchIdsRef.current[orderId];
         }
 
         delete lastSentRef.current[orderId];
-        setTrackingOrderId((current) => (current === orderId ? null : current));
+
+        setTrackingOrderId((current) =>
+          current === orderId ? null : current
+        );
       },
       {
         enableHighAccuracy: true,
@@ -568,6 +667,7 @@ export default function DeliveryDashboard() {
 
     if (watchId) {
       navigator.geolocation.clearWatch(watchId);
+
       delete watchIdsRef.current[orderId];
     }
 
@@ -580,111 +680,196 @@ export default function DeliveryDashboard() {
     alert("Live tracking stopped.");
   };
 
-  const isTracking = (orderId: string) => Boolean(watchIdsRef.current[orderId]);
+  const isTracking = (orderId: string) =>
+    Boolean(watchIdsRef.current[orderId]);
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-white px-4">
+        <div className="flex items-center gap-3 border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
+          <Loader2 className="animate-spin text-green-600" size={19} />
+          Loading delivery dashboard...
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6">
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Delivery Dashboard
-          </h1>
+    <main className="min-h-screen bg-white pb-10 text-slate-950">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6 sm:py-10">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.38em] text-slate-400 sm:tracking-[0.45em]">
+                MacroBox Delivery
+              </p>
 
-          <p className="mt-2 text-gray-600">
-            Accept orders, manage assigned deliveries and update live tracking.
-          </p>
+              <h1 className="mt-5 text-4xl font-black leading-[0.95] tracking-[-0.06em] text-slate-950 sm:mt-6 sm:text-6xl">
+                Manage your
+                <br />
+                deliveries
+              </h1>
+
+              <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:mt-5 sm:text-base sm:leading-7">
+                Accept available orders, update delivery progress and share
+                live location with customers.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+              <HeaderStat
+                label="Available"
+                value={`${availableOrders.length}`}
+              />
+
+              <HeaderStat
+                label="Active"
+                value={`${activeDeliveries}`}
+                accent
+              />
+
+              <HeaderStat
+                label="Delivered"
+                value={`${completedDeliveries}`}
+              />
+
+              <HeaderStat label="Today" value={todayText()} />
+            </div>
+          </div>
         </div>
+      </section>
 
-        <button
-          onClick={fetchOrders}
-          className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-gray-50"
-        >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
-      </div>
+      <div className="mx-auto max-w-[1180px] px-4 py-5 sm:px-6 sm:py-6">
+        <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-xl font-black tracking-[-0.04em] text-slate-950 sm:text-2xl">
+                  Delivery Orders
+                </h2>
 
-      <div className="mb-6 rounded-2xl border bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex w-fit gap-2 rounded-xl bg-gray-100 p-1">
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  Switch between available and assigned deliveries.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={fetchOrders}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 sm:w-auto"
+              >
+                <RefreshCw size={16} />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 border-b border-slate-200">
             <button
               type="button"
               onClick={() => setActiveTab("available")}
-              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+              className={`border-r border-slate-200 px-3 py-4 text-center text-sm font-black transition sm:px-5 ${
                 activeTab === "available"
-                  ? "bg-white text-green-700 shadow"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-green-50 text-green-700"
+                  : "bg-white text-slate-500 hover:bg-slate-50"
               }`}
             >
-              Available Orders ({availableOrders.length})
+              Available
+              <span
+                className={`ml-2 rounded-full px-2.5 py-1 text-xs ${
+                  activeTab === "available"
+                    ? "bg-green-600 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {availableOrders.length}
+              </span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab("my")}
-              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+              className={`px-3 py-4 text-center text-sm font-black transition sm:px-5 ${
                 activeTab === "my"
-                  ? "bg-white text-green-700 shadow"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-green-50 text-green-700"
+                  : "bg-white text-slate-500 hover:bg-slate-50"
               }`}
             >
-              My Delivery Orders ({myOrders.length})
+              My Deliveries
+              <span
+                className={`ml-2 rounded-full px-2.5 py-1 text-xs ${
+                  activeTab === "my"
+                    ? "bg-green-600 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {myOrders.length}
+              </span>
             </button>
           </div>
 
-          <div className="relative w-full lg:max-w-md">
-            <Search
-              size={17}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
+          <div className="border-b border-slate-200 p-4 sm:p-5">
+            <div className="relative">
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
 
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search order ID, customer, email, address, item, plan..."
-              className="h-11 w-full rounded-xl border bg-white pl-10 pr-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
-          Loading delivery dashboard...
-        </div>
-      ) : activeTab === "available" ? (
-        <section>
-          <SectionHeader
-            title="Available Orders"
-            subtitle="Orders ready for delivery assignment."
-            count={`${filteredAvailableOrders.length} shown`}
-          />
-
-          {filteredAvailableOrders.length === 0 ? (
-            <EmptyCard text="No available orders found." />
-          ) : (
-            <div className="grid gap-4">
-              {filteredAvailableOrders.map((order) => (
-                <AvailableOrderCard
-                  key={order._id}
-                  order={order}
-                  busy={busyOrderId === order._id}
-                  onAccept={() => acceptOrder(order._id)}
-                />
-              ))}
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search order, customer, address or meal..."
+                className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white"
+              />
             </div>
-          )}
+          </div>
         </section>
-      ) : (
-        <section>
-          <SectionHeader
-            title="My Delivery Orders"
-            subtitle="Your assigned orders with delivery controls."
-            count={`${filteredMyOrders.length} shown`}
-          />
 
-          {filteredMyOrders.length === 0 ? (
-            <EmptyCard text="No assigned delivery orders found." />
+        <section className="mt-5">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+                {activeTab === "available"
+                  ? "Available Orders"
+                  : "My Delivery Orders"}
+              </h2>
+
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                {activeTab === "available"
+                  ? `${filteredAvailableOrders.length} order${
+                      filteredAvailableOrders.length === 1 ? "" : "s"
+                    } ready to accept`
+                  : `${filteredMyOrders.length} assigned order${
+                      filteredMyOrders.length === 1 ? "" : "s"
+                    }`}
+              </p>
+            </div>
+          </div>
+
+          {activeTab === "available" ? (
+            filteredAvailableOrders.length === 0 ? (
+              <EmptyCard
+                title="No available orders"
+                text="New orders ready for delivery will appear here."
+              />
+            ) : (
+              <div className="grid gap-4">
+                {filteredAvailableOrders.map((order) => (
+                  <AvailableOrderCard
+                    key={order._id}
+                    order={order}
+                    busy={busyOrderId === order._id}
+                    onAccept={() => acceptOrder(order._id)}
+                    onView={() => setSelectedAvailableOrder(order)}
+                  />
+                ))}
+              </div>
+            )
+          ) : filteredMyOrders.length === 0 ? (
+            <EmptyCard
+              title="No assigned orders"
+              text="Accept an available order to start managing its delivery."
+            />
           ) : (
             <div className="grid gap-4">
               {filteredMyOrders.map((order) => {
@@ -704,19 +889,43 @@ export default function DeliveryDashboard() {
                     currentLocation={currentLocation}
                     busy={busyOrderId === order._id}
                     isLiveTracking={isTracking(order._id)}
-                    trackingOrderId={trackingOrderId}
                     canStartTracking={canStartTracking}
-                    onStatusChange={(status) => updateStatus(order._id, status)}
-                    onStartTracking={() => startLiveTracking(order._id)}
-                    onStopTracking={() => stopLiveTracking(order._id)}
+                    onView={() => setSelectedMyOrder(order)}
                   />
                 );
               })}
             </div>
           )}
         </section>
+      </div>
+
+      {selectedAvailableOrder && (
+        <AvailableOrderDrawer
+          order={selectedAvailableOrder}
+          busy={busyOrderId === selectedAvailableOrder._id}
+          onAccept={() => acceptOrder(selectedAvailableOrder._id)}
+          onClose={() => setSelectedAvailableOrder(null)}
+        />
       )}
-    </div>
+
+      {selectedMyOrder && (
+        <MyOrderDrawer
+          order={selectedMyOrder}
+          busy={busyOrderId === selectedMyOrder._id}
+          isLiveTracking={isTracking(selectedMyOrder._id)}
+          onStatusChange={(status) =>
+            updateStatus(selectedMyOrder._id, status)
+          }
+          onStartTracking={() =>
+            startLiveTracking(selectedMyOrder._id)
+          }
+          onStopTracking={() =>
+            stopLiveTracking(selectedMyOrder._id)
+          }
+          onClose={() => setSelectedMyOrder(null)}
+        />
+      )}
+    </main>
   );
 }
 
@@ -724,70 +933,118 @@ function AvailableOrderCard({
   order,
   busy,
   onAccept,
+  onView,
 }: {
   order: Order;
   busy: boolean;
   onAccept: () => void;
+  onView: () => void;
 }) {
-  const address = order.delivery?.address;
-  const mapsUrl = getMapsUrl(address);
   const splitTotals = getSplitTotals(order);
+  const address = order.delivery?.address;
+  const hasPlan = order.items?.some((item) => isPlanItem(item));
 
   return (
-    <div className="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
-      <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-        <div className="space-y-3">
-          <OrderHeader order={order} />
+    <article className="border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-green-50 text-green-700 sm:h-24 sm:w-24">
+          <PackageCheck size={30} />
+        </div>
 
-          <div className="grid gap-3 md:grid-cols-4">
-            <InfoBlock
-              icon={<User size={15} />}
-              label="Customer"
-              value={order.user?.name || "N/A"}
-              subValue={order.user?.email || "N/A"}
-            />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-black tracking-[-0.03em] text-slate-950 sm:text-xl">
+                  {order.user?.name || address?.fullName || "Customer"}
+                </h3>
 
-            <InfoBlock
-              icon={<CalendarClock size={15} />}
-              label="Main Slot"
-              value={`${order.delivery?.slot?.date || "N/A"} | ${
-                order.delivery?.slot?.time || "N/A"
-              }`}
-            />
+                {hasPlan && (
+                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                    Plan Delivery
+                  </span>
+                )}
 
-            <InfoBlock
-              icon={<IndianRupee size={15} />}
-              label="Payable"
-              value={formatCurrency(order.totals?.payable)}
-              subValue={`Plans: ${formatCurrency(splitTotals.planSubtotal)}`}
-            />
+                <Badge
+                  text={(order.payment?.status || "created").toUpperCase()}
+                  className={getPaymentBadgeClass(order.payment?.status)}
+                />
+              </div>
 
-            <InfoBlock
-              icon={<PackageCheck size={15} />}
-              label="Items"
-              value={`${order.items?.length || 0} item(s)`}
-              subValue={`Meals: ${formatCurrency(
-                splitTotals.normalMealsSubtotal
+              <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-500">
+                {formatAddress(address)}
+              </p>
+
+              <p className="mt-1 break-all text-xs font-bold text-slate-400">
+                #{order._id}
+              </p>
+            </div>
+
+            <div className="shrink-0 lg:text-right">
+              <p className="text-2xl font-black tracking-[-0.05em] text-slate-950">
+                {formatCurrency(splitTotals.payable)}
+              </p>
+
+              <p className="mt-1 text-xs font-black text-slate-400">
+                TOTAL PAYABLE
+              </p>
+            </div>
+          </div>
+
+          <div className="my-4 border-t border-dashed border-slate-200" />
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <CompactDetail
+              label="Delivery"
+              value={`${formatDateOnly(order.delivery?.slot?.date)} · ${formatSlot(
+                order.delivery?.slot?.time
               )}`}
+            />
+
+            <CompactDetail
+              label="Items"
+              value={`${getOrderItemCount(order)} item(s)`}
+            />
+
+            <CompactDetail
+              label="Order"
+              value={getNextDeliveryText(order)}
+            />
+
+            <CompactDetail
+              label="Created"
+              value={formatDateTime(order.createdAt)}
             />
           </div>
 
-          <BillingBreakdown order={order} />
-          <AddressBox address={address} mapsUrl={mapsUrl} />
-          <ItemChips order={order} />
-        </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <button
+              type="button"
+              onClick={onAccept}
+              disabled={busy}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
+            >
+              {busy ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <Check size={16} />
+              )}
 
-        <div className="flex items-start lg:min-w-[190px]">
-          <button
-            onClick={onAccept}
-            disabled={busy}
-            className="w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-60"
-          >
-            {busy ? "Accepting..." : "Accept Delivery"}
-          </button>
+              {busy ? "Accepting..." : "Accept"}
+            </button>
+
+            <button
+              type="button"
+              onClick={onView}
+              className="inline-flex h-11 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            >
+              Details
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -797,256 +1054,461 @@ function MyDeliveryOrderCard({
   currentLocation,
   busy,
   isLiveTracking,
-  trackingOrderId,
   canStartTracking,
-  onStatusChange,
-  onStartTracking,
-  onStopTracking,
+  onView,
 }: {
   order: Order;
   currentStatus: string;
   currentLocation?: TrackingLocation;
   busy: boolean;
   isLiveTracking: boolean;
-  trackingOrderId: string | null;
   canStartTracking: boolean;
+  onView: () => void;
+}) {
+  const splitTotals = getSplitTotals(order);
+  const eta = order.delivery?.tracking?.eta;
+  const address = order.delivery?.address;
+
+  return (
+    <article className="border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-green-50 text-green-700 sm:h-24 sm:w-24">
+          <Truck size={30} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-black tracking-[-0.03em] text-slate-950 sm:text-xl">
+                  {order.user?.name || address?.fullName || "Customer"}
+                </h3>
+
+                <Badge
+                  text={readableStatus(currentStatus)}
+                  className={getStatusBadgeClass(currentStatus)}
+                />
+
+                {isLiveTracking && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
+                    <CircleDot size={12} />
+                    Live
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-500">
+                {formatAddress(address)}
+              </p>
+
+              <p className="mt-1 break-all text-xs font-bold text-slate-400">
+                #{order._id}
+              </p>
+            </div>
+
+            <div className="shrink-0 lg:text-right">
+              <p className="text-2xl font-black tracking-[-0.05em] text-slate-950">
+                {formatCurrency(splitTotals.payable)}
+              </p>
+
+              <p className="mt-1 text-xs font-black text-slate-400">
+                TOTAL PAYABLE
+              </p>
+            </div>
+          </div>
+
+          <div className="my-4 border-t border-dashed border-slate-200" />
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <CompactDetail
+              label="Delivery"
+              value={`${formatDateOnly(order.delivery?.slot?.date)} · ${formatSlot(
+                order.delivery?.slot?.time
+              )}`}
+            />
+
+            <CompactDetail
+              label="Order"
+              value={getNextDeliveryText(order)}
+            />
+
+            <CompactDetail
+              label="ETA"
+              value={eta?.text || "Not available"}
+            />
+
+            <CompactDetail
+              label="Last Update"
+              value={formatDateTime(currentLocation?.updatedAt)}
+            />
+          </div>
+
+          {!canStartTracking &&
+            currentStatus !== "delivered" &&
+            currentStatus !== "cancelled" && (
+              <p className="mt-3 text-xs font-bold text-yellow-700">
+                Mark the order as Picked Up before starting tracking.
+              </p>
+            )}
+
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <button
+              type="button"
+              onClick={onView}
+              disabled={busy}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
+            >
+              Manage
+              <ChevronRight size={16} />
+            </button>
+
+            <Link
+              to={`/track/${order._id}`}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            >
+              <Navigation size={15} />
+              Tracking
+            </Link>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function AvailableOrderDrawer({
+  order,
+  busy,
+  onAccept,
+  onClose,
+}: {
+  order: Order;
+  busy: boolean;
+  onAccept: () => void;
+  onClose: () => void;
+}) {
+  const splitTotals = getSplitTotals(order);
+  const address = order.delivery?.address;
+  const mapsUrl = getMapsUrl(address);
+
+  return (
+    <Drawer
+      title="Available Delivery"
+      subtitle={`Order #${order._id}`}
+      onClose={onClose}
+      wide
+    >
+      <div className="space-y-5">
+        <CustomerSection order={order} />
+
+        <section className="border border-slate-200 bg-white p-4">
+          <SectionLabel>Delivery Information</SectionLabel>
+
+          <div className="grid grid-cols-2 gap-3">
+            <DrawerStat
+              label="Date"
+              value={formatDateOnly(order.delivery?.slot?.date)}
+            />
+
+            <DrawerStat
+              label="Time"
+              value={formatSlot(order.delivery?.slot?.time)}
+            />
+
+            <DrawerStat
+              label="Items"
+              value={`${getOrderItemCount(order)} item(s)`}
+            />
+
+            <DrawerStat
+              label="Payable"
+              value={formatCurrency(splitTotals.payable)}
+            />
+          </div>
+        </section>
+
+        <AddressSection address={address} mapsUrl={mapsUrl} />
+
+        <BillingBreakdown order={order} />
+
+        <DeliveryItems order={order} />
+
+        <button
+          type="button"
+          onClick={onAccept}
+          disabled={busy}
+          className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-3 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
+        >
+          {busy ? (
+            <Loader2 className="animate-spin" size={18} />
+          ) : (
+            <Check size={18} />
+          )}
+
+          {busy ? "Accepting Delivery..." : "Accept Delivery"}
+        </button>
+      </div>
+    </Drawer>
+  );
+}
+
+function MyOrderDrawer({
+  order,
+  busy,
+  isLiveTracking,
+  onStatusChange,
+  onStartTracking,
+  onStopTracking,
+  onClose,
+}: {
+  order: Order;
+  busy: boolean;
+  isLiveTracking: boolean;
   onStatusChange: (status: string) => void;
   onStartTracking: () => void;
   onStopTracking: () => void;
+  onClose: () => void;
 }) {
+  const currentStatus = order.delivery?.status || "";
+  const currentLocation = order.delivery?.tracking?.currentLocation;
+  const eta = order.delivery?.tracking?.eta;
   const address = order.delivery?.address;
   const mapsUrl = getMapsUrl(address);
-  const eta = order.delivery?.tracking?.eta;
-  const splitTotals = getSplitTotals(order);
+
+  const canStartTracking =
+    currentStatus === "picked_up" ||
+    currentStatus === "out_for_delivery";
 
   return (
-    <div className="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-green-200 hover:shadow-md">
-      <div className="grid gap-4 xl:grid-cols-[1fr_260px]">
-        <div className="space-y-3">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-xs font-medium text-gray-500">Order ID</p>
-              <p className="break-all text-sm font-bold text-gray-900">
-                {order._id}
-              </p>
+    <Drawer
+      title="Manage Delivery"
+      subtitle={`Order #${order._id}`}
+      onClose={onClose}
+      wide
+    >
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            text={readableStatus(currentStatus)}
+            className={getStatusBadgeClass(currentStatus)}
+          />
 
-              {order.coupon?.code && (
-                <p className="mt-1 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-                  Coupon: {order.coupon.code}
-                </p>
-              )}
-            </div>
+          {isLiveTracking && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
+              <CircleDot size={12} />
+              Live Tracking
+            </span>
+          )}
+        </div>
 
-            <Badge
-              text={readableStatus(currentStatus)}
-              className={getStatusBadgeClass(currentStatus)}
-            />
+        <CustomerSection order={order} />
+
+        <section className="border border-slate-200 bg-white p-4">
+          <SectionLabel>Delivery Progress</SectionLabel>
+
+          <div className="space-y-3">
+            {STATUS_OPTIONS.map((statusOption, index) => {
+              const currentIndex = STATUS_OPTIONS.findIndex(
+                (item) => item.value === currentStatus
+              );
+
+              const completed = index <= currentIndex;
+              const active = statusOption.value === currentStatus;
+
+              return (
+                <div
+                  key={statusOption.value}
+                  className={`flex items-center justify-between gap-3 border p-3 ${
+                    active
+                      ? "border-green-300 bg-green-50"
+                      : completed
+                      ? "border-slate-200 bg-slate-50"
+                      : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        completed
+                          ? "bg-green-600 text-white"
+                          : "bg-slate-100 text-slate-400"
+                      }`}
+                    >
+                      {completed ? (
+                        <Check size={15} />
+                      ) : (
+                        <span className="text-xs font-black">
+                          {index + 1}
+                        </span>
+                      )}
+                    </span>
+
+                    <div>
+                      <p className="text-sm font-black text-slate-950">
+                        {statusOption.label}
+                      </p>
+
+                      {active && (
+                        <p className="text-xs font-bold text-green-700">
+                          Current status
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {!active && currentStatus !== "delivered" && (
+                    <button
+                      type="button"
+                      onClick={() => onStatusChange(statusOption.value)}
+                      disabled={busy}
+                      className="rounded-full border border-green-600 px-3 py-1.5 text-xs font-black text-green-700 transition hover:bg-green-50 disabled:opacity-50"
+                    >
+                      Mark
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
+        </section>
 
-          <div className="grid gap-3 md:grid-cols-4">
-            <InfoBlock
-              icon={<User size={15} />}
-              label="Customer"
-              value={order.user?.name || "N/A"}
-              subValue={order.user?.email || "N/A"}
-            />
+        <section className="border border-slate-200 bg-white p-4">
+          <SectionLabel>Live Tracking</SectionLabel>
 
-            <InfoBlock
-              icon={<CalendarClock size={15} />}
-              label="Main Slot"
-              value={`${order.delivery?.slot?.date || "N/A"} | ${
-                order.delivery?.slot?.time || "N/A"
-              }`}
-            />
-
-            <InfoBlock
-              icon={<IndianRupee size={15} />}
-              label="Payable"
-              value={formatCurrency(order.totals?.payable)}
-              subValue={`Plan Discount: -₹${splitTotals.discount}`}
-            />
-
-            <InfoBlock
-              icon={<Route size={15} />}
-              label="Tracking"
-              value={order.delivery?.tracking?.isLive ? "Active" : "Not active"}
-            />
-          </div>
-
-          <BillingBreakdown order={order} />
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <MiniPanel
+          <div className="grid grid-cols-2 gap-3">
+            <DrawerStat
               label="ETA"
-              value={eta?.text || "Calculating..."}
-              tone="blue"
+              value={eta?.text || "Not available"}
             />
 
-            <MiniPanel
-              label="Distance Left"
-              value={eta?.distanceText || "Calculating..."}
-              tone="green"
+            <DrawerStat
+              label="Distance"
+              value={eta?.distanceText || "Not available"}
             />
 
-            <MiniPanel
-              label="Last Location"
-              value={formatDateTime(currentLocation?.updatedAt || null)}
-              tone="gray"
+            <DrawerStat
+              label="Last Updated"
+              value={formatDateTime(currentLocation?.updatedAt)}
+            />
+
+            <DrawerStat
+              label="Tracking"
+              value={isLiveTracking ? "Live" : "Stopped"}
+              accent={isLiveTracking}
             />
           </div>
 
-          <AddressBox address={address} mapsUrl={mapsUrl} />
-          <ItemChips order={order} />
+          {!canStartTracking &&
+            currentStatus !== "delivered" &&
+            currentStatus !== "cancelled" && (
+              <div className="mt-4 border border-yellow-200 bg-yellow-50 p-3 text-sm font-bold text-yellow-800">
+                Mark the order as Picked Up or Out for Delivery before starting
+                live tracking.
+              </div>
+            )}
 
-          <div className="grid gap-2 text-xs md:grid-cols-4">
-            <TimeBlock
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {!isLiveTracking ? (
+              <button
+                type="button"
+                onClick={onStartTracking}
+                disabled={!canStartTracking}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-4 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Navigation size={16} />
+                Start Tracking
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onStopTracking}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-red-600 px-4 text-sm font-black text-white transition hover:bg-red-700"
+              >
+                <X size={16} />
+                Stop Tracking
+              </button>
+            )}
+
+            <Link
+              to={`/track/${order._id}`}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            >
+              <Route size={16} />
+              Open Tracking
+            </Link>
+          </div>
+        </section>
+
+        <AddressSection address={address} mapsUrl={mapsUrl} />
+
+        <DeliveryItems order={order} />
+
+        <section className="border border-slate-200 bg-white p-4">
+          <SectionLabel>Delivery Times</SectionLabel>
+
+          <div className="grid grid-cols-2 gap-3">
+            <DrawerStat
               label="Accepted"
               value={formatDateTime(order.delivery?.acceptedAt)}
             />
 
-            <TimeBlock
+            <DrawerStat
               label="Picked Up"
               value={formatDateTime(order.delivery?.pickedUpAt)}
             />
 
-            <TimeBlock
+            <DrawerStat
               label="Out for Delivery"
               value={formatDateTime(order.delivery?.outForDeliveryAt)}
             />
 
-            <TimeBlock
+            <DrawerStat
               label="Delivered"
               value={formatDateTime(order.delivery?.deliveredAt)}
             />
           </div>
-
-          {!canStartTracking && currentStatus !== "delivered" && (
-            <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-              Set status to <b>Picked Up</b> or <b>Out for Delivery</b> before
-              starting live tracking.
-            </div>
-          )}
-
-          {(trackingOrderId === order._id || isLiveTracking) && (
-            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-              Live tracking is active. Keep this page open and allow location
-              access for continuous updates.
-            </div>
-          )}
-
-          {currentStatus === "delivered" && (
-            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-              This order is marked as delivered.
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          {STATUS_OPTIONS.map((statusOption) => (
-            <button
-              key={statusOption.value}
-              onClick={() => onStatusChange(statusOption.value)}
-              disabled={busy}
-              className="w-full rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-gray-50 disabled:opacity-60"
-            >
-              Mark {statusOption.label}
-            </button>
-          ))}
-
-          {!isLiveTracking ? (
-            <button
-              onClick={onStartTracking}
-              disabled={!canStartTracking}
-              className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Start Live Tracking
-            </button>
-          ) : (
-            <button
-              onClick={onStopTracking}
-              className="w-full rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-            >
-              Stop Live Tracking
-            </button>
-          )}
-
-          <Link
-            to={`/track/${order._id}`}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
-          >
-            <Navigation size={15} />
-            Open Tracking
-          </Link>
-        </div>
+        </section>
       </div>
-    </div>
+    </Drawer>
   );
 }
 
-function OrderHeader({ order }: { order: Order }) {
-  const splitTotals = getSplitTotals(order);
+function CustomerSection({ order }: { order: Order }) {
+  const address = order.delivery?.address;
+  const phone =
+    order.user?.phone ||
+    address?.phone ||
+    "Phone not available";
 
   return (
-    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-      <div>
-        <p className="text-xs font-medium text-gray-500">Order ID</p>
-        <p className="break-all text-sm font-bold text-gray-900">
-          {order._id}
-        </p>
-      </div>
+    <section className="border border-slate-200 bg-white p-4">
+      <SectionLabel>Customer</SectionLabel>
 
-      <div className="flex flex-wrap gap-2">
-        <Badge
-          className={getPaymentBadgeClass(order.payment?.status)}
-          text={(order.payment?.status || "created").toUpperCase()}
-        />
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+          <User size={20} />
+        </span>
 
-        {splitTotals.discount > 0 && (
-          <Badge
-            className="border-green-100 bg-green-50 text-green-700"
-            text={`Plan Discount -₹${splitTotals.discount}`}
-          />
-        )}
+        <div className="min-w-0">
+          <p className="text-base font-black text-slate-950">
+            {order.user?.name || address?.fullName || "Customer"}
+          </p>
+
+          <p className="mt-1 break-all text-sm font-bold text-slate-500">
+            {order.user?.email || "Email not available"}
+          </p>
+
+          <p className="mt-1 flex items-center gap-1 text-sm font-bold text-slate-500">
+            <Phone size={14} className="text-green-600" />
+            {phone}
+          </p>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
-function BillingBreakdown({ order }: { order: Order }) {
-  const splitTotals = getSplitTotals(order);
-
-  return (
-    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-      <p className="mb-2 text-sm font-bold text-gray-900">Billing Breakdown</p>
-
-      <div className="grid gap-2 text-xs sm:grid-cols-4">
-        <BillingTile
-          label="Meals"
-          value={formatCurrency(splitTotals.normalMealsSubtotal)}
-        />
-
-        <BillingTile
-          label="Plans"
-          value={formatCurrency(splitTotals.planSubtotal)}
-        />
-
-        <BillingTile
-          label="Plan Discount"
-          value={`-₹${splitTotals.discount}`}
-          green
-        />
-
-        <BillingTile
-          label="Payable"
-          value={formatCurrency(splitTotals.payable)}
-          bold
-        />
-      </div>
-    </div>
-  );
-}
-
-function AddressBox({
+function AddressSection({
   address,
   mapsUrl,
 }: {
@@ -1054,41 +1516,83 @@ function AddressBox({
   mapsUrl: string;
 }) {
   return (
-    <div className="rounded-xl bg-gray-50 p-3">
-      <div className="mb-1 flex items-center gap-2">
-        <MapPin size={15} className="text-green-700" />
-        <p className="text-sm font-bold text-gray-900">Address</p>
+    <section className="border border-slate-200 bg-white p-4">
+      <SectionLabel>Delivery Address</SectionLabel>
+
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+          <MapPin size={18} />
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-6 text-slate-700">
+            {formatAddress(address)}
+          </p>
+
+          {mapsUrl && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-2 rounded-full border border-green-600 px-4 py-2 text-xs font-black text-green-700 transition hover:bg-green-50"
+            >
+              <Navigation size={14} />
+              Open Google Maps
+            </a>
+          )}
+        </div>
       </div>
-
-      <p className="line-clamp-2 text-sm text-gray-700">
-        {formatAddress(address)}
-      </p>
-
-      {mapsUrl && (
-        <a
-          href={mapsUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-1 inline-block text-xs font-semibold text-green-700 underline"
-        >
-          Open in Google Maps
-        </a>
-      )}
-    </div>
+    </section>
   );
 }
 
-function ItemChips({ order }: { order: Order }) {
-  return (
-    <div>
-      <p className="mb-1 text-sm font-bold text-gray-900">Delivery Items</p>
+function BillingBreakdown({ order }: { order: Order }) {
+  const splitTotals = getSplitTotals(order);
 
-      <div className="grid gap-2">
-        {order.items?.map((item, index) => (
-          <DeliveryItemCard key={`${order._id}-${index}`} item={item} />
+  return (
+    <section className="border border-slate-200 bg-white p-4">
+      <SectionLabel>Billing Breakdown</SectionLabel>
+
+      <div className="grid grid-cols-2 gap-3">
+        <DrawerStat
+          label="Meals"
+          value={formatCurrency(splitTotals.normalMealsSubtotal)}
+        />
+
+        <DrawerStat
+          label="Plans"
+          value={formatCurrency(splitTotals.planSubtotal)}
+        />
+
+        <DrawerStat
+          label="Discount"
+          value={`-₹${splitTotals.discount}`}
+          accent={splitTotals.discount > 0}
+        />
+
+        <DrawerStat
+          label="Payable"
+          value={formatCurrency(splitTotals.payable)}
+        />
+      </div>
+    </section>
+  );
+}
+
+function DeliveryItems({ order }: { order: Order }) {
+  return (
+    <section className="border border-slate-200 bg-white p-4">
+      <SectionLabel>Delivery Items</SectionLabel>
+
+      <div className="space-y-3">
+        {(order.items || []).map((item, index) => (
+          <DeliveryItemCard
+            key={`${order._id}-${item.meal || item.planId || index}`}
+            item={item}
+          />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -1099,50 +1603,53 @@ function DeliveryItemCard({ item }: { item: OrderItem }) {
 
   if (isPlan && nextPlanDay) {
     return (
-      <div className="rounded-xl border border-green-100 bg-green-50 p-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+      <div className="border border-green-200 bg-green-50 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-black text-gray-900">
-                Day {nextPlanDay.day}:{" "}
-                {nextPlanDay.selectedMealTitle || "Plan Meal"}
-              </p>
-
-              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-green-700">
-                Meal Plan
+              <span className="rounded-full bg-green-600 px-2.5 py-1 text-[10px] font-black text-white">
+                Day {nextPlanDay.day || 1}
               </span>
 
-              {planId && (
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">
-                  {planId}
-                </span>
-              )}
+              <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-green-700">
+                {nextPlanDay.preference || item.preference || "mixed"}
+              </span>
             </div>
 
-            <p className="mt-1 text-xs font-semibold text-gray-500">
-              Delivery: {formatDateOnly(nextPlanDay.date)} •{" "}
+            <p className="mt-2 text-sm font-black text-slate-950">
+              {nextPlanDay.selectedMealTitle ||
+                item.title ||
+                "Plan Meal"}
+            </p>
+
+            <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+              {formatDateOnly(nextPlanDay.date)} ·{" "}
               {formatSlot(nextPlanDay.slot)}
             </p>
 
-            <p className="mt-1 text-xs font-semibold text-gray-500">
-              Preference: {nextPlanDay.preference || "mixed"} • Status:{" "}
-              {readableStatus(nextPlanDay.deliveryStatus || "scheduled")}
-            </p>
+            {planId && (
+              <p className="mt-1 text-[11px] font-black text-green-700">
+                Plan: {planId}
+              </p>
+            )}
 
             {nextPlanDay.alternativeMealTitle && (
-              <p className="mt-1 text-xs font-semibold text-gray-500">
+              <p className="mt-1 text-xs font-bold text-slate-500">
                 Alternative: {nextPlanDay.alternativeMealTitle}
               </p>
             )}
           </div>
 
-          <div className="text-left sm:text-right">
-            <p className="text-sm font-black text-gray-900">
+          <div className="shrink-0 text-right">
+            <p className="text-sm font-black text-slate-950">
               {formatCurrency(nextPlanDay.selectedMealPrice)}
             </p>
 
-            <p className="text-xs font-semibold text-gray-500">
-              {nextPlanDay.selectedMealCalories || 0} kcal |{" "}
+            <p className="mt-1 text-[11px] font-bold text-slate-500">
+              {nextPlanDay.selectedMealCalories || 0} kcal
+            </p>
+
+            <p className="text-[11px] font-bold text-slate-500">
               {nextPlanDay.selectedMealProtein || 0}g protein
             </p>
           </div>
@@ -1152,45 +1659,112 @@ function DeliveryItemCard({ item }: { item: OrderItem }) {
   }
 
   return (
-    <div
-      className={`rounded-xl border px-3 py-2 ${
-        isPlan ? "border-green-100 bg-green-50" : "border-gray-100 bg-gray-50"
-      }`}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-bold text-gray-800">
-          {item.title || "Meal"} × {item.qty || 1}
-          {isPlan ? " • Meal Plan" : ""}
-          {isPlan && planId ? ` • ${planId}` : ""}
-        </span>
+    <div className="border border-slate-200 bg-slate-50 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black text-slate-950">
+            {item.title || "Meal"}
+          </p>
 
-        <span className="text-sm font-bold text-gray-900">
-          {formatCurrency(Number(item.price || 0) * Number(item.qty || 1))}
-        </span>
+          <p className="mt-1 text-xs font-bold text-slate-500">
+            Quantity: {item.qty || 1}
+            {isPlan ? " · Meal Plan" : ""}
+          </p>
+
+          <p className="mt-1 text-xs font-bold text-slate-500">
+            {Number(item.calories || 0)} kcal ·{" "}
+            {Number(item.protein || 0)}g protein
+          </p>
+        </div>
+
+        <p className="shrink-0 text-sm font-black text-slate-950">
+          {formatCurrency(
+            Number(item.price || 0) * Number(item.qty || 1)
+          )}
+        </p>
       </div>
     </div>
   );
 }
 
-function BillingTile({
+function Drawer({
+  title,
+  subtitle,
+  onClose,
+  children,
+  wide,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Close drawer"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/35"
+      />
+
+      <aside
+        className={`absolute bottom-0 right-0 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:bottom-auto sm:top-0 sm:h-full sm:max-h-full sm:rounded-none ${
+          wide ? "sm:w-[560px]" : "sm:w-[430px]"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+              {title}
+            </h2>
+
+            <p className="mt-1 break-all text-sm font-bold text-slate-500">
+              {subtitle}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-700 transition hover:bg-slate-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+      </aside>
+    </div>
+  );
+}
+
+function HeaderStat({
   label,
   value,
-  green,
-  bold,
+  accent,
 }: {
   label: string;
   value: string;
-  green?: boolean;
-  bold?: boolean;
+  accent?: boolean;
 }) {
   return (
-    <div className="rounded-lg bg-white px-3 py-2">
-      <p className="text-[11px] font-medium text-gray-500">{label}</p>
+    <div
+      className={`border px-4 py-3 shadow-sm sm:min-w-[135px] ${
+        accent
+          ? "border-green-200 bg-green-50"
+          : "border-slate-200 bg-white"
+      }`}
+    >
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
 
       <p
-        className={`mt-1 text-sm ${
-          bold ? "font-black" : "font-bold"
-        } ${green ? "text-green-700" : "text-gray-900"}`}
+        className={`mt-1 text-lg font-black ${
+          accent ? "text-green-700" : "text-slate-950"
+        }`}
       >
         {value}
       </p>
@@ -1198,101 +1772,100 @@ function BillingTile({
   );
 }
 
-function Badge({ text, className }: { text: string; className: string }) {
+function CompactDetail({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="bg-slate-50 p-3">
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 line-clamp-2 text-xs font-black leading-5 text-slate-800 sm:text-sm">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function DrawerStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`border p-3 ${
+        accent
+          ? "border-green-200 bg-green-50"
+          : "border-slate-200 bg-slate-50"
+      }`}
+    >
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      <p
+        className={`mt-1 text-sm font-black ${
+          accent ? "text-green-700" : "text-slate-950"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+      {children}
+    </p>
+  );
+}
+
+function Badge({
+  text,
+  className,
+}: {
+  text: string;
+  className: string;
+}) {
   return (
     <span
-      className={`rounded-full border px-3 py-1 text-xs font-bold ${className}`}
+      className={`rounded-full border px-3 py-1 text-xs font-black ${className}`}
     >
       {text}
     </span>
   );
 }
 
-function InfoBlock({
-  icon,
-  label,
-  value,
-  subValue,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  subValue?: string;
-}) {
-  return (
-    <div className="rounded-xl bg-gray-50 p-3">
-      <div className="mb-1 flex items-center gap-1 text-gray-500">
-        {icon}
-        <p className="text-xs font-medium">{label}</p>
-      </div>
-
-      <p className="truncate text-sm font-bold text-gray-900">{value}</p>
-
-      {subValue && <p className="truncate text-xs text-gray-500">{subValue}</p>}
-    </div>
-  );
-}
-
-function MiniPanel({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "blue" | "green" | "gray";
-}) {
-  const toneClass =
-    tone === "blue"
-      ? "bg-blue-50 text-blue-700"
-      : tone === "green"
-      ? "bg-green-50 text-green-700"
-      : "bg-gray-50 text-gray-700";
-
-  return (
-    <div className={`rounded-xl p-3 ${toneClass}`}>
-      <p className="text-xs font-medium opacity-80">{label}</p>
-      <p className="mt-1 text-sm font-bold">{value}</p>
-    </div>
-  );
-}
-
-function TimeBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-gray-50 p-3">
-      <p className="text-[11px] font-medium text-gray-500">{label}</p>
-      <p className="mt-1 text-xs font-semibold text-gray-800">{value}</p>
-    </div>
-  );
-}
-
-function SectionHeader({
+function EmptyCard({
   title,
-  subtitle,
-  count,
+  text,
 }: {
   title: string;
-  subtitle: string;
-  count: string;
+  text: string;
 }) {
   return (
-    <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-        <p className="text-sm text-gray-500">{subtitle}</p>
-      </div>
+    <div className="border border-slate-200 bg-slate-50 p-8 text-center">
+      <PackageCheck className="mx-auto text-slate-300" size={44} />
 
-      <span className="w-fit rounded-full bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
-        {count}
-      </span>
-    </div>
-  );
-}
+      <h3 className="mt-4 text-lg font-black text-slate-950">
+        {title}
+      </h3>
 
-function EmptyCard({ text }: { text: string }) {
-  return (
-    <div className="rounded-2xl border bg-white p-6 text-gray-600 shadow-sm">
-      {text}
+      <p className="mt-1 text-sm font-bold text-slate-500">
+        {text}
+      </p>
     </div>
   );
 }
