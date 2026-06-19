@@ -9,6 +9,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
+  Check,
   CheckCircle2,
   ChefHat,
   ClipboardCheck,
@@ -19,6 +20,7 @@ import {
   LockKeyhole,
   Mail,
   Phone,
+  RefreshCw,
   ShieldCheck,
   UtensilsCrossed,
   User,
@@ -46,7 +48,16 @@ export default function ChefSignup() {
     confirmPassword: "",
   });
 
+  const [otp, setOtp] = useState("");
+  const [devOtp, setDevOtp] = useState("");
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
+
+  const [otpSent, setOtpSent] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+
   const [loading, setLoading] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -56,6 +67,14 @@ export default function ChefSignup() {
   const passwordMatches =
     form.confirmPassword.length > 0 &&
     form.password === form.confirmPassword;
+
+  const resetPhoneVerification = () => {
+    setOtp("");
+    setDevOtp("");
+    setOtpSent(false);
+    setPhoneVerified(false);
+    setPhoneVerificationToken("");
+  };
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -67,6 +86,92 @@ export default function ChefSignup() {
           ? value.replace(/\D/g, "").slice(0, 10)
           : value,
     }));
+
+    if (name === "phone") {
+      resetPhoneVerification();
+    }
+  };
+
+  const sendOtp = async () => {
+    if (!isPhoneValid) {
+      toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+
+      const response = await api.post("/auth/send-phone-otp", {
+        phone: cleanPhone,
+      });
+
+      setOtp("");
+      setOtpSent(true);
+      setPhoneVerified(false);
+      setPhoneVerificationToken("");
+
+      setDevOtp(
+        response.data?.devOtp ? String(response.data.devOtp) : ""
+      );
+
+      toast.success(response.data?.message || "OTP sent successfully.");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to send OTP."
+      );
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!isPhoneValid) {
+      toast.error("Enter a valid phone number.");
+      return;
+    }
+
+    if (!otp.trim()) {
+      toast.error("Enter the OTP sent to your phone.");
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+
+      const response = await api.post("/auth/verify-phone-otp", {
+        phone: cleanPhone,
+        otp: otp.trim(),
+      });
+
+      const token = String(
+        response.data?.phoneVerificationToken || ""
+      );
+
+      if (!token) {
+        toast.error("Phone verification token was not received.");
+        return;
+      }
+
+      setPhoneVerificationToken(token);
+      setPhoneVerified(true);
+
+      toast.success(
+        response.data?.message || "Phone verified successfully."
+      );
+    } catch (error: any) {
+      setPhoneVerified(false);
+      setPhoneVerificationToken("");
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "OTP verification failed."
+      );
+    } finally {
+      setOtpLoading(false);
+    }
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -84,6 +189,11 @@ export default function ChefSignup() {
 
     if (!isPhoneValid) {
       toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+
+    if (!phoneVerified || !phoneVerificationToken) {
+      toast.error("Verify your phone number before creating the account.");
       return;
     }
 
@@ -105,6 +215,7 @@ export default function ChefSignup() {
         email,
         phone,
         password,
+        phoneVerificationToken,
       });
 
       toast.success(
@@ -125,10 +236,10 @@ export default function ChefSignup() {
 
   return (
     <main className="h-[100dvh] overflow-hidden bg-white text-slate-950">
-      <div className="grid h-full lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid h-full lg:grid-cols-[1.03fr_0.97fr]">
         {/* DESKTOP LEFT PANEL */}
         <section className="hidden h-full overflow-hidden bg-slate-950 text-white lg:block">
-          <div className="flex h-full flex-col justify-between px-10 py-8 xl:px-14">
+          <div className="flex h-full flex-col justify-between px-10 py-7 xl:px-14 xl:py-8">
             <Link
               to="/"
               className="inline-flex w-fit items-center gap-3 text-xl font-black tracking-[-0.04em] text-white"
@@ -154,7 +265,7 @@ export default function ChefSignup() {
               </h1>
 
               <p className="mt-6 max-w-[540px] text-base font-semibold leading-8 text-slate-300">
-                Create your chef account to manage kitchen orders, update meal
+                Create your chef account to manage kitchen orders, update
                 preparation stages and keep every delivery on schedule.
               </p>
             </div>
@@ -180,7 +291,7 @@ export default function ChefSignup() {
 
         {/* SIGNUP PANEL */}
         <section className="h-full overflow-y-auto bg-white lg:overflow-hidden">
-          <div className="mx-auto flex min-h-full w-full max-w-[570px] items-center px-4 py-4 sm:px-7 lg:px-9 lg:py-5">
+          <div className="mx-auto flex min-h-full w-full max-w-[590px] items-center px-4 py-4 sm:px-7 lg:px-8 lg:py-4">
             <div className="w-full">
               {/* MOBILE LOGO */}
               <div className="mb-4 lg:hidden">
@@ -212,12 +323,12 @@ export default function ChefSignup() {
                     </h1>
 
                     <p className="mt-2 text-sm font-semibold leading-5 text-slate-500">
-                      Register your details and wait for admin approval.
+                      Register, verify your phone and wait for admin approval.
                     </p>
                   </div>
                 </div>
 
-                <form onSubmit={submit} className="mt-5 space-y-3.5">
+                <form onSubmit={submit} className="mt-5 space-y-3">
                   <Field label="Full Name">
                     <AuthInputShell icon={<User size={17} />}>
                       <input
@@ -251,111 +362,224 @@ export default function ChefSignup() {
                   </Field>
 
                   <Field label="Phone Number">
-                    <AuthInputShell
-                      icon={<Phone size={17} />}
-                      valid={isPhoneValid}
-                    >
-                      <input
-                        name="phone"
-                        type="tel"
-                        value={form.phone}
-                        onChange={handleChange}
-                        placeholder="10-digit phone number"
-                        autoComplete="tel"
-                        inputMode="numeric"
-                        disabled={loading}
-                        className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm font-bold text-slate-950 outline-none placeholder:font-semibold placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
-                        required
-                      />
+                    <div className="flex gap-2">
+                      <AuthInputShell
+                        icon={<Phone size={17} />}
+                        valid={phoneVerified}
+                        className="min-w-0 flex-1"
+                      >
+                        <input
+                          name="phone"
+                          type="tel"
+                          value={form.phone}
+                          onChange={handleChange}
+                          placeholder="10-digit phone number"
+                          autoComplete="tel"
+                          inputMode="numeric"
+                          disabled={loading || phoneVerified}
+                          className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm font-bold text-slate-950 outline-none placeholder:font-semibold placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+                          required
+                        />
 
-                      {isPhoneValid && (
-                        <span className="flex h-full w-10 shrink-0 items-center justify-center text-green-600">
-                          <CheckCircle2 size={17} />
-                        </span>
+                        {phoneVerified && (
+                          <span className="flex h-full w-10 shrink-0 items-center justify-center text-green-600">
+                            <CheckCircle2 size={17} />
+                          </span>
+                        )}
+                      </AuthInputShell>
+
+                      {!phoneVerified && (
+                        <button
+                          type="button"
+                          onClick={sendOtp}
+                          disabled={otpLoading || loading || !isPhoneValid}
+                          className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-green-600 bg-white px-3 text-xs font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-45 sm:px-4 sm:text-sm"
+                        >
+                          {otpLoading && !otpSent ? (
+                            <Loader2 className="animate-spin" size={15} />
+                          ) : otpSent ? (
+                            <RefreshCw size={15} />
+                          ) : (
+                            <Phone size={15} />
+                          )}
+
+                          {otpSent ? "Resend" : "Send OTP"}
+                        </button>
                       )}
-                    </AuthInputShell>
+                    </div>
                   </Field>
 
-                  <Field label="Password">
-                    <AuthInputShell icon={<LockKeyhole size={17} />}>
-                      <input
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        value={form.password}
-                        onChange={handleChange}
-                        placeholder="Minimum 6 characters"
-                        autoComplete="new-password"
-                        disabled={loading}
-                        className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm font-bold text-slate-950 outline-none placeholder:font-semibold placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
-                        required
-                      />
+                  {otpSent && !phoneVerified && (
+                    <div className="rounded-xl border border-green-100 bg-green-50/70 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-black text-slate-950">
+                            Verify Phone Number
+                          </p>
 
-                      <PasswordButton
-                        visible={showPassword}
-                        disabled={loading}
-                        onClick={() =>
-                          setShowPassword((current) => !current)
-                        }
-                      />
-                    </AuthInputShell>
-                  </Field>
+                          <p className="mt-0.5 text-[11px] font-semibold text-slate-500">
+                            OTP sent to +91 {cleanPhone}
+                          </p>
+                        </div>
 
-                  <Field label="Confirm Password">
-                    <AuthInputShell
-                      icon={<LockKeyhole size={17} />}
-                      valid={passwordMatches}
-                    >
-                      <input
-                        name="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={form.confirmPassword}
-                        onChange={handleChange}
-                        placeholder="Re-enter your password"
-                        autoComplete="new-password"
-                        disabled={loading}
-                        className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm font-bold text-slate-950 outline-none placeholder:font-semibold placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
-                        required
-                      />
+                        <ShieldCheck size={17} className="text-green-600" />
+                      </div>
 
-                      {passwordMatches && (
-                        <span className="flex h-full w-9 shrink-0 items-center justify-center text-green-600">
-                          <CheckCircle2 size={17} />
-                        </span>
-                      )}
+                      <div className="mt-2.5 flex gap-2">
+                        <input
+                          type="text"
+                          value={otp}
+                          onChange={(event) =>
+                            setOtp(
+                              event.target.value
+                                .replace(/\D/g, "")
+                                .slice(0, 6)
+                            )
+                          }
+                          placeholder="Enter OTP"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          disabled={otpLoading}
+                          className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-center text-sm font-black tracking-[0.24em] text-slate-950 outline-none transition placeholder:tracking-normal placeholder:text-slate-400 focus:border-green-500 disabled:opacity-60"
+                        />
 
-                      <PasswordButton
-                        visible={showConfirmPassword}
-                        disabled={loading}
-                        onClick={() =>
-                          setShowConfirmPassword((current) => !current)
-                        }
-                      />
-                    </AuthInputShell>
+                        <button
+                          type="button"
+                          onClick={verifyOtp}
+                          disabled={otpLoading || !otp.trim()}
+                          className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-green-600 px-4 text-xs font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {otpLoading ? (
+                            <Loader2 className="animate-spin" size={15} />
+                          ) : (
+                            <Check size={15} />
+                          )}
 
-                    {form.confirmPassword &&
-                      form.password !== form.confirmPassword && (
-                        <p className="mt-1.5 text-[11px] font-bold text-red-600">
-                          Passwords do not match.
+                          Verify
+                        </button>
+                      </div>
+
+                      {devOtp && (
+                        <p className="mt-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-[11px] font-bold text-yellow-800">
+                          Development OTP:{" "}
+                          <span className="font-black">{devOtp}</span>
                         </p>
                       )}
-                  </Field>
 
-                  <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-                    <ShieldCheck
-                      size={17}
-                      className="mt-0.5 shrink-0 text-green-600"
-                    />
+                      <button
+                        type="button"
+                        onClick={sendOtp}
+                        disabled={otpLoading}
+                        className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-black text-green-700 hover:underline disabled:opacity-50"
+                      >
+                        <RefreshCw size={13} />
+                        Send a new OTP
+                      </button>
+                    </div>
+                  )}
 
-                    <p className="text-[11px] font-bold leading-5 text-slate-500">
-                      After signup, verify your email and wait for admin
-                      approval before accessing kitchen orders.
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Password">
+                      <AuthInputShell icon={<LockKeyhole size={17} />}>
+                        <input
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          value={form.password}
+                          onChange={handleChange}
+                          placeholder="Minimum 6 characters"
+                          autoComplete="new-password"
+                          disabled={loading}
+                          className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm font-bold text-slate-950 outline-none placeholder:text-xs placeholder:font-semibold placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+                          required
+                        />
+
+                        <PasswordButton
+                          visible={showPassword}
+                          disabled={loading}
+                          onClick={() =>
+                            setShowPassword((current) => !current)
+                          }
+                        />
+                      </AuthInputShell>
+                    </Field>
+
+                    <Field label="Confirm Password">
+                      <AuthInputShell
+                        icon={<LockKeyhole size={17} />}
+                        valid={passwordMatches}
+                      >
+                        <input
+                          name="confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={form.confirmPassword}
+                          onChange={handleChange}
+                          placeholder="Re-enter password"
+                          autoComplete="new-password"
+                          disabled={loading}
+                          className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm font-bold text-slate-950 outline-none placeholder:text-xs placeholder:font-semibold placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+                          required
+                        />
+
+                        {passwordMatches && (
+                          <span className="flex h-full w-8 shrink-0 items-center justify-center text-green-600">
+                            <CheckCircle2 size={16} />
+                          </span>
+                        )}
+
+                        <PasswordButton
+                          visible={showConfirmPassword}
+                          disabled={loading}
+                          onClick={() =>
+                            setShowConfirmPassword((current) => !current)
+                          }
+                        />
+                      </AuthInputShell>
+                    </Field>
+                  </div>
+
+                  {form.confirmPassword &&
+                    form.password !== form.confirmPassword && (
+                      <p className="-mt-1 text-[11px] font-bold text-red-600">
+                        Passwords do not match.
+                      </p>
+                    )}
+
+                  <div
+                    className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 ${
+                      phoneVerified
+                        ? "border-green-200 bg-green-50"
+                        : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    {phoneVerified ? (
+                      <CheckCircle2
+                        size={17}
+                        className="mt-0.5 shrink-0 text-green-600"
+                      />
+                    ) : (
+                      <ShieldCheck
+                        size={17}
+                        className="mt-0.5 shrink-0 text-slate-400"
+                      />
+                    )}
+
+                    <p
+                      className={`text-[11px] font-bold leading-5 ${
+                        phoneVerified
+                          ? "text-green-800"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      {phoneVerified
+                        ? "Phone verified. Complete signup and wait for admin approval."
+                        : "Phone verification is required before creating your chef account."}
                     </p>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={loading}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white shadow-[0_12px_26px_rgba(22,163,74,0.2)] transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={loading || !phoneVerified}
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white shadow-[0_12px_26px_rgba(22,163,74,0.2)] transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300 disabled:shadow-none"
                   >
                     {loading ? (
                       <>
@@ -417,10 +641,12 @@ function AuthInputShell({
   icon,
   children,
   valid = false,
+  className = "",
 }: {
   icon: ReactNode;
   children: ReactNode;
   valid?: boolean;
+  className?: string;
 }) {
   return (
     <div
@@ -428,7 +654,7 @@ function AuthInputShell({
         valid
           ? "border-green-300 bg-green-50"
           : "border-slate-200 bg-slate-50"
-      }`}
+      } ${className}`}
     >
       <span
         className={`flex h-full w-11 shrink-0 items-center justify-center border-r ${
@@ -460,7 +686,7 @@ function PasswordButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={visible ? "Hide password" : "Show password"}
-      className="flex h-full w-11 shrink-0 items-center justify-center text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 disabled:opacity-50"
+      className="flex h-full w-10 shrink-0 items-center justify-center text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 disabled:opacity-50"
     >
       {visible ? <EyeOff size={17} /> : <Eye size={17} />}
     </button>
