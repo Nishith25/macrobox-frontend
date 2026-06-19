@@ -1,8 +1,14 @@
 // frontend/src/pages/DeliveryDashboard.tsx (FRONTEND)
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router-dom";
-import api from "../api/api";
+import toast from "react-hot-toast";
 import {
   Check,
   ChevronRight,
@@ -19,6 +25,8 @@ import {
   User,
   X,
 } from "lucide-react";
+
+import api from "../api/api";
 
 type PlanDay = {
   day?: number;
@@ -148,7 +156,7 @@ type Order = {
     deliveredAt?: string | null;
     tracking?: {
       isLive?: boolean;
-      currentLocation?: TrackingLocation;
+      currentLocation?: TrackingLocation | null;
       eta?: TrackingEta | null;
       route?: {
         encodedPolyline?: string;
@@ -249,14 +257,19 @@ function getStatusBadgeClass(status?: string) {
   switch (status) {
     case "accepted":
       return "border-blue-200 bg-blue-50 text-blue-700";
+
     case "picked_up":
       return "border-indigo-200 bg-indigo-50 text-indigo-700";
+
     case "out_for_delivery":
       return "border-orange-200 bg-orange-50 text-orange-700";
+
     case "delivered":
       return "border-green-200 bg-green-50 text-green-700";
+
     case "cancelled":
       return "border-red-200 bg-red-50 text-red-700";
+
     default:
       return "border-slate-200 bg-slate-50 text-slate-600";
   }
@@ -266,8 +279,10 @@ function getPaymentBadgeClass(status?: string) {
   switch (status) {
     case "paid":
       return "border-green-200 bg-green-50 text-green-700";
+
     case "failed":
       return "border-red-200 bg-red-50 text-red-700";
+
     default:
       return "border-yellow-200 bg-yellow-50 text-yellow-700";
   }
@@ -277,6 +292,8 @@ function formatAddress(address?: DeliveryAddress) {
   if (!address) return "Address not available";
 
   if (address.formattedAddress) return address.formattedAddress;
+
+  if (address.locationText) return address.locationText;
 
   const parts = [
     address.flatNo || address.line1,
@@ -297,9 +314,19 @@ function getMapsUrl(address?: DeliveryAddress) {
 
   if (address.mapsUrl) return address.mapsUrl;
 
-  const query = address.formattedAddress || address.locationText;
+  if (
+    typeof address.lat === "number" &&
+    typeof address.lng === "number"
+  ) {
+    return `https://www.google.com/maps/search/?api=1&query=${address.lat},${address.lng}`;
+  }
 
-  if (!query) return "";
+  const query =
+    address.formattedAddress ||
+    address.locationText ||
+    formatAddress(address);
+
+  if (!query || query === "Address not available") return "";
 
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     query
@@ -325,11 +352,39 @@ function getNextPlanDay(item: OrderItem) {
 
   return (
     planDays.find(
-      (day) => day.date === today && day.deliveryStatus !== "delivered"
+      (day) =>
+        day.date === today &&
+        day.deliveryStatus !== "delivered"
     ) ||
-    planDays.find((day) => day.deliveryStatus !== "delivered") ||
+    planDays.find(
+      (day) => day.deliveryStatus !== "delivered"
+    ) ||
     planDays[0] ||
     null
+  );
+}
+
+function hasValidTrackingLocation(
+  location?: TrackingLocation | null
+) {
+  return Boolean(
+    location &&
+      typeof location.lat === "number" &&
+      typeof location.lng === "number" &&
+      Number.isFinite(location.lat) &&
+      Number.isFinite(location.lng)
+  );
+}
+
+function isServerTrackingActive(order: Order) {
+  const status = order.delivery?.status;
+  const tracking = order.delivery?.tracking;
+  const currentLocation = tracking?.currentLocation;
+
+  return Boolean(
+    tracking?.isLive === true &&
+      ["picked_up", "out_for_delivery"].includes(status || "") &&
+      hasValidTrackingLocation(currentLocation)
   );
 }
 
@@ -339,7 +394,10 @@ function getSplitTotals(order: Order) {
   const fallbackPlanSubtotal = items
     .filter((item) => isPlanItem(item))
     .reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
+      (sum, item) =>
+        sum +
+        Number(item.price || 0) *
+          Number(item.qty || 1),
       0
     );
 
@@ -388,8 +446,9 @@ function matchesSearch(order: Order, query: string) {
         const planId = getPlanId(item);
 
         const planItems =
-          item.planItems?.map((planItem) => planItem.title || "").join(" ") ||
-          "";
+          item.planItems
+            ?.map((planItem) => planItem.title || "")
+            .join(" ") || "";
 
         const planDays =
           item.planDays
@@ -433,8 +492,13 @@ function getOrderItemCount(order: Order) {
 }
 
 function getNextDeliveryText(order: Order) {
-  const planItem = (order.items || []).find((item) => isPlanItem(item));
-  const planDay = planItem ? getNextPlanDay(planItem) : null;
+  const planItem = (order.items || []).find((item) =>
+    isPlanItem(item)
+  );
+
+  const planDay = planItem
+    ? getNextPlanDay(planItem)
+    : null;
 
   if (planDay) {
     return `Day ${planDay.day || 1} · ${
@@ -448,40 +512,93 @@ function getNextDeliveryText(order: Order) {
 }
 
 export default function DeliveryDashboard() {
-  const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
-  const [myOrders, setMyOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("available");
-  const [search, setSearch] = useState("");
+  const [availableOrders, setAvailableOrders] = useState<
+    Order[]
+  >([]);
 
+  const [myOrders, setMyOrders] = useState<Order[]>(
+    []
+  );
+
+  const [activeTab, setActiveTab] =
+    useState<ActiveTab>("available");
+
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
-  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+
+  const [busyOrderId, setBusyOrderId] =
+    useState<string | null>(null);
 
   const [selectedAvailableOrder, setSelectedAvailableOrder] =
     useState<Order | null>(null);
 
-  const [selectedMyOrder, setSelectedMyOrder] = useState<Order | null>(null);
+  const [selectedMyOrder, setSelectedMyOrder] =
+    useState<Order | null>(null);
 
-  const watchIdsRef = useRef<Record<string, number>>({});
-  const lastSentRef = useRef<Record<string, number>>({});
+  const watchIdsRef = useRef<Record<string, number>>(
+    {}
+  );
+
+  const lastSentRef = useRef<Record<string, number>>(
+    {}
+  );
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
 
-      const [availableRes, myOrdersRes] = await Promise.all([
-        api.get("/delivery/available"),
-        api.get("/delivery/my-orders"),
-      ]);
+      const [availableResponse, myOrdersResponse] =
+        await Promise.all([
+          api.get("/delivery/available"),
+          api.get("/delivery/my-orders"),
+        ]);
 
-      setAvailableOrders(
-        Array.isArray(availableRes.data) ? availableRes.data : []
+      const availableList = Array.isArray(
+        availableResponse.data
+      )
+        ? availableResponse.data
+        : [];
+
+      const myOrdersList = Array.isArray(
+        myOrdersResponse.data
+      )
+        ? myOrdersResponse.data
+        : [];
+
+      setAvailableOrders(availableList);
+      setMyOrders(myOrdersList);
+
+      setSelectedAvailableOrder((current) => {
+        if (!current) return null;
+
+        return (
+          availableList.find(
+            (order: Order) =>
+              order._id === current._id
+          ) || null
+        );
+      });
+
+      setSelectedMyOrder((current) => {
+        if (!current) return null;
+
+        return (
+          myOrdersList.find(
+            (order: Order) =>
+              order._id === current._id
+          ) || null
+        );
+      });
+    } catch (error: any) {
+      console.error(
+        "Failed to fetch delivery orders:",
+        error
       );
 
-      setMyOrders(Array.isArray(myOrdersRes.data) ? myOrdersRes.data : []);
-    } catch (error) {
-      console.error("Failed to fetch delivery orders:", error);
-      alert("Failed to load delivery dashboard.");
+      toast.error(
+        error?.response?.data?.message ||
+          "Failed to load delivery dashboard."
+      );
     } finally {
       setLoading(false);
     }
@@ -491,7 +608,9 @@ export default function DeliveryDashboard() {
     fetchOrders();
 
     return () => {
-      Object.values(watchIdsRef.current).forEach((watchId) => {
+      Object.values(
+        watchIdsRef.current
+      ).forEach((watchId) => {
         navigator.geolocation.clearWatch(watchId);
       });
 
@@ -500,190 +619,394 @@ export default function DeliveryDashboard() {
     };
   }, []);
 
-  const filteredAvailableOrders = useMemo(() => {
-    return availableOrders.filter((order) => matchesSearch(order, search));
-  }, [availableOrders, search]);
+  const filteredAvailableOrders = useMemo(
+    () =>
+      availableOrders.filter((order) =>
+        matchesSearch(order, search)
+      ),
+    [availableOrders, search]
+  );
 
-  const filteredMyOrders = useMemo(() => {
-    return myOrders.filter((order) => matchesSearch(order, search));
-  }, [myOrders, search]);
+  const filteredMyOrders = useMemo(
+    () =>
+      myOrders.filter((order) =>
+        matchesSearch(order, search)
+      ),
+    [myOrders, search]
+  );
 
-  const activeDeliveries = useMemo(() => {
-    return myOrders.filter(
-      (order) =>
-        order.delivery?.status !== "delivered" &&
-        order.delivery?.status !== "cancelled"
-    ).length;
-  }, [myOrders]);
+  const activeDeliveries = useMemo(
+    () =>
+      myOrders.filter(
+        (order) =>
+          order.delivery?.status !== "delivered" &&
+          order.delivery?.status !== "cancelled"
+      ).length,
+    [myOrders]
+  );
 
-  const completedDeliveries = useMemo(() => {
-    return myOrders.filter(
-      (order) => order.delivery?.status === "delivered"
-    ).length;
-  }, [myOrders]);
+  const completedDeliveries = useMemo(
+    () =>
+      myOrders.filter(
+        (order) =>
+          order.delivery?.status === "delivered"
+      ).length,
+    [myOrders]
+  );
 
   const acceptOrder = async (orderId: string) => {
     try {
       setBusyOrderId(orderId);
 
-      await api.post(`/delivery/${orderId}/accept`);
-      await fetchOrders();
+      await api.post(
+        `/delivery/${orderId}/accept`
+      );
 
       setSelectedAvailableOrder(null);
       setActiveTab("my");
 
-      alert("Order accepted successfully.");
+      await fetchOrders();
+
+      toast.success(
+        "Order accepted successfully."
+      );
     } catch (error: any) {
       console.error("Accept order error:", error);
 
-      alert(error?.response?.data?.message || "Failed to accept order.");
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
-
-  const updateStatus = async (orderId: string, status: string) => {
-    try {
-      setBusyOrderId(orderId);
-
-      await api.post(`/delivery/${orderId}/status`, { status });
-
-      if (status === "delivered" || status === "cancelled") {
-        const watchId = watchIdsRef.current[orderId];
-
-        if (watchId) {
-          navigator.geolocation.clearWatch(watchId);
-
-          delete watchIdsRef.current[orderId];
-          delete lastSentRef.current[orderId];
-        }
-
-        setTrackingOrderId((current) =>
-          current === orderId ? null : current
-        );
-      }
-
-      await fetchOrders();
-
-      setSelectedMyOrder((current) =>
-        current?._id === orderId
-          ? {
-              ...current,
-              delivery: {
-                ...current.delivery,
-                status,
-              },
-            }
-          : current
+      toast.error(
+        error?.response?.data?.message ||
+          "Failed to accept order."
       );
-    } catch (error: any) {
-      console.error("Update status error:", error);
-
-      alert(error?.response?.data?.message || "Failed to update status.");
     } finally {
       setBusyOrderId(null);
     }
   };
 
-  const startLiveTracking = async (orderId: string) => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported on this device/browser.");
-      return;
-    }
+  const clearOrderWatch = (
+    orderId: string
+  ) => {
+    const watchId =
+      watchIdsRef.current[orderId];
 
-    if (watchIdsRef.current[orderId]) {
-      alert("Live tracking is already running for this order.");
-      return;
-    }
-
-    setTrackingOrderId(orderId);
-
-    const watchId = navigator.geolocation.watchPosition(
-      async (position) => {
-        try {
-          const now = Date.now();
-          const lastSentAt = lastSentRef.current[orderId] || 0;
-
-          if (now - lastSentAt < LOCATION_SEND_THROTTLE_MS) return;
-
-          lastSentRef.current[orderId] = now;
-
-          await api.post(`/delivery/${orderId}/location`, {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            heading:
-              typeof position.coords.heading === "number" &&
-              !Number.isNaN(position.coords.heading)
-                ? position.coords.heading
-                : null,
-            speed:
-              typeof position.coords.speed === "number" &&
-              !Number.isNaN(position.coords.speed)
-                ? position.coords.speed
-                : null,
-          });
-        } catch (error) {
-          console.error("Location update failed:", error);
-        }
-      },
-      (error) => {
-        console.error("Geolocation watch error:", error);
-
-        alert("Unable to get live location. Please allow location access.");
-
-        if (watchIdsRef.current[orderId]) {
-          navigator.geolocation.clearWatch(
-            watchIdsRef.current[orderId]
-          );
-
-          delete watchIdsRef.current[orderId];
-        }
-
-        delete lastSentRef.current[orderId];
-
-        setTrackingOrderId((current) =>
-          current === orderId ? null : current
-        );
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 5000,
-        timeout: 15000,
-      }
-    );
-
-    watchIdsRef.current[orderId] = watchId;
-    lastSentRef.current[orderId] = 0;
-
-    alert("Live tracking started.");
-  };
-
-  const stopLiveTracking = (orderId: string) => {
-    const watchId = watchIdsRef.current[orderId];
-
-    if (watchId) {
-      navigator.geolocation.clearWatch(watchId);
+    if (typeof watchId === "number") {
+      navigator.geolocation.clearWatch(
+        watchId
+      );
 
       delete watchIdsRef.current[orderId];
     }
 
     delete lastSentRef.current[orderId];
+  };
 
-    if (trackingOrderId === orderId) {
-      setTrackingOrderId(null);
+  const updateStatus = async (
+    orderId: string,
+    status: string
+  ) => {
+    try {
+      setBusyOrderId(orderId);
+
+      await api.post(
+        `/delivery/${orderId}/status`,
+        {
+          status,
+        }
+      );
+
+      if (
+        status === "delivered" ||
+        status === "cancelled"
+      ) {
+        clearOrderWatch(orderId);
+      }
+
+      await fetchOrders();
+
+      toast.success(
+        `Order marked as ${readableStatus(
+          status
+        )}.`
+      );
+    } catch (error: any) {
+      console.error(
+        "Update status error:",
+        error
+      );
+
+      toast.error(
+        error?.response?.data?.message ||
+          "Failed to update status."
+      );
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const updateOrderTrackingState = (
+    orderId: string,
+    tracking: NonNullable<
+      NonNullable<Order["delivery"]>["tracking"]
+    >
+  ) => {
+    setMyOrders((current) =>
+      current.map((order) =>
+        order._id === orderId
+          ? {
+              ...order,
+              delivery: {
+                ...order.delivery,
+                tracking: {
+                  ...order.delivery?.tracking,
+                  ...tracking,
+                },
+              },
+            }
+          : order
+      )
+    );
+
+    setSelectedMyOrder((current) =>
+      current?._id === orderId
+        ? {
+            ...current,
+            delivery: {
+              ...current.delivery,
+              tracking: {
+                ...current.delivery?.tracking,
+                ...tracking,
+              },
+            },
+          }
+        : current
+    );
+  };
+
+  const startLiveTracking = (
+    orderId: string
+  ) => {
+    if (!navigator.geolocation) {
+      toast.error(
+        "Geolocation is not supported on this device or browser."
+      );
+
+      return;
     }
 
-    alert("Live tracking stopped.");
+    if (
+      typeof watchIdsRef.current[orderId] ===
+      "number"
+    ) {
+      toast.error(
+        "Live tracking is already running for this order."
+      );
+
+      return;
+    }
+
+    const order = myOrders.find(
+      (item) => item._id === orderId
+    );
+
+    const status = order?.delivery?.status;
+
+    if (
+      status !== "picked_up" &&
+      status !== "out_for_delivery"
+    ) {
+      toast.error(
+        "Mark the order as Picked Up before starting live tracking."
+      );
+
+      return;
+    }
+
+    const watchId =
+      navigator.geolocation.watchPosition(
+        async (position) => {
+          try {
+            const now = Date.now();
+
+            const lastSentAt =
+              lastSentRef.current[orderId] ||
+              0;
+
+            if (
+              now - lastSentAt <
+              LOCATION_SEND_THROTTLE_MS
+            ) {
+              return;
+            }
+
+            lastSentRef.current[orderId] =
+              now;
+
+            const response = await api.post(
+              `/delivery/${orderId}/location`,
+              {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+
+                heading:
+                  typeof position.coords
+                    .heading === "number" &&
+                  Number.isFinite(
+                    position.coords.heading
+                  )
+                    ? position.coords.heading
+                    : null,
+
+                speed:
+                  typeof position.coords
+                    .speed === "number" &&
+                  Number.isFinite(
+                    position.coords.speed
+                  )
+                    ? position.coords.speed
+                    : null,
+              }
+            );
+
+            const currentLocation =
+              response.data?.currentLocation ||
+              {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+
+                heading:
+                  typeof position.coords
+                    .heading === "number"
+                    ? position.coords.heading
+                    : null,
+
+                speed:
+                  typeof position.coords
+                    .speed === "number"
+                    ? position.coords.speed
+                    : null,
+
+                updatedAt:
+                  new Date().toISOString(),
+              };
+
+            updateOrderTrackingState(
+              orderId,
+              {
+                isLive: true,
+                currentLocation,
+                eta:
+                  response.data?.eta || null,
+                route:
+                  response.data?.route || null,
+              }
+            );
+          } catch (error: any) {
+            console.error(
+              "Location update failed:",
+              error
+            );
+
+            toast.error(
+              error?.response?.data?.message ||
+                "Failed to send live location."
+            );
+          }
+        },
+        (error) => {
+          console.error(
+            "Geolocation watch error:",
+            error
+          );
+
+          clearOrderWatch(orderId);
+
+          updateOrderTrackingState(
+            orderId,
+            {
+              isLive: false,
+            }
+          );
+
+          if (
+            error.code ===
+            error.PERMISSION_DENIED
+          ) {
+            toast.error(
+              "Location permission was denied. Allow location access and try again."
+            );
+          } else if (
+            error.code ===
+            error.POSITION_UNAVAILABLE
+          ) {
+            toast.error(
+              "Current location is unavailable."
+            );
+          } else {
+            toast.error(
+              "Location request timed out. Try again."
+            );
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 5000,
+          timeout: 15000,
+        }
+      );
+
+    watchIdsRef.current[orderId] =
+      watchId;
+
+    lastSentRef.current[orderId] = 0;
+
+    toast.success(
+      "Live tracking started. Waiting for the first GPS update."
+    );
+  };
+
+  const stopLiveTracking = async (
+    orderId: string
+  ) => {
+    clearOrderWatch(orderId);
+
+    updateOrderTrackingState(orderId, {
+      isLive: false,
+    });
+
+    try {
+      await api.post(
+        `/delivery/${orderId}/stop-tracking`
+      );
+
+      toast.success(
+        "Live tracking stopped."
+      );
+    } catch (error: any) {
+      console.error(
+        "Stop tracking error:",
+        error
+      );
+
+      toast.error(
+        error?.response?.data?.message ||
+          "Tracking stopped on this device, but the server could not be updated."
+      );
+    }
   };
 
   const isTracking = (orderId: string) =>
-    Boolean(watchIdsRef.current[orderId]);
+    typeof watchIdsRef.current[
+      orderId
+    ] === "number";
 
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-white px-4">
         <div className="flex items-center gap-3 border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
-          <Loader2 className="animate-spin text-green-600" size={19} />
+          <Loader2
+            className="animate-spin text-green-600"
+            size={19}
+          />
+
           Loading delivery dashboard...
         </div>
       </main>
@@ -707,8 +1030,10 @@ export default function DeliveryDashboard() {
               </h1>
 
               <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:mt-5 sm:text-base sm:leading-7">
-                Accept available orders, update delivery progress and share
-                live location with customers.
+                Accept available orders,
+                update delivery progress and
+                share live location with
+                customers.
               </p>
             </div>
 
@@ -729,7 +1054,10 @@ export default function DeliveryDashboard() {
                 value={`${completedDeliveries}`}
               />
 
-              <HeaderStat label="Today" value={todayText()} />
+              <HeaderStat
+                label="Today"
+                value={todayText()}
+              />
             </div>
           </div>
         </div>
@@ -745,7 +1073,8 @@ export default function DeliveryDashboard() {
                 </h2>
 
                 <p className="mt-1 text-sm font-bold text-slate-500">
-                  Switch between available and assigned deliveries.
+                  Switch between available
+                  and assigned deliveries.
                 </p>
               </div>
 
@@ -763,7 +1092,9 @@ export default function DeliveryDashboard() {
           <div className="grid grid-cols-2 border-b border-slate-200">
             <button
               type="button"
-              onClick={() => setActiveTab("available")}
+              onClick={() =>
+                setActiveTab("available")
+              }
               className={`border-r border-slate-200 px-3 py-4 text-center text-sm font-black transition sm:px-5 ${
                 activeTab === "available"
                   ? "bg-green-50 text-green-700"
@@ -771,6 +1102,7 @@ export default function DeliveryDashboard() {
               }`}
             >
               Available
+
               <span
                 className={`ml-2 rounded-full px-2.5 py-1 text-xs ${
                   activeTab === "available"
@@ -784,7 +1116,9 @@ export default function DeliveryDashboard() {
 
             <button
               type="button"
-              onClick={() => setActiveTab("my")}
+              onClick={() =>
+                setActiveTab("my")
+              }
               className={`px-3 py-4 text-center text-sm font-black transition sm:px-5 ${
                 activeTab === "my"
                   ? "bg-green-50 text-green-700"
@@ -792,6 +1126,7 @@ export default function DeliveryDashboard() {
               }`}
             >
               My Deliveries
+
               <span
                 className={`ml-2 rounded-full px-2.5 py-1 text-xs ${
                   activeTab === "my"
@@ -813,7 +1148,9 @@ export default function DeliveryDashboard() {
 
               <input
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
                 placeholder="Search order, customer, address or meal..."
                 className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white"
               />
@@ -833,63 +1170,72 @@ export default function DeliveryDashboard() {
               <p className="mt-1 text-sm font-bold text-slate-500">
                 {activeTab === "available"
                   ? `${filteredAvailableOrders.length} order${
-                      filteredAvailableOrders.length === 1 ? "" : "s"
+                      filteredAvailableOrders.length === 1
+                        ? ""
+                        : "s"
                     } ready to accept`
                   : `${filteredMyOrders.length} assigned order${
-                      filteredMyOrders.length === 1 ? "" : "s"
+                      filteredMyOrders.length === 1
+                        ? ""
+                        : "s"
                     }`}
               </p>
             </div>
           </div>
 
           {activeTab === "available" ? (
-            filteredAvailableOrders.length === 0 ? (
+            filteredAvailableOrders.length ===
+            0 ? (
               <EmptyCard
                 title="No available orders"
                 text="New orders ready for delivery will appear here."
               />
             ) : (
               <div className="grid gap-4">
-                {filteredAvailableOrders.map((order) => (
-                  <AvailableOrderCard
-                    key={order._id}
-                    order={order}
-                    busy={busyOrderId === order._id}
-                    onAccept={() => acceptOrder(order._id)}
-                    onView={() => setSelectedAvailableOrder(order)}
-                  />
-                ))}
+                {filteredAvailableOrders.map(
+                  (order) => (
+                    <AvailableOrderCard
+                      key={order._id}
+                      order={order}
+                      busy={
+                        busyOrderId ===
+                        order._id
+                      }
+                      onAccept={() =>
+                        acceptOrder(order._id)
+                      }
+                      onView={() =>
+                        setSelectedAvailableOrder(
+                          order
+                        )
+                      }
+                    />
+                  )
+                )}
               </div>
             )
           ) : filteredMyOrders.length === 0 ? (
             <EmptyCard
               title="No assigned orders"
-              text="Accept an available order to start managing its delivery."
+              text="Accepted orders and admin-assigned deliveries will appear here."
             />
           ) : (
             <div className="grid gap-4">
-              {filteredMyOrders.map((order) => {
-                const currentStatus = order.delivery?.status || "";
-                const currentLocation =
-                  order.delivery?.tracking?.currentLocation;
-
-                const canStartTracking =
-                  currentStatus === "picked_up" ||
-                  currentStatus === "out_for_delivery";
-
-                return (
-                  <MyDeliveryOrderCard
-                    key={order._id}
-                    order={order}
-                    currentStatus={currentStatus}
-                    currentLocation={currentLocation}
-                    busy={busyOrderId === order._id}
-                    isLiveTracking={isTracking(order._id)}
-                    canStartTracking={canStartTracking}
-                    onView={() => setSelectedMyOrder(order)}
-                  />
-                );
-              })}
+              {filteredMyOrders.map((order) => (
+                <MyDeliveryOrderCard
+                  key={order._id}
+                  order={order}
+                  busy={
+                    busyOrderId === order._id
+                  }
+                  isLocalTracking={isTracking(
+                    order._id
+                  )}
+                  onView={() =>
+                    setSelectedMyOrder(order)
+                  }
+                />
+              ))}
             </div>
           )}
         </section>
@@ -898,27 +1244,50 @@ export default function DeliveryDashboard() {
       {selectedAvailableOrder && (
         <AvailableOrderDrawer
           order={selectedAvailableOrder}
-          busy={busyOrderId === selectedAvailableOrder._id}
-          onAccept={() => acceptOrder(selectedAvailableOrder._id)}
-          onClose={() => setSelectedAvailableOrder(null)}
+          busy={
+            busyOrderId ===
+            selectedAvailableOrder._id
+          }
+          onAccept={() =>
+            acceptOrder(
+              selectedAvailableOrder._id
+            )
+          }
+          onClose={() =>
+            setSelectedAvailableOrder(null)
+          }
         />
       )}
 
       {selectedMyOrder && (
         <MyOrderDrawer
           order={selectedMyOrder}
-          busy={busyOrderId === selectedMyOrder._id}
-          isLiveTracking={isTracking(selectedMyOrder._id)}
+          busy={
+            busyOrderId ===
+            selectedMyOrder._id
+          }
+          isLocalTracking={isTracking(
+            selectedMyOrder._id
+          )}
           onStatusChange={(status) =>
-            updateStatus(selectedMyOrder._id, status)
+            updateStatus(
+              selectedMyOrder._id,
+              status
+            )
           }
           onStartTracking={() =>
-            startLiveTracking(selectedMyOrder._id)
+            startLiveTracking(
+              selectedMyOrder._id
+            )
           }
           onStopTracking={() =>
-            stopLiveTracking(selectedMyOrder._id)
+            stopLiveTracking(
+              selectedMyOrder._id
+            )
           }
-          onClose={() => setSelectedMyOrder(null)}
+          onClose={() =>
+            setSelectedMyOrder(null)
+          }
         />
       )}
     </main>
@@ -938,7 +1307,10 @@ function AvailableOrderCard({
 }) {
   const splitTotals = getSplitTotals(order);
   const address = order.delivery?.address;
-  const hasPlan = order.items?.some((item) => isPlanItem(item));
+
+  const hasPlan = order.items?.some((item) =>
+    isPlanItem(item)
+  );
 
   return (
     <article className="border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200 sm:p-5">
@@ -952,7 +1324,9 @@ function AvailableOrderCard({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-black tracking-[-0.03em] text-slate-950 sm:text-xl">
-                  {order.user?.name || address?.fullName || "Customer"}
+                  {order.user?.name ||
+                    address?.fullName ||
+                    "Customer"}
                 </h3>
 
                 {hasPlan && (
@@ -962,8 +1336,13 @@ function AvailableOrderCard({
                 )}
 
                 <Badge
-                  text={(order.payment?.status || "created").toUpperCase()}
-                  className={getPaymentBadgeClass(order.payment?.status)}
+                  text={(
+                    order.payment?.status ||
+                    "created"
+                  ).toUpperCase()}
+                  className={getPaymentBadgeClass(
+                    order.payment?.status
+                  )}
                 />
               </div>
 
@@ -978,7 +1357,9 @@ function AvailableOrderCard({
 
             <div className="shrink-0 lg:text-right">
               <p className="text-2xl font-black tracking-[-0.05em] text-slate-950">
-                {formatCurrency(splitTotals.payable)}
+                {formatCurrency(
+                  splitTotals.payable
+                )}
               </p>
 
               <p className="mt-1 text-xs font-black text-slate-400">
@@ -992,24 +1373,32 @@ function AvailableOrderCard({
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <CompactDetail
               label="Delivery"
-              value={`${formatDateOnly(order.delivery?.slot?.date)} · ${formatSlot(
+              value={`${formatDateOnly(
+                order.delivery?.slot?.date
+              )} · ${formatSlot(
                 order.delivery?.slot?.time
               )}`}
             />
 
             <CompactDetail
               label="Items"
-              value={`${getOrderItemCount(order)} item(s)`}
+              value={`${getOrderItemCount(
+                order
+              )} item(s)`}
             />
 
             <CompactDetail
               label="Order"
-              value={getNextDeliveryText(order)}
+              value={getNextDeliveryText(
+                order
+              )}
             />
 
             <CompactDetail
               label="Created"
-              value={formatDateTime(order.createdAt)}
+              value={formatDateTime(
+                order.createdAt
+              )}
             />
           </div>
 
@@ -1021,12 +1410,17 @@ function AvailableOrderCard({
               className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
             >
               {busy ? (
-                <Loader2 className="animate-spin" size={16} />
+                <Loader2
+                  className="animate-spin"
+                  size={16}
+                />
               ) : (
                 <Check size={16} />
               )}
 
-              {busy ? "Accepting..." : "Accept"}
+              {busy
+                ? "Accepting..."
+                : "Accept"}
             </button>
 
             <button
@@ -1046,23 +1440,29 @@ function AvailableOrderCard({
 
 function MyDeliveryOrderCard({
   order,
-  currentStatus,
-  currentLocation,
   busy,
-  isLiveTracking,
-  canStartTracking,
+  isLocalTracking,
   onView,
 }: {
   order: Order;
-  currentStatus: string;
-  currentLocation?: TrackingLocation;
   busy: boolean;
-  isLiveTracking: boolean;
-  canStartTracking: boolean;
+  isLocalTracking: boolean;
   onView: () => void;
 }) {
   const splitTotals = getSplitTotals(order);
-  const eta = order.delivery?.tracking?.eta;
+
+  const currentStatus =
+    order.delivery?.status || "unassigned";
+
+  const serverTrackingActive =
+    isServerTrackingActive(order);
+
+  const eta =
+    order.delivery?.tracking?.eta;
+
+  const currentLocation =
+    order.delivery?.tracking?.currentLocation;
+
   const address = order.delivery?.address;
 
   return (
@@ -1077,20 +1477,34 @@ function MyDeliveryOrderCard({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-black tracking-[-0.03em] text-slate-950 sm:text-xl">
-                  {order.user?.name || address?.fullName || "Customer"}
+                  {order.user?.name ||
+                    address?.fullName ||
+                    "Customer"}
                 </h3>
 
                 <Badge
-                  text={readableStatus(currentStatus)}
-                  className={getStatusBadgeClass(currentStatus)}
+                  text={readableStatus(
+                    currentStatus
+                  )}
+                  className={getStatusBadgeClass(
+                    currentStatus
+                  )}
                 />
 
-                {isLiveTracking && (
+                {serverTrackingActive && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
                     <CircleDot size={12} />
                     Live
                   </span>
                 )}
+
+                {isLocalTracking &&
+                  !serverTrackingActive && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-3 py-1 text-xs font-black text-yellow-700">
+                      <CircleDot size={12} />
+                      Connecting
+                    </span>
+                  )}
               </div>
 
               <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-500">
@@ -1104,7 +1518,9 @@ function MyDeliveryOrderCard({
 
             <div className="shrink-0 lg:text-right">
               <p className="text-2xl font-black tracking-[-0.05em] text-slate-950">
-                {formatCurrency(splitTotals.payable)}
+                {formatCurrency(
+                  splitTotals.payable
+                )}
               </p>
 
               <p className="mt-1 text-xs font-black text-slate-400">
@@ -1118,34 +1534,48 @@ function MyDeliveryOrderCard({
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <CompactDetail
               label="Delivery"
-              value={`${formatDateOnly(order.delivery?.slot?.date)} · ${formatSlot(
+              value={`${formatDateOnly(
+                order.delivery?.slot?.date
+              )} · ${formatSlot(
                 order.delivery?.slot?.time
               )}`}
             />
 
             <CompactDetail
               label="Order"
-              value={getNextDeliveryText(order)}
+              value={getNextDeliveryText(
+                order
+              )}
             />
 
             <CompactDetail
               label="ETA"
-              value={eta?.text || "Not available"}
+              value={
+                serverTrackingActive
+                  ? eta?.text ||
+                    "Calculating"
+                  : "Tracking not started"
+              }
             />
 
             <CompactDetail
               label="Last Update"
-              value={formatDateTime(currentLocation?.updatedAt)}
+              value={
+                serverTrackingActive
+                  ? formatDateTime(
+                      currentLocation?.updatedAt
+                    )
+                  : "Not available"
+              }
             />
           </div>
 
-          {!canStartTracking &&
-            currentStatus !== "delivered" &&
-            currentStatus !== "cancelled" && (
-              <p className="mt-3 text-xs font-bold text-yellow-700">
-                Mark the order as Picked Up before starting tracking.
-              </p>
-            )}
+          {currentStatus === "accepted" && (
+            <p className="mt-3 text-xs font-bold text-yellow-700">
+              Mark the order as Picked Up
+              before starting live tracking.
+            </p>
+          )}
 
           <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <button
@@ -1198,32 +1628,45 @@ function AvailableOrderDrawer({
         <CustomerSection order={order} />
 
         <section className="border border-slate-200 bg-white p-4">
-          <SectionLabel>Delivery Information</SectionLabel>
+          <SectionLabel>
+            Delivery Information
+          </SectionLabel>
 
           <div className="grid grid-cols-2 gap-3">
             <DrawerStat
               label="Date"
-              value={formatDateOnly(order.delivery?.slot?.date)}
+              value={formatDateOnly(
+                order.delivery?.slot?.date
+              )}
             />
 
             <DrawerStat
               label="Time"
-              value={formatSlot(order.delivery?.slot?.time)}
+              value={formatSlot(
+                order.delivery?.slot?.time
+              )}
             />
 
             <DrawerStat
               label="Items"
-              value={`${getOrderItemCount(order)} item(s)`}
+              value={`${getOrderItemCount(
+                order
+              )} item(s)`}
             />
 
             <DrawerStat
               label="Payable"
-              value={formatCurrency(splitTotals.payable)}
+              value={formatCurrency(
+                splitTotals.payable
+              )}
             />
           </div>
         </section>
 
-        <AddressSection address={address} mapsUrl={mapsUrl} />
+        <AddressSection
+          address={address}
+          mapsUrl={mapsUrl}
+        />
 
         <BillingBreakdown order={order} />
 
@@ -1233,15 +1676,20 @@ function AvailableOrderDrawer({
           type="button"
           onClick={onAccept}
           disabled={busy}
-          className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-3 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
         >
           {busy ? (
-            <Loader2 className="animate-spin" size={18} />
+            <Loader2
+              className="animate-spin"
+              size={18}
+            />
           ) : (
             <Check size={18} />
           )}
 
-          {busy ? "Accepting Delivery..." : "Accept Delivery"}
+          {busy
+            ? "Accepting Delivery..."
+            : "Accept Delivery"}
         </button>
       </div>
     </Drawer>
@@ -1251,7 +1699,7 @@ function AvailableOrderDrawer({
 function MyOrderDrawer({
   order,
   busy,
-  isLiveTracking,
+  isLocalTracking,
   onStatusChange,
   onStartTracking,
   onStopTracking,
@@ -1259,21 +1707,41 @@ function MyOrderDrawer({
 }: {
   order: Order;
   busy: boolean;
-  isLiveTracking: boolean;
+  isLocalTracking: boolean;
   onStatusChange: (status: string) => void;
   onStartTracking: () => void;
   onStopTracking: () => void;
   onClose: () => void;
 }) {
-  const currentStatus = order.delivery?.status || "";
-  const currentLocation = order.delivery?.tracking?.currentLocation;
-  const eta = order.delivery?.tracking?.eta;
+  const currentStatus =
+    order.delivery?.status || "";
+
+  const currentLocation =
+    order.delivery?.tracking?.currentLocation;
+
+  const eta =
+    order.delivery?.tracking?.eta;
+
   const address = order.delivery?.address;
   const mapsUrl = getMapsUrl(address);
 
   const canStartTracking =
     currentStatus === "picked_up" ||
-    currentStatus === "out_for_delivery";
+    currentStatus ===
+      "out_for_delivery";
+
+  const serverTrackingActive =
+    isServerTrackingActive(order);
+
+  const trackingButtonActive =
+    isLocalTracking ||
+    serverTrackingActive;
+
+  const currentStatusIndex =
+    STATUS_OPTIONS.findIndex(
+      (item) =>
+        item.value === currentStatus
+    );
 
   return (
     <Drawer
@@ -1285,126 +1753,191 @@ function MyOrderDrawer({
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-2">
           <Badge
-            text={readableStatus(currentStatus)}
-            className={getStatusBadgeClass(currentStatus)}
+            text={readableStatus(
+              currentStatus
+            )}
+            className={getStatusBadgeClass(
+              currentStatus
+            )}
           />
 
-          {isLiveTracking && (
+          {serverTrackingActive && (
             <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
               <CircleDot size={12} />
               Live Tracking
             </span>
           )}
+
+          {isLocalTracking &&
+            !serverTrackingActive && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-3 py-1 text-xs font-black text-yellow-700">
+                <CircleDot size={12} />
+                Waiting for GPS
+              </span>
+            )}
         </div>
 
         <CustomerSection order={order} />
 
         <section className="border border-slate-200 bg-white p-4">
-          <SectionLabel>Delivery Progress</SectionLabel>
+          <SectionLabel>
+            Delivery Progress
+          </SectionLabel>
 
           <div className="space-y-3">
-            {STATUS_OPTIONS.map((statusOption, index) => {
-              const currentIndex = STATUS_OPTIONS.findIndex(
-                (item) => item.value === currentStatus
-              );
+            {STATUS_OPTIONS.map(
+              (statusOption, index) => {
+                const completed =
+                  currentStatusIndex >= 0 &&
+                  index <=
+                    currentStatusIndex;
 
-              const completed = index <= currentIndex;
-              const active = statusOption.value === currentStatus;
+                const active =
+                  statusOption.value ===
+                  currentStatus;
 
-              return (
-                <div
-                  key={statusOption.value}
-                  className={`flex items-center justify-between gap-3 border p-3 ${
-                    active
-                      ? "border-green-300 bg-green-50"
-                      : completed
-                      ? "border-slate-200 bg-slate-50"
-                      : "border-slate-200 bg-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        completed
-                          ? "bg-green-600 text-white"
-                          : "bg-slate-100 text-slate-400"
-                      }`}
-                    >
-                      {completed ? (
-                        <Check size={15} />
-                      ) : (
-                        <span className="text-xs font-black">
-                          {index + 1}
-                        </span>
-                      )}
-                    </span>
+                const nextAllowedIndex =
+                  currentStatusIndex + 1;
 
-                    <div>
-                      <p className="text-sm font-black text-slate-950">
-                        {statusOption.label}
-                      </p>
+                const canMark =
+                  currentStatus !==
+                    "delivered" &&
+                  currentStatus !==
+                    "cancelled" &&
+                  index === nextAllowedIndex;
 
-                      {active && (
-                        <p className="text-xs font-bold text-green-700">
-                          Current status
+                return (
+                  <div
+                    key={statusOption.value}
+                    className={`flex items-center justify-between gap-3 border p-3 ${
+                      active
+                        ? "border-green-300 bg-green-50"
+                        : completed
+                        ? "border-slate-200 bg-slate-50"
+                        : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                          completed
+                            ? "bg-green-600 text-white"
+                            : "bg-slate-100 text-slate-400"
+                        }`}
+                      >
+                        {completed ? (
+                          <Check size={15} />
+                        ) : (
+                          <span className="text-xs font-black">
+                            {index + 1}
+                          </span>
+                        )}
+                      </span>
+
+                      <div>
+                        <p className="text-sm font-black text-slate-950">
+                          {
+                            statusOption.label
+                          }
                         </p>
-                      )}
-                    </div>
-                  </div>
 
-                  {!active && currentStatus !== "delivered" && (
-                    <button
-                      type="button"
-                      onClick={() => onStatusChange(statusOption.value)}
-                      disabled={busy}
-                      className="rounded-full border border-green-600 px-3 py-1.5 text-xs font-black text-green-700 transition hover:bg-green-50 disabled:opacity-50"
-                    >
-                      Mark
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+                        {active && (
+                          <p className="text-xs font-bold text-green-700">
+                            Current status
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {canMark && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onStatusChange(
+                            statusOption.value
+                          )
+                        }
+                        disabled={busy}
+                        className="rounded-full border border-green-600 px-3 py-1.5 text-xs font-black text-green-700 transition hover:bg-green-50 disabled:opacity-50"
+                      >
+                        {busy
+                          ? "Updating..."
+                          : "Mark"}
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+            )}
           </div>
         </section>
 
         <section className="border border-slate-200 bg-white p-4">
-          <SectionLabel>Live Tracking</SectionLabel>
+          <SectionLabel>
+            Live Tracking
+          </SectionLabel>
 
           <div className="grid grid-cols-2 gap-3">
             <DrawerStat
               label="ETA"
-              value={eta?.text || "Not available"}
+              value={
+                serverTrackingActive
+                  ? eta?.text ||
+                    "Calculating"
+                  : "Not started"
+              }
+              accent={serverTrackingActive}
             />
 
             <DrawerStat
               label="Distance"
-              value={eta?.distanceText || "Not available"}
+              value={
+                serverTrackingActive
+                  ? eta?.distanceText ||
+                    "Calculating"
+                  : "Not started"
+              }
             />
 
             <DrawerStat
               label="Last Updated"
-              value={formatDateTime(currentLocation?.updatedAt)}
+              value={
+                serverTrackingActive
+                  ? formatDateTime(
+                      currentLocation?.updatedAt
+                    )
+                  : "Not available"
+              }
             />
 
             <DrawerStat
               label="Tracking"
-              value={isLiveTracking ? "Live" : "Stopped"}
-              accent={isLiveTracking}
+              value={
+                serverTrackingActive
+                  ? "Live"
+                  : isLocalTracking
+                  ? "Connecting"
+                  : "Stopped"
+              }
+              accent={
+                serverTrackingActive
+              }
             />
           </div>
 
           {!canStartTracking &&
             currentStatus !== "delivered" &&
-            currentStatus !== "cancelled" && (
+            currentStatus !==
+              "cancelled" && (
               <div className="mt-4 border border-yellow-200 bg-yellow-50 p-3 text-sm font-bold text-yellow-800">
-                Mark the order as Picked Up or Out for Delivery before starting
-                live tracking.
+                Mark the order as Picked
+                Up before starting live
+                tracking.
               </div>
             )}
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            {!isLiveTracking ? (
+            {!trackingButtonActive ? (
               <button
                 type="button"
                 onClick={onStartTracking}
@@ -1435,32 +1968,48 @@ function MyOrderDrawer({
           </div>
         </section>
 
-        <AddressSection address={address} mapsUrl={mapsUrl} />
+        <AddressSection
+          address={address}
+          mapsUrl={mapsUrl}
+        />
+
+        <BillingBreakdown order={order} />
 
         <DeliveryItems order={order} />
 
         <section className="border border-slate-200 bg-white p-4">
-          <SectionLabel>Delivery Times</SectionLabel>
+          <SectionLabel>
+            Delivery Times
+          </SectionLabel>
 
           <div className="grid grid-cols-2 gap-3">
             <DrawerStat
               label="Accepted"
-              value={formatDateTime(order.delivery?.acceptedAt)}
+              value={formatDateTime(
+                order.delivery?.acceptedAt
+              )}
             />
 
             <DrawerStat
               label="Picked Up"
-              value={formatDateTime(order.delivery?.pickedUpAt)}
+              value={formatDateTime(
+                order.delivery?.pickedUpAt
+              )}
             />
 
             <DrawerStat
               label="Out for Delivery"
-              value={formatDateTime(order.delivery?.outForDeliveryAt)}
+              value={formatDateTime(
+                order.delivery
+                  ?.outForDeliveryAt
+              )}
             />
 
             <DrawerStat
               label="Delivered"
-              value={formatDateTime(order.delivery?.deliveredAt)}
+              value={formatDateTime(
+                order.delivery?.deliveredAt
+              )}
             />
           </div>
         </section>
@@ -1469,8 +2018,13 @@ function MyOrderDrawer({
   );
 }
 
-function CustomerSection({ order }: { order: Order }) {
+function CustomerSection({
+  order,
+}: {
+  order: Order;
+}) {
   const address = order.delivery?.address;
+
   const phone =
     order.user?.phone ||
     address?.phone ||
@@ -1478,7 +2032,9 @@ function CustomerSection({ order }: { order: Order }) {
 
   return (
     <section className="border border-slate-200 bg-white p-4">
-      <SectionLabel>Customer</SectionLabel>
+      <SectionLabel>
+        Customer
+      </SectionLabel>
 
       <div className="flex items-start gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
@@ -1487,17 +2043,31 @@ function CustomerSection({ order }: { order: Order }) {
 
         <div className="min-w-0">
           <p className="text-base font-black text-slate-950">
-            {order.user?.name || address?.fullName || "Customer"}
+            {order.user?.name ||
+              address?.fullName ||
+              "Customer"}
           </p>
 
           <p className="mt-1 break-all text-sm font-bold text-slate-500">
-            {order.user?.email || "Email not available"}
+            {order.user?.email ||
+              "Email not available"}
           </p>
 
-          <p className="mt-1 flex items-center gap-1 text-sm font-bold text-slate-500">
-            <Phone size={14} className="text-green-600" />
+          <a
+            href={
+              phone !==
+              "Phone not available"
+                ? `tel:${phone}`
+                : undefined
+            }
+            className="mt-1 flex items-center gap-1 text-sm font-bold text-slate-500"
+          >
+            <Phone
+              size={14}
+              className="text-green-600"
+            />
             {phone}
-          </p>
+          </a>
         </div>
       </div>
     </section>
@@ -1513,7 +2083,9 @@ function AddressSection({
 }) {
   return (
     <section className="border border-slate-200 bg-white p-4">
-      <SectionLabel>Delivery Address</SectionLabel>
+      <SectionLabel>
+        Delivery Address
+      </SectionLabel>
 
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
@@ -1542,59 +2114,101 @@ function AddressSection({
   );
 }
 
-function BillingBreakdown({ order }: { order: Order }) {
-  const splitTotals = getSplitTotals(order);
+function BillingBreakdown({
+  order,
+}: {
+  order: Order;
+}) {
+  const splitTotals =
+    getSplitTotals(order);
 
   return (
     <section className="border border-slate-200 bg-white p-4">
-      <SectionLabel>Billing Breakdown</SectionLabel>
+      <SectionLabel>
+        Billing Breakdown
+      </SectionLabel>
 
       <div className="grid grid-cols-2 gap-3">
         <DrawerStat
           label="Meals"
-          value={formatCurrency(splitTotals.normalMealsSubtotal)}
+          value={formatCurrency(
+            splitTotals.normalMealsSubtotal
+          )}
         />
 
         <DrawerStat
           label="Plans"
-          value={formatCurrency(splitTotals.planSubtotal)}
+          value={formatCurrency(
+            splitTotals.planSubtotal
+          )}
         />
 
         <DrawerStat
           label="Discount"
           value={`-₹${splitTotals.discount}`}
-          accent={splitTotals.discount > 0}
+          accent={
+            splitTotals.discount > 0
+          }
         />
 
         <DrawerStat
           label="Payable"
-          value={formatCurrency(splitTotals.payable)}
+          value={formatCurrency(
+            splitTotals.payable
+          )}
         />
       </div>
     </section>
   );
 }
 
-function DeliveryItems({ order }: { order: Order }) {
+function DeliveryItems({
+  order,
+}: {
+  order: Order;
+}) {
   return (
     <section className="border border-slate-200 bg-white p-4">
-      <SectionLabel>Delivery Items</SectionLabel>
+      <SectionLabel>
+        Delivery Items
+      </SectionLabel>
 
-      <div className="space-y-3">
-        {(order.items || []).map((item, index) => (
-          <DeliveryItemCard
-            key={`${order._id}-${item.meal || item.planId || index}`}
-            item={item}
-          />
-        ))}
-      </div>
+      {(order.items || []).length ===
+      0 ? (
+        <p className="text-sm font-bold text-slate-500">
+          No delivery items found.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {(order.items || []).map(
+            (item, index) => (
+              <DeliveryItemCard
+                key={`${order._id}-${
+                  item.meal ||
+                  item.planId ||
+                  index
+                }`}
+                item={item}
+              />
+            )
+          )}
+        </div>
+      )}
     </section>
   );
 }
 
-function DeliveryItemCard({ item }: { item: OrderItem }) {
+function DeliveryItemCard({
+  item,
+}: {
+  item: OrderItem;
+}) {
   const isPlan = isPlanItem(item);
-  const nextPlanDay = isPlan ? getNextPlanDay(item) : null;
+
+  const nextPlanDay = isPlan
+    ? getNextPlanDay(item)
+    : null;
+
   const planId = getPlanId(item);
 
   if (isPlan && nextPlanDay) {
@@ -1604,11 +2218,14 @@ function DeliveryItemCard({ item }: { item: OrderItem }) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-green-600 px-2.5 py-1 text-[10px] font-black text-white">
-                Day {nextPlanDay.day || 1}
+                Day{" "}
+                {nextPlanDay.day || 1}
               </span>
 
               <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-green-700">
-                {nextPlanDay.preference || item.preference || "mixed"}
+                {nextPlanDay.preference ||
+                  item.preference ||
+                  "mixed"}
               </span>
             </div>
 
@@ -1619,34 +2236,48 @@ function DeliveryItemCard({ item }: { item: OrderItem }) {
             </p>
 
             <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
-              {formatDateOnly(nextPlanDay.date)} ·{" "}
-              {formatSlot(nextPlanDay.slot)}
+              {formatDateOnly(
+                nextPlanDay.date
+              )}{" "}
+              ·{" "}
+              {formatSlot(
+                nextPlanDay.slot
+              )}
             </p>
 
             {planId && (
-              <p className="mt-1 text-[11px] font-black text-green-700">
+              <p className="mt-1 break-all text-[11px] font-black text-green-700">
                 Plan: {planId}
               </p>
             )}
 
             {nextPlanDay.alternativeMealTitle && (
               <p className="mt-1 text-xs font-bold text-slate-500">
-                Alternative: {nextPlanDay.alternativeMealTitle}
+                Alternative:{" "}
+                {
+                  nextPlanDay.alternativeMealTitle
+                }
               </p>
             )}
           </div>
 
           <div className="shrink-0 text-right">
             <p className="text-sm font-black text-slate-950">
-              {formatCurrency(nextPlanDay.selectedMealPrice)}
+              {formatCurrency(
+                nextPlanDay.selectedMealPrice
+              )}
             </p>
 
             <p className="mt-1 text-[11px] font-bold text-slate-500">
-              {nextPlanDay.selectedMealCalories || 0} kcal
+              {nextPlanDay.selectedMealCalories ||
+                0}{" "}
+              kcal
             </p>
 
             <p className="text-[11px] font-bold text-slate-500">
-              {nextPlanDay.selectedMealProtein || 0}g protein
+              {nextPlanDay.selectedMealProtein ||
+                0}
+              g protein
             </p>
           </div>
         </div>
@@ -1664,18 +2295,27 @@ function DeliveryItemCard({ item }: { item: OrderItem }) {
 
           <p className="mt-1 text-xs font-bold text-slate-500">
             Quantity: {item.qty || 1}
-            {isPlan ? " · Meal Plan" : ""}
+            {isPlan
+              ? " · Meal Plan"
+              : ""}
           </p>
 
           <p className="mt-1 text-xs font-bold text-slate-500">
-            {Number(item.calories || 0)} kcal ·{" "}
-            {Number(item.protein || 0)}g protein
+            {Number(
+              item.calories || 0
+            )}{" "}
+            kcal ·{" "}
+            {Number(
+              item.protein || 0
+            )}
+            g protein
           </p>
         </div>
 
         <p className="shrink-0 text-sm font-black text-slate-950">
           {formatCurrency(
-            Number(item.price || 0) * Number(item.qty || 1)
+            Number(item.price || 0) *
+              Number(item.qty || 1)
           )}
         </p>
       </div>
@@ -1707,7 +2347,9 @@ function Drawer({
 
       <aside
         className={`absolute bottom-0 right-0 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:bottom-auto sm:top-0 sm:h-full sm:max-h-full sm:rounded-none ${
-          wide ? "sm:w-[560px]" : "sm:w-[430px]"
+          wide
+            ? "sm:w-[560px]"
+            : "sm:w-[430px]"
         }`}
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
@@ -1730,7 +2372,9 @@ function Drawer({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        <div className="flex-1 overflow-y-auto p-5">
+          {children}
+        </div>
       </aside>
     </div>
   );
@@ -1759,7 +2403,9 @@ function HeaderStat({
 
       <p
         className={`mt-1 text-lg font-black ${
-          accent ? "text-green-700" : "text-slate-950"
+          accent
+            ? "text-green-700"
+            : "text-slate-950"
         }`}
       >
         {value}
@@ -1810,8 +2456,10 @@ function DrawerStat({
       </p>
 
       <p
-        className={`mt-1 text-sm font-black ${
-          accent ? "text-green-700" : "text-slate-950"
+        className={`mt-1 break-words text-sm font-black ${
+          accent
+            ? "text-green-700"
+            : "text-slate-950"
         }`}
       >
         {value}
@@ -1820,7 +2468,11 @@ function DrawerStat({
   );
 }
 
-function SectionLabel({ children }: { children: ReactNode }) {
+function SectionLabel({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
       {children}
@@ -1853,7 +2505,10 @@ function EmptyCard({
 }) {
   return (
     <div className="border border-slate-200 bg-slate-50 p-8 text-center">
-      <PackageCheck className="mx-auto text-slate-300" size={44} />
+      <PackageCheck
+        className="mx-auto text-slate-300"
+        size={44}
+      />
 
       <h3 className="mt-4 text-lg font-black text-slate-950">
         {title}

@@ -1,22 +1,36 @@
 // frontend/src/pages/TrackOrderPage.tsx (FRONTEND)
-// Google Maps version — NO react-leaflet / NO leaflet
+// Professional Google Maps tracking page.
+// No react-leaflet or leaflet required.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { Link, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
   Bike,
+  Check,
   CheckCircle2,
-  Clock,
+  ChevronRight,
+  ExternalLink,
+  Home,
+  Loader2,
   LocateFixed,
   MapPin,
   Navigation,
   PackageCheck,
   Phone,
   RefreshCw,
-  Route,
-  Truck,
-  User,
+  ShieldCheck,
+  XCircle,
 } from "lucide-react";
+import toast from "react-hot-toast";
+
 import api from "../api/api";
 import socket from "../socket";
 
@@ -115,6 +129,14 @@ type SocketTrackingPayload = {
   updatedAt?: string;
 };
 
+type TrackingStage =
+  | "unassigned"
+  | "accepted"
+  | "picked_up"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled";
+
 declare global {
   interface Window {
     google?: typeof google;
@@ -123,6 +145,47 @@ declare global {
 
 const GOOGLE_SCRIPT_ID = "google-maps-track-order-script";
 
+const statusStages: {
+  status: Exclude<TrackingStage, "unassigned" | "cancelled">;
+  title: string;
+  description: string;
+  icon: ReactNode;
+}[] = [
+  {
+    status: "accepted",
+    title: "Order accepted",
+    description: "Your delivery partner has accepted the order.",
+    icon: <Check size={16} />,
+  },
+  {
+    status: "picked_up",
+    title: "Order picked up",
+    description: "Your MacroBox order has left the kitchen.",
+    icon: <PackageCheck size={16} />,
+  },
+  {
+    status: "out_for_delivery",
+    title: "Out for delivery",
+    description: "Your order is currently on the way.",
+    icon: <Bike size={16} />,
+  },
+  {
+    status: "delivered",
+    title: "Delivered",
+    description: "Your order has been delivered successfully.",
+    icon: <CheckCircle2 size={16} />,
+  },
+];
+
+const statusRank: Record<TrackingStage, number> = {
+  unassigned: 0,
+  accepted: 1,
+  picked_up: 2,
+  out_for_delivery: 3,
+  delivered: 4,
+  cancelled: -1,
+};
+
 const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     if (window.google?.maps) {
@@ -130,13 +193,31 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
       return;
     }
 
-    const existingScript = document.getElementById(GOOGLE_SCRIPT_ID);
+    const existingScript = document.getElementById(
+      GOOGLE_SCRIPT_ID
+    ) as HTMLScriptElement | null;
 
     if (existingScript) {
-      existingScript.addEventListener("load", () => resolve());
-      existingScript.addEventListener("error", () =>
-        reject(new Error("Google Maps script failed to load"))
+      if (window.google?.maps) {
+        resolve();
+        return;
+      }
+
+      existingScript.addEventListener(
+        "load",
+        () => resolve(),
+        { once: true }
       );
+
+      existingScript.addEventListener(
+        "error",
+        () =>
+          reject(
+            new Error("Google Maps script failed to load")
+          ),
+        { once: true }
+      );
+
       return;
     }
 
@@ -148,22 +229,58 @@ const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
     script.defer = true;
 
     script.onload = () => resolve();
+
     script.onerror = () =>
-      reject(new Error("Google Maps script failed to load"));
+      reject(
+        new Error("Google Maps script failed to load")
+      );
 
     document.head.appendChild(script);
   });
 };
 
-function readableStatus(status?: string) {
-  if (!status) return "N/A";
-  return status.replaceAll("_", " ");
-}
+const normalizeStatus = (
+  status?: string
+): TrackingStage => {
+  const normalized = String(status || "unassigned")
+    .trim()
+    .toLowerCase();
 
-function formatAddress(address?: DeliveryAddress | null) {
-  if (!address) return "N/A";
+  if (
+    normalized === "accepted" ||
+    normalized === "picked_up" ||
+    normalized === "out_for_delivery" ||
+    normalized === "delivered" ||
+    normalized === "cancelled"
+  ) {
+    return normalized;
+  }
 
-  if (address.formattedAddress) return address.formattedAddress;
+  return "unassigned";
+};
+
+const readableStatus = (status?: string) => {
+  if (!status) return "Awaiting assignment";
+
+  return status
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (character) =>
+      character.toUpperCase()
+    );
+};
+
+const formatAddress = (
+  address?: DeliveryAddress | null
+) => {
+  if (!address) return "Address unavailable";
+
+  if (address.formattedAddress) {
+    return address.formattedAddress;
+  }
+
+  if (address.locationText) {
+    return address.locationText;
+  }
 
   const parts = [
     address.flatNo || address.line1,
@@ -176,415 +293,778 @@ function formatAddress(address?: DeliveryAddress | null) {
     address.pincode,
   ].filter(Boolean);
 
-  return parts.join(", ") || "N/A";
-}
+  return parts.join(", ") || "Address unavailable";
+};
 
-function getStatusBadgeClass(status?: string) {
-  switch (status) {
-    case "accepted":
-      return "bg-blue-100 text-blue-700";
-    case "picked_up":
-      return "bg-yellow-100 text-yellow-700";
-    case "out_for_delivery":
-      return "bg-orange-100 text-orange-700";
-    case "delivered":
-      return "bg-green-100 text-green-700";
-    case "cancelled":
-      return "bg-red-100 text-red-700";
-    default:
-      return "bg-gray-100 text-gray-700";
+const getStatusBadgeClass = (
+  status: TrackingStage
+) => {
+  if (status === "accepted") {
+    return "border-blue-200 bg-blue-50 text-blue-700";
   }
-}
 
-function formatDateTime(value?: string | null) {
-  if (!value) return "N/A";
+  if (status === "picked_up") {
+    return "border-yellow-200 bg-yellow-50 text-yellow-700";
+  }
 
-  const d = new Date(value);
+  if (status === "out_for_delivery") {
+    return "border-orange-200 bg-orange-50 text-orange-700";
+  }
 
-  if (Number.isNaN(d.getTime())) return "N/A";
+  if (status === "delivered") {
+    return "border-green-200 bg-green-50 text-green-700";
+  }
 
-  return d.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
+  if (status === "cancelled") {
+    return "border-red-200 bg-red-50 text-red-700";
+  }
+
+  return "border-slate-200 bg-slate-100 text-slate-600";
+};
+
+const formatDateTime = (
+  value?: string | null
+) => {
+  if (!value) return "Not available";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not available";
+  }
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
-}
+};
 
-function formatSlot(slot?: TrackResponse["slot"]) {
-  if (!slot?.date && !slot?.time) return "N/A";
+const formatDateOnly = (value?: string) => {
+  if (!value) return "";
 
-  return `${slot?.date || ""} ${slot?.time || ""}`.trim();
-}
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value
+      .split("-")
+      .map(Number);
 
-function hasValidPoint(point?: LocationPoint | null) {
-  return (
+    return new Date(
+      year,
+      month - 1,
+      day
+    ).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatDeliveryTime = (value?: string) => {
+  if (!value) return "";
+
+  const hour = Number(value.split(":")[0]);
+
+  if (!Number.isFinite(hour)) {
+    return value;
+  }
+
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour =
+    hour % 12 === 0 ? 12 : hour % 12;
+
+  return `${displayHour}:00 ${period}`;
+};
+
+const formatSlot = (
+  slot?: TrackResponse["slot"]
+) => {
+  if (!slot?.date && !slot?.time) {
+    return "Not available";
+  }
+
+  return [
+    formatDateOnly(slot?.date),
+    formatDeliveryTime(slot?.time),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+};
+
+const hasValidPoint = (
+  point?: LocationPoint | null
+): point is LocationPoint & {
+  lat: number;
+  lng: number;
+} =>
+  Boolean(
     point &&
-    typeof point.lat === "number" &&
-    typeof point.lng === "number" &&
-    Number.isFinite(point.lat) &&
-    Number.isFinite(point.lng)
+      typeof point.lat === "number" &&
+      typeof point.lng === "number" &&
+      Number.isFinite(point.lat) &&
+      Number.isFinite(point.lng)
   );
-}
 
-function hasValidLatLng(
-  point?: { lat?: number | null; lng?: number | null } | null
-) {
-  return (
+const hasValidLatLng = (
+  point?: {
+    lat?: number | null;
+    lng?: number | null;
+  } | null
+): point is {
+  lat: number;
+  lng: number;
+} =>
+  Boolean(
     point &&
-    typeof point.lat === "number" &&
-    typeof point.lng === "number" &&
-    Number.isFinite(point.lat) &&
-    Number.isFinite(point.lng)
+      typeof point.lat === "number" &&
+      typeof point.lng === "number" &&
+      Number.isFinite(point.lat) &&
+      Number.isFinite(point.lng)
   );
-}
 
-function createSvgMarker(svg: string) {
-  return {
-    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    scaledSize: new google.maps.Size(58, 58),
-    anchor: new google.maps.Point(29, 58),
-  };
-}
+const createSvgMarker = (svg: string) => ({
+  url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    svg
+  )}`,
+  scaledSize: new google.maps.Size(54, 54),
+  anchor: new google.maps.Point(27, 54),
+});
 
-function getAgentMarkerIcon() {
-  return createSvgMarker(`
-    <svg width="70" height="70" viewBox="0 0 70 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.35"/>
+const getAgentMarkerIcon = () =>
+  createSvgMarker(`
+    <svg width="66" height="66" viewBox="0 0 66 66" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+        <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#0F172A" flood-opacity="0.28"/>
       </filter>
-      <circle cx="35" cy="30" r="25" fill="#16A34A" stroke="white" stroke-width="6" filter="url(#shadow)"/>
-      <text x="35" y="40" text-anchor="middle" font-size="28">🏍️</text>
-      <path d="M35 68L24 50H46L35 68Z" fill="#16A34A" stroke="white" stroke-width="4"/>
+      <circle cx="33" cy="28" r="22" fill="#16A34A" stroke="white" stroke-width="5" filter="url(#shadow)"/>
+      <path d="M33 64L23 46H43L33 64Z" fill="#16A34A" stroke="white" stroke-width="3"/>
+      <path d="M21 29.5H25.5L29 23H37L40.5 29.5H45" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="25" cy="34" r="3.5" stroke="white" stroke-width="2.5"/>
+      <circle cx="41" cy="34" r="3.5" stroke="white" stroke-width="2.5"/>
+      <path d="M29 23L33 29.5H40.5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   `);
-}
 
-function getCustomerMarkerIcon() {
-  return createSvgMarker(`
-    <svg width="70" height="70" viewBox="0 0 70 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.35"/>
+const getCustomerMarkerIcon = () =>
+  createSvgMarker(`
+    <svg width="66" height="66" viewBox="0 0 66 66" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+        <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#0F172A" flood-opacity="0.28"/>
       </filter>
-      <circle cx="35" cy="30" r="25" fill="#EF4444" stroke="white" stroke-width="6" filter="url(#shadow)"/>
-      <text x="35" y="40" text-anchor="middle" font-size="28">📍</text>
-      <path d="M35 68L24 50H46L35 68Z" fill="#EF4444" stroke="white" stroke-width="4"/>
+      <circle cx="33" cy="28" r="22" fill="#FC8019" stroke="white" stroke-width="5" filter="url(#shadow)"/>
+      <path d="M33 64L23 46H43L33 64Z" fill="#FC8019" stroke="white" stroke-width="3"/>
+      <path d="M24 30.5L33 23L42 30.5V40H36V34H30V40H24V30.5Z" fill="white"/>
     </svg>
   `);
-}
 
 export default function TrackOrderPage() {
-  const { orderId } = useParams();
+  const { orderId } = useParams<{
+    orderId: string;
+  }>();
 
-  const mapDivRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const agentMarkerRef = useRef<google.maps.Marker | null>(null);
-  const customerMarkerRef = useRef<google.maps.Marker | null>(null);
-  const routePolylineRef = useRef<google.maps.Polyline | null>(null);
-  const historyPolylineRef = useRef<google.maps.Polyline | null>(null);
+  const mapDivRef =
+    useRef<HTMLDivElement | null>(null);
 
-  const [tracking, setTracking] = useState<TrackResponse | null>(null);
+  const mapRef =
+    useRef<google.maps.Map | null>(null);
+
+  const agentMarkerRef =
+    useRef<google.maps.Marker | null>(null);
+
+  const customerMarkerRef =
+    useRef<google.maps.Marker | null>(null);
+
+  const routePolylineRef =
+    useRef<google.maps.Polyline | null>(null);
+
+  const historyPolylineRef =
+    useRef<google.maps.Polyline | null>(null);
+
+  const agentInfoWindowRef =
+    useRef<google.maps.InfoWindow | null>(null);
+
+  const customerInfoWindowRef =
+    useRef<google.maps.InfoWindow | null>(null);
+
+  const [tracking, setTracking] =
+    useState<TrackResponse | null>(null);
+
   const [loading, setLoading] = useState(true);
-  const [mapReady, setMapReady] = useState(false);
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+  const [mapReady, setMapReady] =
+    useState(false);
+
+  const [mapLoading, setMapLoading] =
+    useState(true);
+
   const [error, setError] = useState("");
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  const deliveryStatus = tracking?.deliveryStatus || "unassigned";
+  const [lastUpdated, setLastUpdated] =
+    useState<string | null>(null);
 
-  const agentLocation = useMemo<LocationPoint | null>(() => {
-    if (hasValidPoint(tracking?.agentLocation)) return tracking?.agentLocation || null;
+const deliveryStatus = normalizeStatus(
+  tracking?.deliveryStatus
+);
 
-    if (hasValidPoint(tracking?.tracking?.currentLocation)) {
-      return tracking?.tracking?.currentLocation || null;
-    }
-
-    return null;
-  }, [tracking]);
-
-  const deliveryLocation = useMemo(() => {
-    if (hasValidLatLng(tracking?.deliveryLocation)) {
-      return tracking?.deliveryLocation || null;
-    }
-
-    if (hasValidLatLng(tracking?.customerLocation)) {
-      return tracking?.customerLocation || null;
+const agentLocation =
+  useMemo<LocationPoint | null>(() => {
+    if (hasValidPoint(tracking?.agentLocation)) {
+      return tracking.agentLocation;
     }
 
     if (
-      typeof tracking?.deliveryAddress?.lat === "number" &&
-      typeof tracking?.deliveryAddress?.lng === "number"
+      hasValidPoint(
+        tracking?.tracking?.currentLocation
+      )
     ) {
-      return {
-        lat: tracking.deliveryAddress.lat,
-        lng: tracking.deliveryAddress.lng,
-      };
+      return tracking.tracking.currentLocation;
     }
 
     return null;
   }, [tracking]);
 
-  const etaText = tracking?.tracking?.eta?.text || "Calculating";
-  const distanceText = tracking?.tracking?.eta?.distanceText || "N/A";
-  const isLive = Boolean(tracking?.tracking?.isLive);
+const deliveryLocation = useMemo(() => {
+  if (
+    hasValidLatLng(tracking?.deliveryLocation)
+  ) {
+    return tracking.deliveryLocation;
+  }
 
-  const fetchTracking = useCallback(async () => {
-    if (!orderId) return;
+  if (
+    hasValidLatLng(tracking?.customerLocation)
+  ) {
+    return tracking.customerLocation;
+  }
 
-    try {
-      setError("");
+  if (
+    typeof tracking?.deliveryAddress?.lat ===
+      "number" &&
+    typeof tracking?.deliveryAddress?.lng ===
+      "number" &&
+    Number.isFinite(
+      tracking.deliveryAddress.lat
+    ) &&
+    Number.isFinite(
+      tracking.deliveryAddress.lng
+    )
+  ) {
+    return {
+      lat: tracking.deliveryAddress.lat,
+      lng: tracking.deliveryAddress.lng,
+    };
+  }
 
-      let res;
+  return null;
+}, [tracking]);
 
-      try {
-        res = await api.get(`/orders/track/${orderId}`);
-      } catch {
-        res = await api.get(`/delivery/track/${orderId}`);
+const hasAssignedAgent = Boolean(
+  tracking?.deliveryAgent?._id ||
+    tracking?.deliveryAgent?.email ||
+    tracking?.deliveryAgent?.phone ||
+    tracking?.deliveryAgent?.deliveryProfile?.phone
+);
+
+const hasLiveAgentLocation = Boolean(
+  hasAssignedAgent &&
+    tracking?.tracking?.isLive === true &&
+    hasValidPoint(agentLocation) &&
+    deliveryStatus !== "unassigned" &&
+    deliveryStatus !== "delivered" &&
+    deliveryStatus !== "cancelled"
+);
+
+const trackingHasStarted = Boolean(
+  hasLiveAgentLocation &&
+    [
+      "picked_up",
+      "out_for_delivery",
+    ].includes(deliveryStatus)
+);
+
+const canShowRouteData = Boolean(
+  trackingHasStarted &&
+    hasValidPoint(agentLocation) &&
+    hasValidLatLng(deliveryLocation)
+);
+
+const etaText =
+  deliveryStatus === "delivered"
+    ? "Delivered"
+    : canShowRouteData
+    ? tracking?.tracking?.eta?.text ||
+      "Calculating"
+    : "Not started";
+
+const distanceText =
+  deliveryStatus === "delivered"
+    ? "Completed"
+    : canShowRouteData
+    ? tracking?.tracking?.eta?.distanceText ||
+      "Calculating"
+    : "Not started";
+
+const isLive = trackingHasStarted;
+
+const agentPhone =
+  tracking?.deliveryAgent?.phone ||
+  tracking?.deliveryAgent?.deliveryProfile?.phone ||
+  "";
+
+  const completedStageCount =
+    deliveryStatus === "cancelled"
+      ? 0
+      : Math.max(
+          0,
+          statusRank[deliveryStatus]
+        );
+
+  const progressPercentage =
+    deliveryStatus === "cancelled"
+      ? 0
+      : Math.min(
+          100,
+          (completedStageCount / 4) * 100
+        );
+
+  const fetchTracking = useCallback(
+    async (showToast = false) => {
+      if (!orderId) {
+        setError("Order ID is missing.");
+        setLoading(false);
+        return;
       }
 
-      setTracking(res.data);
-      setLastUpdated(new Date().toISOString());
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to fetch tracking data");
-    } finally {
-      setLoading(false);
-    }
-  }, [orderId]);
+      try {
+        if (!loading) {
+          setRefreshing(true);
+        }
+
+        setError("");
+
+        let response;
+
+        try {
+          response = await api.get(
+            `/orders/track/${orderId}`
+          );
+        } catch {
+          response = await api.get(
+            `/delivery/track/${orderId}`
+          );
+        }
+
+        setTracking(response.data);
+        setLastUpdated(new Date().toISOString());
+
+        if (showToast) {
+          toast.success("Tracking updated");
+        }
+      } catch (requestError: any) {
+        const message =
+          requestError?.response?.data?.message ||
+          "Failed to fetch tracking data";
+
+        setError(message);
+
+        if (showToast) {
+          toast.error(message);
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [orderId, loading]
+  );
 
   const initializeMap = useCallback(() => {
-    if (!window.google?.maps || !mapDivRef.current || mapRef.current) return;
+    if (
+      !window.google?.maps ||
+      !mapDivRef.current ||
+      mapRef.current
+    ) {
+      return;
+    }
 
     const fallbackCenter = {
       lat: 17.385,
       lng: 78.4867,
     };
 
-    const center =
-      hasValidPoint(agentLocation)
-        ? {
-            lat: agentLocation!.lat!,
-            lng: agentLocation!.lng!,
-          }
-        : hasValidLatLng(deliveryLocation)
-        ? {
-            lat: deliveryLocation!.lat!,
-            lng: deliveryLocation!.lng!,
-          }
-        : fallbackCenter;
+    const center = hasValidPoint(agentLocation)
+      ? {
+          lat: agentLocation.lat,
+          lng: agentLocation.lng,
+        }
+      : hasValidLatLng(deliveryLocation)
+      ? {
+          lat: deliveryLocation.lat,
+          lng: deliveryLocation.lng,
+        }
+      : fallbackCenter;
 
-    mapRef.current = new google.maps.Map(mapDivRef.current, {
-      center,
-      zoom: 16,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-      zoomControl: true,
-      clickableIcons: true,
-      gestureHandling: "greedy",
-      mapTypeId: google.maps.MapTypeId.ROADMAP,
-      styles: [
-        {
-          featureType: "poi.business",
-          stylers: [{ visibility: "on" }],
-        },
-        {
-          featureType: "poi.medical",
-          stylers: [{ visibility: "on" }],
-        },
-      ],
-    });
+    mapRef.current = new google.maps.Map(
+      mapDivRef.current,
+      {
+        center,
+        zoom: 15,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+        clickableIcons: false,
+        gestureHandling: "greedy",
+        mapTypeId:
+          google.maps.MapTypeId.ROADMAP,
+        styles: [
+          {
+            featureType: "poi.business",
+            stylers: [{ visibility: "off" }],
+          },
+          {
+            featureType: "transit",
+            elementType: "labels.icon",
+            stylers: [{ visibility: "off" }],
+          },
+        ],
+      }
+    );
 
     setMapReady(true);
+    setMapLoading(false);
   }, [agentLocation, deliveryLocation]);
 
   const drawRoute = useCallback(() => {
-    if (!mapRef.current || !window.google?.maps) return;
-
-    if (routePolylineRef.current) {
-      routePolylineRef.current.setMap(null);
-      routePolylineRef.current = null;
+    if (
+      !mapRef.current ||
+      !window.google?.maps
+    ) {
+      return;
     }
 
-    const encoded = tracking?.tracking?.route?.encodedPolyline;
+    routePolylineRef.current?.setMap(null);
+    routePolylineRef.current = null;
 
-    if (!encoded || !window.google.maps.geometry?.encoding) return;
+    const encodedPolyline =
+      tracking?.tracking?.route
+        ?.encodedPolyline;
+
+    if (
+      !encodedPolyline ||
+      !window.google.maps.geometry?.encoding
+    ) {
+      return;
+    }
 
     try {
-      const decodedPath = window.google.maps.geometry.encoding.decodePath(encoded);
+      const path =
+        window.google.maps.geometry.encoding.decodePath(
+          encodedPolyline
+        );
 
-      routePolylineRef.current = new google.maps.Polyline({
-        path: decodedPath,
-        geodesic: true,
-        strokeColor: "#16A34A",
-        strokeOpacity: 0.95,
-        strokeWeight: 6,
-        map: mapRef.current,
-      });
-    } catch (err) {
-      console.error("Route polyline decode error:", err);
+      routePolylineRef.current =
+        new google.maps.Polyline({
+          path,
+          geodesic: true,
+          strokeColor: "#16A34A",
+          strokeOpacity: 0.95,
+          strokeWeight: 5,
+          map: mapRef.current,
+          zIndex: 3,
+        });
+    } catch (routeError) {
+      console.error(
+        "Route polyline decode error:",
+        routeError
+      );
     }
   }, [tracking]);
 
   const drawHistory = useCallback(() => {
-    if (!mapRef.current || !window.google?.maps) return;
-
-    if (historyPolylineRef.current) {
-      historyPolylineRef.current.setMap(null);
-      historyPolylineRef.current = null;
+    if (
+      !mapRef.current ||
+      !window.google?.maps
+    ) {
+      return;
     }
+
+    historyPolylineRef.current?.setMap(null);
+    historyPolylineRef.current = null;
 
     const history =
       tracking?.tracking?.locationHistory
-        ?.filter((p) => hasValidPoint(p))
-        .map((p) => ({
-          lat: p.lat!,
-          lng: p.lng!,
+        ?.filter(hasValidPoint)
+        .map((point) => ({
+          lat: point.lat,
+          lng: point.lng,
         })) || [];
 
     if (history.length < 2) return;
 
-    historyPolylineRef.current = new google.maps.Polyline({
-      path: history,
-      geodesic: true,
-      strokeColor: "#F97316",
-      strokeOpacity: 0.7,
-      strokeWeight: 4,
-      map: mapRef.current,
-    });
+    historyPolylineRef.current =
+      new google.maps.Polyline({
+        path: history,
+        geodesic: true,
+        strokeColor: "#94A3B8",
+        strokeOpacity: 0.5,
+        strokeWeight: 4,
+        map: mapRef.current,
+        zIndex: 1,
+      });
   }, [tracking]);
 
   const updateMarkers = useCallback(() => {
-    if (!mapRef.current || !window.google?.maps) return;
+    if (
+      !mapRef.current ||
+      !window.google?.maps
+    ) {
+      return;
+    }
 
-    const bounds = new google.maps.LatLngBounds();
+    const bounds =
+      new google.maps.LatLngBounds();
+
     let hasAnyPoint = false;
 
     if (hasValidPoint(agentLocation)) {
       const position = {
-        lat: agentLocation!.lat!,
-        lng: agentLocation!.lng!,
+        lat: agentLocation.lat,
+        lng: agentLocation.lng,
       };
 
       if (!agentMarkerRef.current) {
-        agentMarkerRef.current = new google.maps.Marker({
-          position,
-          map: mapRef.current,
-          title: "Delivery Partner",
-          icon: getAgentMarkerIcon(),
-          animation: google.maps.Animation.DROP,
-        });
+        agentMarkerRef.current =
+          new google.maps.Marker({
+            position,
+            map: mapRef.current,
+            title: "Delivery partner",
+            icon: getAgentMarkerIcon(),
+            optimized: false,
+          });
       } else {
-        agentMarkerRef.current.setPosition(position);
-        agentMarkerRef.current.setMap(mapRef.current);
+        agentMarkerRef.current.setPosition(
+          position
+        );
+
+        agentMarkerRef.current.setMap(
+          mapRef.current
+        );
       }
 
-      const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="font-family:system-ui;padding:4px 2px;">
-            <strong>Delivery Partner</strong><br/>
-            ${tracking?.deliveryAgent?.name || "Partner"}<br/>
-            <small>${formatDateTime(agentLocation?.updatedAt || agentLocation?.timestamp)}</small>
-          </div>
-        `,
-      });
+      google.maps.event.clearListeners(
+        agentMarkerRef.current,
+        "click"
+      );
 
-      agentMarkerRef.current.addListener("click", () => {
-        infoWindow.open({
-          anchor: agentMarkerRef.current!,
-          map: mapRef.current!,
+      agentInfoWindowRef.current?.close();
+
+      agentInfoWindowRef.current =
+        new google.maps.InfoWindow({
+          content: `
+            <div style="font-family:Inter,system-ui,sans-serif;padding:4px 2px;min-width:180px;">
+              <strong style="font-size:14px;color:#0f172a;">Delivery Partner</strong>
+              <div style="margin-top:5px;font-size:13px;font-weight:700;color:#334155;">
+                ${
+                  tracking?.deliveryAgent
+                    ?.name || "MacroBox Partner"
+                }
+              </div>
+              <div style="margin-top:4px;font-size:11px;color:#64748b;">
+                Updated ${formatDateTime(
+                  agentLocation.updatedAt ||
+                    agentLocation.timestamp
+                )}
+              </div>
+            </div>
+          `,
         });
-      });
+
+      agentMarkerRef.current.addListener(
+        "click",
+        () => {
+          agentInfoWindowRef.current?.open({
+            anchor: agentMarkerRef.current!,
+            map: mapRef.current!,
+          });
+        }
+      );
 
       bounds.extend(position);
       hasAnyPoint = true;
-    } else if (agentMarkerRef.current) {
-      agentMarkerRef.current.setMap(null);
+    } else {
+      agentMarkerRef.current?.setMap(null);
     }
 
     if (hasValidLatLng(deliveryLocation)) {
       const position = {
-        lat: deliveryLocation!.lat!,
-        lng: deliveryLocation!.lng!,
+        lat: deliveryLocation.lat,
+        lng: deliveryLocation.lng,
       };
 
       if (!customerMarkerRef.current) {
-        customerMarkerRef.current = new google.maps.Marker({
-          position,
-          map: mapRef.current,
-          title: "Delivery Address",
-          icon: getCustomerMarkerIcon(),
-          animation: google.maps.Animation.DROP,
-        });
+        customerMarkerRef.current =
+          new google.maps.Marker({
+            position,
+            map: mapRef.current,
+            title: "Delivery address",
+            icon: getCustomerMarkerIcon(),
+            optimized: false,
+          });
       } else {
-        customerMarkerRef.current.setPosition(position);
-        customerMarkerRef.current.setMap(mapRef.current);
+        customerMarkerRef.current.setPosition(
+          position
+        );
+
+        customerMarkerRef.current.setMap(
+          mapRef.current
+        );
       }
 
-      const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="font-family:system-ui;padding:4px 2px;max-width:260px;">
-            <strong>Delivery Address</strong><br/>
-            <small>${formatAddress(tracking?.deliveryAddress)}</small>
-          </div>
-        `,
-      });
+      google.maps.event.clearListeners(
+        customerMarkerRef.current,
+        "click"
+      );
 
-      customerMarkerRef.current.addListener("click", () => {
-        infoWindow.open({
-          anchor: customerMarkerRef.current!,
-          map: mapRef.current!,
+      customerInfoWindowRef.current?.close();
+
+      customerInfoWindowRef.current =
+        new google.maps.InfoWindow({
+          content: `
+            <div style="font-family:Inter,system-ui,sans-serif;padding:4px 2px;max-width:240px;">
+              <strong style="font-size:14px;color:#0f172a;">Delivery Address</strong>
+              <div style="margin-top:5px;font-size:12px;font-weight:600;line-height:1.5;color:#475569;">
+                ${formatAddress(
+                  tracking?.deliveryAddress
+                )}
+              </div>
+            </div>
+          `,
         });
-      });
+
+      customerMarkerRef.current.addListener(
+        "click",
+        () => {
+          customerInfoWindowRef.current?.open({
+            anchor: customerMarkerRef.current!,
+            map: mapRef.current!,
+          });
+        }
+      );
 
       bounds.extend(position);
       hasAnyPoint = true;
-    } else if (customerMarkerRef.current) {
-      customerMarkerRef.current.setMap(null);
+    } else {
+      customerMarkerRef.current?.setMap(null);
     }
 
-    if (hasAnyPoint) {
-      if (
-        hasValidPoint(agentLocation) &&
-        hasValidLatLng(deliveryLocation) &&
-        agentLocation?.lat !== deliveryLocation?.lat &&
-        agentLocation?.lng !== deliveryLocation?.lng
-      ) {
-        mapRef.current.fitBounds(bounds, {
-          top: 80,
-          right: 80,
-          bottom: 180,
-          left: 80,
-        });
-      } else if (hasValidPoint(agentLocation)) {
-        mapRef.current.setCenter({
-          lat: agentLocation!.lat!,
-          lng: agentLocation!.lng!,
-        });
-        mapRef.current.setZoom(17);
-      } else if (hasValidLatLng(deliveryLocation)) {
-        mapRef.current.setCenter({
-          lat: deliveryLocation!.lat!,
-          lng: deliveryLocation!.lng!,
-        });
-        mapRef.current.setZoom(17);
-      }
+    if (!hasAnyPoint) return;
+
+    const pointsAreDifferent =
+      hasValidPoint(agentLocation) &&
+      hasValidLatLng(deliveryLocation) &&
+      (agentLocation.lat !==
+        deliveryLocation.lat ||
+        agentLocation.lng !==
+          deliveryLocation.lng);
+
+    if (pointsAreDifferent) {
+      mapRef.current.fitBounds(bounds, {
+        top: 90,
+        right: 70,
+        bottom: 170,
+        left: 70,
+      });
+
+      return;
     }
-  }, [agentLocation, deliveryLocation, tracking]);
+
+    if (hasValidPoint(agentLocation)) {
+      mapRef.current.setCenter({
+        lat: agentLocation.lat,
+        lng: agentLocation.lng,
+      });
+
+      mapRef.current.setZoom(17);
+      return;
+    }
+
+    if (hasValidLatLng(deliveryLocation)) {
+      mapRef.current.setCenter({
+        lat: deliveryLocation.lat,
+        lng: deliveryLocation.lng,
+      });
+
+      mapRef.current.setZoom(17);
+    }
+  }, [
+    agentLocation,
+    deliveryLocation,
+    tracking,
+  ]);
+
+  const recenterMap = () => {
+    if (!mapRef.current) return;
+
+    if (hasValidPoint(agentLocation)) {
+      mapRef.current.panTo({
+        lat: agentLocation.lat,
+        lng: agentLocation.lng,
+      });
+
+      mapRef.current.setZoom(17);
+      return;
+    }
+
+    if (hasValidLatLng(deliveryLocation)) {
+      mapRef.current.panTo({
+        lat: deliveryLocation.lat,
+        lng: deliveryLocation.lng,
+      });
+
+      mapRef.current.setZoom(17);
+    }
+  };
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const apiKey =
+      import.meta.env
+        .VITE_GOOGLE_MAPS_API_KEY;
 
     if (!apiKey) {
-      setError("Google Maps API key missing. Add VITE_GOOGLE_MAPS_API_KEY.");
-      setLoading(false);
+      setError(
+        "Google Maps API key is missing."
+      );
+
+      setMapLoading(false);
       return;
     }
 
     loadGoogleMapsScript(apiKey)
-      .then(() => {
-        initializeMap();
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("Failed to load Google Maps.");
-        setLoading(false);
+      .then(initializeMap)
+      .catch((scriptError) => {
+        console.error(scriptError);
+
+        setError(
+          "Google Maps could not be loaded."
+        );
+
+        setMapLoading(false);
       });
   }, [initializeMap]);
 
@@ -603,56 +1083,100 @@ export default function TrackOrderPage() {
     socket.emit("order:join", orderId);
     socket.emit("joinOrder", orderId);
 
-    const handleDeliveryUpdate = (payload: SocketTrackingPayload) => {
-      if (payload?.orderId && String(payload.orderId) !== String(orderId)) {
+    const handleDeliveryUpdate = (
+      payload: SocketTrackingPayload
+    ) => {
+      if (
+        payload?.orderId &&
+        String(payload.orderId) !==
+          String(orderId)
+      ) {
         return;
       }
 
-      setTracking((prev) => {
-        if (!prev) return prev;
+      setTracking((previous) => {
+        if (!previous) return previous;
 
         return {
-          ...prev,
-          deliveryStatus: payload.deliveryStatus || prev.deliveryStatus,
-          deliveryAgent: payload.deliveryAgent || prev.deliveryAgent,
+          ...previous,
+          deliveryStatus:
+            payload.deliveryStatus ||
+            previous.deliveryStatus,
+          deliveryAgent:
+            payload.deliveryAgent ||
+            previous.deliveryAgent,
           agentLocation:
             payload.agentLocation ||
             payload.currentLocation ||
-            prev.agentLocation,
+            previous.agentLocation,
           deliveryLocation:
-            payload.deliveryLocation || prev.deliveryLocation,
+            payload.deliveryLocation ||
+            previous.deliveryLocation,
           tracking: {
-            ...(prev.tracking || {}),
+            ...(previous.tracking || {}),
             isLive:
-              typeof payload.isLive === "boolean"
+              typeof payload.isLive ===
+              "boolean"
                 ? payload.isLive
-                : prev.tracking?.isLive,
+                : previous.tracking?.isLive,
             currentLocation:
               payload.currentLocation ||
               payload.agentLocation ||
-              prev.tracking?.currentLocation,
-            eta: payload.eta || prev.tracking?.eta,
-            route: payload.route || prev.tracking?.route,
-            locationHistory: prev.tracking?.locationHistory || [],
+              previous.tracking
+                ?.currentLocation,
+            eta:
+              payload.eta ||
+              previous.tracking?.eta,
+            route:
+              payload.route ||
+              previous.tracking?.route,
+            locationHistory:
+              previous.tracking
+                ?.locationHistory || [],
           },
         };
       });
 
-      setLastUpdated(new Date().toISOString());
+      setLastUpdated(
+        payload.updatedAt ||
+          new Date().toISOString()
+      );
     };
 
-    socket.on("delivery:update", handleDeliveryUpdate);
-    socket.on("deliveryUpdate", handleDeliveryUpdate);
-    socket.on("order:tracking:update", handleDeliveryUpdate);
+    socket.on(
+      "delivery:update",
+      handleDeliveryUpdate
+    );
+
+    socket.on(
+      "deliveryUpdate",
+      handleDeliveryUpdate
+    );
+
+    socket.on(
+      "order:tracking:update",
+      handleDeliveryUpdate
+    );
 
     return () => {
       socket.emit("leave:order", orderId);
       socket.emit("order:leave", orderId);
       socket.emit("leaveOrder", orderId);
 
-      socket.off("delivery:update", handleDeliveryUpdate);
-      socket.off("deliveryUpdate", handleDeliveryUpdate);
-      socket.off("order:tracking:update", handleDeliveryUpdate);
+      socket.off(
+        "delivery:update",
+        handleDeliveryUpdate
+      );
+
+      socket.off(
+        "deliveryUpdate",
+        handleDeliveryUpdate
+      );
+
+      socket.off(
+        "order:tracking:update",
+        handleDeliveryUpdate
+      );
     };
   }, [orderId]);
 
@@ -662,358 +1186,688 @@ export default function TrackOrderPage() {
     updateMarkers();
     drawRoute();
     drawHistory();
-  }, [mapReady, tracking, updateMarkers, drawRoute, drawHistory]);
+  }, [
+    mapReady,
+    tracking,
+    updateMarkers,
+    drawRoute,
+    drawHistory,
+  ]);
+
+  useEffect(() => {
+    if (
+      !orderId ||
+      deliveryStatus === "delivered" ||
+      deliveryStatus === "cancelled"
+    ) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      fetchTracking(false);
+    }, 30000);
+
+    return () =>
+      window.clearInterval(interval);
+  }, [
+    orderId,
+    deliveryStatus,
+    fetchTracking,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      routePolylineRef.current?.setMap(null);
+      historyPolylineRef.current?.setMap(null);
+      agentMarkerRef.current?.setMap(null);
+      customerMarkerRef.current?.setMap(null);
+      agentInfoWindowRef.current?.close();
+      customerInfoWindowRef.current?.close();
+
+      mapRef.current = null;
+    };
+  }, []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-green-50/40 px-4 py-16">
-        <div className="mx-auto max-w-6xl rounded-3xl border bg-white p-8 text-center shadow-sm">
-          <RefreshCw className="mx-auto animate-spin text-green-600" size={36} />
-          <h1 className="mt-4 text-2xl font-black text-gray-900">
-            Loading order tracking...
-          </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Please wait while we fetch your live delivery updates.
-          </p>
-        </div>
-      </div>
-    );
+    return <TrackingLoader />;
   }
 
   if (error && !tracking) {
     return (
-      <div className="min-h-screen bg-green-50/40 px-4 py-16">
-        <div className="mx-auto max-w-6xl rounded-3xl border bg-white p-8 text-center shadow-sm">
-          <MapPin className="mx-auto text-red-600" size={38} />
-          <h1 className="mt-4 text-2xl font-black text-gray-900">
-            Tracking unavailable
-          </h1>
-          <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>
-          <button
-            type="button"
-            onClick={fetchTracking}
-            className="mt-6 rounded-2xl bg-green-600 px-6 py-3 text-sm font-black text-white hover:bg-green-700"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
+      <TrackingError
+        message={error}
+        onRetry={() => fetchTracking(true)}
+      />
     );
   }
 
   return (
-    <div className="min-h-screen bg-green-50/40">
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <p className="inline-flex rounded-full bg-green-100 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
-              Live Delivery Tracking
-            </p>
+    <main className="min-h-screen bg-[#f7f7f7] pb-10 text-slate-950">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1240px] px-4 py-5 sm:px-6 sm:py-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <Link
+                to="/orders"
+                className="inline-flex items-center gap-2 text-xs font-black text-slate-500 transition hover:text-slate-950"
+              >
+                <ArrowLeft size={15} />
+                Back to orders
+              </Link>
 
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-gray-950">
-              Track Your Order
-            </h1>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-black tracking-[-0.055em] sm:text-4xl">
+                  Track your order
+                </h1>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Order ID:{" "}
-              <span className="font-bold text-gray-800">
+                {isLive && (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-[11px] font-black text-green-700">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-green-600" />
+                    </span>
+                    Live
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-2 break-all text-sm font-bold text-slate-500">
+                Order #
                 {tracking?.orderId || orderId}
-              </span>
-            </p>
-          </div>
+              </p>
+            </div>
 
-          <button
-            type="button"
-            onClick={fetchTracking}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white px-5 py-3 text-sm font-black text-green-700 shadow-sm hover:bg-green-50"
-          >
-            <RefreshCw size={16} />
-            Refresh
-          </button>
-        </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <button
+                type="button"
+                onClick={recenterMap}
+                disabled={
+                  !agentLocation &&
+                  !deliveryLocation
+                }
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+              >
+                <LocateFixed size={16} />
+                Recenter
+              </button>
 
-        <div className="grid gap-6 xl:grid-cols-[1fr_390px]">
-          <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-            <div className="relative h-[650px] w-full">
-              <div ref={mapDivRef} className="h-full w-full" />
-
-              <div className="absolute left-4 top-4 z-10 rounded-3xl bg-white/95 p-4 shadow-xl backdrop-blur">
-                <p className="flex items-center gap-2 text-sm font-black text-gray-950">
-                  <Navigation size={18} className="text-green-600" />
-                  Live Map
-                </p>
-
-                <p className="mt-1 text-xs font-semibold text-gray-500">
-                  Google Maps delivery tracking
-                </p>
-              </div>
-
-              <div className="absolute bottom-4 left-1/2 z-10 w-[94%] max-w-3xl -translate-x-1/2 rounded-3xl bg-white p-4 shadow-2xl">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-2xl bg-green-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-wide text-green-700">
-                      ETA
-                    </p>
-                    <p className="mt-1 text-lg font-black text-gray-950">
-                      {etaText}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-wide text-gray-500">
-                      Distance
-                    </p>
-                    <p className="mt-1 text-lg font-black text-gray-950">
-                      {distanceText}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-wide text-gray-500">
-                      Status
-                    </p>
-                    <p className="mt-1 text-lg font-black capitalize text-gray-950">
-                      {readableStatus(deliveryStatus)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  fetchTracking(true)
+                }
+                disabled={refreshing}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:opacity-60"
+              >
+                <RefreshCw
+                  size={16}
+                  className={
+                    refreshing
+                      ? "animate-spin"
+                      : ""
+                  }
+                />
+                Refresh
+              </button>
             </div>
           </div>
 
-          <div className="space-y-5">
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mt-6">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm font-black text-slate-800">
+                {deliveryStatus === "cancelled"
+                  ? "Order cancelled"
+                  : readableStatus(
+                      deliveryStatus
+                    )}
+              </p>
+
+              <p className="text-xs font-bold text-slate-400">
+                Updated{" "}
+                {formatDateTime(
+                  agentLocation?.updatedAt ||
+                    agentLocation?.timestamp ||
+                    lastUpdated
+                )}
+              </p>
+            </div>
+
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  deliveryStatus === "cancelled"
+                    ? "bg-red-500"
+                    : "bg-green-600"
+                }`}
+                style={{
+                  width:
+                    deliveryStatus === "cancelled"
+                      ? "100%"
+                      : `${progressPercentage}%`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1240px] px-4 py-5 sm:px-6 sm:py-7">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+          <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+            <div className="relative h-[430px] w-full sm:h-[540px] xl:h-[660px]">
+              <div
+                ref={mapDivRef}
+                className="h-full w-full"
+              />
+
+              {mapLoading && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-100">
+                  <div className="flex items-center gap-3 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm">
+                    <Loader2
+                      size={18}
+                      className="animate-spin text-green-600"
+                    />
+                    Loading live map...
+                  </div>
+                </div>
+              )}
+
+              <div className="absolute left-3 top-3 z-10 flex items-center gap-2 bg-white px-3 py-2 shadow-md sm:left-4 sm:top-4">
+                <Navigation
+                  size={16}
+                  className="text-green-600"
+                />
+
+                <div>
+                  <p className="text-xs font-black text-slate-950">
+                    Live delivery map
+                  </p>
+
+                  <p className="text-[10px] font-bold text-slate-400">
+                    Powered by Google Maps
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={recenterMap}
+                aria-label="Recenter map"
+                className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-md transition hover:bg-slate-50 sm:right-4 sm:top-4"
+              >
+                <LocateFixed size={18} />
+              </button>
+
+              <div className="absolute bottom-3 left-1/2 z-10 w-[calc(100%-24px)] -translate-x-1/2 bg-white p-3 shadow-[0_15px_40px_rgba(15,23,42,0.2)] sm:bottom-4 sm:w-[calc(100%-32px)] sm:max-w-2xl sm:p-4">
+                <div className="grid grid-cols-3 divide-x divide-slate-200">
+                  <MapMetric
+                    label="Arriving in"
+                    value={etaText}
+                    accent
+                  />
+
+                  <MapMetric
+                    label="Distance"
+                    value={distanceText}
+                  />
+
+                  <MapMetric
+                    label="Status"
+                    value={readableStatus(
+                      deliveryStatus
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside className="space-y-4">
+            <section className="border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-black text-gray-500">
-                    Delivery Status
+                  <p className="text-xs font-black uppercase tracking-[0.15em] text-slate-400">
+                    Delivery status
                   </p>
-                  <h2 className="mt-1 text-2xl font-black capitalize text-gray-950">
-                    {readableStatus(deliveryStatus)}
+
+                  <h2 className="mt-2 text-2xl font-black tracking-[-0.04em]">
+                    {readableStatus(
+                      deliveryStatus
+                    )}
                   </h2>
                 </div>
 
                 <span
-                  className={`rounded-full px-3 py-1 text-xs font-black capitalize ${getStatusBadgeClass(
+                  className={`rounded-full border px-3 py-1 text-[11px] font-black ${getStatusBadgeClass(
                     deliveryStatus
                   )}`}
                 >
-                  {readableStatus(deliveryStatus)}
+                  {deliveryStatus ===
+                  "cancelled"
+                    ? "Cancelled"
+                    : deliveryStatus ===
+                      "delivered"
+                    ? "Completed"
+                    : isLive
+                    ? "Live"
+                    : "Updating"}
                 </span>
               </div>
 
-              <div className="mt-5 space-y-3">
-                <StatusStep
-                  active={[
-                    "accepted",
-                    "picked_up",
-                    "out_for_delivery",
-                    "delivered",
-                  ].includes(deliveryStatus)}
-                  icon={<CheckCircle2 size={16} />}
-                  title="Order accepted"
-                  desc="Your order has been accepted."
-                />
-
-                <StatusStep
-                  active={[
-                    "picked_up",
-                    "out_for_delivery",
-                    "delivered",
-                  ].includes(deliveryStatus)}
-                  icon={<PackageCheck size={16} />}
-                  title="Picked up"
-                  desc="Delivery partner picked up your order."
-                />
-
-                <StatusStep
-  active={["out_for_delivery", "delivered"].includes(
-    deliveryStatus
-  )}
-  icon={<Truck size={16} />}
-  title="Out for delivery"
-  desc="Your order is on the way."
-/>
-
-                <StatusStep
-                  active={deliveryStatus === "delivered"}
-                  icon={<CheckCircle2 size={16} />}
-                  title="Delivered"
-                  desc="Order delivered successfully."
-                />
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="mb-4 flex items-center gap-2 text-lg font-black text-gray-950">
-                <Bike size={20} className="text-green-600" />
-                Delivery Partner
-              </p>
-
-              {tracking?.deliveryAgent ? (
-                <div className="space-y-3">
-                  <InfoLine
-                    icon={<User size={16} />}
-                    label="Name"
-                    value={tracking.deliveryAgent.name || "N/A"}
+              {deliveryStatus === "cancelled" ? (
+                <div className="mt-5 flex items-start gap-3 border border-red-200 bg-red-50 p-4">
+                  <XCircle
+                    size={20}
+                    className="mt-0.5 shrink-0 text-red-600"
                   />
 
-                  <InfoLine
-                    icon={<Phone size={16} />}
+                  <div>
+                    <p className="text-sm font-black text-red-800">
+                      This order was cancelled
+                    </p>
+
+                    <p className="mt-1 text-xs font-bold leading-5 text-red-700">
+                      Contact MacroBox support if
+                      you need assistance.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-5">
+                  {statusStages.map(
+                    (stage, index) => {
+                      const active =
+                        statusRank[
+                          deliveryStatus
+                        ] >=
+                        statusRank[
+                          stage.status
+                        ];
+
+                      const current =
+                        deliveryStatus ===
+                        stage.status;
+
+                      return (
+                        <TrackingStep
+                          key={stage.status}
+                          active={active}
+                          current={current}
+                          last={
+                            index ===
+                            statusStages.length -
+                              1
+                          }
+                          icon={stage.icon}
+                          title={stage.title}
+                          description={
+                            stage.description
+                          }
+                        />
+                      );
+                    }
+                  )}
+                </div>
+              )}
+            </section>
+
+            <section className="border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-50 text-green-700">
+                    <Bike size={20} />
+                  </span>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      Delivery partner
+                    </p>
+
+                    <h3 className="mt-1 text-base font-black text-slate-950">
+                      {tracking
+                        ?.deliveryAgent?.name ||
+                        "Not assigned"}
+                    </h3>
+                  </div>
+                </div>
+
+                {agentPhone && (
+                  <a
+                    href={`tel:${agentPhone}`}
+                    aria-label="Call delivery partner"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-600 text-white transition hover:bg-green-700"
+                  >
+                    <Phone size={18} />
+                  </a>
+                )}
+              </div>
+
+              {tracking?.deliveryAgent ? (
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <DetailTile
                     label="Phone"
                     value={
-                      tracking.deliveryAgent.phone ||
-                      tracking.deliveryAgent.deliveryProfile?.phone ||
-                      "N/A"
+                      agentPhone ||
+                      "Not available"
                     }
                   />
 
-                  <InfoLine
-                    icon={<LocateFixed size={16} />}
-                    label="Live"
-                    value={isLive ? "Active" : "Inactive"}
-                    valueClass={isLive ? "text-green-700" : "text-gray-600"}
-                  />
-
-                  <InfoLine
-                    icon={<Clock size={16} />}
-                    label="Last update"
-                    value={formatDateTime(
-                      agentLocation?.updatedAt ||
-                        agentLocation?.timestamp ||
-                        lastUpdated
-                    )}
+                  <DetailTile
+                    label="Tracking"
+                    value={
+                      isLive
+                        ? "Live location"
+                        : "Last known"
+                    }
+                    accent={isLive}
                   />
                 </div>
               ) : (
-                <p className="rounded-2xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
-                  Delivery partner is not assigned yet.
+                <p className="mt-4 bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-500">
+                  A delivery partner will appear
+                  here after the order is
+                  assigned.
                 </p>
               )}
-            </div>
+            </section>
 
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="mb-4 flex items-center gap-2 text-lg font-black text-gray-950">
-                <MapPin size={20} className="text-green-600" />
-                Delivery Address
+            <section className="border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-orange-50 text-orange-600">
+                  <Home size={20} />
+                </span>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                    Delivering to
+                  </p>
+
+                  <h3 className="mt-1 text-base font-black text-slate-950">
+                    {tracking
+                      ?.deliveryAddress
+                      ?.fullName ||
+                      "Delivery address"}
+                  </h3>
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm font-bold leading-6 text-slate-600">
+                {formatAddress(
+                  tracking?.deliveryAddress
+                )}
               </p>
 
-              <p className="rounded-2xl bg-gray-50 p-4 text-sm font-bold leading-6 text-gray-800">
-                {formatAddress(tracking?.deliveryAddress)}
-              </p>
-
-              {tracking?.deliveryAddress?.mapsUrl && (
+              {tracking?.deliveryAddress
+                ?.mapsUrl && (
                 <a
-                  href={tracking.deliveryAddress.mapsUrl}
+                  href={
+                    tracking.deliveryAddress
+                      .mapsUrl
+                  }
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-3 inline-flex rounded-2xl bg-green-50 px-4 py-2 text-sm font-black text-green-700 hover:bg-green-100"
+                  className="mt-4 inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 px-4 text-xs font-black text-slate-700 transition hover:bg-slate-50"
                 >
-                  Open in Google Maps
+                  <ExternalLink size={14} />
+                  Open address
                 </a>
               )}
-            </div>
+            </section>
 
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-              <p className="mb-4 flex items-center gap-2 text-lg font-black text-gray-950">
-                <Route size={20} className="text-green-600" />
-                Order Details
+            <section className="border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                Order summary
               </p>
 
-              <div className="space-y-3">
-                <InfoLine
-                  icon={<Clock size={16} />}
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <DetailTile
                   label="Delivery slot"
-                  value={formatSlot(tracking?.slot)}
+                  value={formatSlot(
+                    tracking?.slot
+                  )}
                 />
 
-                <InfoLine
-                  icon={<CheckCircle2 size={16} />}
+                <DetailTile
                   label="Payment"
-                  value={tracking?.paymentStatus || "N/A"}
+                  value={readableStatus(
+                    tracking?.paymentStatus
+                  )}
                 />
 
-                <InfoLine
-                  icon={<Navigation size={16} />}
+                <DetailTile
+                  label="ETA"
+                  value={etaText}
+                  accent
+                />
+
+                <DetailTile
                   label="Distance"
                   value={distanceText}
                 />
-
-                <InfoLine icon={<Clock size={16} />} label="ETA" value={etaText} />
               </div>
-            </div>
-          </div>
+            </section>
+
+            <section className="border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <ShieldCheck
+                  size={19}
+                  className="mt-0.5 shrink-0 text-green-600"
+                />
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-slate-950">
+                    Need help with this order?
+                  </p>
+
+                  <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+                    Contact MacroBox support for
+                    delivery-related assistance.
+                  </p>
+                </div>
+
+                <Link
+                  to="/contact"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+                >
+                  <ChevronRight size={17} />
+                </Link>
+              </div>
+            </section>
+          </aside>
         </div>
 
-        {error && (
-          <p className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-600">
-            {error}
-          </p>
+        {error && tracking && (
+          <div className="mt-5 flex items-start gap-3 border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+            <XCircle
+              size={18}
+              className="mt-0.5 shrink-0"
+            />
+
+            <p>{error}</p>
+          </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 
-function StatusStep({
+function TrackingStep({
   active,
+  current,
+  last,
   icon,
   title,
-  desc,
+  description,
 }: {
   active: boolean;
-  icon: React.ReactNode;
+  current: boolean;
+  last: boolean;
+  icon: ReactNode;
   title: string;
-  desc: string;
+  description: string;
 }) {
   return (
-    <div
-      className={`flex gap-3 rounded-2xl p-3 ${
-        active ? "bg-green-50" : "bg-gray-50"
-      }`}
-    >
-      <div
-        className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full ${
-          active ? "bg-green-600 text-white" : "bg-gray-200 text-gray-500"
+    <div className="relative flex gap-3">
+      {!last && (
+        <span
+          className={`absolute left-[15px] top-8 h-[calc(100%-4px)] w-0.5 ${
+            active
+              ? "bg-green-500"
+              : "bg-slate-200"
+          }`}
+        />
+      )}
+
+      <span
+        className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
+          active
+            ? "border-green-600 bg-green-600 text-white"
+            : "border-slate-200 bg-white text-slate-400"
+        } ${
+          current
+            ? "ring-4 ring-green-100"
+            : ""
         }`}
       >
         {icon}
-      </div>
+      </span>
 
-      <div>
+      <div className={last ? "" : "pb-6"}>
         <p
           className={`text-sm font-black ${
-            active ? "text-green-800" : "text-gray-600"
+            active
+              ? "text-slate-950"
+              : "text-slate-400"
           }`}
         >
           {title}
         </p>
 
-        <p className="mt-0.5 text-xs font-medium text-gray-500">{desc}</p>
+        <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+          {description}
+        </p>
       </div>
     </div>
   );
 }
 
-function InfoLine({
-  icon,
+function MapMetric({
   label,
   value,
-  valueClass = "text-gray-900",
+  accent,
 }: {
-  icon: React.ReactNode;
   label: string;
   value: string;
-  valueClass?: string;
+  accent?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl bg-gray-50 p-3">
-      <div className="flex items-center gap-2 text-sm font-bold text-gray-500">
-        <span className="text-green-600">{icon}</span>
+    <div className="min-w-0 px-2 text-center sm:px-4">
+      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-400 sm:text-[10px]">
         {label}
-      </div>
+      </p>
 
-      <p className={`text-right text-sm font-black ${valueClass}`}>{value}</p>
+      <p
+        className={`mt-1 truncate text-xs font-black sm:text-base ${
+          accent
+            ? "text-green-700"
+            : "text-slate-950"
+        }`}
+      >
+        {value}
+      </p>
     </div>
+  );
+}
+
+function DetailTile({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`min-w-0 border p-3 ${
+        accent
+          ? "border-green-100 bg-green-50"
+          : "border-slate-100 bg-slate-50"
+      }`}
+    >
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      <p
+        className={`mt-1 line-clamp-2 text-xs font-black leading-5 ${
+          accent
+            ? "text-green-700"
+            : "text-slate-800"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function TrackingLoader() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f7f7] px-4">
+      <div className="w-full max-w-md border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-600">
+          <Loader2
+            className="animate-spin"
+            size={25}
+          />
+        </span>
+
+        <h1 className="mt-5 text-2xl font-black tracking-[-0.04em]">
+          Loading tracking
+        </h1>
+
+        <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
+          Getting the latest delivery and
+          location information.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+function TrackingError({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f7f7] px-4">
+      <div className="w-full max-w-md border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+          <MapPin size={25} />
+        </span>
+
+        <h1 className="mt-5 text-2xl font-black tracking-[-0.04em]">
+          Tracking unavailable
+        </h1>
+
+        <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
+          {message}
+        </p>
+
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-6 text-sm font-black text-white transition hover:bg-green-700"
+        >
+          <RefreshCw size={16} />
+          Try again
+        </button>
+      </div>
+    </main>
   );
 }
