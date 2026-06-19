@@ -4,13 +4,9 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
 import {
-  CalendarClock,
   Check,
-  CheckCircle2,
   ChevronRight,
   CircleDot,
-  Clock,
-  IndianRupee,
   Loader2,
   MapPin,
   Navigation,

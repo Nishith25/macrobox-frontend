@@ -27,8 +27,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { useAuth } from "../context/AuthContext";
 import api from "../api/api";
+import { useAuth } from "../context/AuthContext";
 
 type SignupForm = {
   name: string;
@@ -67,7 +67,7 @@ export default function DeliverySignup() {
 
     setForm((current) => ({
       ...current,
-      [name]: value,
+      [name]: name === "phone" ? value.replace(/\D/g, "").slice(0, 10) : value,
     }));
 
     if (name === "phone") {
@@ -96,15 +96,11 @@ export default function DeliverySignup() {
       setPhoneVerified(false);
       setPhoneVerificationToken("");
 
-      if (response.data?.devOtp) {
-        setDevOtp(String(response.data.devOtp));
-      } else {
-        setDevOtp("");
-      }
-
-      toast.success(
-        response.data?.message || "OTP sent successfully."
+      setDevOtp(
+        response.data?.devOtp ? String(response.data.devOtp) : ""
       );
+
+      toast.success(response.data?.message || "OTP sent successfully.");
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message ||
@@ -117,13 +113,8 @@ export default function DeliverySignup() {
   };
 
   const verifyOtp = async () => {
-    if (!isValidPhone) {
-      toast.error("Enter a valid phone number.");
-      return;
-    }
-
     if (!otp.trim()) {
-      toast.error("Enter the OTP sent to your phone.");
+      toast.error("Enter the OTP.");
       return;
     }
 
@@ -135,15 +126,14 @@ export default function DeliverySignup() {
         otp: otp.trim(),
       });
 
-      const verificationToken =
-        response.data?.phoneVerificationToken || "";
+      const token = response.data?.phoneVerificationToken || "";
 
-      if (!verificationToken) {
+      if (!token) {
         toast.error("Phone verification token was not received.");
         return;
       }
 
-      setPhoneVerificationToken(verificationToken);
+      setPhoneVerificationToken(token);
       setPhoneVerified(true);
 
       toast.success(
@@ -201,8 +191,8 @@ export default function DeliverySignup() {
       await signup({
         name,
         email,
-        password,
         phone: cleanPhoneNumber,
+        password,
         role: "delivery",
         phoneVerificationToken,
       });
@@ -240,22 +230,22 @@ export default function DeliverySignup() {
                 MacroBox Delivery
               </Link>
 
-              <div className="mt-16 max-w-xl xl:mt-20">
+              <div className="mt-20 max-w-xl">
                 <p className="text-xs font-black uppercase tracking-[0.4em] text-green-400">
                   Join the Delivery Team
                 </p>
 
                 <h1 className="mt-6 text-6xl font-black leading-[0.94] tracking-[-0.07em]">
-                  Deliver healthy
+                  Deliver meals.
                   <br />
-                  meals across
+                  Track progress.
                   <br />
-                  <span className="text-green-400">your city.</span>
+                  <span className="text-green-400">Serve better.</span>
                 </h1>
 
                 <p className="mt-6 max-w-lg text-base font-semibold leading-8 text-slate-300">
-                  Create your delivery partner account, accept assigned orders
-                  and keep customers updated with live delivery tracking.
+                  Join the MacroBox delivery network, accept delivery orders
+                  and keep customers updated with live location tracking.
                 </p>
               </div>
             </div>
@@ -280,8 +270,8 @@ export default function DeliverySignup() {
         </section>
 
         <section className="flex min-h-screen items-center justify-center bg-white px-4 py-8 sm:px-6 lg:px-10">
-          <div className="w-full max-w-[500px]">
-            <div className="mb-7 lg:hidden">
+          <div className="w-full max-w-[470px]">
+            <div className="mb-8 lg:hidden">
               <Link
                 to="/"
                 className="inline-flex items-center gap-3 text-xl font-black tracking-[-0.04em] text-slate-950"
@@ -300,23 +290,22 @@ export default function DeliverySignup() {
                   <ShieldCheck size={23} />
                 </span>
 
-                <p className="mt-6 text-xs font-black uppercase tracking-[0.25em] text-green-600">
+                <p className="mt-5 text-xs font-black uppercase tracking-[0.25em] text-green-600">
                   Partner Registration
                 </p>
 
                 <h1 className="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950 sm:text-4xl">
-                  Delivery Partner Signup
+                  Create Partner Account
                 </h1>
 
                 <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
-                  Create your partner account and verify your phone number to
-                  continue.
+                  Enter your details and verify your phone number to register.
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+              <form onSubmit={handleSubmit} className="mt-7 space-y-4">
                 <Field label="Full Name">
-                  <InputWrapper icon={<User size={18} />}>
+                  <InputContainer icon={<User size={18} />}>
                     <input
                       type="text"
                       name="name"
@@ -325,14 +314,14 @@ export default function DeliverySignup() {
                       placeholder="Enter your full name"
                       autoComplete="name"
                       disabled={loading}
-                      className="delivery-signup-input pl-12"
+                      className="delivery-auth-input pl-12"
                       required
                     />
-                  </InputWrapper>
+                  </InputContainer>
                 </Field>
 
                 <Field label="Email Address">
-                  <InputWrapper icon={<Mail size={18} />}>
+                  <InputContainer icon={<Mail size={18} />}>
                     <input
                       type="email"
                       name="email"
@@ -341,104 +330,83 @@ export default function DeliverySignup() {
                       placeholder="partner@macrobox.com"
                       autoComplete="email"
                       disabled={loading}
-                      className="delivery-signup-input pl-12"
+                      className="delivery-auth-input pl-12"
                       required
                     />
-                  </InputWrapper>
+                  </InputContainer>
                 </Field>
 
                 <Field label="Phone Number">
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <div className="relative min-w-0 flex-1">
-                        <Phone
+                  <div className="flex gap-2">
+                    <div className="relative min-w-0 flex-1">
+                      <Phone
+                        size={18}
+                        className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
+                      />
+
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={form.phone}
+                        onChange={handleChange}
+                        placeholder="10-digit phone number"
+                        autoComplete="tel"
+                        inputMode="numeric"
+                        disabled={loading || phoneVerified}
+                        className={`delivery-auth-input pl-12 pr-10 ${
+                          phoneVerified
+                            ? "border-green-300 bg-green-50 text-green-800"
+                            : ""
+                        }`}
+                        required
+                      />
+
+                      {phoneVerified && (
+                        <CheckCircle2
                           size={18}
-                          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-green-600"
                         />
-
-                        <input
-                          type="tel"
-                          name="phone"
-                          value={form.phone}
-                          onChange={handleChange}
-                          placeholder="10-digit phone number"
-                          autoComplete="tel"
-                          inputMode="numeric"
-                          disabled={loading || phoneVerified}
-                          className={`delivery-signup-input pl-12 ${
-                            phoneVerified
-                              ? "border-green-300 bg-green-50 text-green-800"
-                              : ""
-                          }`}
-                          required
-                        />
-
-                        {phoneVerified && (
-                          <CheckCircle2
-                            size={19}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-green-600"
-                          />
-                        )}
-                      </div>
-
-                      {!phoneVerified && (
-                        <button
-                          type="button"
-                          onClick={sendOtp}
-                          disabled={
-                            otpLoading ||
-                            loading ||
-                            !isValidPhone
-                          }
-                          className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl border border-green-600 bg-white px-4 text-xs font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
-                        >
-                          {otpLoading && !otpSent ? (
-                            <Loader2 className="animate-spin" size={16} />
-                          ) : otpSent ? (
-                            <RefreshCw size={16} />
-                          ) : (
-                            <Phone size={16} />
-                          )}
-
-                          {otpSent ? "Resend" : "Send OTP"}
-                        </button>
                       )}
                     </div>
 
-                    {phoneVerified && (
-                      <div className="flex items-start gap-2 rounded-xl border border-green-200 bg-green-50 p-3">
-                        <CheckCircle2
-                          size={17}
-                          className="mt-0.5 shrink-0 text-green-600"
-                        />
+                    {!phoneVerified && (
+                      <button
+                        type="button"
+                        onClick={sendOtp}
+                        disabled={otpLoading || loading || !isValidPhone}
+                        className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl border border-green-600 bg-white px-4 text-xs font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                      >
+                        {otpLoading && !otpSent ? (
+                          <Loader2 className="animate-spin" size={16} />
+                        ) : otpSent ? (
+                          <RefreshCw size={16} />
+                        ) : (
+                          <Phone size={16} />
+                        )}
 
-                        <p className="text-xs font-black leading-5 text-green-800">
-                          Phone number verified successfully.
-                        </p>
-                      </div>
+                        {otpSent ? "Resend" : "Send OTP"}
+                      </button>
                     )}
                   </div>
                 </Field>
 
                 {otpSent && !phoneVerified && (
-                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-black text-slate-950">
-                          Verify Phone Number
+                          Verify Phone
                         </p>
 
-                        <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                          Enter the OTP sent to +91 {cleanPhoneNumber}.
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                          OTP sent to +91 {cleanPhoneNumber}
                         </p>
                       </div>
 
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-green-700 shadow-sm">
-                        <ShieldCheck size={18} />
-                      </span>
+                      <ShieldCheck size={19} className="text-green-600" />
                     </div>
 
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-3 flex gap-2">
                       <input
                         type="text"
                         value={otp}
@@ -453,7 +421,7 @@ export default function DeliverySignup() {
                         inputMode="numeric"
                         autoComplete="one-time-code"
                         disabled={otpLoading}
-                        className="delivery-signup-input min-w-0 flex-1 text-center text-lg tracking-[0.3em]"
+                        className="delivery-auth-input min-w-0 flex-1 text-center text-base tracking-[0.25em]"
                       />
 
                       <button
@@ -473,31 +441,32 @@ export default function DeliverySignup() {
                     </div>
 
                     {devOtp && (
-                      <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2">
-                        <p className="text-xs font-bold text-yellow-800">
-                          Development OTP:{" "}
-                          <span className="font-black">{devOtp}</span>
-                        </p>
-                      </div>
+                      <p className="mt-3 rounded-lg bg-yellow-50 px-3 py-2 text-xs font-bold text-yellow-800">
+                        Development OTP:{" "}
+                        <span className="font-black">{devOtp}</span>
+                      </p>
                     )}
+                  </div>
+                )}
 
-                    <button
-                      type="button"
-                      onClick={sendOtp}
-                      disabled={otpLoading}
-                      className="mt-3 inline-flex items-center gap-2 text-xs font-black text-green-700 transition hover:underline disabled:opacity-50"
-                    >
-                      <RefreshCw size={14} />
-                      Send a new OTP
-                    </button>
-                  </section>
+                {phoneVerified && (
+                  <div className="flex items-start gap-2 rounded-xl border border-green-200 bg-green-50 p-3">
+                    <CheckCircle2
+                      size={18}
+                      className="mt-0.5 shrink-0 text-green-600"
+                    />
+
+                    <p className="text-xs font-black leading-5 text-green-800">
+                      Phone verified successfully.
+                    </p>
+                  </div>
                 )}
 
                 <Field label="Password">
                   <div className="relative">
                     <LockKeyhole
                       size={18}
-                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                      className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
                     />
 
                     <input
@@ -508,15 +477,13 @@ export default function DeliverySignup() {
                       placeholder="Minimum 6 characters"
                       autoComplete="new-password"
                       disabled={loading}
-                      className="delivery-signup-input pl-12 pr-12"
+                      className="delivery-auth-input pl-12 pr-12"
                       required
                     />
 
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowPassword((current) => !current)
-                      }
+                      onClick={() => setShowPassword((current) => !current)}
                       disabled={loading}
                       aria-label={
                         showPassword ? "Hide password" : "Show password"
@@ -532,26 +499,24 @@ export default function DeliverySignup() {
                   </div>
                 </Field>
 
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-start gap-2">
-                    {phoneVerified ? (
-                      <CheckCircle2
-                        size={18}
-                        className="mt-0.5 shrink-0 text-green-600"
-                      />
-                    ) : (
-                      <ShieldCheck
-                        size={18}
-                        className="mt-0.5 shrink-0 text-slate-400"
-                      />
-                    )}
+                <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  {phoneVerified ? (
+                    <CheckCircle2
+                      size={18}
+                      className="mt-0.5 shrink-0 text-green-600"
+                    />
+                  ) : (
+                    <ShieldCheck
+                      size={18}
+                      className="mt-0.5 shrink-0 text-slate-400"
+                    />
+                  )}
 
-                    <p className="text-xs font-bold leading-5 text-slate-500">
-                      {phoneVerified
-                        ? "Your phone is verified. You can now create your delivery account."
-                        : "Phone verification is required before creating your account."}
-                    </p>
-                  </div>
+                  <p className="text-xs font-bold leading-5 text-slate-500">
+                    {phoneVerified
+                      ? "Phone verified. You can create your delivery account."
+                      : "Phone verification is required before creating your account."}
+                  </p>
                 </div>
 
                 <button
@@ -580,22 +545,10 @@ export default function DeliverySignup() {
                     to="/deliverylogin"
                     className="font-black text-green-700 transition hover:text-green-800 hover:underline"
                   >
-                    Login to your account
+                    Login to Dashboard
                   </Link>
                 </p>
               </div>
-            </div>
-
-            <div className="mt-5 flex items-start gap-3 border border-slate-200 bg-slate-50 p-4">
-              <CheckCircle2
-                size={19}
-                className="mt-0.5 shrink-0 text-green-600"
-              />
-
-              <p className="text-xs font-bold leading-5 text-slate-500">
-                Use your active phone number and email address. Your account may
-                require approval before delivery orders become available.
-              </p>
             </div>
 
             <p className="mt-6 text-center text-xs font-bold text-slate-400">
@@ -626,7 +579,7 @@ function Field({
   );
 }
 
-function InputWrapper({
+function InputContainer({
   icon,
   children,
 }: {

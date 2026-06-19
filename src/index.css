@@ -264,3 +264,37 @@ textarea {
   border-color: #22c55e;
   background: #ffffff;
 }
+
+.delivery-auth-input {
+  height: 3rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.delivery-auth-input::placeholder {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.delivery-auth-input:focus {
+  border-color: #22c55e;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+}
+
+.delivery-auth-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
