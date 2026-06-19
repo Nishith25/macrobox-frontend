@@ -1,15 +1,47 @@
 // frontend/src/pages/DeliverySignup.tsx (FRONTEND)
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+
+import {
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  MapPin,
+  Navigation,
+  PackageCheck,
+  Phone,
+  RefreshCw,
+  ShieldCheck,
+  Truck,
+  User,
+} from "lucide-react";
+import toast from "react-hot-toast";
+
 import { useAuth } from "../context/AuthContext";
 import api from "../api/api";
-import toast from "react-hot-toast";
+
+type SignupForm = {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+};
 
 export default function DeliverySignup() {
   const navigate = useNavigate();
   const { signup } = useAuth();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<SignupForm>({
     name: "",
     email: "",
     phone: "",
@@ -19,16 +51,26 @@ export default function DeliverySignup() {
   const [otp, setOtp] = useState("");
   const [devOtp, setDevOtp] = useState("");
   const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
+
   const [otpSent, setOtpSent] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const cleanPhoneNumber = form.phone.replace(/\D/g, "").slice(-10);
+  const isValidPhone = cleanPhoneNumber.length === 10;
 
-    if (e.target.name === "phone") {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+
+    if (name === "phone") {
       setOtp("");
       setDevOtp("");
       setOtpSent(false);
@@ -38,221 +80,584 @@ export default function DeliverySignup() {
   };
 
   const sendOtp = async () => {
-    if (!form.phone.trim()) {
-      toast.error("Please enter phone number.");
+    if (!isValidPhone) {
+      toast.error("Enter a valid 10-digit phone number.");
       return;
     }
 
     try {
       setOtpLoading(true);
 
-      const res = await api.post("/auth/send-phone-otp", {
-        phone: form.phone.trim(),
+      const response = await api.post("/auth/send-phone-otp", {
+        phone: cleanPhoneNumber,
       });
 
       setOtpSent(true);
+      setPhoneVerified(false);
+      setPhoneVerificationToken("");
 
-      if (res.data?.devOtp) {
-        setDevOtp(res.data.devOtp);
+      if (response.data?.devOtp) {
+        setDevOtp(String(response.data.devOtp));
+      } else {
+        setDevOtp("");
       }
 
-      toast.success("OTP sent successfully.");
+      toast.success(
+        response.data?.message || "OTP sent successfully."
+      );
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to send OTP.");
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to send OTP."
+      );
     } finally {
       setOtpLoading(false);
     }
   };
 
   const verifyOtp = async () => {
-    if (!form.phone.trim() || !otp.trim()) {
-      toast.error("Please enter OTP.");
+    if (!isValidPhone) {
+      toast.error("Enter a valid phone number.");
+      return;
+    }
+
+    if (!otp.trim()) {
+      toast.error("Enter the OTP sent to your phone.");
       return;
     }
 
     try {
       setOtpLoading(true);
 
-      const res = await api.post("/auth/verify-phone-otp", {
-        phone: form.phone.trim(),
+      const response = await api.post("/auth/verify-phone-otp", {
+        phone: cleanPhoneNumber,
         otp: otp.trim(),
       });
 
-      setPhoneVerificationToken(res.data.phoneVerificationToken);
+      const verificationToken =
+        response.data?.phoneVerificationToken || "";
+
+      if (!verificationToken) {
+        toast.error("Phone verification token was not received.");
+        return;
+      }
+
+      setPhoneVerificationToken(verificationToken);
       setPhoneVerified(true);
 
-      toast.success("Phone verified successfully.");
+      toast.success(
+        response.data?.message || "Phone verified successfully."
+      );
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "OTP verification failed.");
+      setPhoneVerified(false);
+      setPhoneVerificationToken("");
+
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "OTP verification failed."
+      );
     } finally {
       setOtpLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-    if (!phoneVerified || !phoneVerificationToken) {
-      toast.error("Please verify your phone number before signup.");
+    const name = form.name.trim();
+    const email = form.email.trim().toLowerCase();
+    const password = form.password;
+
+    if (!name) {
+      toast.error("Enter your full name.");
       return;
     }
 
-    setLoading(true);
+    if (!email) {
+      toast.error("Enter your email address.");
+      return;
+    }
+
+    if (!isValidPhone) {
+      toast.error("Enter a valid 10-digit phone number.");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must contain at least 6 characters.");
+      return;
+    }
+
+    if (!phoneVerified || !phoneVerificationToken) {
+      toast.error("Verify your phone number before creating the account.");
+      return;
+    }
 
     try {
+      setLoading(true);
+
       await signup({
-        name: form.name,
-        email: form.email,
-        password: form.password,
-        phone: form.phone.trim(),
+        name,
+        email,
+        password,
+        phone: cleanPhoneNumber,
         role: "delivery",
         phoneVerificationToken,
       });
 
       toast.success(
-        "Delivery partner signup successful! Please verify your email."
+        "Delivery account created. Please verify your email before logging in."
       );
 
-      navigate("/deliverylogin");
+      navigate("/deliverylogin", { replace: true });
     } catch (error: any) {
-      const message =
+      toast.error(
         error?.response?.data?.message ||
-        error?.message ||
-        "Signup failed. Please try again.";
-
-      toast.error(message);
+          error?.message ||
+          "Signup failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50 px-4 py-8">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-md"
-      >
-        <h2 className="text-3xl font-bold text-center mb-6">
-          Delivery Partner Signup
-        </h2>
+    <main className="min-h-screen bg-white text-slate-950">
+      <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="hidden border-r border-slate-200 bg-slate-950 text-white lg:flex">
+          <div className="flex w-full flex-col justify-between p-10 xl:p-14">
+            <div>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-3 text-xl font-black tracking-[-0.04em] text-white"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600">
+                  <Truck size={21} />
+                </span>
 
-        <input
-          type="text"
-          name="name"
-          placeholder="Full Name"
-          value={form.name}
-          onChange={handleChange}
-          className="w-full border p-3 rounded mb-4"
-          required
-        />
+                MacroBox Delivery
+              </Link>
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email Address"
-          value={form.email}
-          onChange={handleChange}
-          className="w-full border p-3 rounded mb-4"
-          required
-        />
+              <div className="mt-16 max-w-xl xl:mt-20">
+                <p className="text-xs font-black uppercase tracking-[0.4em] text-green-400">
+                  Join the Delivery Team
+                </p>
 
-        <input
-          type="tel"
-          name="phone"
-          placeholder="Phone Number"
-          value={form.phone}
-          onChange={handleChange}
-          className="w-full border p-3 rounded mb-3"
-          required
-        />
+                <h1 className="mt-6 text-6xl font-black leading-[0.94] tracking-[-0.07em]">
+                  Deliver healthy
+                  <br />
+                  meals across
+                  <br />
+                  <span className="text-green-400">your city.</span>
+                </h1>
 
-        <div className="mb-4">
-          {!otpSent ? (
-            <button
-              type="button"
-              onClick={sendOtp}
-              disabled={otpLoading || !form.phone.trim()}
-              className="w-full border border-green-600 text-green-700 py-3 rounded-lg font-semibold hover:bg-green-50 disabled:opacity-50"
-            >
-              {otpLoading ? "Sending OTP..." : "Send OTP"}
-            </button>
-          ) : (
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Enter OTP"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="w-full border p-3 rounded"
-                disabled={phoneVerified}
+                <p className="mt-6 max-w-lg text-base font-semibold leading-8 text-slate-300">
+                  Create your delivery partner account, accept assigned orders
+                  and keep customers updated with live delivery tracking.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <FeatureCard
+                icon={<PackageCheck size={18} />}
+                label="Accept Orders"
               />
 
-              {devOtp && !phoneVerified && (
-                <p className="text-xs text-gray-500">
-                  Dev OTP: <b>{devOtp}</b>
-                </p>
-              )}
+              <FeatureCard
+                icon={<Navigation size={18} />}
+                label="Live Tracking"
+              />
 
-              <button
-                type="button"
-                onClick={verifyOtp}
-                disabled={otpLoading || phoneVerified}
-                className={`w-full py-3 rounded-lg font-semibold ${
-                  phoneVerified
-                    ? "bg-green-100 text-green-700"
-                    : "border border-green-600 text-green-700 hover:bg-green-50"
-                } disabled:opacity-70`}
-              >
-                {phoneVerified
-                  ? "Phone Verified ✅"
-                  : otpLoading
-                  ? "Verifying..."
-                  : "Verify OTP"}
-              </button>
-
-              {!phoneVerified && (
-                <button
-                  type="button"
-                  onClick={sendOtp}
-                  disabled={otpLoading}
-                  className="w-full text-sm text-green-700 hover:underline"
-                >
-                  Resend OTP
-                </button>
-              )}
+              <FeatureCard
+                icon={<MapPin size={18} />}
+                label="Easy Navigation"
+              />
             </div>
-          )}
-        </div>
+          </div>
+        </section>
 
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          className="w-full border p-3 rounded mb-4"
-          required
-        />
+        <section className="flex min-h-screen items-center justify-center bg-white px-4 py-8 sm:px-6 lg:px-10">
+          <div className="w-full max-w-[500px]">
+            <div className="mb-7 lg:hidden">
+              <Link
+                to="/"
+                className="inline-flex items-center gap-3 text-xl font-black tracking-[-0.04em] text-slate-950"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white">
+                  <Truck size={21} />
+                </span>
 
-        <button
-          type="submit"
-          disabled={loading || !phoneVerified}
-          className={`w-full bg-green-600 text-white py-3 rounded-lg transition ${
-            loading || !phoneVerified
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:bg-green-700"
-          }`}
-        >
-          {loading ? "Creating Account..." : "Create Delivery Account"}
-        </button>
+                MacroBox Delivery
+              </Link>
+            </div>
 
-        <p className="text-center text-gray-600 text-sm mt-4">
-          Already a delivery partner?{" "}
-          <a href="/deliverylogin" className="text-green-600 font-medium">
-            Login
-          </a>
-        </p>
-      </form>
+            <div className="border border-slate-200 bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.08)] sm:p-8">
+              <div>
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-green-700">
+                  <ShieldCheck size={23} />
+                </span>
+
+                <p className="mt-6 text-xs font-black uppercase tracking-[0.25em] text-green-600">
+                  Partner Registration
+                </p>
+
+                <h1 className="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950 sm:text-4xl">
+                  Delivery Partner Signup
+                </h1>
+
+                <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                  Create your partner account and verify your phone number to
+                  continue.
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+                <Field label="Full Name">
+                  <InputWrapper icon={<User size={18} />}>
+                    <input
+                      type="text"
+                      name="name"
+                      value={form.name}
+                      onChange={handleChange}
+                      placeholder="Enter your full name"
+                      autoComplete="name"
+                      disabled={loading}
+                      className="delivery-signup-input pl-12"
+                      required
+                    />
+                  </InputWrapper>
+                </Field>
+
+                <Field label="Email Address">
+                  <InputWrapper icon={<Mail size={18} />}>
+                    <input
+                      type="email"
+                      name="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      placeholder="partner@macrobox.com"
+                      autoComplete="email"
+                      disabled={loading}
+                      className="delivery-signup-input pl-12"
+                      required
+                    />
+                  </InputWrapper>
+                </Field>
+
+                <Field label="Phone Number">
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <div className="relative min-w-0 flex-1">
+                        <Phone
+                          size={18}
+                          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                        />
+
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={form.phone}
+                          onChange={handleChange}
+                          placeholder="10-digit phone number"
+                          autoComplete="tel"
+                          inputMode="numeric"
+                          disabled={loading || phoneVerified}
+                          className={`delivery-signup-input pl-12 ${
+                            phoneVerified
+                              ? "border-green-300 bg-green-50 text-green-800"
+                              : ""
+                          }`}
+                          required
+                        />
+
+                        {phoneVerified && (
+                          <CheckCircle2
+                            size={19}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-green-600"
+                          />
+                        )}
+                      </div>
+
+                      {!phoneVerified && (
+                        <button
+                          type="button"
+                          onClick={sendOtp}
+                          disabled={
+                            otpLoading ||
+                            loading ||
+                            !isValidPhone
+                          }
+                          className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl border border-green-600 bg-white px-4 text-xs font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                        >
+                          {otpLoading && !otpSent ? (
+                            <Loader2 className="animate-spin" size={16} />
+                          ) : otpSent ? (
+                            <RefreshCw size={16} />
+                          ) : (
+                            <Phone size={16} />
+                          )}
+
+                          {otpSent ? "Resend" : "Send OTP"}
+                        </button>
+                      )}
+                    </div>
+
+                    {phoneVerified && (
+                      <div className="flex items-start gap-2 rounded-xl border border-green-200 bg-green-50 p-3">
+                        <CheckCircle2
+                          size={17}
+                          className="mt-0.5 shrink-0 text-green-600"
+                        />
+
+                        <p className="text-xs font-black leading-5 text-green-800">
+                          Phone number verified successfully.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Field>
+
+                {otpSent && !phoneVerified && (
+                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-slate-950">
+                          Verify Phone Number
+                        </p>
+
+                        <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                          Enter the OTP sent to +91 {cleanPhoneNumber}.
+                        </p>
+                      </div>
+
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-green-700 shadow-sm">
+                        <ShieldCheck size={18} />
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex gap-2">
+                      <input
+                        type="text"
+                        value={otp}
+                        onChange={(event) =>
+                          setOtp(
+                            event.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 6)
+                          )
+                        }
+                        placeholder="Enter OTP"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        disabled={otpLoading}
+                        className="delivery-signup-input min-w-0 flex-1 text-center text-lg tracking-[0.3em]"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={verifyOtp}
+                        disabled={otpLoading || !otp.trim()}
+                        className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {otpLoading ? (
+                          <Loader2 className="animate-spin" size={16} />
+                        ) : (
+                          <Check size={16} />
+                        )}
+
+                        Verify
+                      </button>
+                    </div>
+
+                    {devOtp && (
+                      <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2">
+                        <p className="text-xs font-bold text-yellow-800">
+                          Development OTP:{" "}
+                          <span className="font-black">{devOtp}</span>
+                        </p>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={sendOtp}
+                      disabled={otpLoading}
+                      className="mt-3 inline-flex items-center gap-2 text-xs font-black text-green-700 transition hover:underline disabled:opacity-50"
+                    >
+                      <RefreshCw size={14} />
+                      Send a new OTP
+                    </button>
+                  </section>
+                )}
+
+                <Field label="Password">
+                  <div className="relative">
+                    <LockKeyhole
+                      size={18}
+                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={form.password}
+                      onChange={handleChange}
+                      placeholder="Minimum 6 characters"
+                      autoComplete="new-password"
+                      disabled={loading}
+                      className="delivery-signup-input pl-12 pr-12"
+                      required
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPassword((current) => !current)
+                      }
+                      disabled={loading}
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 disabled:opacity-50"
+                    >
+                      {showPassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
+                </Field>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-start gap-2">
+                    {phoneVerified ? (
+                      <CheckCircle2
+                        size={18}
+                        className="mt-0.5 shrink-0 text-green-600"
+                      />
+                    ) : (
+                      <ShieldCheck
+                        size={18}
+                        className="mt-0.5 shrink-0 text-slate-400"
+                      />
+                    )}
+
+                    <p className="text-xs font-bold leading-5 text-slate-500">
+                      {phoneVerified
+                        ? "Your phone is verified. You can now create your delivery account."
+                        : "Phone verification is required before creating your account."}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !phoneVerified}
+                  className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-3 text-sm font-black text-white shadow-[0_14px_30px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={18} />
+                      Creating account...
+                    </>
+                  ) : (
+                    <>
+                      Create Delivery Account
+                      <ArrowRight size={18} />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="mt-6 border-t border-slate-200 pt-6 text-center">
+                <p className="text-sm font-semibold text-slate-500">
+                  Already a delivery partner?{" "}
+                  <Link
+                    to="/deliverylogin"
+                    className="font-black text-green-700 transition hover:text-green-800 hover:underline"
+                  >
+                    Login to your account
+                  </Link>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-start gap-3 border border-slate-200 bg-slate-50 p-4">
+              <CheckCircle2
+                size={19}
+                className="mt-0.5 shrink-0 text-green-600"
+              />
+
+              <p className="text-xs font-bold leading-5 text-slate-500">
+                Use your active phone number and email address. Your account may
+                require approval before delivery orders become available.
+              </p>
+            </div>
+
+            <p className="mt-6 text-center text-xs font-bold text-slate-400">
+              © {new Date().getFullYear()} MacroBox. Delivery Partner Portal.
+            </p>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+
+      {children}
+    </label>
+  );
+}
+
+function InputWrapper({
+  icon,
+  children,
+}: {
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400">
+        {icon}
+      </span>
+
+      {children}
+    </div>
+  );
+}
+
+function FeatureCard({
+  icon,
+  label,
+}: {
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <div className="border border-white/10 bg-white/5 p-4">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-500/15 text-green-400">
+        {icon}
+      </span>
+
+      <p className="mt-3 text-sm font-black text-white">{label}</p>
     </div>
   );
 }
