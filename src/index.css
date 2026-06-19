@@ -264,9 +264,8 @@ textarea {
   border-color: #22c55e;
   background: #ffffff;
 }
-
 .delivery-auth-input {
-  height: 3rem;
+  height: 2.75rem;
   width: 100%;
   border-radius: 0.75rem;
   border: 1px solid #e2e8f0;
@@ -283,6 +282,14 @@ textarea {
     box-shadow 0.2s ease;
 }
 
+.delivery-auth-input-left {
+  padding-left: 3rem !important;
+}
+
+.delivery-auth-input-right {
+  padding-right: 3rem !important;
+}
+
 .delivery-auth-input::placeholder {
   color: #94a3b8;
   font-weight: 600;
@@ -296,5 +303,5 @@ textarea {
 
 .delivery-auth-input:disabled {
   cursor: not-allowed;
-  opacity: 0.65;
+  opacity: 0.7;
 }
