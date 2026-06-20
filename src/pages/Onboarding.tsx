@@ -196,15 +196,6 @@ const goalLabelMap: Record<GoalType, string> = {
   clean_eating: "Clean Eating",
 };
 
-const goalBackendMap: Record<
-  GoalType,
-  "fat_loss" | "muscle_gain" | "weight_gain" | "maintenance"
-> = {
-  fat_loss: "fat_loss",
-  muscle_gain: "muscle_gain",
-  weight_gain: "weight_gain",
-  clean_eating: "maintenance",
-};
 
 const stepDetails: Record<
   Step,
@@ -1334,360 +1325,271 @@ applyLocationToAddress({
   };
 
   const handleGoalNext = async () => {
-    if (!selectedGoal) {
-      toast.error(
-        "Choose your primary health goal."
-      );
+  if (!selectedGoal) {
+    toast.error("Choose your primary health goal.");
+    return;
+  }
 
-      return;
-    }
+  try {
+    setSaving(true);
 
-    try {
-      setSaving(true);
+    const response = await api.patch("/onboarding/goal", {
+      goal: selectedGoal,
+    });
 
-      await saveOnboardingProgress({
-        onboarding: {
-          goal: selectedGoal,
-          currentStep: 3,
-          completed: false,
-        },
-      });
-
-      setStep(3);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Failed to save your goal."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const skipBodyDetails =
-    async () => {
-      try {
-        setSaving(true);
-
-        await saveOnboardingProgress({
-          onboarding: {
-            goal: selectedGoal,
-            currentStep: 4,
-            completed: false,
-          },
-        });
-
-        setStep(4);
-
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
-      } catch (error: any) {
-        toast.error(
-          error?.response?.data?.message ||
-            "Failed to continue."
-        );
-      } finally {
-        setSaving(false);
+    patchUserLocally(
+      response.data?.user || {
+        onboarding: response.data?.onboarding,
       }
-    };
+    );
+
+    toast.success(
+      response.data?.message || "Goal saved successfully."
+    );
+
+    setStep(3);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  } catch (error: any) {
+    console.error("SAVE GOAL ERROR:", {
+      status: error?.response?.status,
+      data: error?.response?.data,
+      message: error?.message,
+    });
+
+    toast.error(
+      error?.response?.data?.message ||
+        error?.message ||
+        "Failed to save your goal."
+    );
+  } finally {
+    setSaving(false);
+  }
+};
+
+  const skipBodyDetails = async () => {
+  try {
+    setSaving(true);
+
+    const response = await api.patch("/onboarding/body-details", {
+      height: null,
+      weight: null,
+      age: null,
+      activity: "",
+    });
+
+    patchUserLocally({
+      onboarding: response.data?.onboarding,
+      bodyMetrics: response.data?.bodyMetrics,
+    });
+
+    setStep(4);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message || "Failed to continue."
+    );
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleBodyNext = async () => {
-    const height = Number(body.height);
-    const weight = Number(body.weight);
-    const age = Number(body.age);
+  const height = Number(body.height);
+  const weight = Number(body.weight);
+  const age = Number(body.age);
 
-    if (
-      !Number.isFinite(height) ||
-      height < 100 ||
-      height > 250
-    ) {
+  if (!Number.isFinite(height) || height < 100 || height > 250) {
+    toast.error("Enter a valid height between 100 and 250 cm.");
+    return;
+  }
+
+  if (!Number.isFinite(weight) || weight < 25 || weight > 300) {
+    toast.error("Enter a valid weight between 25 and 300 kg.");
+    return;
+  }
+
+  if (!Number.isFinite(age) || age < 13 || age > 100) {
+    toast.error("Enter a valid age between 13 and 100.");
+    return;
+  }
+
+  if (!selectedGoal) {
+    setStep(2);
+    toast.error("Choose your goal before adding body details.");
+    return;
+  }
+
+  try {
+    setSaving(true);
+
+    const response = await api.patch("/onboarding/body-details", {
+      height,
+      weight,
+      age,
+      activity: body.activity,
+      gender: body.gender,
+    });
+
+    patchUserLocally({
+      onboarding: response.data?.onboarding,
+      bodyMetrics: response.data?.bodyMetrics,
+    });
+
+    setStep(4);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message || "Failed to save body details."
+    );
+  } finally {
+    setSaving(false);
+  }
+};
+
+  const handleAddressNext = async () => {
+  const fullName = address.fullName.trim();
+  const phone = normalizePhone(address.phone);
+  const pincode = normalizePincode(address.pincode);
+
+  if (!fullName) {
+    toast.error("Enter the receiver's full name.");
+    return;
+  }
+
+  if (!isValidPhone(phone)) {
+    toast.error("Enter a valid 10-digit Indian mobile number.");
+    return;
+  }
+
+  if (!address.flatNo.trim()) {
+    toast.error("Enter your flat or house number.");
+    return;
+  }
+
+  if (!address.buildingName.trim()) {
+    toast.error("Enter your building or apartment name.");
+    return;
+  }
+
+  if (!address.area.trim()) {
+    toast.error("Enter your area or locality.");
+    return;
+  }
+
+  if (!address.city.trim() || !address.state.trim()) {
+    toast.error("Enter your city and state.");
+    return;
+  }
+
+  if (!isValidPincode(pincode)) {
+    toast.error("Enter a valid 6-digit pincode.");
+    return;
+  }
+
+  if (address.lat == null || address.lng == null) {
+    toast.error("Search and confirm your exact delivery location.");
+    return;
+  }
+
+  try {
+    setSaving(true);
+
+    const addressPayload = {
+      ...address,
+      fullName,
+      phone,
+      pincode,
+      mapsUrl:
+        address.mapsUrl || makeMapsUrl(address.lat, address.lng),
+    };
+
+    const response = await api.patch("/onboarding/address", {
+      address: addressPayload,
+    });
+
+    patchUserLocally({
+      onboarding: response.data?.onboarding,
+    });
+
+    if (response.data?.serviceable === false) {
+      setServiceable(false);
+
       toast.error(
-        "Enter a valid height between 100 and 250 cm."
-      );
-
-      return;
-    }
-
-    if (
-      !Number.isFinite(weight) ||
-      weight < 25 ||
-      weight > 300
-    ) {
-      toast.error(
-        "Enter a valid weight between 25 and 300 kg."
-      );
-
-      return;
-    }
-
-    if (
-      !Number.isFinite(age) ||
-      age < 13 ||
-      age > 100
-    ) {
-      toast.error(
-        "Enter a valid age between 13 and 100."
-      );
-
-      return;
-    }
-
-    if (!selectedGoal) {
-      setStep(2);
-
-      toast.error(
-        "Choose your goal before adding body details."
-      );
-
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      await api.post(
-        "/user/body-metrics",
-        {
-          height,
-          weight,
-          age,
-          gender: body.gender,
-          activity: body.activity,
-          goal:
-            goalBackendMap[selectedGoal],
-          locked: true,
-        }
-      );
-
-      await saveOnboardingProgress({
-        onboarding: {
-          goal: selectedGoal,
-          currentStep: 4,
-          completed: false,
-        },
-
-        bodyMetrics: {
-          height,
-          weight,
-          age,
-          gender: body.gender,
-          activity: body.activity,
-        },
-      });
-
-      setStep(4);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Failed to save body details."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAddressNext =
-    async () => {
-      const fullName =
-        address.fullName.trim();
-
-      const phone = normalizePhone(
-        address.phone
-      );
-
-      const pincode =
-        normalizePincode(
-          address.pincode
-        );
-
-      if (!fullName) {
-        toast.error(
-          "Enter the receiver's full name."
-        );
-
-        return;
-      }
-
-      if (!isValidPhone(phone)) {
-        toast.error(
-          "Enter a valid 10-digit Indian mobile number."
-        );
-
-        return;
-      }
-
-      if (!address.flatNo.trim()) {
-        toast.error(
-          "Enter your flat or house number."
-        );
-
-        return;
-      }
-
-      if (!address.buildingName.trim()) {
-        toast.error(
-          "Enter your building or apartment name."
-        );
-
-        return;
-      }
-
-      if (!address.area.trim()) {
-        toast.error(
-          "Enter your area or locality."
-        );
-
-        return;
-      }
-
-      if (
-        !address.city.trim() ||
-        !address.state.trim()
-      ) {
-        toast.error(
-          "Enter your city and state."
-        );
-
-        return;
-      }
-
-      if (!isValidPincode(pincode)) {
-        toast.error(
-          "Enter a valid 6-digit pincode."
-        );
-
-        return;
-      }
-
-      if (
-        address.lat == null ||
-        address.lng == null
-      ) {
-        toast.error(
-          "Search your address and select the exact delivery location."
-        );
-
-        return;
-      }
-
-      let isServiceable =
-        serviceable;
-
-      if (isServiceable === null) {
-        isServiceable =
-          await checkPincodeServiceability(
-            pincode
-          );
-      }
-
-      if (isServiceable === false) {
-        toast.error(
+        response.data?.message ||
           "MacroBox is not delivering to this pincode yet."
-        );
+      );
 
-        return;
+      return;
+    }
+
+    setServiceable(true);
+
+    toast.success(
+      response.data?.message || "Delivery address saved successfully."
+    );
+
+    setStep(5);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message ||
+        "Failed to save the delivery address."
+    );
+  } finally {
+    setSaving(false);
+  }
+};
+
+  const completeOnboarding = async () => {
+  if (!selectedGoal) {
+    setStep(2);
+    toast.error("Choose your health goal.");
+    return;
+  }
+
+  try {
+    setSaving(true);
+
+    const response = await api.patch("/onboarding/complete");
+
+    patchUserLocally(
+      response.data?.user || {
+        onboarding: response.data?.onboarding,
       }
+    );
 
-      try {
-        setSaving(true);
+    toast.success(
+      response.data?.message || "Your MacroBox is ready!"
+    );
 
-        const addressPayload = {
-          ...address,
-          fullName,
-          phone,
-          pincode,
-
-          mapsUrl:
-            address.mapsUrl ||
-            makeMapsUrl(
-              address.lat,
-              address.lng
-            ),
-        };
-
-        await api.post(
-          "/user/addresses",
-          addressPayload
-        );
-
-        await saveOnboardingProgress({
-          onboarding: {
-            goal: selectedGoal,
-            currentStep: 5,
-            completed: false,
-          },
-        });
-
-        setStep(5);
-
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
-      } catch (error: any) {
-        toast.error(
-          error?.response?.data?.message ||
-            "Failed to save the delivery address."
-        );
-      } finally {
-        setSaving(false);
-      }
-    };
-
-  const completeOnboarding =
-    async () => {
-      if (!selectedGoal) {
-        setStep(2);
-
-        toast.error(
-          "Choose your health goal."
-        );
-
-        return;
-      }
-
-      try {
-        setSaving(true);
-
-        await saveOnboardingProgress({
-          onboarding: {
-            goal: selectedGoal,
-            currentStep: 5,
-            completed: true,
-          },
-        });
-
-        toast.success(
-          "Your MacroBox is ready!"
-        );
-
-        navigate(
-          `/meals?goal=${selectedGoal}&welcome=true`,
-          {
-            replace: true,
-          }
-        );
-      } catch (error: any) {
-        toast.error(
-          error?.response?.data?.message ||
-            "Failed to complete the setup."
-        );
-      } finally {
-        setSaving(false);
-      }
-    };
+    navigate(`/meals?goal=${selectedGoal}&welcome=true`, {
+      replace: true,
+    });
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message ||
+        "Failed to complete the setup."
+    );
+  } finally {
+    setSaving(false);
+  }
+};
 
   return (
     <main className="min-h-screen bg-[#f7f7f7] pb-28 text-slate-950 sm:pb-12">
