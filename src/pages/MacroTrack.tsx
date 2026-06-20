@@ -110,7 +110,7 @@ export default function MacroTrack() {
   const [activity, setActivity] = useState("moderate");
   const [goalWeight, setGoalWeight] = useState("");
   const [goal, setGoal] = useState<GoalType>("fat_loss");
-  const [locked, setLocked] = useState(false);
+  const [, setLocked] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [foodName, setFoodName] = useState("");
