@@ -580,22 +580,21 @@ export default function Onboarding() {
     ]
   );
 
-  const saveOnboardingProgress =
-    useCallback(
-      async (payload: any) => {
-        const response = await api.post(
-          "/user/onboarding",
-          payload
-        );
-
-        patchUserLocally(
-          response.data?.user || payload
-        );
-
-        return response;
-      },
-      [patchUserLocally]
+  const saveOnboardingProgress = useCallback(
+  async (payload: any) => {
+    const response = await api.post(
+      "/onboarding",
+      payload
     );
+
+    patchUserLocally(
+      response.data?.user || payload
+    );
+
+    return response;
+  },
+  [patchUserLocally]
+);
 
   const checkPincodeServiceability =
     useCallback(async (pincode: string) => {
