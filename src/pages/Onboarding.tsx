@@ -88,12 +88,8 @@ type GoalOption = {
   key: GoalType;
   title: string;
   helper: string;
+  description: string;
   icon: ReactNode;
-};
-
-type ActivityOption = {
-  value: Activity;
-  label: string;
 };
 
 type GoogleAddressResult = {
@@ -111,7 +107,7 @@ type GoogleAddressResult = {
   name?: string;
 };
 
-const GOOGLE_MAPS_SCRIPT_ID = "macrobox-onboarding-google-maps";
+const GOOGLE_MAPS_SCRIPT_ID = "macrobox-onboarding-maps";
 
 let googleMapsPromise: Promise<void> | null = null;
 
@@ -120,29 +116,36 @@ const goalOptions: GoalOption[] = [
     key: "fat_loss",
     title: "Fat Loss",
     helper: "Lean and filling",
-    icon: <Flame size={22} />,
+    description: "Lower-calorie, protein-rich meals.",
+    icon: <Flame size={21} />,
   },
   {
     key: "muscle_gain",
     title: "Muscle Gain",
     helper: "High protein",
-    icon: <Dumbbell size={22} />,
+    description: "Meals that support strength and recovery.",
+    icon: <Dumbbell size={21} />,
   },
   {
     key: "weight_gain",
     title: "Weight Gain",
     helper: "Extra calories",
-    icon: <Weight size={22} />,
+    description: "Balanced calorie-dense meals.",
+    icon: <Weight size={21} />,
   },
   {
     key: "clean_eating",
     title: "Clean Eating",
     helper: "Balanced meals",
-    icon: <HeartPulse size={22} />,
+    description: "Simple meals for a healthy daily routine.",
+    icon: <HeartPulse size={21} />,
   },
 ];
 
-const activityOptions: ActivityOption[] = [
+const activityOptions: Array<{
+  value: Activity;
+  label: string;
+}> = [
   {
     value: "sedentary",
     label: "Sedentary",
@@ -172,11 +175,18 @@ const goalLabelMap: Record<GoalType, string> = {
   clean_eating: "Clean Eating",
 };
 
-const inputClass =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-2 focus:ring-green-100 sm:h-12 sm:px-4";
+const stepNameMap: Record<Step, string> = {
+  2: "Goal",
+  3: "Body",
+  4: "Address",
+  5: "Ready",
+};
 
-const compactLabelClass =
-  "mb-1 block text-[10px] font-black uppercase tracking-wide text-slate-500 sm:mb-2 sm:text-[11px]";
+const inputClass =
+  "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-2 focus:ring-green-100";
+
+const labelClass =
+  "mb-1 block text-[10px] font-black uppercase tracking-[0.08em] text-slate-500";
 
 const normalizePhone = (value: string) =>
   value.replace(/\D/g, "").slice(0, 10);
@@ -200,11 +210,11 @@ const getAddressComponent = (
     | undefined,
   type: string
 ) => {
-  const item = components?.find((component) =>
-    component.types?.includes(type)
+  const component = components?.find((item) =>
+    item.types?.includes(type)
   );
 
-  return item?.long_name || "";
+  return component?.long_name || "";
 };
 
 const getGoogleCity = (
@@ -310,7 +320,7 @@ export default function Onboarding() {
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const googleMapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const googleMarkerRef = useRef<any>(null);
   const mapClickListenerRef = useRef<any>(null);
   const markerDragListenerRef = useRef<any>(null);
 
@@ -404,7 +414,7 @@ export default function Onboarding() {
         updateUser(nextUser);
         refreshStoredUser();
       } catch {
-        // Local update failure must not block onboarding.
+        // Do not block onboarding if local refresh fails.
       }
     },
     [user, updateUser, refreshStoredUser]
@@ -516,7 +526,7 @@ export default function Onboarding() {
             return;
           }
 
-          resolve(results[0]);
+          resolve(results[0] || null);
         }
       );
     });
@@ -586,7 +596,7 @@ export default function Onboarding() {
               | GoogleAddressResult
               | undefined;
 
-            if (!place?.geometry?.location) {
+            if (!place || !place.geometry?.location) {
               setLocationMessage("Select an address from the suggestions.");
               return;
             }
@@ -650,42 +660,41 @@ export default function Onboarding() {
     if (!googleMapRef.current) {
       googleMapRef.current = new google.maps.Map(mapContainerRef.current, {
         center: position,
-        zoom: 16,
+        zoom: 17,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
-        zoomControl: true,
         clickableIcons: false,
+        zoomControl: true,
         gestureHandling: "greedy",
       });
 
       mapClickListenerRef.current = googleMapRef.current.addListener(
         "click",
         (event: any) => {
-          const lat = event.latLng?.lat();
-          const lng = event.latLng?.lng();
+          const clickedLat = event.latLng?.lat();
+          const clickedLng = event.latLng?.lng();
 
-          if (lat == null || lng == null) return;
+          if (clickedLat == null || clickedLng == null) return;
 
-          void setLocationFromCoordinates(lat, lng, "manual");
+          void setLocationFromCoordinates(clickedLat, clickedLng, "manual");
         }
       );
     }
 
     googleMapRef.current.setCenter(position);
 
-    if (!markerRef.current) {
-      markerRef.current = new google.maps.Marker({
-        map: googleMapRef.current,
+    if (!googleMarkerRef.current) {
+      googleMarkerRef.current = new google.maps.Marker({
         position,
+        map: googleMapRef.current,
         draggable: true,
         title: "Delivery location",
       });
 
-      markerDragListenerRef.current = markerRef.current.addListener(
-        "dragend",
-        () => {
-          const markerPosition = markerRef.current?.getPosition();
+      markerDragListenerRef.current =
+        googleMarkerRef.current.addListener("dragend", () => {
+          const markerPosition = googleMarkerRef.current?.getPosition();
 
           if (!markerPosition) return;
 
@@ -694,11 +703,10 @@ export default function Onboarding() {
             markerPosition.lng(),
             "manual"
           );
-        }
-      );
+        });
     } else {
-      markerRef.current.setMap(googleMapRef.current);
-      markerRef.current.setPosition(position);
+      googleMarkerRef.current.setMap(googleMapRef.current);
+      googleMarkerRef.current.setPosition(position);
     }
   }, [
     step,
@@ -753,11 +761,11 @@ export default function Onboarding() {
       mapClickListenerRef.current?.remove?.();
       markerDragListenerRef.current?.remove?.();
 
-      markerRef.current?.setMap?.(null);
+      googleMarkerRef.current?.setMap?.(null);
 
       autocompleteRef.current = null;
       googleMapRef.current = null;
-      markerRef.current = null;
+      googleMarkerRef.current = null;
     };
   }, []);
 
@@ -765,7 +773,7 @@ export default function Onboarding() {
     const query = addressSearch.trim();
 
     if (!query) {
-      setLocationMessage("Enter an address or nearby landmark.");
+      setLocationMessage("Enter an address or landmark.");
       return;
     }
 
@@ -779,56 +787,51 @@ export default function Onboarding() {
       const geocoder = new google.maps.Geocoder();
 
       geocoder.geocode(
-  {
-    address: query,
-    componentRestrictions: {
-      country: "IN",
-    },
-  },
-  (
-    results: GoogleAddressResult[] | null,
-    status: string
-  ) => {
-    setLoadingMaps(false);
+        {
+          address: query,
+          componentRestrictions: {
+            country: "IN",
+          },
+        },
+        (results: GoogleAddressResult[] | null, status: string) => {
+          setLoadingMaps(false);
 
-    if (status !== "OK" || !results?.length) {
-      setLocationMessage("Address not found. Try a nearby landmark.");
-      return;
-    }
+          if (status !== "OK" || !results?.length) {
+            setLocationMessage("Address not found. Try a nearby landmark.");
+            return;
+          }
 
-    const result = results[0];
+          const result = results[0];
 
-    if (!result) {
-      setLocationMessage("Address not found. Try a nearby landmark.");
-      return;
-    }
+          if (!result) {
+            setLocationMessage("Address not found. Try a nearby landmark.");
+            return;
+          }
 
-    const location = result.geometry?.location;
+          const location = result.geometry?.location;
 
-    if (!location) {
-      setLocationMessage(
-        "The selected address does not have a valid location."
+          if (!location) {
+            setLocationMessage("The selected address has no map location.");
+            return;
+          }
+
+          const lat = location.lat();
+          const lng = location.lng();
+
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            setLocationMessage("The selected coordinates are invalid.");
+            return;
+          }
+
+          applyLocation({
+            lat,
+            lng,
+            formattedAddress: result.formatted_address || query,
+            components: result.address_components,
+            mode: "manual",
+          });
+        }
       );
-      return;
-    }
-
-    const lat = location.lat();
-    const lng = location.lng();
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      setLocationMessage("The selected address coordinates are invalid.");
-      return;
-    }
-
-    applyLocation({
-      lat,
-      lng,
-      formattedAddress: result.formatted_address || query,
-      components: result.address_components,
-      mode: "manual",
-    });
-  }
-);
     } catch {
       setLoadingMaps(false);
       setLocationMessage("Unable to search this address.");
@@ -864,7 +867,7 @@ export default function Onboarding() {
 
           if (error.code === error.PERMISSION_DENIED) {
             setLocationMessage(
-              "Location permission denied. Search manually."
+              "Location permission was denied. Search manually."
             );
           } else {
             setLocationMessage("Unable to find your current location.");
@@ -886,6 +889,11 @@ export default function Onboarding() {
     if (saving || step === 2) return;
 
     setStep((step - 1) as Step);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   const handleGoalNext = async () => {
@@ -908,6 +916,11 @@ export default function Onboarding() {
       );
 
       setStep(3);
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message || "Failed to save your goal."
@@ -935,6 +948,11 @@ export default function Onboarding() {
       });
 
       setStep(4);
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message || "Failed to continue."
@@ -950,17 +968,17 @@ export default function Onboarding() {
     const age = Number(body.age);
 
     if (!Number.isFinite(height) || height < 100 || height > 250) {
-      toast.error("Enter a valid height.");
+      toast.error("Enter a valid height between 100 and 250 cm.");
       return;
     }
 
     if (!Number.isFinite(weight) || weight < 25 || weight > 300) {
-      toast.error("Enter a valid weight.");
+      toast.error("Enter a valid weight between 25 and 300 kg.");
       return;
     }
 
     if (!Number.isFinite(age) || age < 13 || age > 100) {
-      toast.error("Enter a valid age.");
+      toast.error("Enter a valid age between 13 and 100.");
       return;
     }
 
@@ -981,6 +999,11 @@ export default function Onboarding() {
       });
 
       setStep(4);
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message || "Failed to save body details."
@@ -1001,7 +1024,7 @@ export default function Onboarding() {
     }
 
     if (!isValidPhone(phone)) {
-      toast.error("Enter a valid mobile number.");
+      toast.error("Enter a valid 10-digit mobile number.");
       return;
     }
 
@@ -1011,17 +1034,22 @@ export default function Onboarding() {
     }
 
     if (!address.buildingName.trim()) {
-      toast.error("Enter the building name.");
+      toast.error("Enter the building or apartment name.");
       return;
     }
 
     if (!address.area.trim()) {
-      toast.error("Enter the area or locality.");
+      toast.error("Enter your area or locality.");
       return;
     }
 
-    if (!address.city.trim() || !address.state.trim()) {
-      toast.error("Enter the city and state.");
+    if (!address.city.trim()) {
+      toast.error("Enter your city.");
+      return;
+    }
+
+    if (!address.state.trim()) {
+      toast.error("Enter your state.");
       return;
     }
 
@@ -1031,7 +1059,7 @@ export default function Onboarding() {
     }
 
     if (address.lat == null || address.lng == null) {
-      toast.error("Select your exact delivery location.");
+      toast.error("Search and confirm the exact delivery location.");
       return;
     }
 
@@ -1066,11 +1094,14 @@ export default function Onboarding() {
 
       setServiceable(true);
 
-      toast.success(
-        response.data?.message || "Delivery address saved."
-      );
+      toast.success(response.data?.message || "Address saved.");
 
       setStep(5);
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message ||
@@ -1117,15 +1148,15 @@ export default function Onboarding() {
   };
 
   return (
-    <main className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden bg-[#f7f7f7] text-slate-950">
-      <CompactHeader
+    <main className="min-h-screen bg-[#f7f7f7] text-slate-950">
+      <OnboardingHeader
         step={step}
         saving={saving}
         onBack={goBack}
       />
 
-      <section className="min-h-0 flex-1 overflow-hidden px-3 py-3 sm:px-6 sm:py-6">
-        <div className="mx-auto h-full max-w-[1080px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
+      <div className="mx-auto max-w-[960px] px-3 py-4 pb-28 sm:px-6 sm:py-7 sm:pb-10">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {step === 2 && (
             <GoalStep
               selectedGoal={selectedGoal}
@@ -1150,8 +1181,8 @@ export default function Onboarding() {
             <AddressStep
               address={address}
               addressSearch={addressSearch}
-              serviceable={serviceable}
               locationMessage={locationMessage}
+              serviceable={serviceable}
               loadingMaps={loadingMaps}
               locating={locating}
               saving={saving}
@@ -1174,13 +1205,13 @@ export default function Onboarding() {
               onComplete={completeOnboarding}
             />
           )}
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }
 
-function CompactHeader({
+function OnboardingHeader({
   step,
   saving,
   onBack,
@@ -1189,46 +1220,48 @@ function CompactHeader({
   saving: boolean;
   onBack: () => void;
 }) {
-  const visibleStep = step - 1;
+  const currentStep = step - 1;
 
   return (
-    <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
-      <div className="mx-auto flex max-w-[1080px] items-center gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={step === 2 || saving}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-700 disabled:opacity-30"
-        >
-          <ArrowLeft size={17} />
-        </button>
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto max-w-[960px] px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={step === 2 || saving}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-30"
+          >
+            <ArrowLeft size={17} />
+          </button>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-black text-slate-950 sm:text-base">
-                Set up MacroBox
-              </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-slate-950">
+                  Set up MacroBox
+                </p>
 
-              <p className="text-[10px] font-bold text-slate-400 sm:text-xs">
-                Step {visibleStep} of 4
+                <p className="text-[11px] font-bold text-slate-400">
+                  Step {currentStep} of 4 · {stepNameMap[step]}
+                </p>
+              </div>
+
+              <p className="text-xs font-black text-green-700">
+                {currentStep * 25}%
               </p>
             </div>
 
-            <p className="text-xs font-black text-green-700">
-              {visibleStep * 25}%
-            </p>
-          </div>
-
-          <div className="mt-2 grid grid-cols-4 gap-1.5">
-            {[1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
-                className={`h-1.5 rounded-full ${
-                  item <= visibleStep ? "bg-green-600" : "bg-slate-100"
-                }`}
-              />
-            ))}
+            <div className="mt-2 grid grid-cols-4 gap-1.5">
+              {[1, 2, 3, 4].map((item) => (
+                <div
+                  key={item}
+                  className={`h-1.5 rounded-full ${
+                    item <= currentStep ? "bg-green-600" : "bg-slate-100"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -1248,21 +1281,14 @@ function GoalStep({
   onContinue: () => void;
 }) {
   return (
-    <StepLayout
-      icon={<Target size={15} />}
-      title="Choose your goal"
-      subtitle="Pick one to personalize your meals."
-      footer={
-        <PrimaryButton
-          onClick={onContinue}
-          loading={saving}
-          disabled={!selectedGoal}
-        >
-          Continue
-        </PrimaryButton>
-      }
-    >
-      <div className="grid h-full grid-cols-2 gap-2 sm:gap-4">
+    <>
+      <StepHeader
+        icon={<Target size={17} />}
+        title="Choose your goal"
+        subtitle="Pick one option to personalize your meals."
+      />
+
+      <div className="grid grid-cols-2 gap-3 p-4 sm:gap-4 sm:p-6">
         {goalOptions.map((goal) => {
           const selected = selectedGoal === goal.key;
 
@@ -1272,15 +1298,15 @@ function GoalStep({
               type="button"
               onClick={() => onSelect(goal.key)}
               disabled={saving}
-              className={`relative flex min-h-0 flex-col justify-between rounded-2xl border p-3 text-left transition sm:p-5 ${
+              className={`relative rounded-2xl border p-4 text-left transition ${
                 selected
-                  ? "border-green-600 bg-green-50"
+                  ? "border-green-600 bg-green-50 shadow-sm"
                   : "border-slate-200 bg-white hover:border-green-300"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl sm:h-12 sm:w-12 ${
+                  className={`flex h-11 w-11 items-center justify-center rounded-xl ${
                     selected
                       ? "bg-green-600 text-white"
                       : "bg-green-50 text-green-700"
@@ -1300,20 +1326,32 @@ function GoalStep({
                 </span>
               </div>
 
-              <div className="mt-2">
-                <p className="text-sm font-black text-slate-950 sm:text-lg">
-                  {goal.title}
-                </p>
+              <p className="mt-4 text-base font-black text-slate-950">
+                {goal.title}
+              </p>
 
-                <p className="mt-0.5 text-[11px] font-bold text-slate-500 sm:text-sm">
-                  {goal.helper}
-                </p>
-              </div>
+              <p className="mt-1 text-xs font-bold text-slate-500">
+                {goal.helper}
+              </p>
+
+              <p className="mt-2 hidden text-xs font-semibold leading-5 text-slate-500 sm:block">
+                {goal.description}
+              </p>
             </button>
           );
         })}
       </div>
-    </StepLayout>
+
+      <StickyAction>
+        <PrimaryButton
+          onClick={onContinue}
+          loading={saving}
+          disabled={!selectedGoal}
+        >
+          Continue
+        </PrimaryButton>
+      </StickyAction>
+    </>
   );
 }
 
@@ -1347,31 +1385,16 @@ function BodyStep({
   onContinue: () => void;
 }) {
   return (
-    <StepLayout
-      icon={<Sparkles size={15} />}
-      title="Body details"
-      subtitle="Used to calculate your calorie and macro targets."
-      footer={
-        <div className="grid grid-cols-[0.65fr_1.35fr] gap-2">
-          <SecondaryButton
-            onClick={onSkip}
-            disabled={saving}
-          >
-            Skip
-          </SecondaryButton>
+    <>
+      <StepHeader
+        icon={<Sparkles size={17} />}
+        title="Body details"
+        subtitle="Used to estimate calories and daily macros."
+      />
 
-          <PrimaryButton
-            onClick={onContinue}
-            loading={saving}
-          >
-            Continue
-          </PrimaryButton>
-        </div>
-      }
-    >
-      <div className="flex h-full flex-col justify-center">
+      <div className="p-4 sm:p-6">
         {selectedGoal && (
-          <div className="mb-3 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2">
+          <div className="mb-4 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2">
             <span className="text-green-700">{selectedGoal.icon}</span>
 
             <p className="text-xs font-black text-green-800">
@@ -1381,7 +1404,7 @@ function BodyStep({
         )}
 
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
-          <CompactInput
+          <NumberInput
             label="Height"
             suffix="cm"
             value={body.height}
@@ -1394,7 +1417,7 @@ function BodyStep({
             }
           />
 
-          <CompactInput
+          <NumberInput
             label="Weight"
             suffix="kg"
             value={body.weight}
@@ -1407,7 +1430,7 @@ function BodyStep({
             }
           />
 
-          <CompactInput
+          <NumberInput
             label="Age"
             suffix="yrs"
             value={body.age}
@@ -1421,9 +1444,9 @@ function BodyStep({
           />
         </div>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
-            <label className={compactLabelClass}>Gender</label>
+            <label className={labelClass}>Gender</label>
 
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -1435,26 +1458,26 @@ function BodyStep({
                   value: "female",
                   label: "Female",
                 },
-              ].map((option) => {
-                const selected = body.gender === option.value;
+              ].map((item) => {
+                const selected = body.gender === item.value;
 
                 return (
                   <button
-                    key={option.value}
+                    key={item.value}
                     type="button"
                     onClick={() =>
                       onBodyChange((previous) => ({
                         ...previous,
-                        gender: option.value,
+                        gender: item.value,
                       }))
                     }
-                    className={`h-11 rounded-xl border text-xs font-black sm:h-12 sm:text-sm ${
+                    className={`h-11 rounded-xl border text-sm font-black ${
                       selected
                         ? "border-green-600 bg-green-50 text-green-700"
                         : "border-slate-200 text-slate-600"
                     }`}
                   >
-                    {option.label}
+                    {item.label}
                   </button>
                 );
               })}
@@ -1462,7 +1485,7 @@ function BodyStep({
           </div>
 
           <div>
-            <label className={compactLabelClass}>Activity</label>
+            <label className={labelClass}>Activity level</label>
 
             <select
               value={body.activity}
@@ -1474,31 +1497,40 @@ function BodyStep({
               }
               className={inputClass}
             >
-              {activityOptions.map((option) => (
-                <option
-                  key={option.value}
-                  value={option.value}
-                >
-                  {option.label}
+              {activityOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
                 </option>
               ))}
             </select>
           </div>
         </div>
 
-        <p className="mt-3 text-center text-[10px] font-semibold leading-4 text-slate-400 sm:text-xs">
-          You can edit these values later from MacroTrack.
+        <p className="mt-4 text-center text-xs font-semibold text-slate-400">
+          You can edit these details later from MacroTrack.
         </p>
       </div>
-    </StepLayout>
+
+      <StickyAction>
+        <div className="grid grid-cols-[0.65fr_1.35fr] gap-2">
+          <SecondaryButton onClick={onSkip} disabled={saving}>
+            Skip
+          </SecondaryButton>
+
+          <PrimaryButton onClick={onContinue} loading={saving}>
+            Continue
+          </PrimaryButton>
+        </div>
+      </StickyAction>
+    </>
   );
 }
 
 function AddressStep({
   address,
   addressSearch,
-  serviceable,
   locationMessage,
+  serviceable,
   loadingMaps,
   locating,
   saving,
@@ -1512,8 +1544,8 @@ function AddressStep({
 }: {
   address: Address;
   addressSearch: string;
-  serviceable: boolean | null;
   locationMessage: string;
+  serviceable: boolean | null;
   loadingMaps: boolean;
   locating: boolean;
   saving: boolean;
@@ -1528,27 +1560,20 @@ function AddressStep({
   const hasLocation = address.lat != null && address.lng != null;
 
   return (
-    <StepLayout
-      icon={<MapPin size={15} />}
-      title="Delivery address"
-      subtitle="Search your location and add the basic delivery details."
-      footer={
-        <PrimaryButton
-          onClick={onContinue}
-          loading={saving}
-          disabled={serviceable === false}
-        >
-          Save address
-        </PrimaryButton>
-      }
-    >
-      <div className="grid h-full min-h-0 gap-2 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="min-h-0">
-          <div className="flex gap-2">
-            <div className="relative min-w-0 flex-1">
+    <>
+      <StepHeader
+        icon={<MapPin size={17} />}
+        title="Delivery address"
+        subtitle="Search your location, then enter basic delivery details."
+      />
+
+      <div className="space-y-4 p-4 sm:p-6">
+        <section className="rounded-2xl bg-slate-50 p-3">
+          <div className="grid grid-cols-[1fr_44px_44px] gap-2">
+            <div className="relative min-w-0">
               <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
 
               <input
@@ -1563,8 +1588,8 @@ function AddressStep({
                     onSearch();
                   }
                 }}
-                placeholder="Search location"
-                className="h-10 w-full rounded-xl border border-slate-200 pl-9 pr-2 text-xs font-semibold outline-none focus:border-green-500 sm:h-11 sm:text-sm"
+                placeholder="Search area or landmark"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm font-semibold outline-none focus:border-green-500"
               />
             </div>
 
@@ -1572,55 +1597,48 @@ function AddressStep({
               type="button"
               onClick={onSearch}
               disabled={loadingMaps || !addressSearch.trim()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white disabled:opacity-50 sm:h-11 sm:w-auto sm:px-4"
+              className="flex h-11 items-center justify-center rounded-xl bg-slate-900 text-white disabled:opacity-50"
             >
               {loadingMaps ? (
-                <Loader2 size={15} className="animate-spin" />
+                <Loader2 size={16} className="animate-spin" />
               ) : (
-                <Search size={15} />
+                <Search size={17} />
               )}
-
-              <span className="ml-2 hidden text-xs font-black sm:inline">
-                Search
-              </span>
             </button>
 
             <button
               type="button"
               onClick={onCurrentLocation}
               disabled={locating}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-green-200 text-green-700 disabled:opacity-50 sm:h-11"
+              className="flex h-11 items-center justify-center rounded-xl border border-green-200 bg-white text-green-700 disabled:opacity-50"
             >
               {locating ? (
-                <Loader2 size={15} className="animate-spin" />
+                <Loader2 size={16} className="animate-spin" />
               ) : (
-                <LocateFixed size={15} />
+                <LocateFixed size={17} />
               )}
             </button>
           </div>
 
           {locationMessage && (
-            <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-red-600">
-              <XCircle size={12} />
+            <p className="mt-2 flex items-start gap-1.5 text-xs font-bold text-red-600">
+              <XCircle size={14} className="mt-0.5 shrink-0" />
               {locationMessage}
             </p>
           )}
 
-          <div className="mt-2 overflow-hidden rounded-xl border border-slate-200">
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
             {hasLocation ? (
               <div
                 ref={mapContainerRef}
-                className="h-[115px] w-full sm:h-[170px] lg:h-[260px]"
+                className="h-[180px] w-full sm:h-[240px]"
               />
             ) : (
-              <div className="flex h-[115px] items-center justify-center bg-slate-50 px-4 text-center sm:h-[170px] lg:h-[260px]">
+              <div className="flex h-[150px] items-center justify-center text-center">
                 <div>
-                  <MapPin
-                    size={23}
-                    className="mx-auto text-slate-300"
-                  />
+                  <MapPin className="mx-auto text-slate-300" size={28} />
 
-                  <p className="mt-1 text-[10px] font-bold text-slate-500 sm:text-xs">
+                  <p className="mt-2 text-xs font-bold text-slate-500">
                     Search or use current location
                   </p>
                 </div>
@@ -1629,153 +1647,167 @@ function AddressStep({
           </div>
 
           {hasLocation && address.formattedAddress && (
-            <p className="mt-1 line-clamp-1 text-[10px] font-semibold text-slate-500">
+            <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
               {address.formattedAddress}
             </p>
           )}
-        </div>
+        </section>
 
-        <div className="grid min-h-0 grid-cols-2 content-start gap-2">
-          <MiniAddressInput
-            label="Name"
-            value={address.fullName}
-            placeholder="Receiver name"
-            onChange={(value) =>
-              onAddressChange((previous) => ({
-                ...previous,
-                fullName: value,
-              }))
-            }
-          />
+        <section>
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
+            Delivery details
+          </p>
 
-          <MiniAddressInput
-            label="Phone"
-            value={address.phone}
-            placeholder="Mobile number"
-            inputMode="numeric"
-            maxLength={10}
-            onChange={(value) =>
-              onAddressChange((previous) => ({
-                ...previous,
-                phone: normalizePhone(value),
-              }))
-            }
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <SmallInput
+              label="Name"
+              value={address.fullName}
+              placeholder="Receiver name"
+              onChange={(value) =>
+                onAddressChange((previous) => ({
+                  ...previous,
+                  fullName: value,
+                }))
+              }
+            />
 
-          <MiniAddressInput
-            label="Flat / House"
-            value={address.flatNo}
-            placeholder="Flat 201"
-            onChange={(value) =>
-              onAddressChange((previous) => ({
-                ...previous,
-                flatNo: value,
-              }))
-            }
-          />
+            <SmallInput
+              label="Phone"
+              value={address.phone}
+              placeholder="Mobile number"
+              inputMode="numeric"
+              maxLength={10}
+              onChange={(value) =>
+                onAddressChange((previous) => ({
+                  ...previous,
+                  phone: normalizePhone(value),
+                }))
+              }
+            />
 
-          <MiniAddressInput
-            label="Building"
-            value={address.buildingName}
-            placeholder="Apartment"
-            onChange={(value) =>
-              onAddressChange((previous) => ({
-                ...previous,
-                buildingName: value,
-              }))
-            }
-          />
+            <SmallInput
+              label="Flat / House"
+              value={address.flatNo}
+              placeholder="Flat 201"
+              onChange={(value) =>
+                onAddressChange((previous) => ({
+                  ...previous,
+                  flatNo: value,
+                }))
+              }
+            />
 
-          <MiniAddressInput
-            label="Area"
-            value={address.area}
-            placeholder="Locality"
-            onChange={(value) =>
-              onAddressChange((previous) => ({
-                ...previous,
-                area: value,
-              }))
-            }
-          />
+            <SmallInput
+              label="Building"
+              value={address.buildingName}
+              placeholder="Apartment"
+              onChange={(value) =>
+                onAddressChange((previous) => ({
+                  ...previous,
+                  buildingName: value,
+                }))
+              }
+            />
 
-          <MiniAddressInput
-            label="City"
-            value={address.city}
-            placeholder="City"
-            onChange={(value) =>
-              onAddressChange((previous) => ({
-                ...previous,
-                city: value,
-              }))
-            }
-          />
+            <SmallInput
+              label="Area"
+              value={address.area}
+              placeholder="Locality"
+              onChange={(value) =>
+                onAddressChange((previous) => ({
+                  ...previous,
+                  area: value,
+                }))
+              }
+            />
 
-          <MiniAddressInput
-            label="State"
-            value={address.state}
-            placeholder="State"
-            onChange={(value) =>
-              onAddressChange((previous) => ({
-                ...previous,
-                state: value,
-              }))
-            }
-          />
+            <SmallInput
+              label="City"
+              value={address.city}
+              placeholder="City"
+              onChange={(value) =>
+                onAddressChange((previous) => ({
+                  ...previous,
+                  city: value,
+                }))
+              }
+            />
 
-          <MiniAddressInput
-            label="Pincode"
-            value={address.pincode}
-            placeholder="6 digits"
-            inputMode="numeric"
-            maxLength={6}
-            onChange={(value) =>
-              onAddressChange((previous) => ({
-                ...previous,
-                pincode: normalizePincode(value),
-              }))
-            }
-          />
+            <SmallInput
+              label="State"
+              value={address.state}
+              placeholder="State"
+              onChange={(value) =>
+                onAddressChange((previous) => ({
+                  ...previous,
+                  state: value,
+                }))
+              }
+            />
 
-          <div className="col-span-2">
-            <label className={compactLabelClass}>Address type</label>
+            <SmallInput
+              label="Pincode"
+              value={address.pincode}
+              placeholder="6 digits"
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(value) =>
+                onAddressChange((previous) => ({
+                  ...previous,
+                  pincode: normalizePincode(value),
+                }))
+              }
+            />
+          </div>
+
+          <div className="mt-4">
+            <label className={labelClass}>Address type</label>
 
             <div className="grid grid-cols-3 gap-2">
-              {(["Home", "Work", "Other"] as AddressLabel[]).map(
-                (label) => {
-                  const selected = address.addressLabel === label;
+              {(["Home", "Work", "Other"] as AddressLabel[]).map((label) => {
+                const selected = address.addressLabel === label;
 
-                  return (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() =>
-                        onAddressChange((previous) => ({
-                          ...previous,
-                          addressLabel: label,
-                        }))
-                      }
-                      className={`h-9 rounded-xl border text-[11px] font-black sm:h-10 sm:text-xs ${
-                        selected
-                          ? "border-green-600 bg-green-50 text-green-700"
-                          : "border-slate-200 text-slate-500"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                }
-              )}
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() =>
+                      onAddressChange((previous) => ({
+                        ...previous,
+                        addressLabel: label,
+                      }))
+                    }
+                    className={`h-10 rounded-xl border text-xs font-black ${
+                      selected
+                        ? "border-green-600 bg-green-50 text-green-700"
+                        : "border-slate-200 bg-white text-slate-600"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {serviceable === false && (
-            <p className="col-span-2 text-[10px] font-bold text-red-600">
+            <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs font-bold text-red-600">
               MacroBox is not delivering to this pincode yet.
             </p>
           )}
-        </div>
+        </section>
       </div>
-    </StepLayout>
+
+      <StickyAction>
+        <PrimaryButton
+          onClick={onContinue}
+          loading={saving}
+          disabled={serviceable === false}
+        >
+          Save address
+        </PrimaryButton>
+      </StickyAction>
+    </>
   );
 }
 
@@ -1793,208 +1825,90 @@ function ReadyStep({
   onComplete: () => void;
 }) {
   return (
-    <StepLayout
-      icon={<CheckCircle2 size={15} />}
-      title="Your MacroBox is ready"
-      subtitle={
-        goal
-          ? `Meals selected for ${goalLabelMap[goal]}.`
-          : "Your personalized setup is complete."
-      }
-      footer={
-        <PrimaryButton
-          onClick={onComplete}
-          loading={saving}
-        >
-          Explore meals
-        </PrimaryButton>
-      }
-    >
-      {loadingMeals ? (
-        <div className="flex h-full items-center justify-center">
-          <div className="text-center">
-            <Loader2
-              size={28}
-              className="mx-auto animate-spin text-green-600"
-            />
+    <>
+      <StepHeader
+        icon={<CheckCircle2 size={17} />}
+        title="Your MacroBox is ready"
+        subtitle={
+          goal
+            ? `Meals selected for ${goalLabelMap[goal]}.`
+            : "Your personalized meal setup is complete."
+        }
+      />
 
-            <p className="mt-2 text-xs font-bold text-slate-500">
-              Finding meals...
-            </p>
+      <div className="p-4 sm:p-6">
+        {loadingMeals ? (
+          <div className="flex min-h-[260px] items-center justify-center">
+            <Loader2 className="animate-spin text-green-600" size={30} />
           </div>
-        </div>
-      ) : meals.length === 0 ? (
-        <div className="flex h-full items-center justify-center">
-          <div className="text-center">
-            <Sparkles
-              size={34}
-              className="mx-auto text-green-600"
-            />
+        ) : meals.length === 0 ? (
+          <div className="rounded-2xl bg-slate-50 p-8 text-center">
+            <Sparkles className="mx-auto text-green-600" size={34} />
 
             <p className="mt-3 text-lg font-black text-slate-950">
               Setup complete
             </p>
 
-            <p className="mt-1 text-xs font-semibold text-slate-500">
-              Explore the complete MacroBox menu.
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Explore all available MacroBox meals.
             </p>
           </div>
-        </div>
-      ) : (
-        <div className="grid h-full grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          {meals.map((meal) => (
-            <CompactMealCard
-              key={meal._id}
-              meal={meal}
-            />
-          ))}
-        </div>
-      )}
-    </StepLayout>
-  );
-}
-
-function CompactMealCard({ meal }: { meal: Meal }) {
-  const image =
-    meal.imageUrl || meal.image || "/placeholder-meal.png";
-
-  return (
-    <article className="min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <img
-        src={image}
-        alt={meal.title}
-        className="h-[72px] w-full object-cover sm:h-28"
-        onError={(event) => {
-          event.currentTarget.src = "/placeholder-meal.png";
-        }}
-      />
-
-      <div className="p-2 sm:p-3">
-        <div className="flex items-start justify-between gap-1">
-          <p className="line-clamp-1 text-xs font-black text-slate-950 sm:text-sm">
-            {meal.title}
-          </p>
-
-          <p className="shrink-0 text-[10px] font-black text-slate-900 sm:text-xs">
-            ₹{Number(meal.price || 0)}
-          </p>
-        </div>
-
-        <div className="mt-1 flex items-center gap-2 text-[9px] font-bold text-slate-500 sm:text-[10px]">
-          <span>{meal.calories || 0} kcal</span>
-          <span>{meal.protein || 0}g protein</span>
-        </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {meals.map((meal) => (
+              <CompactMealCard key={meal._id} meal={meal} />
+            ))}
+          </div>
+        )}
       </div>
-    </article>
+
+      <StickyAction>
+        <PrimaryButton onClick={onComplete} loading={saving}>
+          Explore meals
+        </PrimaryButton>
+      </StickyAction>
+    </>
   );
 }
 
-function StepLayout({
+function StepHeader({
   icon,
   title,
   subtitle,
-  children,
-  footer,
 }: {
   icon: ReactNode;
   title: string;
   subtitle: string;
-  children: ReactNode;
-  footer: ReactNode;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-slate-200 bg-gradient-to-r from-white to-green-50 px-4 py-3 sm:px-7 sm:py-5">
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
-            {icon}
-          </span>
+    <div className="border-b border-slate-200 bg-gradient-to-r from-white to-green-50 px-4 py-4 sm:px-6">
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
+          {icon}
+        </span>
 
-          <div className="min-w-0">
-            <h1 className="text-lg font-black tracking-tight text-slate-950 sm:text-2xl">
-              {title}
-            </h1>
+        <div>
+          <h1 className="text-xl font-black tracking-[-0.04em] text-slate-950 sm:text-2xl">
+            {title}
+          </h1>
 
-            <p className="truncate text-[10px] font-semibold text-slate-500 sm:text-sm">
-              {subtitle}
-            </p>
-          </div>
+          <p className="mt-0.5 text-xs font-semibold text-slate-500 sm:text-sm">
+            {subtitle}
+          </p>
         </div>
       </div>
-
-      <div className="min-h-0 flex-1 overflow-hidden p-3 sm:p-6">
-        {children}
-      </div>
-
-      <div className="shrink-0 border-t border-slate-200 bg-white p-3 sm:flex sm:justify-end sm:p-4">
-        <div className="w-full sm:max-w-sm">{footer}</div>
-      </div>
     </div>
   );
 }
 
-function CompactInput({
-  label,
-  suffix,
-  value,
-  placeholder,
-  onChange,
+function StickyAction({
+  children,
 }: {
-  label: string;
-  suffix: string;
-  value: string;
-  placeholder: string;
-  onChange: (value: string) => void;
+  children: ReactNode;
 }) {
   return (
-    <div>
-      <label className={compactLabelClass}>{label}</label>
-
-      <div className="relative">
-        <input
-          type="number"
-          inputMode="decimal"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          className="h-11 w-full rounded-xl border border-slate-200 px-2 pr-8 text-center text-sm font-bold outline-none focus:border-green-500 sm:h-12 sm:px-3 sm:pr-10"
-        />
-
-        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400 sm:right-3 sm:text-[10px]">
-          {suffix}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function MiniAddressInput({
-  label,
-  value,
-  placeholder,
-  onChange,
-  inputMode,
-  maxLength,
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  onChange: (value: string) => void;
-  inputMode?: "text" | "numeric" | "tel";
-  maxLength?: number;
-}) {
-  return (
-    <div className="min-w-0">
-      <label className={compactLabelClass}>{label}</label>
-
-      <input
-        value={value}
-        placeholder={placeholder}
-        inputMode={inputMode}
-        maxLength={maxLength}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full rounded-lg border border-slate-200 px-2 text-[11px] font-semibold outline-none focus:border-green-500 sm:h-10 sm:px-3 sm:text-xs"
-      />
+    <div className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-8px_25px_rgba(15,23,42,0.07)] backdrop-blur sm:flex sm:justify-end sm:p-4">
+      <div className="w-full sm:max-w-sm">{children}</div>
     </div>
   );
 }
@@ -2015,13 +1929,10 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={loading || disabled}
-      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-12"
+      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {loading ? (
-        <Loader2
-          size={17}
-          className="animate-spin"
-        />
+        <Loader2 size={17} className="animate-spin" />
       ) : (
         <>
           {children}
@@ -2046,9 +1957,113 @@ function SecondaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50 sm:h-12"
+      className="flex h-12 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50"
     >
       {children}
     </button>
+  );
+}
+
+function NumberInput({
+  label,
+  suffix,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  suffix: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className={labelClass}>{label}</label>
+
+      <div className="relative">
+        <input
+          type="number"
+          inputMode="decimal"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="h-11 w-full rounded-xl border border-slate-200 px-2 pr-8 text-center text-sm font-bold outline-none focus:border-green-500"
+        />
+
+        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">
+          {suffix}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SmallInput({
+  label,
+  value,
+  placeholder,
+  onChange,
+  inputMode,
+  maxLength,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  inputMode?: "text" | "numeric" | "tel";
+  maxLength?: number;
+}) {
+  return (
+    <div className="min-w-0">
+      <label className={labelClass}>{label}</label>
+
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        className={inputClass}
+      />
+    </div>
+  );
+}
+
+function CompactMealCard({
+  meal,
+}: {
+  meal: Meal;
+}) {
+  const image =
+    meal.imageUrl || meal.image || "/placeholder-meal.png";
+
+  return (
+    <article className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <img
+        src={image}
+        alt={meal.title}
+        className="h-24 w-full object-cover sm:h-28"
+        onError={(event) => {
+          event.currentTarget.src = "/placeholder-meal.png";
+        }}
+      />
+
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="line-clamp-1 text-sm font-black text-slate-950">
+            {meal.title}
+          </p>
+
+          <p className="shrink-0 text-xs font-black text-slate-950">
+            ₹{Number(meal.price || 0)}
+          </p>
+        </div>
+
+        <p className="mt-1 text-[10px] font-bold text-slate-500">
+          {meal.calories || 0} kcal · {meal.protein || 0}g protein
+        </p>
+      </div>
+    </article>
   );
 }
