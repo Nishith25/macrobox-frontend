@@ -1,44 +1,71 @@
+/* frontend/src/index.css */
+
 @import "tailwindcss";
 
-/* ================= RESET ================= */
+/* =====================================================
+   GLOBAL RESET
+===================================================== */
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 html {
-  scroll-behavior: smooth;
-  min-height: 100%;
   width: 100%;
+  min-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+  scroll-behavior: smooth;
   background: #f6f7f8;
 }
 
 body {
   margin: 0;
+  width: 100%;
   min-width: 320px;
   min-height: 100%;
-  width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom);
   background: #f6f7f8;
   color: #0f172a;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-  -webkit-font-smoothing: antialiased;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
   text-rendering: optimizeLegibility;
-  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
 }
 
 #root {
-  min-height: 100vh;
   width: 100%;
+  min-height: 100vh;
   overflow-x: hidden;
-  overflow-y: auto;
   background: #f6f7f8;
   color: #0f172a;
+}
+
+main {
+  display: block;
+  width: 100%;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
 }
 
 button,
@@ -70,7 +97,26 @@ textarea {
   touch-action: manipulation;
 }
 
-/* ================= MOBILE APP FEEL ================= */
+input,
+textarea,
+select {
+  min-width: 0;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* Keep the dark theme background visible when a themed page is active */
+#root:has(.mb-theme-background),
+body:has(.mb-theme-background),
+html:has(.mb-theme-background) {
+  background: var(--mb-bg, #171614);
+}
+
+/* =====================================================
+   MOBILE APP FEEL
+===================================================== */
 
 @media (max-width: 640px) {
   html,
@@ -82,6 +128,10 @@ textarea {
 
   body {
     background: #f6f7f8;
+  }
+
+  body:has(.mb-theme-background) {
+    background: var(--mb-bg, #171614);
   }
 
   main {
@@ -103,7 +153,9 @@ textarea {
   }
 }
 
-/* ================= MAP / GOOGLE AUTOCOMPLETE FIX ================= */
+/* =====================================================
+   GOOGLE MAPS / LEAFLET
+===================================================== */
 
 .leaflet-container,
 .leaflet-pane,
@@ -114,33 +166,92 @@ textarea {
 
 .pac-container {
   z-index: 999999 !important;
-  border-radius: 12px;
   margin-top: 6px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
   font-family: inherit;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.16);
 }
 
-/* ================= MOBILE MENU FIX ================= */
+.pac-item {
+  min-height: 46px;
+  padding: 8px 14px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 13px;
+  line-height: 28px;
+  color: #475569;
+  cursor: pointer;
+}
+
+.pac-item:first-child {
+  border-top: 0;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background: #f8fafc;
+}
+
+.pac-item-query {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pac-icon {
+  margin-top: 7px;
+}
+
+/* Dark autocomplete appearance when onboarding/theme page is active */
+body:has(.mb-theme-background) .pac-container {
+  border-color: var(--mb-border, rgba(255, 255, 255, 0.15));
+  background: var(--mb-bg-secondary, #211f1d);
+  box-shadow: var(--mb-shadow-medium, 0 24px 70px rgba(0, 0, 0, 0.32));
+}
+
+body:has(.mb-theme-background) .pac-item {
+  border-top-color: var(--mb-divider, rgba(255, 255, 255, 0.1));
+  color: var(--mb-muted, rgba(255, 255, 255, 0.5));
+}
+
+body:has(.mb-theme-background) .pac-item:hover,
+body:has(.mb-theme-background) .pac-item-selected {
+  background: var(--mb-surface-hover, rgba(255, 255, 255, 0.11));
+}
+
+body:has(.mb-theme-background) .pac-item-query {
+  color: var(--mb-text, #ffffff);
+}
+
+/* =====================================================
+   MOBILE MENU
+===================================================== */
 
 .mobile-menu-panel {
   position: fixed !important;
   inset: 0 !important;
   z-index: 999999 !important;
-  height: 100dvh !important;
   width: 100vw !important;
+  height: 100dvh !important;
   overflow: hidden !important;
 }
 
 .mobile-menu-content {
   height: 100dvh !important;
   overflow-y: auto !important;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
-/* ================= ADMIN SUBNAV ================= */
+/* =====================================================
+   ADMIN SUBNAV
+===================================================== */
 
 .admin-subnav {
-  background: #020617 !important;
   border-color: #1e293b !important;
+  background: #020617 !important;
 }
 
 .admin-subnav-label {
@@ -166,7 +277,9 @@ textarea {
   color: #020617 !important;
 }
 
-/* ================= MEALS RANGE ================= */
+/* =====================================================
+   MACRO RANGE
+===================================================== */
 
 .macro-range {
   appearance: none;
@@ -175,37 +288,64 @@ textarea {
 }
 
 .macro-range::-webkit-slider-thumb {
-  appearance: none;
-  height: 22px;
   width: 22px;
-  border-radius: 999px;
+  height: 22px;
+  appearance: none;
   border: 4px solid #ffffff;
+  border-radius: 999px;
   background: #16a34a;
   box-shadow: 0 3px 12px rgba(22, 163, 74, 0.35);
 }
 
 .macro-range::-moz-range-thumb {
-  height: 22px;
   width: 22px;
-  border-radius: 999px;
+  height: 22px;
   border: 4px solid #ffffff;
+  border-radius: 999px;
   background: #16a34a;
   box-shadow: 0 3px 12px rgba(22, 163, 74, 0.35);
 }
 
-/* ================= INPUT UI ================= */
+/* Themed range support */
+.mb-theme-background .macro-range {
+  background: var(--mb-surface-strong);
+}
+
+.mb-theme-background .macro-range::-webkit-slider-thumb {
+  border-color: var(--mb-button-bg);
+  background: var(--mb-accent);
+  box-shadow: 0 3px 14px var(--mb-accent-soft-hover);
+}
+
+.mb-theme-background .macro-range::-moz-range-thumb {
+  border-color: var(--mb-button-bg);
+  background: var(--mb-accent);
+  box-shadow: 0 3px 14px var(--mb-accent-soft-hover);
+}
+
+/* =====================================================
+   STANDARD INPUT UI
+===================================================== */
 
 .input-ui {
-  height: 46px;
   width: 100%;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  height: 46px;
   padding: 0 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
   font-size: 14px;
   font-weight: 600;
-  color: #0f172a;
   outline: none;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.input-ui::placeholder {
+  color: #94a3b8;
 }
 
 .input-ui:focus {
@@ -222,14 +362,27 @@ textarea {
   opacity: 0;
 }
 
+/* =====================================================
+   LEGACY INPUT
+===================================================== */
+
 .input {
   width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
   padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #0f172a;
   font-size: 0.875rem;
   font-weight: 700;
   outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.input::placeholder {
+  color: #94a3b8;
 }
 
 .input:focus {
@@ -237,19 +390,26 @@ textarea {
   box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
 }
 
+/* =====================================================
+   CLEAN INPUT
+===================================================== */
+
 .input-clean {
-  height: 3rem;
   width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  padding-left: 1rem;
+  height: 3rem;
   padding-right: 1rem;
+  padding-left: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  color: #0f172a;
   font-size: 0.875rem;
   font-weight: 800;
-  color: #0f172a;
   outline: none;
-  transition: 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .input-clean-icon {
@@ -263,18 +423,24 @@ textarea {
 .input-clean:focus {
   border-color: #22c55e;
   background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
 }
+
+/* =====================================================
+   DELIVERY AUTH INPUT
+===================================================== */
+
 .delivery-auth-input {
-  height: 2.75rem;
   width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  padding-left: 1rem;
+  height: 2.75rem;
   padding-right: 1rem;
+  padding-left: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  color: #0f172a;
   font-size: 0.875rem;
   font-weight: 700;
-  color: #0f172a;
   outline: none;
   transition:
     border-color 0.2s ease,
@@ -306,17 +472,21 @@ textarea {
   opacity: 0.7;
 }
 
+/* =====================================================
+   ADMIN INPUT
+===================================================== */
+
 .admin-input {
   width: 100%;
   min-height: 3rem;
+  padding: 0.75rem 0.9rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   background: #f8fafc;
-  padding: 0.75rem 0.9rem;
+  color: #0f172a;
   font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.4;
-  color: #0f172a;
   outline: none;
   transition:
     border-color 0.2s ease,
@@ -343,4 +513,65 @@ textarea {
 textarea.admin-input {
   height: auto;
   resize: vertical;
+}
+
+/* =====================================================
+   UTILITY SCROLLBARS
+===================================================== */
+
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+/* =====================================================
+   ACCESSIBILITY
+===================================================== */
+
+:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(22, 163, 74, 0.2);
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

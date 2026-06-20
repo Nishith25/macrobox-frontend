@@ -119,7 +119,8 @@ type GoogleAddressResult = {
   };
 };
 
-const GOOGLE_MAPS_SCRIPT_ID = "macrobox-onboarding-google-maps";
+const GOOGLE_MAPS_SCRIPT_ID =
+  "macrobox-onboarding-google-maps";
 
 let googleMapsPromise: Promise<void> | null = null;
 
@@ -128,28 +129,32 @@ const goalOptions: GoalOption[] = [
     key: "fat_loss",
     title: "Fat Loss",
     helper: "Lean, filling meals",
-    description: "Stay full with calorie-conscious, protein-rich meals.",
+    description:
+      "Stay full with calorie-conscious, protein-rich meals.",
     icon: <Flame size={23} />,
   },
   {
     key: "muscle_gain",
     title: "Muscle Gain",
     helper: "Protein-first nutrition",
-    description: "Support strength, muscle growth and recovery.",
+    description:
+      "Support strength, muscle growth and recovery.",
     icon: <Dumbbell size={23} />,
   },
   {
     key: "weight_gain",
     title: "Weight Gain",
     helper: "Balanced extra calories",
-    description: "Build a healthy calorie surplus with balanced meals.",
+    description:
+      "Build a healthy calorie surplus with balanced meals.",
     icon: <Weight size={23} />,
   },
   {
     key: "clean_eating",
     title: "Clean Eating",
     helper: "Everyday balanced meals",
-    description: "Build a consistent healthy routine with simple meals.",
+    description:
+      "Build a consistent healthy routine with simple meals.",
     icon: <HeartPulse size={23} />,
   },
 ];
@@ -240,9 +245,11 @@ const normalizePhone = (value: string) =>
 const normalizePincode = (value: string) =>
   value.replace(/\D/g, "").slice(0, 6);
 
-const isValidPhone = (value: string) => /^[6-9]\d{9}$/.test(value);
+const isValidPhone = (value: string) =>
+  /^[6-9]\d{9}$/.test(value);
 
-const isValidPincode = (value: string) => /^\d{6}$/.test(value);
+const isValidPincode = (value: string) =>
+  /^\d{6}$/.test(value);
 
 const makeMapsUrl = (lat: number, lng: number) =>
   `https://www.google.com/maps?q=${lat},${lng}`;
@@ -310,67 +317,77 @@ const loadGoogleMapsScript = (): Promise<void> => {
     return googleMapsPromise;
   }
 
-  googleMapsPromise = new Promise((resolve, reject) => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  googleMapsPromise = new Promise(
+    (resolve, reject) => {
+      const apiKey =
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-    if (!apiKey) {
-      reject(
-        new Error("Google Maps API key is missing.")
-      );
+      if (!apiKey) {
+        reject(
+          new Error(
+            "Google Maps API key is missing."
+          )
+        );
 
-      return;
+        return;
+      }
+
+      const existingScript =
+        document.getElementById(
+          GOOGLE_MAPS_SCRIPT_ID
+        ) as HTMLScriptElement | null;
+
+      if (existingScript) {
+        existingScript.addEventListener(
+          "load",
+          () => resolve(),
+          {
+            once: true,
+          }
+        );
+
+        existingScript.addEventListener(
+          "error",
+          () =>
+            reject(
+              new Error(
+                "Google Maps failed to load."
+              )
+            ),
+          {
+            once: true,
+          }
+        );
+
+        return;
+      }
+
+      const script =
+        document.createElement("script");
+
+      script.id = GOOGLE_MAPS_SCRIPT_ID;
+      script.src =
+        `https://maps.googleapis.com/maps/api/js` +
+        `?key=${apiKey}&libraries=places`;
+
+      script.async = true;
+      script.defer = true;
+
+      script.onload = () => resolve();
+
+      script.onerror = () => {
+        googleMapsPromise = null;
+
+        reject(
+          new Error(
+            "Google Maps failed to load."
+          )
+        );
+      };
+
+      document.head.appendChild(script);
     }
-
-    const existingScript = document.getElementById(
-      GOOGLE_MAPS_SCRIPT_ID
-    ) as HTMLScriptElement | null;
-
-    if (existingScript) {
-      existingScript.addEventListener(
-        "load",
-        () => resolve(),
-        {
-          once: true,
-        }
-      );
-
-      existingScript.addEventListener(
-        "error",
-        () =>
-          reject(
-            new Error("Google Maps failed to load.")
-          ),
-        {
-          once: true,
-        }
-      );
-
-      return;
-    }
-
-    const script = document.createElement("script");
-
-    script.id = GOOGLE_MAPS_SCRIPT_ID;
-
-    script.src =
-      `https://maps.googleapis.com/maps/api/js` +
-      `?key=${apiKey}&libraries=places`;
-
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => resolve();
-
-    script.onerror = () => {
-      googleMapsPromise = null;
-
-      reject(
-        new Error("Google Maps failed to load.")
-      );
-    };
-
-    document.head.appendChild(script);
-  });
+  );
 
   return googleMapsPromise;
 };
@@ -396,7 +413,9 @@ export default function Onboarding() {
     useRef<HTMLInputElement | null>(null);
 
   const autocompleteRef = useRef<any>(null);
-  const autocompleteListenerRef = useRef<any>(null);
+
+  const autocompleteListenerRef =
+    useRef<any>(null);
 
   const mapContainerRef =
     useRef<HTMLDivElement | null>(null);
@@ -404,18 +423,22 @@ export default function Onboarding() {
   const googleMapRef = useRef<any>(null);
   const googleMarkerRef = useRef<any>(null);
   const mapClickListenerRef = useRef<any>(null);
-  const markerDragListenerRef = useRef<any>(null);
+  const markerDragListenerRef =
+    useRef<any>(null);
 
   const [initialized, setInitialized] =
     useState(false);
 
   const [step, setStep] = useState<Step>(2);
 
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] =
+    useState(false);
+
   const [loadingMaps, setLoadingMaps] =
     useState(false);
 
-  const [locating, setLocating] = useState(false);
+  const [locating, setLocating] =
+    useState(false);
 
   const [loadingMeals, setLoadingMeals] =
     useState(false);
@@ -425,26 +448,28 @@ export default function Onboarding() {
       user?.onboarding?.goal || null
     );
 
-  const [body, setBody] = useState<BodyState>({
-    height: user?.bodyMetrics?.height
-      ? String(user.bodyMetrics.height)
-      : "",
+  const [body, setBody] =
+    useState<BodyState>({
+      height: user?.bodyMetrics?.height
+        ? String(user.bodyMetrics.height)
+        : "",
 
-    weight: user?.bodyMetrics?.weight
-      ? String(user.bodyMetrics.weight)
-      : "",
+      weight: user?.bodyMetrics?.weight
+        ? String(user.bodyMetrics.weight)
+        : "",
 
-    age: user?.bodyMetrics?.age
-      ? String(user.bodyMetrics.age)
-      : "",
+      age: user?.bodyMetrics?.age
+        ? String(user.bodyMetrics.age)
+        : "",
 
-    gender:
-      user?.bodyMetrics?.gender || "male",
+      gender:
+        user?.bodyMetrics?.gender || "male",
 
-    activity: (
-      user?.bodyMetrics?.activity || "moderate"
-    ) as Activity,
-  });
+      activity: (
+        user?.bodyMetrics?.activity ||
+        "moderate"
+      ) as Activity,
+    });
 
   const [addressSearch, setAddressSearch] =
     useState("");
@@ -460,7 +485,9 @@ export default function Onboarding() {
   const [address, setAddress] =
     useState<Address>({
       fullName: user?.name || "",
-      phone: normalizePhone(user?.phone || ""),
+      phone: normalizePhone(
+        user?.phone || ""
+      ),
       flatNo: "",
       floor: "",
       buildingName: "",
@@ -478,9 +505,8 @@ export default function Onboarding() {
       mapsUrl: "",
     });
 
-  const [meals, setMeals] = useState<Meal[]>([]);
-
-  const currentStepDetails = stepDetails[step];
+  const [meals, setMeals] =
+    useState<Meal[]>([]);
 
   const selectedGoalDetails = useMemo(
     () =>
@@ -499,10 +525,10 @@ export default function Onboarding() {
       return availableMeals.slice(0, 4);
     }
 
-    const matchingMeals = availableMeals.filter(
-      (meal) =>
+    const matchingMeals =
+      availableMeals.filter((meal) =>
         meal.goalTypes?.includes(selectedGoal)
-    );
+      );
 
     return (
       matchingMeals.length
@@ -563,7 +589,10 @@ export default function Onboarding() {
       user?.onboarding?.currentStep || 2
     );
 
-    if (savedStep >= 2 && savedStep <= 5) {
+    if (
+      savedStep >= 2 &&
+      savedStep <= 5
+    ) {
       setStep(savedStep as Step);
     }
 
@@ -606,24 +635,31 @@ export default function Onboarding() {
 
       mode: "manual" | "current";
     }) => {
-      const area = getGoogleArea(components);
-      const city = getGoogleCity(components);
+      const area =
+        getGoogleArea(components);
 
-      const state = getAddressComponent(
-        components,
-        "administrative_area_level_1"
-      );
+      const city =
+        getGoogleCity(components);
 
-      const pincode = normalizePincode(
+      const state =
         getAddressComponent(
           components,
-          "postal_code"
-        )
-      );
+          "administrative_area_level_1"
+        );
+
+      const pincode =
+        normalizePincode(
+          getAddressComponent(
+            components,
+            "postal_code"
+          )
+        );
 
       const finalAddress =
         formattedAddress ||
-        `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        `${lat.toFixed(6)}, ${lng.toFixed(
+          6
+        )}`;
 
       setAddress((previous) => ({
         ...previous,
@@ -649,7 +685,8 @@ export default function Onboarding() {
 
   const reverseGeocode = useCallback(
     async (lat: number, lng: number) => {
-      const google = (window as any).google;
+      const google =
+        (window as any).google;
 
       if (!google?.maps) {
         return null;
@@ -701,7 +738,10 @@ export default function Onboarding() {
           setLoadingMaps(true);
 
           const result =
-            await reverseGeocode(lat, lng);
+            await reverseGeocode(
+              lat,
+              lng
+            );
 
           applyLocation({
             lat,
@@ -710,9 +750,9 @@ export default function Onboarding() {
 
             formattedAddress:
               result?.formatted_address ||
-              `${lat.toFixed(6)}, ${lng.toFixed(
+              `${lat.toFixed(
                 6
-              )}`,
+              )}, ${lng.toFixed(6)}`,
 
             components:
               result?.address_components,
@@ -732,106 +772,108 @@ export default function Onboarding() {
 
     let cancelled = false;
 
-    const setupAutocomplete = async () => {
-      try {
-        setLoadingMaps(true);
+    const setupAutocomplete =
+      async () => {
+        try {
+          setLoadingMaps(true);
 
-        await loadGoogleMapsScript();
+          await loadGoogleMapsScript();
 
-        if (
-          cancelled ||
-          !addressInputRef.current
-        ) {
-          return;
-        }
+          if (
+            cancelled ||
+            !addressInputRef.current
+          ) {
+            return;
+          }
 
-        const google =
-          (window as any).google;
+          const google =
+            (window as any).google;
 
-        autocompleteListenerRef.current?.remove?.();
+          autocompleteListenerRef.current?.remove?.();
 
-        autocompleteRef.current =
-          new google.maps.places.Autocomplete(
-            addressInputRef.current,
-            {
-              componentRestrictions: {
-                country: "in",
-              },
+          autocompleteRef.current =
+            new google.maps.places.Autocomplete(
+              addressInputRef.current,
+              {
+                componentRestrictions: {
+                  country: "in",
+                },
 
-              fields: [
-                "formatted_address",
-                "geometry",
-                "address_components",
-                "name",
-              ],
+                fields: [
+                  "formatted_address",
+                  "geometry",
+                  "address_components",
+                  "name",
+                ],
 
-              types: ["geocode"],
-            }
-          );
-
-        autocompleteListenerRef.current =
-          autocompleteRef.current.addListener(
-            "place_changed",
-            () => {
-              const place =
-                autocompleteRef.current?.getPlace() as
-                  | GoogleAddressResult
-                  | undefined;
-
-              if (
-                !place ||
-                !place.geometry?.location
-              ) {
-                setLocationMessage(
-                  "Select an address from the suggestions."
-                );
-
-                return;
+                types: ["geocode"],
               }
+            );
 
-              const lat =
-                place.geometry.location.lat();
+          autocompleteListenerRef.current =
+            autocompleteRef.current.addListener(
+              "place_changed",
+              () => {
+                const place =
+                  autocompleteRef.current?.getPlace() as
+                    | GoogleAddressResult
+                    | undefined;
 
-              const lng =
-                place.geometry.location.lng();
+                if (
+                  !place ||
+                  !place.geometry
+                    ?.location
+                ) {
+                  setLocationMessage(
+                    "Select an address from the suggestions."
+                  );
 
-              if (
-                !Number.isFinite(lat) ||
-                !Number.isFinite(lng)
-              ) {
-                setLocationMessage(
-                  "The selected location is invalid."
-                );
+                  return;
+                }
 
-                return;
+                const lat =
+                  place.geometry.location.lat();
+
+                const lng =
+                  place.geometry.location.lng();
+
+                if (
+                  !Number.isFinite(lat) ||
+                  !Number.isFinite(lng)
+                ) {
+                  setLocationMessage(
+                    "The selected location is invalid."
+                  );
+
+                  return;
+                }
+
+                applyLocation({
+                  lat,
+                  lng,
+
+                  formattedAddress:
+                    place.formatted_address ||
+                    place.name ||
+                    `${lat}, ${lng}`,
+
+                  components:
+                    place.address_components,
+
+                  mode: "manual",
+                });
               }
-
-              applyLocation({
-                lat,
-                lng,
-
-                formattedAddress:
-                  place.formatted_address ||
-                  place.name ||
-                  `${lat}, ${lng}`,
-
-                components:
-                  place.address_components,
-
-                mode: "manual",
-              });
-            }
+            );
+        } catch {
+          setLocationMessage(
+            "Google address search is unavailable."
           );
-      } catch {
-        setLocationMessage(
-          "Google address search is unavailable."
-        );
-      } finally {
-        if (!cancelled) {
-          setLoadingMaps(false);
+        } finally {
+          if (!cancelled) {
+            setLoadingMaps(false);
+          }
         }
-      }
-    };
+      };
 
     void setupAutocomplete();
 
@@ -840,7 +882,9 @@ export default function Onboarding() {
 
       autocompleteListenerRef.current?.remove?.();
 
-      autocompleteListenerRef.current = null;
+      autocompleteListenerRef.current =
+        null;
+
       autocompleteRef.current = null;
     };
   }, [
@@ -909,7 +953,9 @@ export default function Onboarding() {
         );
     }
 
-    googleMapRef.current.setCenter(position);
+    googleMapRef.current.setCenter(
+      position
+    );
 
     if (!googleMarkerRef.current) {
       googleMarkerRef.current =
@@ -961,14 +1007,12 @@ export default function Onboarding() {
       try {
         setLoadingMeals(true);
 
-        const response = await api.get(
-          "/meals",
-          {
+        const response =
+          await api.get("/meals", {
             params: {
               all: "true",
             },
-          }
-        );
+          });
 
         if (cancelled) return;
 
@@ -1003,7 +1047,9 @@ export default function Onboarding() {
       mapClickListenerRef.current?.remove?.();
       markerDragListenerRef.current?.remove?.();
 
-      googleMarkerRef.current?.setMap?.(null);
+      googleMarkerRef.current?.setMap?.(
+        null
+      );
 
       autocompleteRef.current = null;
       googleMapRef.current = null;
@@ -1011,172 +1057,178 @@ export default function Onboarding() {
     };
   }, []);
 
-  const searchTypedAddress = async () => {
-    const query = addressSearch.trim();
+  const searchTypedAddress =
+    async () => {
+      const query =
+        addressSearch.trim();
 
-    if (!query) {
-      setLocationMessage(
-        "Enter an address or landmark."
-      );
+      if (!query) {
+        setLocationMessage(
+          "Enter an address or landmark."
+        );
 
-      return;
-    }
+        return;
+      }
 
-    try {
-      setLoadingMaps(true);
-      setLocationMessage("");
+      try {
+        setLoadingMaps(true);
+        setLocationMessage("");
 
-      await loadGoogleMapsScript();
+        await loadGoogleMapsScript();
 
-      const google =
-        (window as any).google;
+        const google =
+          (window as any).google;
 
-      const geocoder =
-        new google.maps.Geocoder();
+        const geocoder =
+          new google.maps.Geocoder();
 
-      geocoder.geocode(
-        {
-          address: query,
+        geocoder.geocode(
+          {
+            address: query,
 
-          componentRestrictions: {
-            country: "IN",
+            componentRestrictions: {
+              country: "IN",
+            },
           },
-        },
-        (
-          results:
-            | GoogleAddressResult[]
-            | null,
-          status: string
-        ) => {
-          setLoadingMaps(false);
+          (
+            results:
+              | GoogleAddressResult[]
+              | null,
+            status: string
+          ) => {
+            setLoadingMaps(false);
 
-          if (
-            status !== "OK" ||
-            !results?.length
-          ) {
-            setLocationMessage(
-              "Address not found. Try a nearby landmark."
-            );
+            if (
+              status !== "OK" ||
+              !results?.length
+            ) {
+              setLocationMessage(
+                "Address not found. Try a nearby landmark."
+              );
 
-            return;
+              return;
+            }
+
+            const result = results[0];
+
+            if (!result) {
+              setLocationMessage(
+                "Address not found. Try a nearby landmark."
+              );
+
+              return;
+            }
+
+            const location =
+              result.geometry?.location;
+
+            if (!location) {
+              setLocationMessage(
+                "The selected address has no map location."
+              );
+
+              return;
+            }
+
+            const lat =
+              location.lat();
+
+            const lng =
+              location.lng();
+
+            if (
+              !Number.isFinite(lat) ||
+              !Number.isFinite(lng)
+            ) {
+              setLocationMessage(
+                "The selected coordinates are invalid."
+              );
+
+              return;
+            }
+
+            applyLocation({
+              lat,
+              lng,
+
+              formattedAddress:
+                result.formatted_address ||
+                query,
+
+              components:
+                result.address_components,
+
+              mode: "manual",
+            });
           }
+        );
+      } catch {
+        setLoadingMaps(false);
 
-          const result = results[0];
+        setLocationMessage(
+          "Unable to search this address."
+        );
+      }
+    };
 
-          if (!result) {
-            setLocationMessage(
-              "Address not found. Try a nearby landmark."
-            );
+  const useCurrentLocation =
+    async () => {
+      if (!navigator.geolocation) {
+        setLocationMessage(
+          "Location is not supported on this device."
+        );
 
-            return;
-          }
+        return;
+      }
 
-          const location =
-            result.geometry?.location;
+      try {
+        setLocating(true);
+        setLocationMessage("");
 
-          if (!location) {
-            setLocationMessage(
-              "The selected address has no map location."
-            );
+        await loadGoogleMapsScript();
 
-            return;
-          }
-
-          const lat = location.lat();
-          const lng = location.lng();
-
-          if (
-            !Number.isFinite(lat) ||
-            !Number.isFinite(lng)
-          ) {
-            setLocationMessage(
-              "The selected coordinates are invalid."
-            );
-
-            return;
-          }
-
-          applyLocation({
-            lat,
-            lng,
-
-            formattedAddress:
-              result.formatted_address ||
-              query,
-
-            components:
-              result.address_components,
-
-            mode: "manual",
-          });
-        }
-      );
-    } catch {
-      setLoadingMaps(false);
-
-      setLocationMessage(
-        "Unable to search this address."
-      );
-    }
-  };
-
-  const useCurrentLocation = async () => {
-    if (!navigator.geolocation) {
-      setLocationMessage(
-        "Location is not supported on this device."
-      );
-
-      return;
-    }
-
-    try {
-      setLocating(true);
-      setLocationMessage("");
-
-      await loadGoogleMapsScript();
-
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            await setLocationFromCoordinates(
-              position.coords.latitude,
-              position.coords.longitude,
-              "current"
-            );
-          } finally {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            try {
+              await setLocationFromCoordinates(
+                position.coords.latitude,
+                position.coords.longitude,
+                "current"
+              );
+            } finally {
+              setLocating(false);
+            }
+          },
+          (error) => {
             setLocating(false);
-          }
-        },
-        (error) => {
-          setLocating(false);
 
-          if (
-            error.code ===
-            error.PERMISSION_DENIED
-          ) {
-            setLocationMessage(
-              "Location permission was denied. Search manually."
-            );
-          } else {
-            setLocationMessage(
-              "Unable to find your current location."
-            );
+            if (
+              error.code ===
+              error.PERMISSION_DENIED
+            ) {
+              setLocationMessage(
+                "Location permission was denied. Search manually."
+              );
+            } else {
+              setLocationMessage(
+                "Unable to find your current location."
+              );
+            }
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 5000,
+            timeout: 15000,
           }
-        },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 5000,
-          timeout: 15000,
-        }
-      );
-    } catch {
-      setLocating(false);
+        );
+      } catch {
+        setLocating(false);
 
-      setLocationMessage(
-        "Google Maps failed to load."
-      );
-    }
-  };
+        setLocationMessage(
+          "Google Maps failed to load."
+        );
+      }
+    };
 
   const goBack = () => {
     if (saving || step === 2) return;
@@ -1189,357 +1241,390 @@ export default function Onboarding() {
     });
   };
 
-  const handleGoalNext = async () => {
-    if (!selectedGoal) {
-      toast.error("Choose your health goal.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const response = await api.patch(
-        "/onboarding/goal",
-        {
-          goal: selectedGoal,
-        }
-      );
-
-      patchUserLocally(
-        response.data?.user || {
-          onboarding:
-            response.data?.onboarding,
-        }
-      );
-
-      setStep(3);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Failed to save your goal."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const skipBodyDetails = async () => {
-    try {
-      setSaving(true);
-
-      const response = await api.patch(
-        "/onboarding/body-details",
-        {
-          height: null,
-          weight: null,
-          age: null,
-          activity: "",
-          gender: body.gender,
-        }
-      );
-
-      patchUserLocally({
-        onboarding:
-          response.data?.onboarding,
-
-        bodyMetrics:
-          response.data?.bodyMetrics,
-      });
-
-      setStep(4);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Failed to continue."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleBodyNext = async () => {
-    const height = Number(body.height);
-    const weight = Number(body.weight);
-    const age = Number(body.age);
-
-    if (
-      !Number.isFinite(height) ||
-      height < 100 ||
-      height > 250
-    ) {
-      toast.error(
-        "Enter a valid height between 100 and 250 cm."
-      );
-
-      return;
-    }
-
-    if (
-      !Number.isFinite(weight) ||
-      weight < 25 ||
-      weight > 300
-    ) {
-      toast.error(
-        "Enter a valid weight between 25 and 300 kg."
-      );
-
-      return;
-    }
-
-    if (
-      !Number.isFinite(age) ||
-      age < 13 ||
-      age > 100
-    ) {
-      toast.error(
-        "Enter a valid age between 13 and 100."
-      );
-
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const response = await api.patch(
-        "/onboarding/body-details",
-        {
-          height,
-          weight,
-          age,
-          gender: body.gender,
-          activity: body.activity,
-        }
-      );
-
-      patchUserLocally({
-        onboarding:
-          response.data?.onboarding,
-
-        bodyMetrics:
-          response.data?.bodyMetrics,
-      });
-
-      setStep(4);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Failed to save body details."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAddressNext = async () => {
-    const fullName =
-      address.fullName.trim();
-
-    const phone = normalizePhone(
-      address.phone
-    );
-
-    const pincode = normalizePincode(
-      address.pincode
-    );
-
-    if (!fullName) {
-      toast.error(
-        "Enter the receiver name."
-      );
-
-      return;
-    }
-
-    if (!isValidPhone(phone)) {
-      toast.error(
-        "Enter a valid 10-digit mobile number."
-      );
-
-      return;
-    }
-
-    if (!address.flatNo.trim()) {
-      toast.error(
-        "Enter the flat or house number."
-      );
-
-      return;
-    }
-
-    if (!address.buildingName.trim()) {
-      toast.error(
-        "Enter the building or apartment name."
-      );
-
-      return;
-    }
-
-    if (!address.area.trim()) {
-      toast.error(
-        "Enter your area or locality."
-      );
-
-      return;
-    }
-
-    if (!address.city.trim()) {
-      toast.error("Enter your city.");
-      return;
-    }
-
-    if (!address.state.trim()) {
-      toast.error("Enter your state.");
-      return;
-    }
-
-    if (!isValidPincode(pincode)) {
-      toast.error(
-        "Enter a valid 6-digit pincode."
-      );
-
-      return;
-    }
-
-    if (
-      address.lat == null ||
-      address.lng == null
-    ) {
-      toast.error(
-        "Search and confirm the exact delivery location."
-      );
-
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const response = await api.patch(
-        "/onboarding/address",
-        {
-          address: {
-            ...address,
-            fullName,
-            phone,
-            pincode,
-
-            mapsUrl:
-              address.mapsUrl ||
-              makeMapsUrl(
-                address.lat,
-                address.lng
-              ),
-          },
-        }
-      );
-
-      patchUserLocally({
-        onboarding:
-          response.data?.onboarding,
-      });
-
-      if (
-        response.data?.serviceable === false
-      ) {
-        setServiceable(false);
-
+  const handleGoalNext =
+    async () => {
+      if (!selectedGoal) {
         toast.error(
-          response.data?.message ||
-            "MacroBox is not delivering to this area yet."
+          "Choose your health goal."
         );
 
         return;
       }
 
-      setServiceable(true);
+      try {
+        setSaving(true);
 
-      toast.success(
-        response.data?.message ||
-          "Address saved."
-      );
+        const response =
+          await api.patch(
+            "/onboarding/goal",
+            {
+              goal: selectedGoal,
+            }
+          );
 
-      setStep(5);
+        patchUserLocally(
+          response.data?.user || {
+            onboarding:
+              response.data?.onboarding,
+          }
+        );
 
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Failed to save the delivery address."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
+        setStep(3);
 
-  const completeOnboarding = async () => {
-    if (!selectedGoal) {
-      setStep(2);
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            "Failed to save your goal."
+        );
+      } finally {
+        setSaving(false);
+      }
+    };
 
-      toast.error(
-        "Choose your health goal."
-      );
+  const skipBodyDetails =
+    async () => {
+      try {
+        setSaving(true);
 
-      return;
-    }
+        const response =
+          await api.patch(
+            "/onboarding/body-details",
+            {
+              height: null,
+              weight: null,
+              age: null,
+              activity: "",
+              gender: body.gender,
+            }
+          );
 
-    try {
-      setSaving(true);
-
-      const response = await api.patch(
-        "/onboarding/complete"
-      );
-
-      patchUserLocally(
-        response.data?.user || {
+        patchUserLocally({
           onboarding:
             response.data?.onboarding,
-        }
-      );
 
-      toast.success(
-        response.data?.message ||
-          "Your MacroBox is ready!"
-      );
+          bodyMetrics:
+            response.data?.bodyMetrics,
+        });
 
-      navigate(
-        `/meals?goal=${selectedGoal}&welcome=true`,
-        {
-          replace: true,
+        setStep(4);
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            "Failed to continue."
+        );
+      } finally {
+        setSaving(false);
+      }
+    };
+
+  const handleBodyNext =
+    async () => {
+      const height =
+        Number(body.height);
+
+      const weight =
+        Number(body.weight);
+
+      const age =
+        Number(body.age);
+
+      if (
+        !Number.isFinite(height) ||
+        height < 100 ||
+        height > 250
+      ) {
+        toast.error(
+          "Enter a valid height between 100 and 250 cm."
+        );
+
+        return;
+      }
+
+      if (
+        !Number.isFinite(weight) ||
+        weight < 25 ||
+        weight > 300
+      ) {
+        toast.error(
+          "Enter a valid weight between 25 and 300 kg."
+        );
+
+        return;
+      }
+
+      if (
+        !Number.isFinite(age) ||
+        age < 13 ||
+        age > 100
+      ) {
+        toast.error(
+          "Enter a valid age between 13 and 100."
+        );
+
+        return;
+      }
+
+      try {
+        setSaving(true);
+
+        const response =
+          await api.patch(
+            "/onboarding/body-details",
+            {
+              height,
+              weight,
+              age,
+              gender: body.gender,
+              activity:
+                body.activity,
+            }
+          );
+
+        patchUserLocally({
+          onboarding:
+            response.data?.onboarding,
+
+          bodyMetrics:
+            response.data?.bodyMetrics,
+        });
+
+        setStep(4);
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            "Failed to save body details."
+        );
+      } finally {
+        setSaving(false);
+      }
+    };
+
+  const handleAddressNext =
+    async () => {
+      const fullName =
+        address.fullName.trim();
+
+      const phone =
+        normalizePhone(address.phone);
+
+      const pincode =
+        normalizePincode(
+          address.pincode
+        );
+
+      if (!fullName) {
+        toast.error(
+          "Enter the receiver name."
+        );
+
+        return;
+      }
+
+      if (!isValidPhone(phone)) {
+        toast.error(
+          "Enter a valid 10-digit mobile number."
+        );
+
+        return;
+      }
+
+      if (!address.flatNo.trim()) {
+        toast.error(
+          "Enter the flat or house number."
+        );
+
+        return;
+      }
+
+      if (
+        !address.buildingName.trim()
+      ) {
+        toast.error(
+          "Enter the building or apartment name."
+        );
+
+        return;
+      }
+
+      if (!address.area.trim()) {
+        toast.error(
+          "Enter your area or locality."
+        );
+
+        return;
+      }
+
+      if (!address.city.trim()) {
+        toast.error(
+          "Enter your city."
+        );
+
+        return;
+      }
+
+      if (!address.state.trim()) {
+        toast.error(
+          "Enter your state."
+        );
+
+        return;
+      }
+
+      if (
+        !isValidPincode(pincode)
+      ) {
+        toast.error(
+          "Enter a valid 6-digit pincode."
+        );
+
+        return;
+      }
+
+      if (
+        address.lat == null ||
+        address.lng == null
+      ) {
+        toast.error(
+          "Search and confirm the exact delivery location."
+        );
+
+        return;
+      }
+
+      try {
+        setSaving(true);
+
+        const response =
+          await api.patch(
+            "/onboarding/address",
+            {
+              address: {
+                ...address,
+                fullName,
+                phone,
+                pincode,
+
+                mapsUrl:
+                  address.mapsUrl ||
+                  makeMapsUrl(
+                    address.lat,
+                    address.lng
+                  ),
+              },
+            }
+          );
+
+        patchUserLocally({
+          onboarding:
+            response.data?.onboarding,
+        });
+
+        if (
+          response.data?.serviceable ===
+          false
+        ) {
+          setServiceable(false);
+
+          toast.error(
+            response.data?.message ||
+              "MacroBox is not delivering to this area yet."
+          );
+
+          return;
         }
-      );
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Failed to complete onboarding."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
+
+        setServiceable(true);
+
+        toast.success(
+          response.data?.message ||
+            "Address saved."
+        );
+
+        setStep(5);
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            "Failed to save the delivery address."
+        );
+      } finally {
+        setSaving(false);
+      }
+    };
+
+  const completeOnboarding =
+    async () => {
+      if (!selectedGoal) {
+        setStep(2);
+
+        toast.error(
+          "Choose your health goal."
+        );
+
+        return;
+      }
+
+      try {
+        setSaving(true);
+
+        const response =
+          await api.patch(
+            "/onboarding/complete"
+          );
+
+        patchUserLocally(
+          response.data?.user || {
+            onboarding:
+              response.data?.onboarding,
+          }
+        );
+
+        toast.success(
+          response.data?.message ||
+            "Your MacroBox is ready!"
+        );
+
+        navigate(
+          `/meals?goal=${selectedGoal}&welcome=true`,
+          {
+            replace: true,
+          }
+        );
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            "Failed to complete onboarding."
+        );
+      } finally {
+        setSaving(false);
+      }
+    };
 
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden bg-[#171614] text-white">
-      <BackgroundDecoration />
-
+    <main className="mb-theme-background relative min-h-[100dvh] overflow-hidden">
       <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-[1400px] flex-col">
         <OnboardingHeader
           step={step}
@@ -1551,18 +1636,28 @@ export default function Onboarding() {
           <div className="mx-auto grid w-full max-w-[1180px] gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
             <DesktopIntroduction
               step={step}
-              selectedGoal={selectedGoalDetails}
+              selectedGoal={
+                selectedGoalDetails
+              }
             />
 
             <section className="min-w-0">
-              <MobileStepHeading step={step} />
+              <MobileStepHeading
+                step={step}
+              />
 
               {step === 2 && (
                 <GoalStep
-                  selectedGoal={selectedGoal}
+                  selectedGoal={
+                    selectedGoal
+                  }
                   saving={saving}
-                  onSelect={setSelectedGoal}
-                  onContinue={handleGoalNext}
+                  onSelect={
+                    setSelectedGoal
+                  }
+                  onContinue={
+                    handleGoalNext
+                  }
                 />
               )}
 
@@ -1574,20 +1669,30 @@ export default function Onboarding() {
                   body={body}
                   saving={saving}
                   onBodyChange={setBody}
-                  onSkip={skipBodyDetails}
-                  onContinue={handleBodyNext}
+                  onSkip={
+                    skipBodyDetails
+                  }
+                  onContinue={
+                    handleBodyNext
+                  }
                 />
               )}
 
               {step === 4 && (
                 <AddressStep
                   address={address}
-                  addressSearch={addressSearch}
+                  addressSearch={
+                    addressSearch
+                  }
                   locationMessage={
                     locationMessage
                   }
-                  serviceable={serviceable}
-                  loadingMaps={loadingMaps}
+                  serviceable={
+                    serviceable
+                  }
+                  loadingMaps={
+                    loadingMaps
+                  }
                   locating={locating}
                   saving={saving}
                   addressInputRef={
@@ -1596,11 +1701,15 @@ export default function Onboarding() {
                   mapContainerRef={
                     mapContainerRef
                   }
-                  onAddressChange={setAddress}
+                  onAddressChange={
+                    setAddress
+                  }
                   onAddressSearchChange={
                     setAddressSearch
                   }
-                  onSearch={searchTypedAddress}
+                  onSearch={
+                    searchTypedAddress
+                  }
                   onCurrentLocation={
                     useCurrentLocation
                   }
@@ -1613,8 +1722,12 @@ export default function Onboarding() {
               {step === 5 && (
                 <ReadyStep
                   goal={selectedGoal}
-                  meals={recommendedMeals}
-                  loadingMeals={loadingMeals}
+                  meals={
+                    recommendedMeals
+                  }
+                  loadingMeals={
+                    loadingMeals
+                  }
                   saving={saving}
                   onComplete={
                     completeOnboarding
@@ -1629,20 +1742,6 @@ export default function Onboarding() {
   );
 }
 
-function BackgroundDecoration() {
-  return (
-    <>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(117,92,75,0.42),transparent_34%),radial-gradient(circle_at_82%_16%,rgba(255,255,255,0.08),transparent_28%),radial-gradient(circle_at_70%_82%,rgba(22,163,74,0.13),transparent_30%)]" />
-
-      <div className="pointer-events-none absolute -left-20 top-40 h-72 w-72 rounded-full bg-[#7b6252]/30 blur-[110px]" />
-
-      <div className="pointer-events-none absolute -right-20 bottom-24 h-72 w-72 rounded-full bg-green-900/20 blur-[120px]" />
-
-      <div className="pointer-events-none absolute inset-0 bg-black/10 backdrop-blur-[2px]" />
-    </>
-  );
-}
-
 function OnboardingHeader({
   step,
   saving,
@@ -1652,18 +1751,21 @@ function OnboardingHeader({
   saving: boolean;
   onBack: () => void;
 }) {
-  const details = stepDetails[step];
+  const details =
+    stepDetails[step];
 
   return (
     <header className="shrink-0 px-4 pt-[max(18px,env(safe-area-inset-top))] sm:px-6 lg:px-10">
-      <div className="mx-auto max-w-[1180px] border-b border-white/15 pb-4 sm:pb-5">
+      <div className="mb-divider mx-auto max-w-[1180px] border-b pb-4 sm:pb-5">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onBack}
-            disabled={step === 2 || saving}
+            disabled={
+              step === 2 || saving
+            }
             aria-label="Go back"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition hover:bg-white/10 disabled:pointer-events-none disabled:opacity-30 sm:h-11 sm:w-11"
+            className="mb-outline-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:pointer-events-none disabled:opacity-30 sm:h-11 sm:w-11"
           >
             <ArrowLeft size={19} />
           </button>
@@ -1671,32 +1773,37 @@ function OnboardingHeader({
           <div className="min-w-0 flex-1">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold tracking-wide text-white/90">
+                <p className="mb-text text-sm font-semibold tracking-wide">
                   MacroBox
                 </p>
 
-                <p className="mt-0.5 text-[11px] font-medium text-white/50">
-                  Step {details.number} of 4 ·{" "}
-                  {details.short}
+                <p className="mb-text-faint mt-0.5 text-[11px] font-medium">
+                  Step {details.number} of
+                  4 · {details.short}
                 </p>
               </div>
 
-              <p className="text-sm font-semibold text-white/80">
+              <p className="mb-text-soft text-sm font-semibold">
                 {details.number * 25}%
               </p>
             </div>
 
             <div className="mt-3 grid grid-cols-4 gap-2">
-              {[1, 2, 3, 4].map((item) => (
-                <span
-                  key={item}
-                  className={`h-1 rounded-full transition ${
-                    item <= details.number
-                      ? "bg-white"
-                      : "bg-white/15"
-                  }`}
-                />
-              ))}
+              {[1, 2, 3, 4].map(
+                (item) => (
+                  <span
+                    key={item}
+                    className="h-1 rounded-full transition"
+                    style={{
+                      background:
+                        item <=
+                        details.number
+                          ? "var(--mb-text)"
+                          : "var(--mb-divider)",
+                    }}
+                  />
+                )
+              )}
             </div>
           </div>
         </div>
@@ -1712,39 +1819,41 @@ function DesktopIntroduction({
   step: Step;
   selectedGoal?: GoalOption;
 }) {
-  const details = stepDetails[step];
+  const details =
+    stepDetails[step];
 
   return (
     <aside className="hidden lg:block">
-      <p className="text-xs font-semibold uppercase tracking-[0.26em] text-white/45">
+      <p className="mb-text-faint text-xs font-semibold uppercase tracking-[0.26em]">
         {details.eyebrow}
       </p>
 
-      <h1 className="mt-6 max-w-lg text-[56px] font-light leading-[1.08] tracking-[-0.05em] text-white">
+      <h1 className="mb-text mt-6 max-w-lg text-[56px] font-light leading-[1.08] tracking-[-0.05em]">
         {details.title}
       </h1>
 
-      <p className="mt-6 max-w-md text-base font-normal leading-7 text-white/55">
+      <p className="mb-text-muted mt-6 max-w-md text-base font-normal leading-7">
         {details.subtitle}
       </p>
 
-      {selectedGoal && step > 2 && (
-        <div className="mt-10 inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-xl">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-950">
-            {selectedGoal.icon}
-          </span>
+      {selectedGoal &&
+        step > 2 && (
+          <div className="mb-glass mt-10 inline-flex items-center gap-3 rounded-full px-4 py-3">
+            <span className="mb-primary-button flex h-9 w-9 items-center justify-center rounded-full">
+              {selectedGoal.icon}
+            </span>
 
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/45">
-              Selected goal
-            </p>
+            <div>
+              <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-widest">
+                Selected goal
+              </p>
 
-            <p className="mt-0.5 text-sm font-semibold text-white">
-              {selectedGoal.title}
-            </p>
+              <p className="mb-text mt-0.5 text-sm font-semibold">
+                {selectedGoal.title}
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </aside>
   );
 }
@@ -1754,19 +1863,20 @@ function MobileStepHeading({
 }: {
   step: Step;
 }) {
-  const details = stepDetails[step];
+  const details =
+    stepDetails[step];
 
   return (
     <div className="mb-6 lg:hidden">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">
+      <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-[0.22em]">
         {details.eyebrow}
       </p>
 
-      <h1 className="mt-3 text-[34px] font-light leading-[1.14] tracking-[-0.045em] text-white sm:text-4xl">
+      <h1 className="mb-text mt-3 text-[34px] font-light leading-[1.14] tracking-[-0.045em] sm:text-4xl">
         {details.title}
       </h1>
 
-      <p className="mt-3 max-w-xl text-sm leading-6 text-white/50">
+      <p className="mb-text-muted mt-3 max-w-xl text-sm leading-6">
         {details.subtitle}
       </p>
     </div>
@@ -1801,16 +1911,16 @@ function GoalStep({
               disabled={saving}
               className={`group relative flex min-h-[175px] flex-col justify-between overflow-hidden rounded-[28px] border p-5 text-left backdrop-blur-2xl transition duration-300 sm:min-h-[210px] sm:p-6 ${
                 selected
-                  ? "border-white bg-white text-slate-950 shadow-[0_28px_80px_rgba(0,0,0,0.25)]"
-                  : "border-white/30 bg-white/[0.07] text-white hover:border-white/60 hover:bg-white/[0.11]"
+                  ? "mb-primary-button border-transparent"
+                  : "mb-glass mb-glass-hover"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <span
                   className={`flex h-12 w-12 items-center justify-center rounded-2xl transition ${
                     selected
-                      ? "bg-slate-950 text-white"
-                      : "bg-white/10 text-white"
+                      ? "bg-[var(--mb-button-text)] text-[var(--mb-button-bg)]"
+                      : "mb-accent-surface"
                   }`}
                 >
                   {goal.icon}
@@ -1819,8 +1929,8 @@ function GoalStep({
                 <span
                   className={`flex h-6 w-6 items-center justify-center rounded-full border transition ${
                     selected
-                      ? "border-slate-950 bg-slate-950 text-white"
-                      : "border-white/35 text-transparent"
+                      ? "border-[var(--mb-button-text)] bg-[var(--mb-button-text)] text-[var(--mb-button-bg)]"
+                      : "border-[var(--mb-border)] text-transparent"
                   }`}
                 >
                   <Check size={14} />
@@ -1828,7 +1938,13 @@ function GoalStep({
               </div>
 
               <div className="mt-6">
-                <h2 className="text-lg font-medium tracking-[-0.02em] sm:text-xl">
+                <h2
+                  className={`text-lg font-medium tracking-[-0.02em] sm:text-xl ${
+                    selected
+                      ? "text-[var(--mb-button-text)]"
+                      : "mb-text"
+                  }`}
+                >
                   {goal.title}
                 </h2>
 
@@ -1836,7 +1952,7 @@ function GoalStep({
                   className={`mt-1 text-xs font-medium sm:text-sm ${
                     selected
                       ? "text-slate-500"
-                      : "text-white/45"
+                      : "mb-text-muted"
                   }`}
                 >
                   {goal.helper}
@@ -1846,7 +1962,7 @@ function GoalStep({
                   className={`mt-3 hidden text-xs leading-5 sm:block ${
                     selected
                       ? "text-slate-500"
-                      : "text-white/40"
+                      : "mb-text-faint"
                   }`}
                 >
                   {goal.description}
@@ -1858,13 +1974,13 @@ function GoalStep({
       </div>
 
       <BottomAction>
-        <LightPrimaryButton
+        <PrimaryButton
           onClick={onContinue}
           loading={saving}
           disabled={!selectedGoal}
         >
           Next
-        </LightPrimaryButton>
+        </PrimaryButton>
       </BottomAction>
     </div>
   );
@@ -1888,19 +2004,19 @@ function BodyStep({
   onContinue: () => void;
 }) {
   return (
-    <div className="rounded-[30px] border border-white/20 bg-white/[0.08] p-4 backdrop-blur-2xl sm:p-6 lg:p-8">
+    <div className="mb-glass rounded-[30px] p-4 sm:p-6 lg:p-8">
       {selectedGoal && (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.07] p-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-950">
+        <div className="mb-glass mb-5 flex items-center gap-3 rounded-2xl p-3">
+          <span className="mb-primary-button flex h-10 w-10 items-center justify-center rounded-xl">
             {selectedGoal.icon}
           </span>
 
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
+            <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-widest">
               Current goal
             </p>
 
-            <p className="mt-0.5 text-sm font-semibold text-white">
+            <p className="mb-text mt-0.5 text-sm font-semibold">
               {selectedGoal.title}
             </p>
           </div>
@@ -1908,49 +2024,57 @@ function BodyStep({
       )}
 
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <DarkNumberInput
+        <ThemeNumberInput
           label="Height"
           suffix="cm"
           value={body.height}
           placeholder="175"
           onChange={(value) =>
-            onBodyChange((previous) => ({
-              ...previous,
-              height: value,
-            }))
+            onBodyChange(
+              (previous) => ({
+                ...previous,
+                height: value,
+              })
+            )
           }
         />
 
-        <DarkNumberInput
+        <ThemeNumberInput
           label="Weight"
           suffix="kg"
           value={body.weight}
           placeholder="70"
           onChange={(value) =>
-            onBodyChange((previous) => ({
-              ...previous,
-              weight: value,
-            }))
+            onBodyChange(
+              (previous) => ({
+                ...previous,
+                weight: value,
+              })
+            )
           }
         />
 
-        <DarkNumberInput
+        <ThemeNumberInput
           label="Age"
           suffix="yrs"
           value={body.age}
           placeholder="21"
           onChange={(value) =>
-            onBodyChange((previous) => ({
-              ...previous,
-              age: value,
-            }))
+            onBodyChange(
+              (previous) => ({
+                ...previous,
+                age: value,
+              })
+            )
           }
         />
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
-          <DarkLabel>Gender</DarkLabel>
+          <ThemeLabel>
+            Gender
+          </ThemeLabel>
 
           <div className="grid grid-cols-2 gap-2">
             {[
@@ -1964,7 +2088,8 @@ function BodyStep({
               },
             ].map((item) => {
               const selected =
-                body.gender === item.value;
+                body.gender ===
+                item.value;
 
               return (
                 <button
@@ -1974,14 +2099,15 @@ function BodyStep({
                     onBodyChange(
                       (previous) => ({
                         ...previous,
-                        gender: item.value,
+                        gender:
+                          item.value,
                       })
                     )
                   }
                   className={`h-12 rounded-2xl border text-sm font-semibold transition ${
                     selected
-                      ? "border-white bg-white text-slate-950"
-                      : "border-white/20 bg-white/[0.05] text-white/70"
+                      ? "mb-primary-button border-transparent"
+                      : "mb-outline-button"
                   }`}
                 >
                   {item.label}
@@ -1992,54 +2118,59 @@ function BodyStep({
         </div>
 
         <div>
-          <DarkLabel>
+          <ThemeLabel>
             Activity level
-          </DarkLabel>
+          </ThemeLabel>
 
           <select
             value={body.activity}
             onChange={(event) =>
-              onBodyChange((previous) => ({
-                ...previous,
-                activity:
-                  event.target
-                    .value as Activity,
-              }))
+              onBodyChange(
+                (previous) => ({
+                  ...previous,
+                  activity:
+                    event.target
+                      .value as Activity,
+                })
+              )
             }
-            className="h-12 w-full rounded-2xl border border-white/20 bg-[#292725] px-4 text-sm font-semibold text-white outline-none focus:border-white/60"
+            className="mb-input h-12 w-full rounded-2xl px-4 text-sm font-semibold"
           >
-            {activityOptions.map((item) => (
-              <option
-                key={item.value}
-                value={item.value}
-              >
-                {item.label}
-              </option>
-            ))}
+            {activityOptions.map(
+              (item) => (
+                <option
+                  key={item.value}
+                  value={item.value}
+                  className="bg-[var(--mb-bg-secondary)] text-[var(--mb-text)]"
+                >
+                  {item.label}
+                </option>
+              )
+            )}
           </select>
         </div>
       </div>
 
-      <p className="mt-5 text-center text-xs leading-5 text-white/40">
-        You can update these details later from
-        MacroTrack.
+      <p className="mb-text-faint mt-5 text-center text-xs leading-5">
+        You can update these details later
+        from MacroTrack.
       </p>
 
       <BottomAction inline>
         <div className="grid grid-cols-[0.65fr_1.35fr] gap-3">
-          <DarkSecondaryButton
+          <SecondaryButton
             onClick={onSkip}
             disabled={saving}
           >
             Skip
-          </DarkSecondaryButton>
+          </SecondaryButton>
 
-          <LightPrimaryButton
+          <PrimaryButton
             onClick={onContinue}
             loading={saving}
           >
             Next
-          </LightPrimaryButton>
+          </PrimaryButton>
         </div>
       </BottomAction>
     </div>
@@ -2090,18 +2221,18 @@ function AddressStep({
     address.lng != null;
 
   return (
-    <div className="rounded-[30px] border border-white/20 bg-white/[0.08] backdrop-blur-2xl">
+    <div className="mb-glass rounded-[30px]">
       <div className="space-y-5 p-4 sm:p-6 lg:max-h-[690px] lg:overflow-y-auto lg:p-7">
         <section>
-          <DarkLabel>
+          <ThemeLabel>
             Search delivery location
-          </DarkLabel>
+          </ThemeLabel>
 
           <div className="grid grid-cols-[1fr_48px_48px] gap-2">
             <div className="relative min-w-0">
               <Search
                 size={17}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/40"
+                className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
               />
 
               <input
@@ -2113,13 +2244,16 @@ function AddressStep({
                   )
                 }
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") {
+                  if (
+                    event.key ===
+                    "Enter"
+                  ) {
                     event.preventDefault();
                     onSearch();
                   }
                 }}
                 placeholder="Search area or landmark"
-                className="h-12 w-full rounded-2xl border border-white/20 bg-white/[0.07] pl-11 pr-4 text-sm font-medium text-white outline-none placeholder:text-white/35 focus:border-white/60"
+                className="mb-input h-12 w-full rounded-2xl pl-11 pr-4 text-sm font-medium"
               />
             </div>
 
@@ -2130,7 +2264,7 @@ function AddressStep({
                 loadingMaps ||
                 !addressSearch.trim()
               }
-              className="flex h-12 items-center justify-center rounded-2xl bg-white text-slate-950 transition disabled:opacity-40"
+              className="mb-primary-button flex h-12 items-center justify-center rounded-2xl disabled:opacity-40"
             >
               {loadingMaps ? (
                 <Loader2
@@ -2144,9 +2278,11 @@ function AddressStep({
 
             <button
               type="button"
-              onClick={onCurrentLocation}
+              onClick={
+                onCurrentLocation
+              }
               disabled={locating}
-              className="flex h-12 items-center justify-center rounded-2xl border border-white/25 bg-white/[0.06] text-white transition disabled:opacity-40"
+              className="mb-outline-button flex h-12 items-center justify-center rounded-2xl disabled:opacity-40"
             >
               {locating ? (
                 <Loader2
@@ -2154,13 +2290,15 @@ function AddressStep({
                   className="animate-spin"
                 />
               ) : (
-                <LocateFixed size={18} />
+                <LocateFixed
+                  size={18}
+                />
               )}
             </button>
           </div>
 
           {locationMessage && (
-            <p className="mt-2 flex items-start gap-2 rounded-xl bg-red-500/15 p-3 text-xs font-medium text-red-100">
+            <p className="mb-danger-message mt-2 flex items-start gap-2 rounded-xl p-3 text-xs font-medium">
               <XCircle
                 size={14}
                 className="mt-0.5 shrink-0"
@@ -2171,7 +2309,7 @@ function AddressStep({
           )}
         </section>
 
-        <section className="overflow-hidden rounded-[24px] border border-white/15 bg-black/15">
+        <section className="mb-divider overflow-hidden rounded-[24px] border bg-black/15">
           {hasLocation ? (
             <div
               ref={mapContainerRef}
@@ -2181,13 +2319,13 @@ function AddressStep({
             <div className="flex h-[150px] items-center justify-center px-6 text-center sm:h-[200px]">
               <div>
                 <MapPin
-                  className="mx-auto text-white/25"
+                  className="mb-text-faint mx-auto"
                   size={30}
                 />
 
-                <p className="mt-3 text-xs font-medium text-white/45">
-                  Search your location or use current
-                  location
+                <p className="mb-text-muted mt-3 text-xs font-medium">
+                  Search your location or use
+                  current location
                 </p>
               </div>
             </div>
@@ -2196,24 +2334,26 @@ function AddressStep({
 
         {hasLocation &&
           address.formattedAddress && (
-            <div className="rounded-2xl border border-white/15 bg-white/[0.06] p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35">
+            <div className="mb-glass rounded-2xl p-3">
+              <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-widest">
                 Selected location
               </p>
 
-              <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/70">
-                {address.formattedAddress}
+              <p className="mb-text-soft mt-1 line-clamp-2 text-xs leading-5">
+                {
+                  address.formattedAddress
+                }
               </p>
             </div>
           )}
 
         <section>
-          <DarkLabel>
+          <ThemeLabel>
             Delivery details
-          </DarkLabel>
+          </ThemeLabel>
 
           <div className="grid grid-cols-2 gap-3">
-            <DarkTextInput
+            <ThemeTextInput
               label="Name"
               value={address.fullName}
               placeholder="Receiver name"
@@ -2227,7 +2367,7 @@ function AddressStep({
               }
             />
 
-            <DarkTextInput
+            <ThemeTextInput
               label="Phone"
               value={address.phone}
               placeholder="Mobile number"
@@ -2238,13 +2378,15 @@ function AddressStep({
                   (previous) => ({
                     ...previous,
                     phone:
-                      normalizePhone(value),
+                      normalizePhone(
+                        value
+                      ),
                   })
                 )
               }
             />
 
-            <DarkTextInput
+            <ThemeTextInput
               label="Flat / House"
               value={address.flatNo}
               placeholder="Flat 201"
@@ -2258,21 +2400,24 @@ function AddressStep({
               }
             />
 
-            <DarkTextInput
+            <ThemeTextInput
               label="Building"
-              value={address.buildingName}
+              value={
+                address.buildingName
+              }
               placeholder="Apartment"
               onChange={(value) =>
                 onAddressChange(
                   (previous) => ({
                     ...previous,
-                    buildingName: value,
+                    buildingName:
+                      value,
                   })
                 )
               }
             />
 
-            <DarkTextInput
+            <ThemeTextInput
               label="Area"
               value={address.area}
               placeholder="Locality"
@@ -2286,7 +2431,7 @@ function AddressStep({
               }
             />
 
-            <DarkTextInput
+            <ThemeTextInput
               label="City"
               value={address.city}
               placeholder="City"
@@ -2300,7 +2445,7 @@ function AddressStep({
               }
             />
 
-            <DarkTextInput
+            <ThemeTextInput
               label="State"
               value={address.state}
               placeholder="State"
@@ -2314,7 +2459,7 @@ function AddressStep({
               }
             />
 
-            <DarkTextInput
+            <ThemeTextInput
               label="Pincode"
               value={address.pincode}
               placeholder="6 digits"
@@ -2325,7 +2470,9 @@ function AddressStep({
                   (previous) => ({
                     ...previous,
                     pincode:
-                      normalizePincode(value),
+                      normalizePincode(
+                        value
+                      ),
                   })
                 )
               }
@@ -2333,9 +2480,9 @@ function AddressStep({
           </div>
 
           <div className="mt-4">
-            <DarkLabel>
+            <ThemeLabel>
               Address type
-            </DarkLabel>
+            </ThemeLabel>
 
             <div className="grid grid-cols-3 gap-2">
               {(
@@ -2346,7 +2493,8 @@ function AddressStep({
                 ] as AddressLabel[]
               ).map((label) => {
                 const selected =
-                  address.addressLabel === label;
+                  address.addressLabel ===
+                  label;
 
                 return (
                   <button
@@ -2356,14 +2504,15 @@ function AddressStep({
                       onAddressChange(
                         (previous) => ({
                           ...previous,
-                          addressLabel: label,
+                          addressLabel:
+                            label,
                         })
                       )
                     }
                     className={`h-11 rounded-2xl border text-xs font-semibold transition ${
                       selected
-                        ? "border-white bg-white text-slate-950"
-                        : "border-white/20 bg-white/[0.05] text-white/65"
+                        ? "mb-primary-button border-transparent"
+                        : "mb-outline-button"
                     }`}
                   >
                     {label}
@@ -2374,22 +2523,24 @@ function AddressStep({
           </div>
 
           {serviceable === false && (
-            <p className="mt-3 rounded-2xl bg-red-500/15 p-3 text-xs font-medium leading-5 text-red-100">
-              MacroBox is not delivering to this
-              pincode yet.
+            <p className="mb-danger-message mt-3 rounded-2xl p-3 text-xs font-medium leading-5">
+              MacroBox is not delivering to
+              this pincode yet.
             </p>
           )}
         </section>
       </div>
 
       <BottomAction inline>
-        <LightPrimaryButton
+        <PrimaryButton
           onClick={onContinue}
           loading={saving}
-          disabled={serviceable === false}
+          disabled={
+            serviceable === false
+          }
         >
           Save address
-        </LightPrimaryButton>
+        </PrimaryButton>
       </BottomAction>
     </div>
   );
@@ -2410,16 +2561,16 @@ function ReadyStep({
 }) {
   return (
     <div>
-      <div className="rounded-[30px] border border-white/20 bg-white/[0.08] p-4 backdrop-blur-2xl sm:p-6">
+      <div className="mb-glass rounded-[30px] p-4 sm:p-6">
         {loadingMeals ? (
           <div className="flex min-h-[320px] items-center justify-center">
             <div className="text-center">
               <Loader2
-                className="mx-auto animate-spin text-white"
+                className="mb-text mx-auto animate-spin"
                 size={32}
               />
 
-              <p className="mt-3 text-sm text-white/50">
+              <p className="mb-text-muted mt-3 text-sm">
                 Finding your meals...
               </p>
             </div>
@@ -2428,16 +2579,17 @@ function ReadyStep({
           <div className="flex min-h-[320px] items-center justify-center text-center">
             <div>
               <CheckCircle2
-                className="mx-auto text-white"
+                className="mb-text mx-auto"
                 size={42}
               />
 
-              <h2 className="mt-5 text-2xl font-light text-white">
+              <h2 className="mb-text mt-5 text-2xl font-light">
                 Setup complete
               </h2>
 
-              <p className="mt-2 text-sm leading-6 text-white/50">
-                Your MacroBox experience is ready.
+              <p className="mb-text-muted mt-2 text-sm leading-6">
+                Your MacroBox experience
+                is ready.
               </p>
             </div>
           </div>
@@ -2445,11 +2597,11 @@ function ReadyStep({
           <>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-white/35">
+                <p className="mb-text-faint text-xs font-semibold uppercase tracking-widest">
                   Recommended for
                 </p>
 
-                <h2 className="mt-1 text-lg font-medium text-white">
+                <h2 className="mb-text mt-1 text-lg font-medium">
                   {goal
                     ? goalLabelMap[goal]
                     : "Your goal"}
@@ -2457,7 +2609,7 @@ function ReadyStep({
               </div>
 
               <Sparkles
-                className="text-white/60"
+                className="mb-text-muted"
                 size={22}
               />
             </div>
@@ -2475,12 +2627,12 @@ function ReadyStep({
       </div>
 
       <BottomAction>
-        <LightPrimaryButton
+        <PrimaryButton
           onClick={onComplete}
           loading={saving}
         >
           Explore meals
-        </LightPrimaryButton>
+        </PrimaryButton>
       </BottomAction>
     </div>
   );
@@ -2497,7 +2649,7 @@ function MealCard({
     "/placeholder-meal.png";
 
   return (
-    <article className="overflow-hidden rounded-[22px] border border-white/20 bg-white/[0.07]">
+    <article className="mb-glass overflow-hidden rounded-[22px]">
       <img
         src={image}
         alt={meal.title}
@@ -2510,25 +2662,31 @@ function MealCard({
 
       <div className="p-3">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-1 text-xs font-semibold text-white sm:text-sm">
+          <h3 className="mb-text line-clamp-1 text-xs font-semibold sm:text-sm">
             {meal.title}
           </h3>
 
-          <p className="shrink-0 text-xs font-semibold text-white">
+          <p className="mb-text shrink-0 text-xs font-semibold">
             ₹{Number(meal.price || 0)}
           </p>
         </div>
 
-        <p className="mt-1 text-[10px] text-white/45">
-          {Number(meal.calories || 0)} kcal ·{" "}
-          {Number(meal.protein || 0)}g protein
+        <p className="mb-text-muted mt-1 text-[10px]">
+          {Number(
+            meal.calories || 0
+          )}{" "}
+          kcal ·{" "}
+          {Number(
+            meal.protein || 0
+          )}
+          g protein
         </p>
       </div>
     </article>
   );
 }
 
-function DarkNumberInput({
+function ThemeNumberInput({
   label,
   suffix,
   value,
@@ -2543,7 +2701,9 @@ function DarkNumberInput({
 }) {
   return (
     <div>
-      <DarkLabel>{label}</DarkLabel>
+      <ThemeLabel>
+        {label}
+      </ThemeLabel>
 
       <div className="relative">
         <input
@@ -2551,13 +2711,15 @@ function DarkNumberInput({
           inputMode="decimal"
           value={value}
           onChange={(event) =>
-            onChange(event.target.value)
+            onChange(
+              event.target.value
+            )
           }
           placeholder={placeholder}
-          className="h-12 w-full rounded-2xl border border-white/20 bg-white/[0.06] px-2 pr-8 text-center text-sm font-semibold text-white outline-none placeholder:text-white/30 focus:border-white/60"
+          className="mb-input h-12 w-full rounded-2xl px-2 pr-8 text-center text-sm font-semibold"
         />
 
-        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-semibold text-white/35">
+        <span className="mb-text-faint pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-semibold">
           {suffix}
         </span>
       </div>
@@ -2565,7 +2727,7 @@ function DarkNumberInput({
   );
 }
 
-function DarkTextInput({
+function ThemeTextInput({
   label,
   value,
   placeholder,
@@ -2577,34 +2739,41 @@ function DarkTextInput({
   value: string;
   placeholder: string;
   onChange: (value: string) => void;
-  inputMode?: "text" | "numeric" | "tel";
+  inputMode?:
+    | "text"
+    | "numeric"
+    | "tel";
   maxLength?: number;
 }) {
   return (
     <div className="min-w-0">
-      <DarkLabel>{label}</DarkLabel>
+      <ThemeLabel>
+        {label}
+      </ThemeLabel>
 
       <input
         value={value}
         onChange={(event) =>
-          onChange(event.target.value)
+          onChange(
+            event.target.value
+          )
         }
         placeholder={placeholder}
         inputMode={inputMode}
         maxLength={maxLength}
-        className="h-11 w-full rounded-2xl border border-white/20 bg-white/[0.06] px-3 text-xs font-medium text-white outline-none placeholder:text-white/30 focus:border-white/60 sm:text-sm"
+        className="mb-input h-11 w-full rounded-2xl px-3 text-xs font-medium sm:text-sm"
       />
     </div>
   );
 }
 
-function DarkLabel({
+function ThemeLabel({
   children,
 }: {
   children: ReactNode;
 }) {
   return (
-    <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.12em] text-white/40">
+    <label className="mb-text-faint mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.12em]">
       {children}
     </label>
   );
@@ -2619,7 +2788,7 @@ function BottomAction({
 }) {
   if (inline) {
     return (
-      <div className="border-t border-white/15 p-4 sm:p-5">
+      <div className="mb-divider border-t p-4 sm:p-5">
         {children}
       </div>
     );
@@ -2631,14 +2800,14 @@ function BottomAction({
         {children}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#171614]/90 p-4 pb-[max(16px,env(safe-area-inset-bottom))] backdrop-blur-2xl lg:hidden">
+      <div className="mb-divider fixed inset-x-0 bottom-0 z-50 border-t bg-[color:var(--mb-bg)]/90 p-4 pb-[max(16px,env(safe-area-inset-bottom))] backdrop-blur-2xl lg:hidden">
         {children}
       </div>
     </>
   );
 }
 
-function LightPrimaryButton({
+function PrimaryButton({
   children,
   onClick,
   loading,
@@ -2653,8 +2822,10 @@ function LightPrimaryButton({
     <button
       type="button"
       onClick={onClick}
-      disabled={loading || disabled}
-      className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-white px-6 text-base font-medium text-slate-950 shadow-[0_20px_50px_rgba(0,0,0,0.25)] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
+      disabled={
+        loading || disabled
+      }
+      className="mb-primary-button flex h-14 w-full items-center justify-center gap-2 rounded-full px-6 text-base font-medium disabled:cursor-not-allowed disabled:opacity-40"
     >
       {loading ? (
         <Loader2
@@ -2671,7 +2842,7 @@ function LightPrimaryButton({
   );
 }
 
-function DarkSecondaryButton({
+function SecondaryButton({
   children,
   onClick,
   disabled,
@@ -2685,7 +2856,7 @@ function DarkSecondaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-14 w-full items-center justify-center rounded-full border border-white/25 bg-white/[0.06] px-5 text-sm font-medium text-white transition hover:bg-white/10 disabled:opacity-40"
+      className="mb-outline-button flex h-14 w-full items-center justify-center rounded-full px-5 text-sm font-medium disabled:opacity-40"
     >
       {children}
     </button>

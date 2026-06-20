@@ -1,0 +1,539 @@
+/* frontend/src/styles/macrobox-theme.css */
+
+/* =====================================================
+   MACROBOX GLOBAL THEME TOKENS
+
+   Change the values inside :root to recolour the premium
+   MacroBox UI without changing page layouts or components.
+===================================================== */
+
+:root {
+  /* Main backgrounds */
+  --mb-bg: #171614;
+  --mb-bg-secondary: #211f1d;
+  --mb-bg-elevated: #2a2826;
+  --mb-bg-overlay: rgba(23, 22, 20, 0.9);
+
+  /* Glass surfaces */
+  --mb-surface: rgba(255, 255, 255, 0.07);
+  --mb-surface-hover: rgba(255, 255, 255, 0.11);
+  --mb-surface-strong: rgba(255, 255, 255, 0.15);
+  --mb-surface-subtle: rgba(255, 255, 255, 0.04);
+
+  /* Borders and dividers */
+  --mb-border: rgba(255, 255, 255, 0.15);
+  --mb-border-hover: rgba(255, 255, 255, 0.3);
+  --mb-border-strong: rgba(255, 255, 255, 0.42);
+  --mb-divider: rgba(255, 255, 255, 0.1);
+
+  /* Text */
+  --mb-text: #ffffff;
+  --mb-text-soft: rgba(255, 255, 255, 0.8);
+  --mb-muted: rgba(255, 255, 255, 0.5);
+  --mb-muted-light: rgba(255, 255, 255, 0.35);
+  --mb-muted-extra: rgba(255, 255, 255, 0.24);
+
+  /* Main accent */
+  --mb-accent: #16a34a;
+  --mb-accent-hover: #15803d;
+  --mb-accent-active: #166534;
+  --mb-accent-soft: rgba(22, 163, 74, 0.18);
+  --mb-accent-soft-hover: rgba(22, 163, 74, 0.26);
+  --mb-accent-border: rgba(74, 222, 128, 0.3);
+  --mb-accent-text: #bbf7d0;
+
+  /* Main light button */
+  --mb-button-bg: #ffffff;
+  --mb-button-text: #0f172a;
+  --mb-button-hover: rgba(255, 255, 255, 0.9);
+  --mb-button-active: rgba(255, 255, 255, 0.82);
+
+  /* Background decorative glows */
+  --mb-glow-primary: rgba(118, 91, 72, 0.44);
+  --mb-glow-secondary: rgba(255, 255, 255, 0.08);
+  --mb-glow-accent: rgba(22, 163, 74, 0.12);
+
+  /* Food-type colours */
+  --mb-veg-bg: rgba(34, 197, 94, 0.2);
+  --mb-veg-border: rgba(134, 239, 172, 0.3);
+  --mb-veg-text: #bbf7d0;
+
+  --mb-nonveg-bg: rgba(239, 68, 68, 0.2);
+  --mb-nonveg-border: rgba(252, 165, 165, 0.3);
+  --mb-nonveg-text: #fecaca;
+
+  /* Top Pick / highlight colours */
+  --mb-highlight: #f97316;
+  --mb-highlight-soft: rgba(249, 115, 22, 0.18);
+  --mb-highlight-border: rgba(251, 146, 60, 0.3);
+  --mb-highlight-text: #fed7aa;
+
+  /* Warning */
+  --mb-warning-bg: rgba(249, 115, 22, 0.18);
+  --mb-warning-border: rgba(251, 146, 60, 0.3);
+  --mb-warning-text: #fed7aa;
+
+  /* Danger */
+  --mb-danger-bg: rgba(239, 68, 68, 0.15);
+  --mb-danger-border: rgba(248, 113, 113, 0.25);
+  --mb-danger-text: #fecaca;
+
+  /* Information */
+  --mb-info-bg: rgba(59, 130, 246, 0.16);
+  --mb-info-border: rgba(96, 165, 250, 0.28);
+  --mb-info-text: #bfdbfe;
+
+  /* Success */
+  --mb-success-bg: rgba(34, 197, 94, 0.16);
+  --mb-success-border: rgba(74, 222, 128, 0.28);
+  --mb-success-text: #bbf7d0;
+
+  /* Shadows */
+  --mb-shadow-small: 0 14px 35px rgba(0, 0, 0, 0.22);
+  --mb-shadow-medium: 0 24px 70px rgba(0, 0, 0, 0.32);
+  --mb-shadow-large: 0 30px 90px rgba(0, 0, 0, 0.42);
+  --mb-shadow-floating: 0 -16px 50px rgba(0, 0, 0, 0.28);
+
+  /* Focus */
+  --mb-focus-ring: 0 0 0 4px var(--mb-accent-soft);
+
+  /* Radius values */
+  --mb-radius-small: 14px;
+  --mb-radius-medium: 20px;
+  --mb-radius-large: 28px;
+  --mb-radius-extra: 32px;
+  --mb-radius-pill: 999px;
+}
+
+/* =====================================================
+   THEMED PAGE BACKGROUNDS
+===================================================== */
+
+.mb-theme-page {
+  min-height: 100vh;
+  background: var(--mb-bg);
+  color: var(--mb-text);
+}
+
+.mb-theme-background {
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+  background: var(--mb-bg);
+  color: var(--mb-text);
+}
+
+.mb-theme-background::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 12% 12%,
+      var(--mb-glow-primary),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 86% 16%,
+      var(--mb-glow-secondary),
+      transparent 25%
+    ),
+    radial-gradient(
+      circle at 72% 82%,
+      var(--mb-glow-accent),
+      transparent 32%
+    );
+}
+
+.mb-theme-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.mb-theme-layer {
+  position: relative;
+  z-index: 1;
+}
+
+/* =====================================================
+   GLASS SURFACES
+===================================================== */
+
+.mb-glass {
+  border: 1px solid var(--mb-border);
+  background: var(--mb-surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.mb-glass-strong {
+  border: 1px solid var(--mb-border);
+  background: var(--mb-surface-strong);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+}
+
+.mb-glass-subtle {
+  border: 1px solid var(--mb-divider);
+  background: var(--mb-surface-subtle);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.mb-glass-hover {
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.mb-glass-hover:hover {
+  border-color: var(--mb-border-hover);
+  background: var(--mb-surface-hover);
+  box-shadow: var(--mb-shadow-medium);
+}
+
+.mb-card-lift {
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.mb-card-lift:hover {
+  transform: translateY(-4px);
+  border-color: var(--mb-border-hover);
+  background: var(--mb-surface-hover);
+  box-shadow: var(--mb-shadow-medium);
+}
+
+/* =====================================================
+   BORDERS
+===================================================== */
+
+.mb-border {
+  border-color: var(--mb-border);
+}
+
+.mb-border-hover {
+  border-color: var(--mb-border-hover);
+}
+
+.mb-divider {
+  border-color: var(--mb-divider);
+}
+
+/* =====================================================
+   TEXT
+===================================================== */
+
+.mb-text {
+  color: var(--mb-text);
+}
+
+.mb-text-soft {
+  color: var(--mb-text-soft);
+}
+
+.mb-text-muted {
+  color: var(--mb-muted);
+}
+
+.mb-text-faint {
+  color: var(--mb-muted-light);
+}
+
+.mb-text-extra-faint {
+  color: var(--mb-muted-extra);
+}
+
+.mb-accent {
+  color: var(--mb-accent);
+}
+
+/* =====================================================
+   ACCENT SURFACES
+===================================================== */
+
+.mb-accent-surface {
+  border: 1px solid var(--mb-accent-border);
+  background: var(--mb-accent-soft);
+  color: var(--mb-accent-text);
+}
+
+.mb-accent-surface:hover {
+  background: var(--mb-accent-soft-hover);
+}
+
+/* =====================================================
+   BUTTONS
+===================================================== */
+
+.mb-primary-button {
+  border: 1px solid transparent;
+  background: var(--mb-button-bg);
+  color: var(--mb-button-text);
+  box-shadow: var(--mb-shadow-small);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.mb-primary-button:hover:not(:disabled) {
+  background: var(--mb-button-hover);
+}
+
+.mb-primary-button:active:not(:disabled) {
+  transform: scale(0.98);
+  background: var(--mb-button-active);
+}
+
+.mb-accent-button {
+  border: 1px solid transparent;
+  background: var(--mb-accent);
+  color: #ffffff;
+  transition:
+    background-color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.mb-accent-button:hover:not(:disabled) {
+  background: var(--mb-accent-hover);
+}
+
+.mb-accent-button:active:not(:disabled) {
+  transform: scale(0.98);
+  background: var(--mb-accent-active);
+}
+
+.mb-outline-button {
+  border: 1px solid var(--mb-border);
+  background: var(--mb-surface);
+  color: var(--mb-text-soft);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.mb-outline-button:hover:not(:disabled) {
+  border-color: var(--mb-border-hover);
+  background: var(--mb-surface-hover);
+  color: var(--mb-text);
+}
+
+.mb-outline-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.mb-primary-button:focus-visible,
+.mb-accent-button:focus-visible,
+.mb-outline-button:focus-visible {
+  outline: none;
+  box-shadow: var(--mb-focus-ring);
+}
+
+.mb-primary-button:disabled,
+.mb-accent-button:disabled,
+.mb-outline-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+/* =====================================================
+   INPUTS
+===================================================== */
+
+.mb-input {
+  border: 1px solid var(--mb-border);
+  background: var(--mb-surface);
+  color: var(--mb-text);
+  outline: none;
+  caret-color: var(--mb-text);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.mb-input::placeholder {
+  color: var(--mb-muted-light);
+}
+
+.mb-input:hover:not(:disabled) {
+  border-color: var(--mb-border-hover);
+}
+
+.mb-input:focus {
+  border-color: var(--mb-border-hover);
+  background: var(--mb-surface-hover);
+  box-shadow: var(--mb-focus-ring);
+}
+
+.mb-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+select.mb-input {
+  color-scheme: dark;
+}
+
+select.mb-input option {
+  background: var(--mb-bg-secondary);
+  color: var(--mb-text);
+}
+
+/* Remove number input arrows when required */
+.mb-number-input::-webkit-inner-spin-button,
+.mb-number-input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.mb-number-input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+/* =====================================================
+   BADGES
+===================================================== */
+
+.mb-veg-badge {
+  border: 1px solid var(--mb-veg-border);
+  background: var(--mb-veg-bg);
+  color: var(--mb-veg-text);
+}
+
+.mb-nonveg-badge {
+  border: 1px solid var(--mb-nonveg-border);
+  background: var(--mb-nonveg-bg);
+  color: var(--mb-nonveg-text);
+}
+
+.mb-highlight-badge {
+  border: 1px solid var(--mb-highlight-border);
+  background: var(--mb-highlight-soft);
+  color: var(--mb-highlight-text);
+}
+
+.mb-warning-badge {
+  border: 1px solid var(--mb-warning-border);
+  background: var(--mb-warning-bg);
+  color: var(--mb-warning-text);
+}
+
+/* =====================================================
+   STATUS MESSAGES
+===================================================== */
+
+.mb-danger-message {
+  border: 1px solid var(--mb-danger-border);
+  background: var(--mb-danger-bg);
+  color: var(--mb-danger-text);
+}
+
+.mb-info-message {
+  border: 1px solid var(--mb-info-border);
+  background: var(--mb-info-bg);
+  color: var(--mb-info-text);
+}
+
+.mb-success-message {
+  border: 1px solid var(--mb-success-border);
+  background: var(--mb-success-bg);
+  color: var(--mb-success-text);
+}
+
+/* =====================================================
+   THEMED SCROLLBAR
+===================================================== */
+
+.mb-themed-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mb-border-hover) transparent;
+}
+
+.mb-themed-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.mb-themed-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mb-themed-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--mb-border-hover);
+}
+
+.mb-themed-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--mb-border-strong);
+}
+
+/* =====================================================
+   MOBILE DRAWER / FIXED BAR
+===================================================== */
+
+.mb-bottom-surface {
+  border-top: 1px solid var(--mb-divider);
+  background: var(--mb-bg-overlay);
+  box-shadow: var(--mb-shadow-floating);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* =====================================================
+   TEXT SELECTION
+===================================================== */
+
+.mb-theme-background ::selection,
+.mb-theme-page ::selection {
+  background: var(--mb-accent-soft-hover);
+  color: var(--mb-text);
+}
+
+/* =====================================================
+   RESPONSIVE REDUCED EFFECTS
+===================================================== */
+
+@media (max-width: 640px) {
+  .mb-glass,
+  .mb-glass-strong {
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .mb-card-lift:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-glass-hover,
+  .mb-card-lift,
+  .mb-primary-button,
+  .mb-accent-button,
+  .mb-outline-button,
+  .mb-input {
+    transition: none;
+  }
+}
