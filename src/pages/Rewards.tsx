@@ -876,7 +876,7 @@ function RewardCard({
                   )
                 : onClaim()
             }
-            className={`mt-3 inline-flex h-13 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-45 ${
+            className={`mt-3 inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-45 ${
               canUseCoupon
                 ? "mb-primary-button"
                 : unlocked &&
@@ -1129,7 +1129,7 @@ function RewardsLoading() {
             <div className="space-y-3">
               <div className="h-24 animate-pulse rounded-[22px] bg-[var(--mb-surface)]" />
 
-              <div className="h-13 animate-pulse rounded-full bg-[var(--mb-surface-strong)]" />
+              <div className="h-[52px] animate-pulse rounded-full bg-[var(--mb-surface-strong)]" />
             </div>
           </div>
         </div>

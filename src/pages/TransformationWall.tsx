@@ -295,7 +295,7 @@ export default function TransformationWall() {
               <button
                 type="submit"
                 disabled={posting}
-                className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 px-6 py-4 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
+                className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] bg-green-600 px-6 py-4 text-sm font-black text-white shadow-[0_16px_32px_rgba(22,163,74,0.25)] transition hover:bg-green-700 disabled:opacity-60"
               >
                 {posting ? (
                   <Loader2 className="animate-spin" size={18} />

@@ -537,3 +537,69 @@ select.mb-input option {
     transition: none;
   }
 }
+
+/* =====================================================
+   EXTRA REUSABLE MACROBOX UTILITIES
+===================================================== */
+
+.mb-glass-subtle {
+  border: 1px solid var(--mb-border);
+  background: rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.mb-success-message {
+  border: 1px solid var(--mb-accent-border);
+  background: var(--mb-accent-soft);
+  color: var(--mb-accent-text);
+}
+
+.mb-warning-badge {
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+}
+
+.mb-info-message {
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  background: var(--mb-info-bg);
+  color: var(--mb-info-text);
+}
+
+.mb-highlight-badge {
+  border: 1px solid rgba(251, 146, 60, 0.24);
+  background: var(--mb-warning-bg);
+  color: var(--mb-warning-text);
+}
+
+.mb-text-extra-faint {
+  color: rgba(255, 255, 255, 0.24);
+}
+
+.macrobox-hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.macrobox-hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.mb-themed-scrollbar {
+  scrollbar-color: var(--mb-surface-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.mb-themed-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mb-themed-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mb-themed-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--mb-surface-strong);
+}

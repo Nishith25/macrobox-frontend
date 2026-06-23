@@ -190,7 +190,7 @@ export default function DeliveryLogin() {
                       placeholder="partner@macrobox.com"
                       autoComplete="email"
                       disabled={loading}
-                      className="h-13 w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-sm font-bold text-slate-950 outline-none transition placeholder:font-semibold placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-[52px] w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-sm font-bold text-slate-950 outline-none transition placeholder:font-semibold placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:opacity-60"
                       required
                     />
                   </div>
@@ -211,7 +211,7 @@ export default function DeliveryLogin() {
                       placeholder="Enter your password"
                       autoComplete="current-password"
                       disabled={loading}
-                      className="h-13 w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-12 text-sm font-bold text-slate-950 outline-none transition placeholder:font-semibold placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-[52px] w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-12 text-sm font-bold text-slate-950 outline-none transition placeholder:font-semibold placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:opacity-60"
                       required
                     />
 
@@ -236,7 +236,7 @@ export default function DeliveryLogin() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-3 text-sm font-black text-white shadow-[0_14px_30px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-3 text-sm font-black text-white shadow-[0_14px_30px_rgba(22,163,74,0.22)] transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? (
                     <>

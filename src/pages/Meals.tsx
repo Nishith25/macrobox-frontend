@@ -809,7 +809,7 @@ export default function Meals() {
                 onClick={() =>
                   navigate("/plans")
                 }
-                className="mb-primary-button hidden h-13 items-center gap-2 rounded-full px-6 text-sm font-medium lg:inline-flex"
+                className="mb-primary-button hidden h-[52px] items-center gap-2 rounded-full px-6 text-sm font-medium lg:inline-flex"
               >
                 Explore meal plans
                 <ArrowRight size={17} />
@@ -1870,7 +1870,7 @@ function MobileFilters({
           <button
             type="button"
             onClick={onReset}
-            className="mb-outline-button flex h-13 items-center justify-center gap-2 rounded-full text-sm font-medium"
+            className="mb-outline-button flex h-[52px] items-center justify-center gap-2 rounded-full text-sm font-medium"
           >
             <RotateCcw size={16} />
             Reset
@@ -1879,7 +1879,7 @@ function MobileFilters({
           <button
             type="button"
             onClick={onClose}
-            className="mb-primary-button flex h-13 items-center justify-center rounded-full text-sm font-medium"
+            className="mb-primary-button flex h-[52px] items-center justify-center rounded-full text-sm font-medium"
           >
             Show meals
           </button>

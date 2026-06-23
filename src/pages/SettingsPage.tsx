@@ -1,19 +1,28 @@
 // frontend/src/pages/SettingsPage.tsx (FRONTEND)
 // MacroBox My Account Page
-// NOTE:
-// File name can stay SettingsPage.tsx for now because AppRouter imports it.
-// Route should be /my-account. Old /settings can redirect to /my-account.
+// File name remains SettingsPage.tsx because AppRouter imports it.
+// Primary route: /my-account
+// Optional legacy redirect: /settings -> /my-account
 
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../api/api";
-import toast from "react-hot-toast";
-import { useAuth } from "../context/AuthContext";
 import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  AlertTriangle,
+  Briefcase,
+  Check,
   CheckCircle2,
+  ChevronRight,
+  Home,
+  Loader2,
   Lock,
   LogOut,
   MapPin,
+  Navigation,
   Phone,
   Save,
   Settings,
@@ -21,7 +30,12 @@ import {
   Trash2,
   User,
   UserCircle,
+  X,
 } from "lucide-react";
+import toast from "react-hot-toast";
+
+import api from "../api/api";
+import { useAuth } from "../context/AuthContext";
 
 type SavedAddress = {
   _id?: string;
@@ -51,7 +65,49 @@ type CurrentUser = {
   savedAddresses?: SavedAddress[];
 };
 
-type AccountTab = "profile" | "phone" | "password" | "addresses" | "account";
+type AccountTab =
+  | "profile"
+  | "phone"
+  | "password"
+  | "addresses"
+  | "account";
+
+const cleanPhoneNumber = (value?: string) =>
+  String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 10);
+
+const formatPhone = (value?: string) => {
+  const number = cleanPhoneNumber(value);
+
+  if (!number) return "Phone not added";
+
+  if (number.length !== 10) return number;
+
+  return `+91 ${number.slice(0, 5)} ${number.slice(5)}`;
+};
+
+const addressText = (address: SavedAddress) => {
+  const parts = [
+    address.flatNo,
+    address.floor,
+    address.buildingName,
+    address.area,
+    address.landmark,
+    address.city,
+    address.state,
+    address.pincode,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(", ") : "Address details not available";
+};
+
+const addressIcon = (label?: string) => {
+  if (label === "Work") return <Briefcase size={17} />;
+  if (label === "Home") return <Home size={17} />;
+
+  return <MapPin size={17} />;
+};
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -84,55 +140,62 @@ export default function SettingsPage() {
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
 
-  const cleanPhone = phone.replace(/\D/g, "").slice(0, 10);
-  const currentSavedPhone = (user?.phone || "").replace(/\D/g, "").slice(0, 10);
+  const cleanPhone = cleanPhoneNumber(phone);
+  const currentSavedPhone = cleanPhoneNumber(user?.phone);
+
   const phoneReady = cleanPhone.length === 10;
   const phoneChanged = cleanPhone !== currentSavedPhone;
 
-  const defaultAddress = useMemo(
-    () => addresses.find((item) => item.isDefault),
-    [addresses]
-  );
+  const verifiedItems = useMemo(() => {
+    return [
+      user?.emailVerified === true,
+      user?.isPhoneVerified === true,
+    ].filter(Boolean).length;
+  }, [user?.emailVerified, user?.isPhoneVerified]);
 
-  const inputClass =
-    "h-12 w-full rounded-none border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 transition focus:border-green-500 focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
+  const themedInput =
+    "mb-input h-12 w-full rounded-2xl px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-55";
 
   const loadAccount = async () => {
     try {
       setLoading(true);
 
-      const [userRes, addressRes] = await Promise.allSettled([
+      const [userResponse, addressResponse] = await Promise.allSettled([
         api.get("/user/me"),
         api.get("/user/addresses"),
       ]);
 
-      if (userRes.status === "fulfilled") {
-        const data = userRes.value.data;
+      if (userResponse.status === "fulfilled") {
+        const data = userResponse.value.data as CurrentUser;
+
         setUser(data);
         setName(data.name || "");
         setPhone(data.phone || "");
       }
 
-      if (addressRes.status === "fulfilled") {
-        setAddresses(Array.isArray(addressRes.value.data) ? addressRes.value.data : []);
+      if (addressResponse.status === "fulfilled") {
+        const data = addressResponse.value.data;
+
+        setAddresses(Array.isArray(data) ? data : []);
       }
     } catch {
-      toast.error("Failed to load account");
+      toast.error("Failed to load account.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadAccount();
+    void loadAccount();
   }, []);
 
   const syncLocalUser = (updatedUser: CurrentUser) => {
-    const oldRaw = localStorage.getItem("user");
-    if (!oldRaw) return;
+    const storedUser = localStorage.getItem("user");
+
+    if (!storedUser) return;
 
     try {
-      const oldUser = JSON.parse(oldRaw);
+      const oldUser = JSON.parse(storedUser);
 
       localStorage.setItem(
         "user",
@@ -144,7 +207,7 @@ export default function SettingsPage() {
         })
       );
     } catch {
-      // ignore local storage parse errors
+      // Ignore corrupted local-storage user data.
     }
   };
 
@@ -163,28 +226,34 @@ export default function SettingsPage() {
     localStorage.removeItem("macrobox_token");
     localStorage.removeItem("user");
 
-    toast.success("Logged out successfully");
+    toast.success("Logged out successfully.");
     navigate("/login");
   };
 
   const updateProfile = async () => {
     if (!name.trim()) {
-      toast.error("Name is required");
+      toast.error("Name is required.");
       return;
     }
 
     try {
       setSavingProfile(true);
 
-      const res = await api.put("/user/profile", {
+      const response = await api.put("/user/profile", {
         name: name.trim(),
       });
 
-      setUser(res.data.user);
-      syncLocalUser(res.data.user);
-      toast.success("Profile updated");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to update profile");
+      const updatedUser = response.data.user as CurrentUser;
+
+      setUser(updatedUser);
+      setPhone(updatedUser.phone || phone);
+
+      syncLocalUser(updatedUser);
+      toast.success("Profile updated.");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to update profile."
+      );
     } finally {
       setSavingProfile(false);
     }
@@ -204,7 +273,7 @@ export default function SettingsPage() {
     try {
       setOtpLoading(true);
 
-      const res = await api.post("/auth/send-phone-otp", {
+      const response = await api.post("/auth/send-phone-otp", {
         phone: cleanPhone,
         name: name.trim() || user?.name || "MacroBox User",
       });
@@ -214,15 +283,15 @@ export default function SettingsPage() {
       setPhoneVerifiedForUpdate(false);
       setPhoneVerificationToken("");
 
-      if (res.data?.devOtp) {
-        setDevOtp(res.data.devOtp);
+      if (response.data?.devOtp) {
+        setDevOtp(response.data.devOtp);
         toast.success("OTP generated successfully.");
       } else {
         setDevOtp("");
-        toast.success(res.data?.message || "OTP sent successfully.");
+        toast.success(response.data?.message || "OTP sent successfully.");
       }
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to send OTP.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to send OTP.");
     } finally {
       setOtpLoading(false);
     }
@@ -230,23 +299,28 @@ export default function SettingsPage() {
 
   const verifyPhoneOtp = async () => {
     if (otp.trim().length !== 6) {
-      toast.error("Enter valid 6-digit OTP.");
+      toast.error("Enter a valid 6-digit OTP.");
       return;
     }
 
     try {
       setOtpLoading(true);
 
-      const res = await api.post("/auth/verify-phone-otp", {
+      const response = await api.post("/auth/verify-phone-otp", {
         phone: cleanPhone,
         otp: otp.trim(),
       });
 
-      setPhoneVerificationToken(res.data.phoneVerificationToken || "");
+      setPhoneVerificationToken(
+        response.data.phoneVerificationToken || ""
+      );
+
       setPhoneVerifiedForUpdate(true);
       toast.success("Phone verified successfully.");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "OTP verification failed.");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "OTP verification failed."
+      );
     } finally {
       setOtpLoading(false);
     }
@@ -264,25 +338,31 @@ export default function SettingsPage() {
     }
 
     if (!phoneVerifiedForUpdate || !phoneVerificationToken) {
-      toast.error("Please verify WhatsApp OTP before updating phone.");
+      toast.error("Verify the WhatsApp OTP before updating your phone.");
       return;
     }
 
     try {
       setSavingPhone(true);
 
-      const res = await api.put("/user/phone", {
+      const response = await api.put("/user/phone", {
         phone: cleanPhone,
         phoneVerificationToken,
       });
 
-      setUser(res.data.user);
-      syncLocalUser(res.data.user);
+      const updatedUser = response.data.user as CurrentUser;
+
+      setUser(updatedUser);
+      setPhone(updatedUser.phone || cleanPhone);
+
+      syncLocalUser(updatedUser);
       resetPhoneOtpState();
 
-      toast.success("Phone number updated");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to update phone");
+      toast.success("Phone number updated.");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to update phone."
+      );
     } finally {
       setSavingPhone(false);
     }
@@ -290,17 +370,17 @@ export default function SettingsPage() {
 
   const changePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error("Please fill all password fields");
+      toast.error("Fill in all password fields.");
       return;
     }
 
     if (newPassword.length < 6) {
-      toast.error("New password must be at least 6 characters");
+      toast.error("New password must contain at least 6 characters.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error("New passwords do not match.");
       return;
     }
 
@@ -316,9 +396,11 @@ export default function SettingsPage() {
       setNewPassword("");
       setConfirmPassword("");
 
-      toast.success("Password changed successfully");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to change password");
+      toast.success("Password changed successfully.");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to change password."
+      );
     } finally {
       setSavingPassword(false);
     }
@@ -326,14 +408,23 @@ export default function SettingsPage() {
 
   const deleteAddress = async (addressId?: string) => {
     if (!addressId) return;
+
     if (!window.confirm("Delete this saved address?")) return;
 
     try {
-      const res = await api.delete(`/user/addresses/${addressId}`);
-      setAddresses(res.data.addresses || []);
-      toast.success("Address deleted");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to delete address");
+      const response = await api.delete(`/user/addresses/${addressId}`);
+
+      setAddresses(
+        Array.isArray(response.data?.addresses)
+          ? response.data.addresses
+          : []
+      );
+
+      toast.success("Address deleted.");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to delete address."
+      );
     }
   };
 
@@ -341,11 +432,19 @@ export default function SettingsPage() {
     if (!addressId) return;
 
     try {
-      const res = await api.patch(`/user/addresses/${addressId}/default`);
-      setAddresses(res.data.addresses || []);
-      toast.success("Default address updated");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to set default");
+      const response = await api.patch(
+        `/user/addresses/${addressId}/default`
+      );
+
+      setAddresses(
+        Array.isArray(response.data?.addresses)
+          ? response.data.addresses
+          : []
+      );
+
+      toast.success("Default address updated.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to set default.");
     }
   };
 
@@ -359,558 +458,780 @@ export default function SettingsPage() {
       localStorage.removeItem("macrobox_token");
       localStorage.removeItem("user");
 
-      toast.success("Account deactivated");
+      toast.success("Account deactivated.");
       window.location.href = "/login";
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to deactivate account");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to deactivate account."
+      );
     } finally {
       setDeactivating(false);
     }
   };
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-[#f5f6f8] px-4 py-10 text-slate-950">
-        <div className="mx-auto max-w-6xl border border-slate-200 bg-white p-8 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">
-            Loading account...
-          </p>
-        </div>
-      </main>
-    );
+    return <AccountLoading />;
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f6f8] text-slate-950">
-      <section className="bg-slate-950 px-4 pb-20 pt-10 text-white sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/60">
-              My Account
-            </p>
+    <main className="mb-theme-background relative min-h-screen overflow-x-hidden pb-16">
+      <div className="relative z-10">
+        <section className="mb-divider border-b">
+          <div className="mx-auto max-w-[1240px] px-4 pb-10 pt-10 sm:px-6 sm:pb-14 sm:pt-14 lg:px-8 lg:pb-16">
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div>
+                <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-[0.26em] sm:text-xs">
+                  My Account
+                </p>
 
-            <h1 className="mt-3 text-4xl font-black tracking-[-0.06em] sm:text-5xl">
-              {user?.name || "MacroBox User"}
-            </h1>
+                <h1 className="mb-text mt-4 max-w-4xl text-[42px] font-light leading-[1.03] tracking-[-0.06em] sm:text-[62px] lg:text-[72px]">
+                  Your MacroBox,
+                  <br />
+                  your preferences.
+                </h1>
 
-            <p className="mt-2 text-sm font-semibold text-white/80 sm:text-base">
-              {user?.phone || "Phone not added"} • {user?.email || ""}
-            </p>
-          </div>
+                <p className="mb-text-muted mt-5 max-w-2xl text-sm leading-6 sm:text-base sm:leading-7">
+                  Manage your profile, verified phone number, account security
+                  and saved delivery locations.
+                </p>
+              </div>
 
-          <div className="grid gap-2 sm:grid-cols-3">
-            <AccountTopStat
-              label="Phone"
-              value={user?.isPhoneVerified ? "Verified" : "Pending"}
-            />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+                <AccountTopStat
+                  label="Member"
+                  value={user?.name || "MacroBox User"}
+                  icon={<UserCircle size={16} />}
+                />
 
-            <AccountTopStat label="Addresses" value={`${addresses.length} saved`} />
+                <AccountTopStat
+                  label="Phone"
+                  value={user?.isPhoneVerified ? "Verified" : "Pending"}
+                  icon={<Phone size={16} />}
+                  accent={user?.isPhoneVerified}
+                />
 
-            <AccountTopStat
-              label="Default"
-              value={defaultAddress?.addressLabel || "Not set"}
-            />
-          </div>
-        </div>
-      </section>
+                <AccountTopStat
+                  label="Addresses"
+                  value={`${addresses.length} saved`}
+                  icon={<MapPin size={16} />}
+                />
 
-      <section className="mx-auto -mt-12 max-w-6xl px-4 pb-10 sm:px-6">
-        <div className="grid bg-white shadow-[0_18px_55px_rgba(15,23,42,0.08)] lg:grid-cols-[280px_1fr]">
-          <aside className="border-b border-slate-100 bg-slate-50 p-4 lg:border-b-0 lg:border-r lg:p-6">
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-              <AccountNavButton
-                active={activeTab === "profile"}
-                icon={<UserCircle size={18} />}
-                label="Profile"
-                onClick={() => setActiveTab("profile")}
-              />
-
-              <AccountNavButton
-                active={activeTab === "phone"}
-                icon={<Phone size={18} />}
-                label="Phone Number"
-                onClick={() => setActiveTab("phone")}
-              />
-
-              <AccountNavButton
-                active={activeTab === "password"}
-                icon={<Lock size={18} />}
-                label="Password"
-                onClick={() => setActiveTab("password")}
-              />
-
-              <AccountNavButton
-                active={activeTab === "addresses"}
-                icon={<MapPin size={18} />}
-                label="Addresses"
-                onClick={() => setActiveTab("addresses")}
-              />
-
-              <AccountNavButton
-                active={activeTab === "account"}
-                icon={<Settings size={18} />}
-                label="Account"
-                onClick={() => setActiveTab("account")}
-              />
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex w-full items-center gap-3 px-4 py-4 text-left text-sm font-black text-red-600 transition hover:bg-red-50"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
-                  <LogOut size={18} />
-                </span>
-                Logout
-              </button>
+                <AccountTopStat
+                  label="Security"
+                  value={`${verifiedItems}/2 verified`}
+                  icon={<ShieldCheck size={16} />}
+                />
+              </div>
             </div>
-          </aside>
+          </div>
+        </section>
 
-          <div className="min-w-0 p-4 sm:p-6 lg:p-8">
-            {activeTab === "profile" && (
-              <AccountPanel
-                icon={<User size={22} />}
-                title="Profile"
-                subtitle="Update your display name and view account status."
-              >
-                <div className="mt-6 grid gap-5">
-                  <Field label="Name">
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className={inputClass}
+        <section className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          <div className="mb-glass overflow-hidden rounded-[32px] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+            <AccountNavigation
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              onLogout={handleLogout}
+            />
+
+            <div className="min-w-0 p-4 sm:p-6 lg:p-8">
+              {activeTab === "profile" && (
+                <AccountPanel
+                  icon={<User size={21} />}
+                  eyebrow="Personal information"
+                  title="Profile"
+                  subtitle="Manage the information displayed on your MacroBox account."
+                >
+                  <div className="grid gap-5">
+                    <ProfileOverview
+                      user={user}
+                      onChangePhone={() => setActiveTab("phone")}
                     />
-                  </Field>
 
-                  <Field label="Email">
-                    <input
-                      value={user?.email || ""}
-                      disabled
-                      className={inputClass}
-                    />
-                  </Field>
+                    <ThemeField label="Display name">
+                      <input
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        placeholder="Your name"
+                        className={themedInput}
+                      />
+                    </ThemeField>
 
-                  <div className="flex flex-wrap gap-2">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${
-                        user?.emailVerified
-                          ? "bg-green-100 text-green-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {user?.emailVerified
-                        ? "Email verified"
-                        : "Email not verified"}
-                    </span>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <ThemeField label="Email address">
+                        <div className="relative">
+                          <input
+                            value={user?.email || ""}
+                            disabled
+                            className={`${themedInput} pr-12`}
+                          />
+
+                          <VerificationIcon
+                            verified={Boolean(user?.emailVerified)}
+                          />
+                        </div>
+                      </ThemeField>
+
+                      <ThemeField label="Phone number">
+                        <div className="relative">
+                          <input
+                            value={formatPhone(user?.phone)}
+                            disabled
+                            className={`${themedInput} pr-12`}
+                          />
+
+                          <VerificationIcon
+                            verified={Boolean(user?.isPhoneVerified)}
+                          />
+                        </div>
+                      </ThemeField>
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <PrimaryButton
+                        onClick={updateProfile}
+                        loading={savingProfile}
+                      >
+                        <Save size={16} />
+                        {savingProfile ? "Saving..." : "Save profile"}
+                      </PrimaryButton>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("phone")}
+                        className="mb-outline-button inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
+                      >
+                        <Phone size={16} />
+                        Change phone
+                      </button>
+                    </div>
                   </div>
+                </AccountPanel>
+              )}
 
-                  <PrimaryButton onClick={updateProfile} loading={savingProfile}>
-                    <Save size={16} />
-                    {savingProfile ? "Saving..." : "Save Profile"}
-                  </PrimaryButton>
-                </div>
-              </AccountPanel>
-            )}
+              {activeTab === "phone" && (
+                <AccountPanel
+                  icon={<Phone size={21} />}
+                  eyebrow="Verified contact"
+                  title="Phone number"
+                  subtitle="Verify a WhatsApp OTP before replacing your registered number."
+                >
+                  <div className="grid gap-5">
+                    <CurrentPhoneCard user={user} />
 
-            {activeTab === "phone" && (
-              <AccountPanel
-                icon={<Phone size={22} />}
-                title="Phone Number"
-                subtitle="Verify WhatsApp OTP before updating your phone number."
-              >
-                <div className="mt-6 grid gap-5">
-                  <Field label="Phone number">
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <input
-                        value={phone}
-                        onChange={(e) => {
-                          setPhone(
-                            e.target.value.replace(/\D/g, "").slice(0, 10)
-                          );
-                          resetPhoneOtpState();
-                        }}
-                        placeholder="Phone number"
-                        className={inputClass}
+                    <ThemeField label="New phone number">
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <div className="relative flex-1">
+                          <span className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm">
+                            +91
+                          </span>
+
+                          <input
+                            value={phone}
+                            onChange={(event) => {
+                              setPhone(cleanPhoneNumber(event.target.value));
+                              resetPhoneOtpState();
+                            }}
+                            inputMode="numeric"
+                            placeholder="10-digit phone number"
+                            className={`${themedInput} pl-14`}
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={sendPhoneOtp}
+                          disabled={otpLoading || !phoneReady || !phoneChanged}
+                          className="mb-outline-button h-12 shrink-0 rounded-full px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {otpLoading && !otpSent
+                            ? "Sending..."
+                            : otpSent
+                              ? "Resend OTP"
+                              : "Get OTP"}
+                        </button>
+                      </div>
+                    </ThemeField>
+
+                    {!phoneChanged && (
+                      <InlineNotice
+                        type="neutral"
+                        text="Enter a different phone number to begin verification."
                       />
+                    )}
 
-                      <button
-                        type="button"
-                        onClick={sendPhoneOtp}
-                        disabled={otpLoading || !phoneReady || !phoneChanged}
-                        className="h-12 shrink-0 border border-green-600 px-5 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {otpLoading && !otpSent
-                          ? "Sending..."
-                          : otpSent
-                          ? "Resend OTP"
-                          : "Get OTP"}
-                      </button>
-                    </div>
-                  </Field>
+                    {otpSent && !phoneVerifiedForUpdate && (
+                      <ThemeField label="WhatsApp OTP">
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <input
+                            value={otp}
+                            onChange={(event) =>
+                              setOtp(
+                                event.target.value
+                                  .replace(/\D/g, "")
+                                  .slice(0, 6)
+                              )
+                            }
+                            inputMode="numeric"
+                            placeholder="Enter 6-digit OTP"
+                            className={`${themedInput} tracking-[0.3em]`}
+                          />
 
-                  {!phoneChanged && (
-                    <p className="text-xs font-bold text-slate-500">
-                      Enter a new phone number to enable OTP verification.
-                    </p>
-                  )}
+                          <button
+                            type="button"
+                            onClick={verifyPhoneOtp}
+                            disabled={otpLoading || otp.length !== 6}
+                            className="mb-primary-button h-12 shrink-0 rounded-full px-6 text-sm font-medium disabled:opacity-40"
+                          >
+                            {otpLoading ? "Verifying..." : "Verify OTP"}
+                          </button>
+                        </div>
+                      </ThemeField>
+                    )}
 
-                  {otpSent && !phoneVerifiedForUpdate && (
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                    {devOtp && !phoneVerifiedForUpdate && (
+                      <InlineNotice
+                        type="warning"
+                        text={`Development OTP: ${devOtp}`}
+                      />
+                    )}
+
+                    {phoneVerifiedForUpdate && (
+                      <InlineNotice
+                        type="success"
+                        text="Phone verified. You can now save this number."
+                      />
+                    )}
+
+                    <PrimaryButton
+                      onClick={updatePhone}
+                      loading={savingPhone}
+                      disabled={!phoneChanged || !phoneVerifiedForUpdate}
+                    >
+                      <Save size={16} />
+                      {savingPhone ? "Updating..." : "Update phone"}
+                    </PrimaryButton>
+
+                    <InlineNotice
+                      type="warning"
+                      text="Your phone number can only be changed after WhatsApp OTP verification."
+                    />
+                  </div>
+                </AccountPanel>
+              )}
+
+              {activeTab === "password" && (
+                <AccountPanel
+                  icon={<Lock size={21} />}
+                  eyebrow="Account security"
+                  title="Change password"
+                  subtitle="Use a strong password that is different from your other accounts."
+                >
+                  <div className="grid gap-5">
+                    <PasswordSecurityCard />
+
+                    <ThemeField label="Current password">
                       <input
-                        value={otp}
-                        onChange={(e) =>
-                          setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                        type="password"
+                        value={currentPassword}
+                        onChange={(event) =>
+                          setCurrentPassword(event.target.value)
                         }
-                        placeholder="Enter 6-digit OTP"
-                        className={inputClass}
+                        autoComplete="current-password"
+                        placeholder="Enter current password"
+                        className={themedInput}
                       />
+                    </ThemeField>
 
-                      <button
-                        type="button"
-                        onClick={verifyPhoneOtp}
-                        disabled={otpLoading || otp.length !== 6}
-                        className="h-12 shrink-0 bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700 disabled:opacity-50"
-                      >
-                        {otpLoading ? "Verifying..." : "Verify"}
-                      </button>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <ThemeField label="New password">
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(event) =>
+                            setNewPassword(event.target.value)
+                          }
+                          autoComplete="new-password"
+                          placeholder="Minimum 6 characters"
+                          className={themedInput}
+                        />
+                      </ThemeField>
+
+                      <ThemeField label="Confirm new password">
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(event) =>
+                            setConfirmPassword(event.target.value)
+                          }
+                          autoComplete="new-password"
+                          placeholder="Re-enter new password"
+                          className={themedInput}
+                        />
+                      </ThemeField>
                     </div>
-                  )}
 
-                  {devOtp && !phoneVerifiedForUpdate && (
-                    <p className="border border-yellow-300 bg-yellow-50 px-4 py-3 text-xs font-black text-yellow-800">
-                      Dev OTP: {devOtp}
-                    </p>
-                  )}
+                    <PrimaryButton
+                      onClick={changePassword}
+                      loading={savingPassword}
+                    >
+                      <ShieldCheck size={16} />
+                      {savingPassword ? "Changing..." : "Change password"}
+                    </PrimaryButton>
+                  </div>
+                </AccountPanel>
+              )}
 
-                  {phoneVerifiedForUpdate && (
-                    <p className="flex items-center gap-2 bg-green-50 px-4 py-3 text-xs font-black text-green-700">
-                      <CheckCircle2 size={16} />
-                      Phone number verified. You can update now.
-                    </p>
-                  )}
-
-                  <PrimaryButton
-                    onClick={updatePhone}
-                    loading={savingPhone}
-                    disabled={!phoneChanged || !phoneVerifiedForUpdate}
-                  >
-                    <Save size={16} />
-                    {savingPhone ? "Updating..." : "Update Phone"}
-                  </PrimaryButton>
-
-                  <p className="bg-yellow-50 px-4 py-3 text-xs font-bold text-yellow-700">
-                    Note: Phone number update requires WhatsApp OTP verification.
-                  </p>
-                </div>
-              </AccountPanel>
-            )}
-
-            {activeTab === "password" && (
-              <AccountPanel
-                icon={<Lock size={22} />}
-                title="Change Password"
-                subtitle="Keep your MacroBox account secure."
-              >
-                <div className="mt-6 grid gap-5">
-                  <Field label="Current password">
-                    <input
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="Current password"
-                      className={inputClass}
-                    />
-                  </Field>
-
-                  <Field label="New password">
-                    <input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="New password"
-                      className={inputClass}
-                    />
-                  </Field>
-
-                  <Field label="Confirm new password">
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                      className={inputClass}
-                    />
-                  </Field>
-
-                  <PrimaryButton
-                    onClick={changePassword}
-                    loading={savingPassword}
-                  >
-                    <ShieldCheck size={16} />
-                    {savingPassword ? "Changing..." : "Change Password"}
-                  </PrimaryButton>
-                </div>
-              </AccountPanel>
-            )}
-
-            {activeTab === "addresses" && (
-              <AccountPanel
-                icon={<MapPin size={22} />}
-                title="Saved Addresses"
-                subtitle="Manage your delivery addresses."
-                rightText={`${addresses.length} saved`}
-              >
-                <div className="mt-6">
+              {activeTab === "addresses" && (
+                <AccountPanel
+                  icon={<MapPin size={21} />}
+                  eyebrow="Delivery locations"
+                  title="Saved addresses"
+                  subtitle="Manage the locations available during MacroBox checkout."
+                  rightText={`${addresses.length} saved`}
+                >
                   {addresses.length === 0 ? (
-                    <p className="bg-slate-50 p-5 text-sm font-semibold text-slate-500">
-                      No saved addresses yet.
-                    </p>
+                    <EmptyAddresses />
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2">
                       {addresses.map((address) => (
-                        <article
-                          key={address._id}
-                          className="border border-slate-200 bg-slate-50 p-4"
-                        >
-                          <div className="mb-2 flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="truncate text-base font-black text-slate-950">
-                                  {address.addressLabel || "Address"}
-                                </h3>
-
-                                {address.isDefault && (
-                                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-black text-green-700">
-                                    Default
-                                  </span>
-                                )}
-                              </div>
-
-                              <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-700">
-                                {[address.flatNo, address.buildingName]
-                                  .filter(Boolean)
-                                  .join(", ") || "Address details"}
-                              </p>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => deleteAddress(address._id)}
-                              className="shrink-0 rounded-full p-2 text-red-500 hover:bg-red-50"
-                              aria-label="Delete address"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-
-                          <p className="line-clamp-2 text-xs font-semibold text-slate-500">
-                            {[address.area, address.city, address.state]
-                              .filter(Boolean)
-                              .join(", ")}
-                            {address.pincode ? ` - ${address.pincode}` : ""}
-                          </p>
-
-                          <p className="mt-2 line-clamp-1 text-xs font-semibold text-slate-500">
-                            {address.fullName || "User"} •{" "}
-                            {address.phone || "No phone"}
-                          </p>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {!address.isDefault && (
-                              <button
-                                type="button"
-                                onClick={() => setDefaultAddress(address._id)}
-                                className="border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50"
-                              >
-                                Set Default
-                              </button>
-                            )}
-
-                            {address.mapsUrl && (
-                              <a
-                                href={address.mapsUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="border border-green-600 bg-green-50 px-3 py-2 text-xs font-black text-green-700 hover:bg-green-100"
-                              >
-                                Open Map
-                              </a>
-                            )}
-                          </div>
-                        </article>
+                        <AddressCard
+                          key={address._id || address.mapsUrl}
+                          address={address}
+                          onDelete={() => deleteAddress(address._id)}
+                          onSetDefault={() =>
+                            setDefaultAddress(address._id)
+                          }
+                        />
                       ))}
                     </div>
                   )}
-                </div>
-              </AccountPanel>
-            )}
 
-            {activeTab === "account" && (
-              <AccountPanel
-                icon={<ShieldCheck size={22} />}
-                title="Account"
-                subtitle="Logout or deactivate your MacroBox account."
-              >
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="inline-flex h-12 items-center gap-2 bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800"
-                  >
-                    <LogOut size={16} />
-                    Logout
-                  </button>
+                  <p className="mb-text-faint mt-5 text-xs leading-5">
+                    New addresses can be added during checkout, where the exact
+                    map location can also be selected.
+                  </p>
+                </AccountPanel>
+              )}
 
-                  {!showDeactivateConfirm && (
-                    <button
-                      type="button"
+              {activeTab === "account" && (
+                <AccountPanel
+                  icon={<Settings size={21} />}
+                  eyebrow="Account controls"
+                  title="Account"
+                  subtitle="Sign out safely or deactivate your MacroBox account."
+                >
+                  <div className="grid gap-5">
+                    <AccountActionCard
+                      icon={<LogOut size={19} />}
+                      title="Sign out"
+                      description="Sign out of MacroBox on this device."
+                      action="Logout"
+                      onClick={handleLogout}
+                    />
+
+                    <AccountActionCard
+                      icon={<AlertTriangle size={19} />}
+                      title="Deactivate account"
+                      description="Disable your account and remove access until it is reactivated."
+                      action="Deactivate"
+                      danger
                       onClick={() => setShowDeactivateConfirm(true)}
-                      className="border border-red-300 px-5 py-3 text-sm font-black text-red-600 transition hover:bg-red-50"
-                    >
-                      Deactivate Account
-                    </button>
-                  )}
-                </div>
-
-                {showDeactivateConfirm && (
-                  <div className="mt-5 border border-red-200 bg-red-50 p-4">
-                    <p className="font-black text-red-700">
-                      Are you sure you want to deactivate your account?
-                    </p>
-
-                    <p className="mt-1 text-sm font-semibold text-red-600">
-                      You can reactivate later by signing up again with the same
-                      email.
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={deactivateAccount}
-                        disabled={deactivating}
-                        className="bg-red-600 px-4 py-2.5 text-sm font-black text-white hover:bg-red-700 disabled:opacity-60"
-                      >
-                        {deactivating ? "Deactivating..." : "Yes, deactivate"}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowDeactivateConfirm(false)}
-                        disabled={deactivating}
-                        className="border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    />
                   </div>
-                )}
-              </AccountPanel>
-            )}
+                </AccountPanel>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
+
+      {showDeactivateConfirm && (
+        <ConfirmationDialog
+          loading={deactivating}
+          onCancel={() => setShowDeactivateConfirm(false)}
+          onConfirm={deactivateAccount}
+        />
+      )}
     </main>
   );
 }
 
-function AccountTopStat({ label, value }: { label: string; value: string }) {
+function AccountLoading() {
   return (
-    <div className="border border-white/20 bg-white/10 px-4 py-3 text-white backdrop-blur-sm">
-      <p className="text-[10px] font-black uppercase tracking-wide text-white/50">
-        {label}
-      </p>
+    <main className="mb-theme-background flex min-h-screen items-center justify-center px-4">
+      <div className="mb-glass rounded-[28px] px-8 py-7 text-center">
+        <Loader2 className="mb-text mx-auto animate-spin" size={30} />
 
-      <p className="mt-1 text-sm font-black">{value}</p>
-    </div>
+        <p className="mb-text mt-4 text-sm font-medium">Loading account</p>
+
+        <p className="mb-text-faint mt-1 text-xs">
+          Preparing your MacroBox preferences.
+        </p>
+      </div>
+    </main>
   );
 }
 
-function AccountNavButton({
-  active,
-  icon,
+function AccountTopStat({
   label,
-  onClick,
+  value,
+  icon,
+  accent = false,
 }: {
-  active: boolean;
-  icon: React.ReactNode;
   label: string;
-  onClick: () => void;
+  value: string;
+  icon: ReactNode;
+  accent?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full items-center gap-3 px-4 py-4 text-left text-sm font-black transition ${
-        active ? "bg-white text-slate-950" : "text-slate-600 hover:bg-white/70"
-      }`}
-    >
+    <div className="mb-glass min-w-0 rounded-[22px] p-4 sm:min-w-[150px]">
       <span
-        className={`flex h-10 w-10 items-center justify-center rounded-full ${
-          active ? "bg-slate-950 text-white" : "bg-slate-200 text-slate-600"
+        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+          accent ? "mb-accent-surface" : "mb-outline-button"
         }`}
       >
         {icon}
       </span>
 
-      {label}
-    </button>
+      <p className="mb-text-faint mt-4 text-[9px] font-semibold uppercase tracking-[0.15em]">
+        {label}
+      </p>
+
+      <p className="mb-text mt-1 truncate text-sm font-medium">{value}</p>
+    </div>
+  );
+}
+
+function AccountNavigation({
+  activeTab,
+  setActiveTab,
+  onLogout,
+}: {
+  activeTab: AccountTab;
+  setActiveTab: (tab: AccountTab) => void;
+  onLogout: () => void;
+}) {
+  const items: {
+    tab: AccountTab;
+    label: string;
+    subtitle: string;
+    icon: ReactNode;
+  }[] = [
+    {
+      tab: "profile",
+      label: "Profile",
+      subtitle: "Name and contacts",
+      icon: <UserCircle size={18} />,
+    },
+    {
+      tab: "phone",
+      label: "Phone number",
+      subtitle: "WhatsApp verification",
+      icon: <Phone size={18} />,
+    },
+    {
+      tab: "password",
+      label: "Password",
+      subtitle: "Security settings",
+      icon: <Lock size={18} />,
+    },
+    {
+      tab: "addresses",
+      label: "Addresses",
+      subtitle: "Delivery locations",
+      icon: <MapPin size={18} />,
+    },
+    {
+      tab: "account",
+      label: "Account",
+      subtitle: "Logout and deactivate",
+      icon: <Settings size={18} />,
+    },
+  ];
+
+  return (
+    <aside className="mb-divider border-b p-3 lg:border-b-0 lg:border-r lg:p-4">
+      <div className="macrobox-hide-scrollbar flex gap-2 overflow-x-auto lg:block lg:space-y-2">
+        {items.map((item) => {
+          const active = activeTab === item.tab;
+
+          return (
+            <button
+              key={item.tab}
+              type="button"
+              onClick={() => setActiveTab(item.tab)}
+              className={`flex min-w-[170px] items-center gap-3 rounded-[20px] p-3 text-left transition lg:w-full lg:min-w-0 ${
+                active
+                  ? "mb-primary-button"
+                  : "mb-outline-button border-transparent bg-transparent"
+              }`}
+            >
+              <span
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                  active
+                    ? "bg-black/10"
+                    : "border border-[var(--mb-border)] bg-[var(--mb-surface)]"
+                }`}
+              >
+                {item.icon}
+              </span>
+
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">
+                  {item.label}
+                </span>
+
+                <span
+                  className={`mt-0.5 block truncate text-[10px] ${
+                    active ? "text-black/55" : "mb-text-faint"
+                  }`}
+                >
+                  {item.subtitle}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mb-divider mt-4 border-t pt-4">
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex w-full items-center gap-3 rounded-[20px] border border-red-300/20 bg-red-500/10 p-3 text-left text-red-200 transition hover:bg-red-500/20"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10">
+            <LogOut size={18} />
+          </span>
+
+          <span>
+            <span className="block text-sm font-medium">Logout</span>
+
+            <span className="mt-0.5 block text-[10px] text-red-200/60">
+              Sign out on this device
+            </span>
+          </span>
+        </button>
+      </div>
+    </aside>
   );
 }
 
 function AccountPanel({
   icon,
+  eyebrow,
   title,
   subtitle,
   children,
   rightText,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
+  eyebrow: string;
   title: string;
   subtitle: string;
-  children: React.ReactNode;
+  children: ReactNode;
   rightText?: string;
 }) {
   return (
     <section>
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-divider mb-6 flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+          <span className="mb-accent-surface flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
             {icon}
           </span>
 
           <div>
-            <h2 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+            <p className="mb-text-faint text-[9px] font-semibold uppercase tracking-[0.17em]">
+              {eyebrow}
+            </p>
+
+            <h2 className="mb-text mt-1 text-2xl font-light tracking-[-0.04em] sm:text-3xl">
               {title}
             </h2>
 
-            <p className="mt-1 text-sm font-semibold text-slate-500">
+            <p className="mb-text-muted mt-2 max-w-2xl text-sm leading-6">
               {subtitle}
             </p>
           </div>
         </div>
 
         {rightText && (
-          <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+          <span className="mb-outline-button w-fit rounded-full px-3 py-1.5 text-[10px] font-medium">
             {rightText}
           </span>
         )}
       </div>
 
-      <div className="max-w-3xl">{children}</div>
+      <div className="max-w-4xl">{children}</div>
     </section>
   );
 }
 
-function Field({
+function ProfileOverview({
+  user,
+  onChangePhone,
+}: {
+  user: CurrentUser | null;
+  onChangePhone: () => void;
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      <ProfileInfoCard
+        icon={<User size={17} />}
+        label="Name"
+        value={user?.name || "MacroBox User"}
+      />
+
+      <ProfileInfoCard
+        icon={<ShieldCheck size={17} />}
+        label="Email"
+        value={user?.email || "Email not available"}
+        verified={user?.emailVerified}
+      />
+
+      <button
+        type="button"
+        onClick={onChangePhone}
+        className="mb-glass-hover rounded-[22px] border border-[var(--mb-border)] bg-[var(--mb-surface)] p-4 text-left"
+      >
+        <div className="flex items-center justify-between">
+          <span className="mb-accent-surface flex h-9 w-9 items-center justify-center rounded-full">
+            <Phone size={17} />
+          </span>
+
+          <ChevronRight className="mb-text-faint" size={17} />
+        </div>
+
+        <p className="mb-text-faint mt-4 text-[9px] font-semibold uppercase tracking-[0.14em]">
+          Phone
+        </p>
+
+        <p className="mb-text mt-1 truncate text-sm font-medium">
+          {formatPhone(user?.phone)}
+        </p>
+
+        <p
+          className={`mt-2 text-[10px] font-medium ${
+            user?.isPhoneVerified ? "mb-accent" : "text-amber-200"
+          }`}
+        >
+          {user?.isPhoneVerified ? "Verified" : "Verification pending"}
+        </p>
+      </button>
+    </div>
+  );
+}
+
+function ProfileInfoCard({
+  icon,
+  label,
+  value,
+  verified,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  verified?: boolean;
+}) {
+  return (
+    <div className="rounded-[22px] border border-[var(--mb-border)] bg-[var(--mb-surface)] p-4">
+      <span className="mb-accent-surface flex h-9 w-9 items-center justify-center rounded-full">
+        {icon}
+      </span>
+
+      <p className="mb-text-faint mt-4 text-[9px] font-semibold uppercase tracking-[0.14em]">
+        {label}
+      </p>
+
+      <p className="mb-text mt-1 truncate text-sm font-medium">{value}</p>
+
+      {verified !== undefined && (
+        <p
+          className={`mt-2 text-[10px] font-medium ${
+            verified ? "mb-accent" : "text-amber-200"
+          }`}
+        >
+          {verified ? "Verified" : "Verification pending"}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CurrentPhoneCard({ user }: { user: CurrentUser | null }) {
+  return (
+    <div className="rounded-[22px] border border-[var(--mb-border)] bg-[var(--mb-surface)] p-4 sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="mb-accent-surface flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+          <Phone size={18} />
+        </span>
+
+        <div className="min-w-0">
+          <p className="mb-text-faint text-[9px] font-semibold uppercase tracking-[0.15em]">
+            Current phone
+          </p>
+
+          <p className="mb-text mt-2 text-lg font-light">
+            {formatPhone(user?.phone)}
+          </p>
+
+          <div className="mt-2">
+            <StatusBadge
+              verified={Boolean(user?.isPhoneVerified)}
+              verifiedText="Phone verified"
+              pendingText="Phone verification pending"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PasswordSecurityCard() {
+  return (
+    <div className="mb-accent-surface rounded-[22px] p-4">
+      <div className="flex items-start gap-3">
+        <ShieldCheck size={20} className="mt-0.5 shrink-0" />
+
+        <div>
+          <p className="text-sm font-semibold">Protect your MacroBox account</p>
+
+          <p className="mt-1 text-xs leading-5 opacity-80">
+            Use at least 6 characters and avoid reusing your email or phone
+            number as the password.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VerificationIcon({ verified }: { verified: boolean }) {
+  return (
+    <span
+      className={`absolute right-4 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full ${
+        verified
+          ? "border border-[var(--mb-accent-border)] bg-[var(--mb-accent-soft)] text-[var(--mb-accent-text)]"
+          : "border border-amber-300/20 bg-amber-500/10 text-amber-200"
+      }`}
+    >
+      {verified ? <Check size={14} /> : <AlertTriangle size={13} />}
+    </span>
+  );
+}
+
+function ThemeField({
   label,
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+      <span className="mb-text-faint mb-2 block text-[10px] font-semibold uppercase tracking-[0.14em]">
         {label}
       </span>
 
@@ -922,10 +1243,10 @@ function Field({
 function PrimaryButton({
   children,
   onClick,
-  loading,
-  disabled,
+  loading = false,
+  disabled = false,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   onClick: () => void;
   loading?: boolean;
   disabled?: boolean;
@@ -935,9 +1256,307 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={loading || disabled}
-      className="inline-flex h-12 w-fit items-center gap-2 bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+      className="mb-primary-button inline-flex h-12 w-fit items-center justify-center gap-2 rounded-full px-6 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
     >
+      {loading && <Loader2 className="animate-spin" size={16} />}
       {children}
     </button>
+  );
+}
+
+function StatusBadge({
+  verified,
+  verifiedText,
+  pendingText,
+}: {
+  verified: boolean;
+  verifiedText: string;
+  pendingText: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-medium ${
+        verified
+          ? "border-[var(--mb-accent-border)] bg-[var(--mb-accent-soft)] text-[var(--mb-accent-text)]"
+          : "border-amber-300/20 bg-amber-500/10 text-amber-200"
+      }`}
+    >
+      {verified ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
+      {verified ? verifiedText : pendingText}
+    </span>
+  );
+}
+
+function InlineNotice({
+  type,
+  text,
+}: {
+  type: "success" | "warning" | "neutral";
+  text: string;
+}) {
+  const style =
+    type === "success"
+      ? "border-[var(--mb-accent-border)] bg-[var(--mb-accent-soft)] text-[var(--mb-accent-text)]"
+      : type === "warning"
+        ? "border-amber-300/20 bg-amber-500/10 text-amber-100"
+        : "border-[var(--mb-border)] bg-[var(--mb-surface)] text-[var(--mb-text-muted)]";
+
+  return (
+    <div className={`rounded-[18px] border p-3 text-xs leading-5 ${style}`}>
+      <div className="flex items-start gap-2">
+        {type === "success" ? (
+          <CheckCircle2 size={15} className="mt-0.5 shrink-0" />
+        ) : type === "warning" ? (
+          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+        ) : (
+          <ShieldCheck size={15} className="mt-0.5 shrink-0" />
+        )}
+
+        <p>{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function AddressCard({
+  address,
+  onDelete,
+  onSetDefault,
+}: {
+  address: SavedAddress;
+  onDelete: () => void;
+  onSetDefault: () => void;
+}) {
+  return (
+    <article
+      className={`rounded-[24px] border p-4 transition sm:p-5 ${
+        address.isDefault
+          ? "border-[var(--mb-accent-border)] bg-[var(--mb-accent-soft)]"
+          : "mb-glass-hover border-[var(--mb-border)] bg-[var(--mb-surface)]"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+              address.isDefault ? "mb-primary-button" : "mb-outline-button"
+            }`}
+          >
+            {addressIcon(address.addressLabel)}
+          </span>
+
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="mb-text text-base font-medium">
+                {address.addressLabel || "Address"}
+              </h3>
+
+              {address.isDefault && (
+                <span className="mb-primary-button rounded-full px-2.5 py-1 text-[8px] font-medium">
+                  Default
+                </span>
+              )}
+            </div>
+
+            <p className="mb-text-muted mt-2 line-clamp-3 text-xs leading-5">
+              {addressText(address)}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label="Delete address"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-red-300/20 bg-red-500/10 text-red-200 transition hover:bg-red-500/20"
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+
+      <div className="mb-divider mt-4 border-t pt-4">
+        <p className="mb-text text-xs font-medium">
+          {address.fullName || "MacroBox User"}
+        </p>
+
+        <p className="mb-text-faint mt-1 text-[10px]">
+          {formatPhone(address.phone)}
+        </p>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {!address.isDefault && (
+          <button
+            type="button"
+            onClick={onSetDefault}
+            className="mb-outline-button inline-flex h-10 items-center gap-2 rounded-full px-4 text-xs font-medium"
+          >
+            <CheckCircle2 size={14} />
+            Set default
+          </button>
+        )}
+
+        {address.mapsUrl && (
+          <a
+            href={address.mapsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mb-outline-button inline-flex h-10 items-center gap-2 rounded-full px-4 text-xs font-medium"
+          >
+            <Navigation size={14} />
+            Open map
+          </a>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function EmptyAddresses() {
+  return (
+    <div className="rounded-[26px] border border-[var(--mb-border)] bg-[var(--mb-surface)] p-9 text-center">
+      <span className="mb-primary-button mx-auto flex h-14 w-14 items-center justify-center rounded-full">
+        <MapPin size={23} />
+      </span>
+
+      <h3 className="mb-text mt-5 text-xl font-light">No saved addresses</h3>
+
+      <p className="mb-text-muted mx-auto mt-2 max-w-md text-sm leading-6">
+        Add an address during checkout and it will appear here for future
+        orders.
+      </p>
+    </div>
+  );
+}
+
+function AccountActionCard({
+  icon,
+  title,
+  description,
+  action,
+  danger = false,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  action: string;
+  danger?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      className={`flex flex-col gap-4 rounded-[24px] border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${
+        danger
+          ? "border-red-300/20 bg-red-500/10"
+          : "border-[var(--mb-border)] bg-[var(--mb-surface)]"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
+            danger
+              ? "bg-red-500/10 text-red-200"
+              : "mb-accent-surface"
+          }`}
+        >
+          {icon}
+        </span>
+
+        <div>
+          <p className={`text-sm font-medium ${danger ? "text-red-100" : "mb-text"}`}>
+            {title}
+          </p>
+
+          <p
+            className={`mt-1 text-xs leading-5 ${
+              danger ? "text-red-100/65" : "mb-text-muted"
+            }`}
+          >
+            {description}
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onClick}
+        className={`h-11 shrink-0 rounded-full px-5 text-sm font-medium transition ${
+          danger
+            ? "border border-red-300/25 bg-red-500/15 text-red-100 hover:bg-red-500/25"
+            : "mb-outline-button"
+        }`}
+      >
+        {action}
+      </button>
+    </div>
+  );
+}
+
+function ConfirmationDialog({
+  loading,
+  onCancel,
+  onConfirm,
+}: {
+  loading: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+      <button
+        type="button"
+        aria-label="Close confirmation"
+        onClick={onCancel}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+      />
+
+      <div className="relative w-full max-w-[480px] rounded-[30px] border border-red-300/20 bg-[var(--mb-bg-secondary)] p-5 shadow-[var(--mb-shadow-large)] sm:p-7">
+        <div className="flex items-start justify-between gap-4">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-200">
+            <AlertTriangle size={21} />
+          </span>
+
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="mb-outline-button flex h-10 w-10 items-center justify-center rounded-full"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <h2 className="mb-text mt-6 text-2xl font-light tracking-[-0.04em]">
+          Deactivate account?
+        </h2>
+
+        <p className="mb-text-muted mt-3 text-sm leading-6">
+          Your MacroBox access will be disabled. Confirm only when you are sure
+          you no longer want to use this account.
+        </p>
+
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="mb-outline-button h-12 rounded-full text-sm font-medium"
+          >
+            Keep account
+          </button>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-red-300/25 bg-red-500/20 px-5 text-sm font-medium text-red-100 transition hover:bg-red-500/30 disabled:opacity-50"
+          >
+            {loading && <Loader2 className="animate-spin" size={16} />}
+            {loading ? "Deactivating..." : "Deactivate"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

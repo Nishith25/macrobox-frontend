@@ -1,30 +1,44 @@
 // frontend/src/pages/Orders.tsx (FRONTEND)
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router-dom";
-import api from "../api/api";
 import {
   ArrowDownUp,
   CalendarDays,
+  Check,
   CheckCircle2,
   ChevronRight,
   Clock,
   Filter,
+  Loader2,
   MapPin,
   Navigation,
   PackageCheck,
   Phone,
   RefreshCw,
   Search,
+  ShoppingBag,
+  Sparkles,
   Truck,
+  Utensils,
   X,
 } from "lucide-react";
+import toast from "react-hot-toast";
+
+import api from "../api/api";
 
 type DeliveryAgent = {
   _id?: string;
   name?: string;
   email?: string;
   phone?: string;
+
   deliveryProfile?: {
     phone?: string;
   };
@@ -46,6 +60,7 @@ type PlanDay = {
   date?: string;
   slot?: string;
   preference?: "veg" | "nonveg" | "mixed";
+
   selectedMeal?: string;
   selectedMealTitle?: string;
   selectedMealPrice?: number;
@@ -53,27 +68,43 @@ type PlanDay = {
   selectedMealCalories?: number;
   selectedMealCarbs?: number;
   selectedMealFat?: number;
+
   alternativeMeal?: string;
   alternativeMealTitle?: string;
+
   deliveryStatus?: string;
   kitchenStatus?: string;
 };
 
 type OrderItem = {
   meal?: string;
-  itemType?: "meal" | "plan" | "challenge_plan";
+
+  itemType?:
+    | "meal"
+    | "plan"
+    | "challenge_plan";
+
   planId?: string;
   challengeId?: string;
+
   title?: string;
   description?: string;
+
   price?: number;
   protein?: number;
   calories?: number;
   carbs?: number;
   fat?: number;
   qty?: number;
-  preference?: "veg" | "nonveg" | "mixed" | "";
+
+  preference?:
+    | "veg"
+    | "nonveg"
+    | "mixed"
+    | "";
+
   rewardEligible?: boolean;
+
   planItems?: PlanIncludedItem[];
   planDays?: PlanDay[];
 };
@@ -81,175 +112,307 @@ type OrderItem = {
 type Order = {
   _id: string;
   createdAt: string;
+
   totals: {
     subtotal: number;
     discount: number;
     payable: number;
+
     planSubtotal?: number;
     challengePlanSubtotal?: number;
     normalMealsSubtotal?: number;
+
     totalProtein: number;
     totalCalories: number;
     totalCarbs?: number;
     totalFat?: number;
   };
+
   coupon?: {
     code?: string;
     discount?: number;
     redeemed?: boolean;
-    applyOn?: "cart" | "plan" | "challenge_plan";
+
+    applyOn?:
+      | "cart"
+      | "plan"
+      | "challenge_plan";
   };
+
   items?: OrderItem[];
+
   delivery: {
     address: {
       fullName?: string;
       phone?: string;
+
       flatNo?: string;
       floor?: string;
       buildingName?: string;
       area?: string;
       landmark?: string;
+
       line1?: string;
       line2?: string;
+
       city?: string;
       state?: string;
       pincode?: string;
-      locationMode?: "manual" | "current";
+
+      locationMode?:
+        | "manual"
+        | "current";
+
       locationText?: string;
       formattedAddress?: string;
+
       lat?: number | null;
       lng?: number | null;
+
       mapsUrl?: string;
     };
+
     slot: {
       date: string;
       time: string;
     };
+
     status?: string;
     agent?: DeliveryAgent | null;
+
     tracking?: {
       currentLocation?: {
         lat?: number | null;
         lng?: number | null;
         updatedAt?: string | null;
       };
+
       eta?: {
         text?: string;
         distanceText?: string;
       };
     };
   };
+
   payment: {
     status: string;
   };
 };
 
-type RangeFilter = "all" | "30days" | "3months";
-type SortType = "newest" | "oldest" | "amountHigh" | "amountLow";
+type RangeFilter =
+  | "all"
+  | "30days"
+  | "3months";
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+type SortType =
+  | "newest"
+  | "oldest"
+  | "amountHigh"
+  | "amountLow";
 
-const isPlanItem = (item?: OrderItem) => {
-  return (
-    item?.itemType === "plan" ||
-    item?.itemType === "challenge_plan" ||
-    Boolean(item?.planId) ||
-    Boolean(item?.challengeId)
-  );
+type OrderSplitTotals = {
+  subtotal: number;
+  normalMealsSubtotal: number;
+  planSubtotal: number;
+  discount: number;
+  payable: number;
 };
 
-const getPlanId = (item?: OrderItem) => {
-  return String(item?.planId || item?.challengeId || "").trim();
-};
+const todayISO = () =>
+  new Date().toISOString().slice(0, 10);
 
-const readableStatus = (status?: string) => {
-  if (!status) return "Unassigned";
+const isPlanItem = (
+  item?: OrderItem
+) =>
+  item?.itemType === "plan" ||
+  item?.itemType ===
+    "challenge_plan" ||
+  Boolean(item?.planId) ||
+  Boolean(item?.challengeId);
+
+const getPlanId = (
+  item?: OrderItem
+) =>
+  String(
+    item?.planId ||
+      item?.challengeId ||
+      ""
+  ).trim();
+
+const readableStatus = (
+  status?: string
+) => {
+  if (!status) {
+    return "Unassigned";
+  }
 
   return status
     .replaceAll("_", " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+    .replace(/\b\w/g, (character) =>
+      character.toUpperCase()
+    );
 };
 
-const formatDateTime = (value?: string | null) => {
+const formatDateTime = (
+  value?: string | null
+) => {
   if (!value) return "N/A";
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return "N/A";
+  if (Number.isNaN(date.getTime())) {
+    return "N/A";
+  }
 
-  return date.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return date.toLocaleString(
+    "en-IN",
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }
+  );
 };
 
-const formatDateOnly = (value?: string | null) => {
+const formatDateOnly = (
+  value?: string | null
+) => {
   if (!value) return "N/A";
 
   const text = String(value);
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-    const [year, month, day] = text.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
+  if (
+    /^\d{4}-\d{2}-\d{2}$/.test(
+      text
+    )
+  ) {
+    const [year, month, day] =
+      text.split("-").map(Number);
 
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const date = new Date(
+      year,
+      month - 1,
+      day
+    );
+
+    return date.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
   }
 
   const date = new Date(text);
 
-  if (Number.isNaN(date.getTime())) return text;
+  if (Number.isNaN(date.getTime())) {
+    return text;
+  }
 
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
 };
 
-const formatSlot = (slot?: string) => {
+const formatSlot = (
+  slot?: string
+) => {
   if (!slot) return "N/A";
 
-  const hour = Number(slot.split(":")[0]);
+  const [hourText, minuteText] =
+    slot.split(":");
 
-  if (!Number.isFinite(hour)) return slot;
+  const hour = Number(hourText);
+  const minute = Number(
+    minuteText || 0
+  );
 
-  const period = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  if (!Number.isFinite(hour)) {
+    return slot;
+  }
 
-  return `${displayHour}:00 ${period}`;
+  const period =
+    hour >= 12 ? "PM" : "AM";
+
+  const displayHour =
+    hour % 12 === 0
+      ? 12
+      : hour % 12;
+
+  return `${displayHour}:${String(
+    minute
+  ).padStart(2, "0")} ${period}`;
 };
 
-const formatAddress = (addr?: Order["delivery"]["address"]) => {
-  if (!addr) return "Address not available";
-  if (addr.formattedAddress) return addr.formattedAddress;
+const formatAddress = (
+  address?: Order["delivery"]["address"]
+) => {
+  if (!address) {
+    return "Address not available";
+  }
+
+  if (address.formattedAddress) {
+    return address.formattedAddress;
+  }
 
   const parts = [
-    addr.flatNo || addr.line1,
-    addr.floor,
-    addr.buildingName || addr.line2,
-    addr.area,
-    addr.landmark,
-    addr.city,
-    addr.state,
-    addr.pincode,
+    address.flatNo ||
+      address.line1,
+    address.floor,
+    address.buildingName ||
+      address.line2,
+    address.area,
+    address.landmark,
+    address.city,
+    address.state,
+    address.pincode,
   ].filter(Boolean);
 
-  return parts.length ? parts.join(", ") : "Address not available";
+  return parts.length
+    ? parts.join(", ")
+    : "Address not available";
 };
 
-const mapsLinkFromAddress = (addr?: Order["delivery"]["address"]) => {
-  if (!addr) return null;
-  if (addr.mapsUrl) return addr.mapsUrl;
+const mapsLinkFromAddress = (
+  address?: Order["delivery"]["address"]
+) => {
+  if (!address) return null;
 
-  const text = String(addr.locationText || addr.formattedAddress || "").trim();
+  if (address.mapsUrl) {
+    return address.mapsUrl;
+  }
+
+  if (
+    Number.isFinite(
+      Number(address.lat)
+    ) &&
+    Number.isFinite(
+      Number(address.lng)
+    )
+  ) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${address.lat},${address.lng}`
+    )}`;
+  }
+
+  const text = String(
+    address.locationText ||
+      address.formattedAddress ||
+      ""
+  ).trim();
 
   if (!text) return null;
 
-  if (text.startsWith("http://") || text.startsWith("https://")) {
+  if (
+    text.startsWith("http://") ||
+    text.startsWith("https://")
+  ) {
     return text;
   }
 
@@ -258,277 +421,716 @@ const mapsLinkFromAddress = (addr?: Order["delivery"]["address"]) => {
   )}`;
 };
 
-const paymentBadgeClass = (status?: string) => {
-  switch (status) {
-    case "paid":
-      return "border-green-200 bg-green-50 text-green-700";
-    case "failed":
-      return "border-red-200 bg-red-50 text-red-700";
-    default:
-      return "border-yellow-200 bg-yellow-50 text-yellow-800";
-  }
+const getOrderTime = (
+  order: Order
+) => {
+  const time = new Date(
+    order.createdAt
+  ).getTime();
+
+  return Number.isNaN(time)
+    ? 0
+    : time;
 };
 
-const deliveryTextClass = (status?: string) => {
-  switch (status) {
-    case "delivered":
-      return "text-green-700";
-    case "out_for_delivery":
-      return "text-orange-700";
-    case "picked_up":
-      return "text-indigo-700";
-    case "accepted":
-      return "text-blue-700";
-    case "cancelled":
-      return "text-red-700";
-    default:
-      return "text-slate-600";
-  }
-};
-
-const getOrderTime = (order: Order) => {
-  const time = new Date(order.createdAt).getTime();
-  return Number.isNaN(time) ? 0 : time;
-};
-
-const getOrderYear = (order: Order) => {
-  const date = new Date(order.createdAt);
-  if (Number.isNaN(date.getTime())) return "";
-  return String(date.getFullYear());
-};
-
-const isSameInputDate = (order: Order, selectedDate: string) => {
-  if (!selectedDate) return true;
-
-  const date = new Date(order.createdAt);
-  if (Number.isNaN(date.getTime())) return false;
-
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-
-  return `${yyyy}-${mm}-${dd}` === selectedDate;
-};
-
-const getOrderSplitTotals = (order: Order) => {
-  const items = order.items || [];
-
-  const fallbackPlanSubtotal = items
-    .filter((item) => isPlanItem(item))
-    .reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1),
-      0
-    );
-
-  const savedPlanSubtotal = Number(
-    order.totals.planSubtotal || order.totals.challengePlanSubtotal || 0
+const getOrderYear = (
+  order: Order
+) => {
+  const date = new Date(
+    order.createdAt
   );
 
-  const planSubtotal =
-    savedPlanSubtotal > 0 ? savedPlanSubtotal : fallbackPlanSubtotal;
+  if (
+    Number.isNaN(date.getTime())
+  ) {
+    return "";
+  }
 
-  const subtotal = Number(order.totals.subtotal || 0);
-  const savedNormalMealsSubtotal = Number(order.totals.normalMealsSubtotal || 0);
+  return String(
+    date.getFullYear()
+  );
+};
+
+const isSameInputDate = (
+  order: Order,
+  selectedDate: string
+) => {
+  if (!selectedDate) {
+    return true;
+  }
+
+  const date = new Date(
+    order.createdAt
+  );
+
+  if (
+    Number.isNaN(date.getTime())
+  ) {
+    return false;
+  }
+
+  const year =
+    date.getFullYear();
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  return (
+    `${year}-${month}-${day}` ===
+    selectedDate
+  );
+};
+
+const getOrderSplitTotals = (
+  order: Order
+): OrderSplitTotals => {
+  const items = order.items || [];
+
+  const fallbackPlanSubtotal =
+    items
+      .filter((item) =>
+        isPlanItem(item)
+      )
+      .reduce(
+        (sum, item) =>
+          sum +
+          Number(item.price || 0) *
+            Number(item.qty || 1),
+        0
+      );
+
+  const savedPlanSubtotal =
+    Number(
+      order.totals
+        .planSubtotal ||
+        order.totals
+          .challengePlanSubtotal ||
+        0
+    );
+
+  const planSubtotal =
+    savedPlanSubtotal > 0
+      ? savedPlanSubtotal
+      : fallbackPlanSubtotal;
+
+  const subtotal = Number(
+    order.totals.subtotal || 0
+  );
+
+  const savedNormalSubtotal =
+    Number(
+      order.totals
+        .normalMealsSubtotal || 0
+    );
 
   const normalMealsSubtotal =
-    savedNormalMealsSubtotal > 0
-      ? savedNormalMealsSubtotal
-      : Math.max(subtotal - planSubtotal, 0);
+    savedNormalSubtotal > 0
+      ? savedNormalSubtotal
+      : Math.max(
+          subtotal - planSubtotal,
+          0
+        );
 
   return {
     subtotal,
     normalMealsSubtotal,
     planSubtotal,
-    discount: Number(order.totals.discount || 0),
-    payable: Number(order.totals.payable || 0),
+
+    discount: Number(
+      order.totals.discount || 0
+    ),
+
+    payable: Number(
+      order.totals.payable || 0
+    ),
   };
 };
 
-const getNextPlanDay = (item: OrderItem) => {
-  const planDays = item.planDays || [];
+const getNextPlanDay = (
+  item: OrderItem
+) => {
+  const planDays =
+    item.planDays || [];
+
   const today = todayISO();
 
   return (
     planDays.find(
-      (day) => day.date === today && day.deliveryStatus !== "delivered"
+      (day) =>
+        day.date === today &&
+        day.deliveryStatus !==
+          "delivered"
     ) ||
-    planDays.find((day) => day.deliveryStatus !== "delivered") ||
+    planDays.find(
+      (day) =>
+        day.deliveryStatus !==
+        "delivered"
+    ) ||
     planDays[0] ||
     null
   );
 };
 
-const getOrderKitchenName = (order: Order) => {
-  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
+const getOrderKitchenName = (
+  order: Order
+) => {
+  const hasPlan = (
+    order.items || []
+  ).some((item) =>
+    isPlanItem(item)
+  );
 
-  if (hasPlan) return "MacroBox Meal Plan";
-
-  return "MacroBox Meals";
+  return hasPlan
+    ? "MacroBox Meal Plan"
+    : "MacroBox Meals";
 };
 
-const getOrderImageText = (order: Order) => {
-  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
+const getOrderImageText = (
+  order: Order
+) => {
+  const hasPlan = (
+    order.items || []
+  ).some((item) =>
+    isPlanItem(item)
+  );
+
   return hasPlan ? "MB" : "M";
 };
 
-const getPrimaryOrderItemText = (order: Order) => {
-  const items = order.items || [];
+const getPrimaryOrderItemText = (
+  order: Order
+) => {
+  const items =
+    order.items || [];
 
-  if (!items.length) return "No items";
+  if (!items.length) {
+    return "No items";
+  }
 
   const first = items[0];
-  const isPlan = isPlanItem(first);
 
-  if (isPlan) {
-    const planDays = first.planDays || [];
-    const count = planDays.length || first.planItems?.length || first.qty || 1;
+  if (isPlanItem(first)) {
+    const planDays =
+      first.planDays || [];
 
-    return `${first.title || "Meal Plan"} × ${
+    const count =
+      planDays.length ||
+      first.planItems?.length ||
+      first.qty ||
+      1;
+
+    return `${
+      first.title || "Meal Plan"
+    } × ${
       first.qty || 1
     } • ${count} day schedule`;
   }
 
-  const remaining = items.length - 1;
+  const remaining =
+    items.length - 1;
 
-  return `${first.title || "Meal"} × ${first.qty || 1}${
-    remaining > 0 ? ` + ${remaining} more` : ""
+  return `${
+    first.title || "Meal"
+  } × ${first.qty || 1}${
+    remaining > 0
+      ? ` + ${remaining} more`
+      : ""
   }`;
 };
 
+const getPaymentStyle = (
+  status?: string
+) => {
+  if (status === "paid") {
+    return "mb-success-message";
+  }
+
+  if (status === "failed") {
+    return "mb-danger-message";
+  }
+
+  return "mb-warning-badge";
+};
+
+const getDeliveryStyle = (
+  status?: string
+) => {
+  if (status === "delivered") {
+    return "mb-success-message";
+  }
+
+  if (
+    status ===
+      "out_for_delivery" ||
+    status === "picked_up"
+  ) {
+    return "mb-highlight-badge";
+  }
+
+  if (
+    status === "cancelled"
+  ) {
+    return "mb-danger-message";
+  }
+
+  if (
+    status === "accepted"
+  ) {
+    return "mb-info-message";
+  }
+
+  return "mb-outline-button";
+};
+
+const getDeliveryIcon = (
+  status?: string
+) => {
+  if (status === "delivered") {
+    return (
+      <CheckCircle2 size={14} />
+    );
+  }
+
+  if (
+    status ===
+      "out_for_delivery" ||
+    status === "picked_up"
+  ) {
+    return <Truck size={14} />;
+  }
+
+  return <Clock size={14} />;
+};
+
 export default function Orders() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const [orders, setOrders] =
+    useState<Order[]>([]);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedYear, setSelectedYear] = useState("all");
-  const [rangeFilter, setRangeFilter] = useState<RangeFilter>("all");
-  const [sortType, setSortType] = useState<SortType>("newest");
+  const [loading, setLoading] =
+    useState(true);
 
-  const fetchOrders = async () => {
-    try {
-      const res = await api.get("/orders");
-      setOrders(Array.isArray(res.data) ? res.data : []);
-    } catch (error) {
-      console.error("Failed to fetch orders:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
 
-  useEffect(() => {
-    fetchOrders();
-
-    const interval = setInterval(fetchOrders, 10000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const availableYears = useMemo(() => {
-    return orders
-      .map((order) => getOrderYear(order))
-      .filter(Boolean)
-      .filter((year, index, arr) => arr.indexOf(year) === index)
-      .sort((a, b) => Number(b) - Number(a));
-  }, [orders]);
-
-  const filteredOrders = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    const now = Date.now();
-    const last30Days = now - 30 * 24 * 60 * 60 * 1000;
-    const last3Months = now - 90 * 24 * 60 * 60 * 1000;
-
-    const filtered = orders.filter((order) => {
-      const orderTime = getOrderTime(order);
-      const year = getOrderYear(order);
-      const address = formatAddress(order.delivery?.address);
-      const deliveryStatus = readableStatus(order.delivery?.status);
-      const paymentStatus = order.payment?.status || "";
-
-      const itemTitles =
-        order.items
-          ?.map((item) => {
-            const planItems =
-              item.planItems?.map((p) => p.title || "").join(" ") || "";
-
-            const planDays =
-              item.planDays
-                ?.map(
-                  (day) =>
-                    `${day.selectedMealTitle || ""} ${
-                      day.alternativeMealTitle || ""
-                    } ${day.date || ""} ${day.slot || ""}`
-                )
-                .join(" ") || "";
-
-            return `${
-              item.title || "Meal"
-            } ${getPlanId(item)} ${planItems} ${planDays}`;
-          })
-          .join(" ") || "";
-
-      const splitTotals = getOrderSplitTotals(order);
-
-      const searchableText = [
-        order._id,
-        formatDateTime(order.createdAt),
-        address,
-        deliveryStatus,
-        paymentStatus,
-        itemTitles,
-        order.coupon?.code || "",
-        String(splitTotals.payable || ""),
-        String(splitTotals.discount || ""),
-        String(splitTotals.planSubtotal || ""),
-        String(splitTotals.normalMealsSubtotal || ""),
-        String(order.totals.totalCalories || ""),
-        String(order.totals.totalProtein || ""),
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      const matchesSearch = !query || searchableText.includes(query);
-      const matchesDate = isSameInputDate(order, selectedDate);
-      const matchesYear = selectedYear === "all" || year === selectedYear;
-
-      const matchesRange =
-        rangeFilter === "all" ||
-        (rangeFilter === "30days" && orderTime >= last30Days) ||
-        (rangeFilter === "3months" && orderTime >= last3Months);
-
-      return matchesSearch && matchesDate && matchesYear && matchesRange;
-    });
-
-    filtered.sort((a, b) => {
-      if (sortType === "newest") return getOrderTime(b) - getOrderTime(a);
-      if (sortType === "oldest") return getOrderTime(a) - getOrderTime(b);
-      if (sortType === "amountHigh") {
-        return (b.totals.payable || 0) - (a.totals.payable || 0);
-      }
-      if (sortType === "amountLow") {
-        return (a.totals.payable || 0) - (b.totals.payable || 0);
-      }
-
-      return 0;
-    });
-
-    return filtered;
-  }, [orders, searchQuery, selectedDate, selectedYear, rangeFilter, sortType]);
-
-  const paidOrders = orders.filter((order) => order.payment?.status === "paid");
-  const planOrders = orders.filter((order) =>
-    (order.items || []).some((item) => isPlanItem(item))
+  const [
+    selectedOrder,
+    setSelectedOrder,
+  ] = useState<Order | null>(
+    null
   );
 
+  const [
+    showFilters,
+    setShowFilters,
+  ] = useState(false);
+
+  const [
+    searchQuery,
+    setSearchQuery,
+  ] = useState("");
+
+  const [
+    selectedDate,
+    setSelectedDate,
+  ] = useState("");
+
+  const [
+    selectedYear,
+    setSelectedYear,
+  ] = useState("all");
+
+  const [
+    rangeFilter,
+    setRangeFilter,
+  ] =
+    useState<RangeFilter>("all");
+
+  const [
+    sortType,
+    setSortType,
+  ] =
+    useState<SortType>("newest");
+
+  const fetchOrders = useCallback(
+    async (
+      showFeedback = false
+    ) => {
+      try {
+        if (showFeedback) {
+          setRefreshing(true);
+        }
+
+        const response =
+          await api.get("/orders");
+
+        setOrders(
+          Array.isArray(
+            response.data
+          )
+            ? response.data
+            : []
+        );
+
+        if (showFeedback) {
+          toast.success(
+            "Orders refreshed."
+          );
+        }
+      } catch (error: any) {
+        console.error(
+          "Failed to fetch orders:",
+          error
+        );
+
+        if (showFeedback) {
+          toast.error(
+            error?.response?.data
+              ?.message ||
+              "Failed to refresh orders."
+          );
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    void fetchOrders();
+
+    const interval = window.setInterval(
+      () => {
+        void fetchOrders();
+      },
+      10000
+    );
+
+    return () =>
+      window.clearInterval(
+        interval
+      );
+  }, [fetchOrders]);
+
+  const availableYears =
+    useMemo(() => {
+      return orders
+        .map((order) =>
+          getOrderYear(order)
+        )
+        .filter(Boolean)
+        .filter(
+          (
+            year,
+            index,
+            years
+          ) =>
+            years.indexOf(
+              year
+            ) === index
+        )
+        .sort(
+          (a, b) =>
+            Number(b) -
+            Number(a)
+        );
+    }, [orders]);
+
+  const filteredOrders =
+    useMemo(() => {
+      const query =
+        searchQuery
+          .trim()
+          .toLowerCase();
+
+      const now = Date.now();
+
+      const last30Days =
+        now -
+        30 *
+          24 *
+          60 *
+          60 *
+          1000;
+
+      const last3Months =
+        now -
+        90 *
+          24 *
+          60 *
+          60 *
+          1000;
+
+      const filtered =
+        orders.filter((order) => {
+          const orderTime =
+            getOrderTime(order);
+
+          const year =
+            getOrderYear(order);
+
+          const address =
+            formatAddress(
+              order.delivery
+                ?.address
+            );
+
+          const deliveryStatus =
+            readableStatus(
+              order.delivery
+                ?.status
+            );
+
+          const paymentStatus =
+            order.payment
+              ?.status || "";
+
+          const itemTitles =
+            order.items
+              ?.map((item) => {
+                const planItems =
+                  item.planItems
+                    ?.map(
+                      (
+                        planItem
+                      ) =>
+                        planItem.title ||
+                        ""
+                    )
+                    .join(" ") ||
+                  "";
+
+                const planDays =
+                  item.planDays
+                    ?.map(
+                      (day) =>
+                        `${
+                          day.selectedMealTitle ||
+                          ""
+                        } ${
+                          day.alternativeMealTitle ||
+                          ""
+                        } ${
+                          day.date ||
+                          ""
+                        } ${
+                          day.slot ||
+                          ""
+                        }`
+                    )
+                    .join(" ") ||
+                  "";
+
+                return `${
+                  item.title ||
+                  "Meal"
+                } ${getPlanId(
+                  item
+                )} ${planItems} ${planDays}`;
+              })
+              .join(" ") || "";
+
+          const splitTotals =
+            getOrderSplitTotals(
+              order
+            );
+
+          const searchable =
+            [
+              order._id,
+              formatDateTime(
+                order.createdAt
+              ),
+              address,
+              deliveryStatus,
+              paymentStatus,
+              itemTitles,
+              order.coupon
+                ?.code || "",
+              String(
+                splitTotals.payable
+              ),
+              String(
+                splitTotals.discount
+              ),
+              String(
+                splitTotals.planSubtotal
+              ),
+              String(
+                splitTotals.normalMealsSubtotal
+              ),
+              String(
+                order.totals
+                  .totalCalories ||
+                  ""
+              ),
+              String(
+                order.totals
+                  .totalProtein ||
+                  ""
+              ),
+            ]
+              .join(" ")
+              .toLowerCase();
+
+          const matchesSearch =
+            !query ||
+            searchable.includes(
+              query
+            );
+
+          const matchesDate =
+            isSameInputDate(
+              order,
+              selectedDate
+            );
+
+          const matchesYear =
+            selectedYear ===
+              "all" ||
+            year ===
+              selectedYear;
+
+          const matchesRange =
+            rangeFilter ===
+              "all" ||
+            (rangeFilter ===
+              "30days" &&
+              orderTime >=
+                last30Days) ||
+            (rangeFilter ===
+              "3months" &&
+              orderTime >=
+                last3Months);
+
+          return (
+            matchesSearch &&
+            matchesDate &&
+            matchesYear &&
+            matchesRange
+          );
+        });
+
+      filtered.sort((a, b) => {
+        if (
+          sortType === "newest"
+        ) {
+          return (
+            getOrderTime(b) -
+            getOrderTime(a)
+          );
+        }
+
+        if (
+          sortType === "oldest"
+        ) {
+          return (
+            getOrderTime(a) -
+            getOrderTime(b)
+          );
+        }
+
+        if (
+          sortType ===
+          "amountHigh"
+        ) {
+          return (
+            Number(
+              b.totals
+                .payable || 0
+            ) -
+            Number(
+              a.totals
+                .payable || 0
+            )
+          );
+        }
+
+        if (
+          sortType ===
+          "amountLow"
+        ) {
+          return (
+            Number(
+              a.totals
+                .payable || 0
+            ) -
+            Number(
+              b.totals
+                .payable || 0
+            )
+          );
+        }
+
+        return 0;
+      });
+
+      return filtered;
+    }, [
+      orders,
+      searchQuery,
+      selectedDate,
+      selectedYear,
+      rangeFilter,
+      sortType,
+    ]);
+
+  const paidOrders = useMemo(
+    () =>
+      orders.filter(
+        (order) =>
+          order.payment
+            ?.status === "paid"
+      ),
+    [orders]
+  );
+
+  const planOrders = useMemo(
+    () =>
+      orders.filter((order) =>
+        (
+          order.items || []
+        ).some((item) =>
+          isPlanItem(item)
+        )
+      ),
+    [orders]
+  );
+
+  const activeDeliveries =
+    useMemo(
+      () =>
+        orders.filter(
+          (order) =>
+            ![
+              "delivered",
+              "cancelled",
+            ].includes(
+              order.delivery
+                ?.status || ""
+            )
+        ).length,
+      [orders]
+    );
+
   const hasActiveFilters =
-    searchQuery.trim() ||
-    selectedDate ||
-    selectedYear !== "all" ||
-    rangeFilter !== "all" ||
-    sortType !== "newest";
+    Boolean(
+      searchQuery.trim() ||
+        selectedDate ||
+        selectedYear !==
+          "all" ||
+        rangeFilter !==
+          "all" ||
+        sortType !== "newest"
+    );
 
   const clearFilters = () => {
     setSearchQuery("");
@@ -539,260 +1141,323 @@ export default function Orders() {
   };
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-white px-4">
-        <div className="border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-700 shadow-sm">
-          Loading orders...
-        </div>
-      </main>
-    );
+    return <OrdersLoading />;
   }
 
   return (
-    <main className="min-h-screen bg-white pb-10 text-slate-950">
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6 sm:py-10">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.38em] text-slate-400 sm:tracking-[0.45em]">
-                MacroBox Orders
-              </p>
-
-              <h1 className="mt-5 text-4xl font-black leading-[0.95] tracking-[-0.06em] text-slate-950 sm:mt-6 sm:text-6xl">
-                Track your
-                <br />
-                meal orders
-              </h1>
-
-              <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-slate-500 sm:mt-5 sm:text-base sm:leading-7">
-                Track your MacroBox meals, plan schedules, bill details and live
-                delivery status.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
-              <HeaderBox label="Orders" value={`${orders.length}`} />
-              <HeaderBox label="Paid" value={`${paidOrders.length}`} />
-              <HeaderBox label="Plans" value={`${planOrders.length}`} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="mx-auto max-w-[1180px] px-4 py-5 sm:px-6 sm:py-6">
-        <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-4 sm:p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <main className="mb-theme-background relative min-h-screen overflow-x-hidden pb-16">
+      <div className="relative z-10">
+        <section className="mb-divider border-b">
+          <div className="mx-auto max-w-[1240px] px-4 pb-9 pt-9 sm:px-6 sm:pb-12 sm:pt-12 lg:px-8 lg:pb-16 lg:pt-16">
+            <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
               <div>
-                <h2 className="text-xl font-black tracking-[-0.04em] text-slate-950 sm:text-2xl">
-                  Past Orders
-                </h2>
+                <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-[0.28em] sm:text-xs">
+                  MacroBox Orders
+                </p>
 
-                <p className="mt-1 text-sm font-bold text-slate-500">
-                  {filteredOrders.length} of {orders.length} orders
+                <h1 className="mb-text mt-4 max-w-4xl text-[42px] font-light leading-[1.03] tracking-[-0.06em] sm:text-[62px] lg:text-[76px]">
+                  Follow every meal,
+                  <br />
+                  from kitchen to door.
+                </h1>
+
+                <p className="mb-text-muted mt-5 max-w-2xl text-sm leading-6 sm:text-base sm:leading-7">
+                  Review payments,
+                  meal-plan schedules,
+                  delivery information and
+                  live tracking for every
+                  MacroBox order.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+                <HeaderSummary
+                  label="Orders"
+                  value={String(
+                    orders.length
+                  )}
+                  icon={
+                    <ShoppingBag
+                      size={17}
+                    />
+                  }
+                />
+
+                <HeaderSummary
+                  label="Paid"
+                  value={String(
+                    paidOrders.length
+                  )}
+                  icon={
+                    <CheckCircle2
+                      size={17}
+                    />
+                  }
+                  accent
+                />
+
+                <HeaderSummary
+                  label="Plans"
+                  value={String(
+                    planOrders.length
+                  )}
+                  icon={
+                    <Utensils
+                      size={17}
+                    />
+                  }
+                />
+
+                <HeaderSummary
+                  label="In progress"
+                  value={String(
+                    activeDeliveries
+                  )}
+                  icon={
+                    <Truck size={17} />
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          <section className="mb-glass overflow-hidden rounded-[30px]">
+            <div className="mb-divider flex flex-col gap-4 border-b p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div>
+                <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-[0.2em]">
+                  Order history
+                </p>
+
+                <h2 className="mb-text mt-2 text-2xl font-light tracking-[-0.04em] sm:text-3xl">
+                  Past orders
+                </h2>
+
+                <p className="mb-text-muted mt-2 text-sm">
+                  Showing{" "}
+                  {filteredOrders.length}{" "}
+                  of {orders.length} orders.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:flex">
                 <button
                   type="button"
-                  onClick={fetchOrders}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                  onClick={() =>
+                    void fetchOrders(
+                      true
+                    )
+                  }
+                  disabled={refreshing}
+                  className="mb-outline-button inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
                 >
-                  <RefreshCw size={16} />
+                  <RefreshCw
+                    size={16}
+                    className={
+                      refreshing
+                        ? "animate-spin"
+                        : ""
+                    }
+                  />
+
                   Refresh
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setShowFilters(true)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-4 text-sm font-black text-white transition hover:bg-green-700"
+                  onClick={() =>
+                    setShowFilters(
+                      true
+                    )
+                  }
+                  className="mb-primary-button inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
                 >
                   <Filter size={16} />
                   Filters
                 </button>
               </div>
             </div>
-          </div>
 
-          <div className="border-b border-slate-200 p-4 sm:p-5">
-            <div className="relative">
-              <Search
-                size={17}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search orders, coupon, address, order id..."
-                className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:bg-white"
-              />
-            </div>
-
-            {hasActiveFilters && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                  Filters active
-                </span>
-
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-600 hover:bg-slate-50"
-                >
-                  Clear filters
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="p-4 sm:p-5">
-            {orders.length === 0 ? (
-              <EmptyState
-                title="No orders yet."
-                description="Your paid meals, plans and live tracking details will appear here."
-              />
-            ) : filteredOrders.length === 0 ? (
-              <EmptyState
-                title="No matching orders."
-                description="Try changing your search, date, year or range filters."
-              />
-            ) : (
-              <div className="grid gap-4">
-                {filteredOrders.map((order) => (
-                  <OrderCard
-                    key={order._id}
-                    order={order}
-                    onViewDetails={() => setSelectedOrder(order)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-
-      {showFilters && (
-        <Drawer
-          title="Filter Orders"
-          subtitle="Search, sort and filter your order history."
-          onClose={() => setShowFilters(false)}
-        >
-          <div className="grid gap-4">
-            <Field label="SEARCH">
+            <div className="mb-divider border-b p-4 sm:p-5">
               <div className="relative">
                 <Search
-                  size={16}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={17}
+                  className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
                 />
 
                 <input
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search orders..."
-                  className="input-clean pl-11"
-                />
-              </div>
-            </Field>
-
-            <Field label="ORDER DATE">
-              <div className="relative">
-                <CalendarDays
-                  size={16}
-                  className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
-                />
-
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(event) => setSelectedDate(event.target.value)}
-                  className="input-clean pl-11"
-                />
-              </div>
-            </Field>
-
-            <Field label="YEAR">
-              <select
-                value={selectedYear}
-                onChange={(event) => setSelectedYear(event.target.value)}
-                className="input-clean"
-              >
-                <option value="all">All Years</option>
-                {availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="RANGE">
-              <select
-                value={rangeFilter}
-                onChange={(event) =>
-                  setRangeFilter(event.target.value as RangeFilter)
-                }
-                className="input-clean"
-              >
-                <option value="all">All Time</option>
-                <option value="30days">Last 30 Days</option>
-                <option value="3months">Last 3 Months</option>
-              </select>
-            </Field>
-
-            <Field label="SORT BY">
-              <div className="relative">
-                <ArrowDownUp
-                  size={16}
-                  className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
-                />
-
-                <select
-                  value={sortType}
                   onChange={(event) =>
-                    setSortType(event.target.value as SortType)
+                    setSearchQuery(
+                      event.target
+                        .value
+                    )
                   }
-                  className="input-clean pl-11"
-                >
-                  <option value="newest">Newest</option>
-                  <option value="oldest">Oldest</option>
-                  <option value="amountHigh">Amount High</option>
-                  <option value="amountLow">Amount Low</option>
-                </select>
+                  placeholder="Search order ID, meal, coupon, address or status..."
+                  className="mb-input h-[52px] w-full rounded-full pl-11 pr-5 text-sm font-medium"
+                />
               </div>
-            </Field>
-          </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={clearFilters}
-              disabled={!hasActiveFilters}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <X size={16} />
-              Clear
-            </button>
+              {hasActiveFilters && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="mb-accent-surface inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold">
+                    <Check size={12} />
+                    Filters active
+                  </span>
 
-            <button
-              type="button"
-              onClick={() => setShowFilters(false)}
-              className="inline-flex h-12 items-center justify-center rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
-            >
-              Apply
-            </button>
-          </div>
-        </Drawer>
+                  <button
+                    type="button"
+                    onClick={
+                      clearFilters
+                    }
+                    className="mb-outline-button rounded-full px-3 py-1 text-[10px] font-medium"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 sm:p-5 lg:p-6">
+              {orders.length === 0 ? (
+                <EmptyState
+                  title="No orders yet"
+                  description="Your paid meals, plans and delivery information will appear here."
+                />
+              ) : filteredOrders.length ===
+                0 ? (
+                <EmptyState
+                  title="No matching orders"
+                  description="Try changing the search, date, year, range or sorting filters."
+                />
+              ) : (
+                <div className="grid gap-4">
+                  {filteredOrders.map(
+                    (order) => (
+                      <OrderCard
+                        key={order._id}
+                        order={order}
+                        onViewDetails={() =>
+                          setSelectedOrder(
+                            order
+                          )
+                        }
+                      />
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {showFilters && (
+        <FilterDrawer
+          searchQuery={searchQuery}
+          selectedDate={
+            selectedDate
+          }
+          selectedYear={
+            selectedYear
+          }
+          rangeFilter={
+            rangeFilter
+          }
+          sortType={sortType}
+          availableYears={
+            availableYears
+          }
+          hasActiveFilters={
+            hasActiveFilters
+          }
+          setSearchQuery={
+            setSearchQuery
+          }
+          setSelectedDate={
+            setSelectedDate
+          }
+          setSelectedYear={
+            setSelectedYear
+          }
+          setRangeFilter={
+            setRangeFilter
+          }
+          setSortType={
+            setSortType
+          }
+          onClear={clearFilters}
+          onClose={() =>
+            setShowFilters(false)
+          }
+        />
       )}
 
       {selectedOrder && (
         <OrderDetailsDrawer
           order={selectedOrder}
-          onClose={() => setSelectedOrder(null)}
+          onClose={() =>
+            setSelectedOrder(null)
+          }
         />
       )}
     </main>
+  );
+}
+
+function OrdersLoading() {
+  return (
+    <main className="mb-theme-background flex min-h-screen items-center justify-center px-4">
+      <div className="mb-glass rounded-[28px] px-8 py-7 text-center">
+        <Loader2
+          size={30}
+          className="mb-text mx-auto animate-spin"
+        />
+
+        <p className="mb-text mt-4 text-sm font-medium">
+          Loading orders
+        </p>
+
+        <p className="mb-text-faint mt-1 text-xs">
+          Preparing your order history.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+function HeaderSummary({
+  label,
+  value,
+  icon,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  icon: ReactNode;
+  accent?: boolean;
+}) {
+  return (
+    <div className="mb-glass min-w-0 rounded-[22px] p-4 sm:min-w-[145px]">
+      <span
+        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+          accent
+            ? "mb-accent-surface"
+            : "mb-outline-button"
+        }`}
+      >
+        {icon}
+      </span>
+
+      <p className="mb-text-faint mt-4 text-[9px] font-semibold uppercase tracking-[0.15em]">
+        {label}
+      </p>
+
+      <p className="mb-text mt-1 truncate text-base font-medium sm:text-lg">
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -803,120 +1468,394 @@ function OrderCard({
   order: Order;
   onViewDetails: () => void;
 }) {
-  const splitTotals = getOrderSplitTotals(order);
-  const deliveryStatus = order.delivery?.status || "unassigned";
-  const hasPlan = (order.items || []).some((item) => isPlanItem(item));
-  const firstPlanItem = (order.items || []).find((item) => isPlanItem(item));
-  const nextPlanDay = firstPlanItem ? getNextPlanDay(firstPlanItem) : null;
+  const splitTotals =
+    getOrderSplitTotals(order);
+
+  const deliveryStatus =
+    order.delivery?.status ||
+    "unassigned";
+
+  const hasPlan = (
+    order.items || []
+  ).some((item) =>
+    isPlanItem(item)
+  );
+
+  const firstPlanItem = (
+    order.items || []
+  ).find((item) =>
+    isPlanItem(item)
+  );
+
+  const nextPlanDay =
+    firstPlanItem
+      ? getNextPlanDay(
+          firstPlanItem
+        )
+      : null;
 
   return (
-    <article className="border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-200 sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-green-50 text-2xl font-black text-green-600 sm:h-24 sm:w-24">
-          {getOrderImageText(order)}
+    <article className="mb-glass-subtle mb-glass-hover overflow-hidden rounded-[26px] p-4 sm:p-5">
+      <div className="grid gap-4 sm:grid-cols-[88px_minmax(0,1fr)] lg:grid-cols-[96px_minmax(0,1fr)]">
+        <div className="relative">
+          <div className="mb-primary-button flex h-[88px] w-[88px] items-center justify-center rounded-[24px] text-2xl font-light tracking-[-0.05em] lg:h-24 lg:w-24">
+            {getOrderImageText(
+              order
+            )}
+          </div>
+
+          {hasPlan && (
+            <span className="mb-accent-surface absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[8px] font-semibold uppercase tracking-wide">
+              Plan
+            </span>
+          )}
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-xl font-black tracking-[-0.04em] text-slate-950">
-                  {getOrderKitchenName(order)}
+                <h3 className="mb-text text-xl font-light tracking-[-0.035em] sm:text-2xl">
+                  {getOrderKitchenName(
+                    order
+                  )}
                 </h3>
 
-                {hasPlan && (
-                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                    Plan Order
-                  </span>
-                )}
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[9px] font-semibold ${getDeliveryStyle(
+                    deliveryStatus
+                  )}`}
+                >
+                  {getDeliveryIcon(
+                    deliveryStatus
+                  )}
+
+                  {readableStatus(
+                    deliveryStatus
+                  )}
+                </span>
               </div>
 
-              <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-500">
-                {formatAddress(order.delivery?.address)}
+              <p className="mb-text-muted mt-2 line-clamp-1 text-xs leading-5 sm:text-sm">
+                {formatAddress(
+                  order.delivery
+                    ?.address
+                )}
               </p>
 
-              <p className="mt-1 break-all text-xs font-bold text-slate-400">
-                #{order._id} · {formatDateTime(order.createdAt)}
-              </p>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              {deliveryStatus === "delivered" ? (
-                <CheckCircle2 size={18} className="text-green-600" />
-              ) : (
-                <Clock size={18} className={deliveryTextClass(deliveryStatus)} />
-              )}
-
-              <p
-                className={`text-xs font-black uppercase ${deliveryTextClass(
-                  deliveryStatus
-                )}`}
-              >
-                {readableStatus(deliveryStatus)}
+              <p className="mb-text-extra-faint mt-1 break-all text-[10px] leading-5">
+                #
+                {order._id} ·{" "}
+                {formatDateTime(
+                  order.createdAt
+                )}
               </p>
             </div>
+
+            <p className="mb-text shrink-0 text-2xl font-light tracking-[-0.04em]">
+              ₹{splitTotals.payable}
+            </p>
           </div>
 
-          <div className="my-4 border-t border-dashed border-slate-200" />
+          <div className="mb-divider my-4 border-t border-dashed" />
 
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div className="min-w-0">
-              <p className="text-sm font-black text-slate-950">
-                {getPrimaryOrderItemText(order)}
+              <p className="mb-text text-sm font-medium leading-6">
+                {getPrimaryOrderItemText(
+                  order
+                )}
               </p>
 
               {nextPlanDay && (
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  Next: Day {nextPlanDay.day} ·{" "}
-                  {nextPlanDay.selectedMealTitle || "Meal"} ·{" "}
-                  {formatDateOnly(nextPlanDay.date)} ·{" "}
-                  {formatSlot(nextPlanDay.slot)}
-                </p>
+                <div className="mb-accent-surface mt-3 rounded-[17px] p-3">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.14em]">
+                    Next plan delivery
+                  </p>
+
+                  <p className="mt-1 line-clamp-1 text-xs font-medium">
+                    Day{" "}
+                    {nextPlanDay.day} ·{" "}
+                    {nextPlanDay.selectedMealTitle ||
+                      "Meal"}
+                  </p>
+
+                  <p className="mt-1 text-[10px] opacity-80">
+                    {formatDateOnly(
+                      nextPlanDay.date
+                    )}{" "}
+                    ·{" "}
+                    {formatSlot(
+                      nextPlanDay.slot
+                    )}
+                  </p>
+                </div>
               )}
 
               <div className="mt-3 flex flex-wrap gap-2">
                 <span
-                  className={`rounded-full border px-3 py-1 text-xs font-black ${paymentBadgeClass(
-                    order.payment?.status
+                  className={`inline-flex rounded-full border px-3 py-1 text-[9px] font-semibold uppercase ${getPaymentStyle(
+                    order.payment
+                      ?.status
                   )}`}
                 >
-                  {(order.payment?.status || "created").toUpperCase()}
+                  {order.payment
+                    ?.status ||
+                    "created"}
                 </span>
 
-                {order.coupon?.code && (
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                    Coupon: {order.coupon.code}
+                {order.coupon
+                  ?.code && (
+                  <span className="mb-outline-button rounded-full px-3 py-1 text-[9px] font-medium">
+                    Coupon{" "}
+                    {
+                      order.coupon
+                        .code
+                    }
                   </span>
                 )}
 
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                  ₹{splitTotals.payable}
+                <span className="mb-outline-button rounded-full px-3 py-1 text-[9px] font-medium">
+                  {
+                    order.items
+                      ?.length || 0
+                  }{" "}
+                  items
                 </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
+            <div className="grid grid-cols-2 gap-2 sm:flex">
               <Link
                 to={`/track/${order._id}`}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700"
+                className="mb-primary-button inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
               >
-                <Navigation size={15} />
+                <Navigation
+                  size={15}
+                />
                 Track
               </Link>
 
               <button
                 type="button"
-                onClick={onViewDetails}
-                className="inline-flex h-11 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                onClick={
+                  onViewDetails
+                }
+                className="mb-outline-button inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-5 text-sm font-medium"
               >
                 Details
-                <ChevronRight size={16} />
+                <ChevronRight
+                  size={16}
+                />
               </button>
             </div>
           </div>
         </div>
       </div>
     </article>
+  );
+}
+
+function FilterDrawer({
+  searchQuery,
+  selectedDate,
+  selectedYear,
+  rangeFilter,
+  sortType,
+  availableYears,
+  hasActiveFilters,
+  setSearchQuery,
+  setSelectedDate,
+  setSelectedYear,
+  setRangeFilter,
+  setSortType,
+  onClear,
+  onClose,
+}: {
+  searchQuery: string;
+  selectedDate: string;
+  selectedYear: string;
+  rangeFilter: RangeFilter;
+  sortType: SortType;
+  availableYears: string[];
+  hasActiveFilters: boolean;
+  setSearchQuery: (
+    value: string
+  ) => void;
+  setSelectedDate: (
+    value: string
+  ) => void;
+  setSelectedYear: (
+    value: string
+  ) => void;
+  setRangeFilter: (
+    value: RangeFilter
+  ) => void;
+  setSortType: (
+    value: SortType
+  ) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Drawer
+      title="Filter orders"
+      subtitle="Search, sort and narrow your order history."
+      onClose={onClose}
+    >
+      <div className="grid gap-4">
+        <ThemeField label="Search">
+          <div className="relative">
+            <Search
+              size={16}
+              className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
+            />
+
+            <input
+              value={searchQuery}
+              onChange={(event) =>
+                setSearchQuery(
+                  event.target.value
+                )
+              }
+              placeholder="Search orders..."
+              className="mb-input h-12 w-full rounded-2xl pl-11 pr-4 text-sm font-medium"
+            />
+          </div>
+        </ThemeField>
+
+        <ThemeField label="Order date">
+          <div className="relative">
+            <CalendarDays
+              size={16}
+              className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
+            />
+
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(event) =>
+                setSelectedDate(
+                  event.target.value
+                )
+              }
+              className="mb-input h-12 w-full rounded-2xl pl-11 pr-4 text-sm font-medium"
+            />
+          </div>
+        </ThemeField>
+
+        <ThemeField label="Year">
+          <select
+            value={selectedYear}
+            onChange={(event) =>
+              setSelectedYear(
+                event.target.value
+              )
+            }
+            className="mb-input h-12 w-full rounded-2xl px-4 text-sm font-medium"
+          >
+            <option value="all">
+              All years
+            </option>
+
+            {availableYears.map(
+              (year) => (
+                <option
+                  key={year}
+                  value={year}
+                >
+                  {year}
+                </option>
+              )
+            )}
+          </select>
+        </ThemeField>
+
+        <ThemeField label="Time range">
+          <select
+            value={rangeFilter}
+            onChange={(event) =>
+              setRangeFilter(
+                event.target
+                  .value as RangeFilter
+              )
+            }
+            className="mb-input h-12 w-full rounded-2xl px-4 text-sm font-medium"
+          >
+            <option value="all">
+              All time
+            </option>
+
+            <option value="30days">
+              Last 30 days
+            </option>
+
+            <option value="3months">
+              Last 3 months
+            </option>
+          </select>
+        </ThemeField>
+
+        <ThemeField label="Sort by">
+          <div className="relative">
+            <ArrowDownUp
+              size={16}
+              className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
+            />
+
+            <select
+              value={sortType}
+              onChange={(event) =>
+                setSortType(
+                  event.target
+                    .value as SortType
+                )
+              }
+              className="mb-input h-12 w-full rounded-2xl pl-11 pr-4 text-sm font-medium"
+            >
+              <option value="newest">
+                Newest first
+              </option>
+
+              <option value="oldest">
+                Oldest first
+              </option>
+
+              <option value="amountHigh">
+                Amount: high to low
+              </option>
+
+              <option value="amountLow">
+                Amount: low to high
+              </option>
+            </select>
+          </div>
+        </ThemeField>
+      </div>
+
+      <div className="mt-6 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={
+            !hasActiveFilters
+          }
+          className="mb-outline-button inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
+        >
+          <X size={16} />
+          Clear
+        </button>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mb-primary-button inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
+        >
+          <Check size={16} />
+          Apply
+        </button>
+      </div>
+    </Drawer>
   );
 }
 
@@ -927,162 +1866,242 @@ function OrderDetailsDrawer({
   order: Order;
   onClose: () => void;
 }) {
-  const splitTotals = getOrderSplitTotals(order);
-  const mapsUrl = mapsLinkFromAddress(order.delivery?.address);
-  const deliveryStatus = order.delivery?.status || "unassigned";
-  const agent = order.delivery?.agent;
-  const eta = order.delivery?.tracking?.eta;
-  const currentLocation = order.delivery?.tracking?.currentLocation;
+  const splitTotals =
+    getOrderSplitTotals(order);
+
+  const mapsUrl =
+    mapsLinkFromAddress(
+      order.delivery?.address
+    );
+
+  const deliveryStatus =
+    order.delivery?.status ||
+    "unassigned";
+
+  const agent =
+    order.delivery?.agent;
+
+  const eta =
+    order.delivery?.tracking
+      ?.eta;
+
+  const currentLocation =
+    order.delivery?.tracking
+      ?.currentLocation;
 
   return (
     <Drawer
-      title="Order Details"
+      title="Order details"
       subtitle={`#${order._id}`}
       onClose={onClose}
       wide
     >
       <div className="space-y-5">
-        <section className="border border-slate-200 bg-white p-4">
-          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
-            Order Timeline
-          </p>
-
-          <div className="space-y-4">
+        <DrawerSection
+          eyebrow="Delivery journey"
+          title="Order timeline"
+          icon={
+            <Navigation size={18} />
+          }
+        >
+          <div className="space-y-5">
             <TimelinePoint
-              icon={<MapPin size={20} />}
-              title={getOrderKitchenName(order)}
+              icon={
+                <Utensils size={18} />
+              }
+              title={
+                getOrderKitchenName(
+                  order
+                )
+              }
               subtitle="MacroBox Kitchen"
             />
 
             <TimelinePoint
-              icon={<MapPin size={20} />}
-              title="Delivery Address"
-              subtitle={formatAddress(order.delivery?.address)}
+              icon={
+                <MapPin size={18} />
+              }
+              title="Delivery address"
+              subtitle={formatAddress(
+                order.delivery
+                  ?.address
+              )}
             />
 
-            <div className="border-t border-slate-200 pt-4">
+            <div className="mb-divider border-t pt-5">
               <div className="flex items-start gap-3">
-                <CheckCircle2
-                  size={22}
-                  className={
-                    deliveryStatus === "delivered"
-                      ? "text-green-600"
-                      : "text-slate-400"
-                  }
-                />
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${getDeliveryStyle(
+                    deliveryStatus
+                  )}`}
+                >
+                  {getDeliveryIcon(
+                    deliveryStatus
+                  )}
+                </span>
 
                 <div>
-                  <p
-                    className={`text-sm font-black ${deliveryTextClass(
+                  <p className="mb-text text-sm font-medium">
+                    {readableStatus(
                       deliveryStatus
-                    )}`}
-                  >
-                    {readableStatus(deliveryStatus)}
+                    )}
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-                    Main slot: {formatDateOnly(order.delivery?.slot?.date)} ·{" "}
-                    {formatSlot(order.delivery?.slot?.time)}
+                  <p className="mb-text-muted mt-1 text-xs leading-5">
+                    Main slot:{" "}
+                    {formatDateOnly(
+                      order.delivery
+                        ?.slot?.date
+                    )}{" "}
+                    ·{" "}
+                    {formatSlot(
+                      order.delivery
+                        ?.slot?.time
+                    )}
                   </p>
                 </div>
               </div>
             </div>
           </div>
-        </section>
+        </DrawerSection>
 
-        <section className="border border-slate-200 bg-white p-4">
-          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
-            Items
-          </p>
+        <DrawerSection
+          eyebrow="Order contents"
+          title="Items"
+          icon={
+            <ShoppingBag
+              size={18}
+            />
+          }
+        >
+          {(order.items || [])
+            .length === 0 ? (
+            <p className="mb-text-muted text-sm">
+              No order items are
+              available.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {(order.items || []).map(
+                (item, index) => (
+                  <DrawerOrderItem
+                    key={`${order._id}-${index}`}
+                    item={item}
+                  />
+                )
+              )}
+            </div>
+          )}
+        </DrawerSection>
 
+        <DrawerSection
+          eyebrow="Payment summary"
+          title="Bill details"
+          icon={
+            <PackageCheck
+              size={18}
+            />
+          }
+        >
           <div className="space-y-3">
-            {(order.items || []).map((item, index) => (
-              <DrawerOrderItem key={`${order._id}-${index}`} item={item} />
-            ))}
-          </div>
-        </section>
-
-        <section className="border border-slate-200 bg-white p-4">
-          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
-            Bill Details
-          </p>
-
-          <div className="space-y-3 text-sm font-semibold">
             <BillingRow
-              label="Meals Subtotal"
+              label="Meals subtotal"
               value={`₹${splitTotals.normalMealsSubtotal}`}
             />
 
             <BillingRow
-              label="Plans Subtotal"
+              label="Plans subtotal"
               value={`₹${splitTotals.planSubtotal}`}
             />
 
             <BillingRow
-              label="Discount Applied"
+              label="Discount applied"
               value={`-₹${splitTotals.discount}`}
               discount
             />
 
             <BillingRow
-              label="Total Protein"
+              label="Total protein"
               value={`${order.totals.totalProtein || 0}g`}
             />
 
             <BillingRow
-              label="Total Calories"
+              label="Total calories"
               value={`${order.totals.totalCalories || 0}`}
             />
 
-            {order.coupon?.code && (
-              <BillingRow label="Coupon" value={order.coupon.code} />
+            {order.coupon
+              ?.code && (
+              <BillingRow
+                label="Coupon"
+                value={
+                  order.coupon.code
+                }
+              />
             )}
 
-            <div className="border-t border-slate-200 pt-3">
+            <div className="mb-divider border-t pt-4">
               <BillingRow
-                label="Bill Total"
+                label="Bill total"
                 value={`₹${splitTotals.payable}`}
                 highlight
               />
             </div>
           </div>
-        </section>
+        </DrawerSection>
 
-        <section className="border border-slate-200 bg-white p-4">
-          <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">
-            Live Delivery
-          </p>
+        <DrawerSection
+          eyebrow="Delivery partner"
+          title="Live delivery"
+          icon={<Truck size={18} />}
+        >
+          <div className="mb-glass-subtle rounded-[22px] p-4">
+            <DeliveryDetail
+              label="Agent"
+              value={
+                agent?.name ||
+                "Not assigned yet"
+              }
+            />
 
-          <div className="bg-slate-50 p-4 text-sm font-semibold leading-7 text-slate-600">
-            <p>
-              <span className="font-black text-slate-950">Agent:</span>{" "}
-              {agent?.name || "Not assigned yet"}
-            </p>
+            <DeliveryDetail
+              label="Phone"
+              value={
+                agent
+                  ?.deliveryProfile
+                  ?.phone ||
+                agent?.phone ||
+                "N/A"
+              }
+              icon={
+                <Phone size={14} />
+              }
+            />
 
-            <p className="flex items-center gap-1">
-              <Phone size={14} className="text-green-600" />
-              <span className="font-black text-slate-950">Phone:</span>{" "}
-              {agent?.deliveryProfile?.phone || agent?.phone || "N/A"}
-            </p>
+            <DeliveryDetail
+              label="ETA"
+              value={`${eta?.text || "Not available yet"}${
+                eta?.distanceText
+                  ? ` (${eta.distanceText})`
+                  : ""
+              }`}
+            />
 
-            <p>
-              <span className="font-black text-slate-950">ETA:</span>{" "}
-              {eta?.text || "Not available yet"}
-              {eta?.distanceText ? ` (${eta.distanceText})` : ""}
-            </p>
+            <DeliveryDetail
+              label="Last update"
+              value={formatDateTime(
+                currentLocation?.updatedAt ||
+                  null
+              )}
+            />
 
-            <p>
-              <span className="font-black text-slate-950">Last update:</span>{" "}
-              {formatDateTime(currentLocation?.updatedAt || null)}
-            </p>
-
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
               <Link
                 to={`/track/${order._id}`}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-green-600 px-4 text-sm font-black text-white"
+                className="mb-primary-button inline-flex h-12 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium"
               >
                 <Truck size={15} />
-                Track Live
+                Track live
               </Link>
 
               {mapsUrl && (
@@ -1090,183 +2109,214 @@ function OrderDetailsDrawer({
                   href={mapsUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-slate-300 px-4 text-sm font-black text-slate-700"
+                  className="mb-outline-button inline-flex h-12 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium"
                 >
                   <MapPin size={15} />
-                  Open Maps
+                  Open maps
                 </a>
               )}
             </div>
           </div>
-        </section>
+        </DrawerSection>
       </div>
     </Drawer>
   );
 }
 
-function DrawerOrderItem({ item }: { item: OrderItem }) {
-  const isPlan = isPlanItem(item);
-  const planDays = item.planDays || [];
-  const planItems = item.planItems || [];
-  const planId = getPlanId(item);
+function DrawerSection({
+  eyebrow,
+  title,
+  icon,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="mb-glass rounded-[26px] p-4 sm:p-5">
+      <div className="mb-5 flex items-center gap-3">
+        <span className="mb-accent-surface flex h-10 w-10 items-center justify-center rounded-full">
+          {icon}
+        </span>
+
+        <div>
+          <p className="mb-text-faint text-[9px] font-semibold uppercase tracking-[0.16em]">
+            {eyebrow}
+          </p>
+
+          <h3 className="mb-text mt-1 text-xl font-light tracking-[-0.03em]">
+            {title}
+          </h3>
+        </div>
+      </div>
+
+      {children}
+    </section>
+  );
+}
+
+function DrawerOrderItem({
+  item,
+}: {
+  item: OrderItem;
+}) {
+  const plan =
+    isPlanItem(item);
+
+  const planDays =
+    item.planDays || [];
+
+  const planItems =
+    item.planItems || [];
+
+  const planId =
+    getPlanId(item);
 
   return (
-    <div className="border-b border-dashed border-slate-200 pb-3 last:border-b-0">
+    <article className="mb-glass-subtle rounded-[20px] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-black text-slate-950">
-            {item.title || "Meal"} × {item.qty || 1}
+          <p className="mb-text text-sm font-medium leading-5">
+            {item.title ||
+              "Meal"}{" "}
+            × {item.qty || 1}
           </p>
 
           <div className="mt-2 flex flex-wrap gap-2">
-            {isPlan && (
-              <span className="rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-black text-green-700">
-                Meal Plan
+            {plan && (
+              <span className="mb-accent-surface rounded-full px-2.5 py-1 text-[9px] font-semibold">
+                Meal plan
               </span>
             )}
 
             {planId && (
-              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black text-blue-700">
+              <span className="mb-outline-button max-w-full truncate rounded-full px-2.5 py-1 text-[9px] font-medium">
                 {planId}
+              </span>
+            )}
+
+            {item.preference && (
+              <span
+                className={`rounded-full px-2.5 py-1 text-[9px] font-medium ${
+                  item.preference ===
+                  "veg"
+                    ? "mb-veg-badge"
+                    : item.preference ===
+                      "nonveg"
+                    ? "mb-nonveg-badge"
+                    : "mb-outline-button"
+                }`}
+              >
+                {readableStatus(
+                  item.preference
+                )}
               </span>
             )}
           </div>
         </div>
 
-        <p className="shrink-0 text-sm font-black text-slate-950">
-          ₹{Number(item.price || 0) * Number(item.qty || 1)}
+        <p className="mb-text shrink-0 text-sm font-medium">
+          ₹
+          {Number(
+            item.price || 0
+          ) *
+            Number(
+              item.qty || 1
+            )}
         </p>
       </div>
 
-      {isPlan && planDays.length > 0 && (
-        <div className="mt-3 bg-green-50 p-3">
-          <p className="mb-2 text-xs font-black uppercase tracking-wide text-green-700">
-            Day-wise Plan Schedule
-          </p>
-
-          <div className="space-y-2">
-            {planDays.map((day, index) => (
-              <div
-                key={`${day.day || index}-${day.date || ""}`}
-                className="bg-white p-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-black text-slate-950">
-                    Day {day.day}: {day.selectedMealTitle || "Meal"}
-                  </p>
-
-                  <span className="rounded-full bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-600">
-                    {readableStatus(day.deliveryStatus || "scheduled")}
-                  </span>
-                </div>
-
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  {formatDateOnly(day.date)} · {formatSlot(day.slot)} ·{" "}
-                  {day.preference || "mixed"}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {isPlan && planDays.length === 0 && planItems.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {planItems.map((planItem, index) => (
-            <span
-              key={`${planItem._id || index}`}
-              className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700"
-            >
-              {planItem.title || "Meal Item"} × {planItem.qty || 1}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Drawer({
-  title,
-  subtitle,
-  onClose,
-  children,
-  wide,
-}: {
-  title: string;
-  subtitle: string;
-  onClose: () => void;
-  children: ReactNode;
-  wide?: boolean;
-}) {
-  return (
-    <div className="fixed inset-0 z-50">
-      <button
-        type="button"
-        aria-label="Close drawer"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/35"
-      />
-
-      <aside
-        className={`absolute bottom-0 right-0 flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:bottom-auto sm:top-0 sm:h-full sm:max-h-full sm:rounded-none ${
-          wide ? "sm:w-[560px]" : "sm:w-[430px]"
-        }`}
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
-          <div className="min-w-0">
-            <h2 className="truncate text-2xl font-black tracking-[-0.04em] text-slate-950">
-              {title}
-            </h2>
-
-            <p className="mt-1 break-all text-sm font-bold text-slate-500">
-              {subtitle}
+      {plan &&
+        planDays.length >
+          0 && (
+          <div className="mt-4">
+            <p className="mb-text-faint mb-3 text-[9px] font-semibold uppercase tracking-[0.15em]">
+              Day-wise schedule
             </p>
+
+            <div className="space-y-2">
+              {planDays.map(
+                (day, index) => (
+                  <div
+                    key={`${day.day || index}-${day.date || ""}`}
+                    className="mb-glass rounded-[17px] p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="mb-text line-clamp-2 text-xs font-medium">
+                        Day{" "}
+                        {day.day ||
+                          index +
+                            1}
+                        :{" "}
+                        {day.selectedMealTitle ||
+                          "Meal"}
+                      </p>
+
+                      <span
+                        className={`shrink-0 rounded-full border px-2 py-1 text-[8px] font-semibold ${getDeliveryStyle(
+                          day.deliveryStatus ||
+                            "scheduled"
+                        )}`}
+                      >
+                        {readableStatus(
+                          day.deliveryStatus ||
+                            "scheduled"
+                        )}
+                      </span>
+                    </div>
+
+                    <p className="mb-text-faint mt-2 text-[10px] leading-4">
+                      {formatDateOnly(
+                        day.date
+                      )}{" "}
+                      ·{" "}
+                      {formatSlot(
+                        day.slot
+                      )}{" "}
+                      ·{" "}
+                      {readableStatus(
+                        day.preference ||
+                          "mixed"
+                      )}
+                    </p>
+                  </div>
+                )
+              )}
+            </div>
           </div>
+        )}
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-700 hover:bg-slate-50"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5">{children}</div>
-      </aside>
-    </div>
-  );
-}
-
-function HeaderBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-slate-200 bg-white px-4 py-3 shadow-sm sm:min-w-[140px]">
-      <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-  className = "",
-}: {
-  label: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
-        {label}
-      </span>
-      {children}
-    </label>
+      {plan &&
+        planDays.length ===
+          0 &&
+        planItems.length >
+          0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {planItems.map(
+              (
+                planItem,
+                index
+              ) => (
+                <span
+                  key={
+                    planItem._id ||
+                    index
+                  }
+                  className="mb-outline-button rounded-full px-3 py-1 text-[9px] font-medium"
+                >
+                  {planItem.title ||
+                    "Meal item"}{" "}
+                  ×{" "}
+                  {planItem.qty ||
+                    1}
+                </span>
+              )
+            )}
+          </div>
+        )}
+    </article>
   );
 }
 
@@ -1281,13 +2331,16 @@ function TimelinePoint({
 }) {
   return (
     <div className="flex items-start gap-4">
-      <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+      <span className="mb-outline-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
         {icon}
       </span>
 
       <div>
-        <p className="text-base font-black text-slate-950">{title}</p>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+        <p className="mb-text text-sm font-medium">
+          {title}
+        </p>
+
+        <p className="mb-text-muted mt-1 text-xs leading-5">
           {subtitle}
         </p>
       </div>
@@ -1298,8 +2351,8 @@ function TimelinePoint({
 function BillingRow({
   label,
   value,
-  highlight,
-  discount,
+  highlight = false,
+  discount = false,
 }: {
   label: string;
   value: string;
@@ -1307,29 +2360,131 @@ function BillingRow({
   discount?: boolean;
 }) {
   return (
-    <p className="flex items-center justify-between gap-3">
+    <div className="flex items-center justify-between gap-3">
       <span
-        className={`${
+        className={
           highlight
-            ? "text-sm font-black uppercase text-slate-950"
-            : "text-slate-500"
-        }`}
+            ? "mb-text text-sm font-medium"
+            : "mb-text-muted text-sm"
+        }
       >
         {label}
       </span>
 
       <span
-        className={`font-black ${
+        className={`text-sm font-medium ${
           highlight
-            ? "text-slate-950"
+            ? "mb-text text-base"
             : discount
-            ? "text-green-700"
-            : "text-slate-950"
+            ? "mb-accent"
+            : "mb-text"
         }`}
       >
         {value}
       </span>
-    </p>
+    </div>
+  );
+}
+
+function DeliveryDetail({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <div className="mb-divider flex items-start justify-between gap-4 border-b py-3 first:pt-0 last:border-b-0 last:pb-0">
+      <p className="mb-text-faint flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em]">
+        {icon}
+        {label}
+      </p>
+
+      <p className="mb-text max-w-[65%] text-right text-xs font-medium leading-5">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function Drawer({
+  title,
+  subtitle,
+  onClose,
+  children,
+  wide = false,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-[80]">
+      <button
+        type="button"
+        aria-label="Close drawer"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/65 backdrop-blur-sm"
+      />
+
+      <aside
+        className={`mb-divider absolute bottom-0 right-0 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[32px] border-t bg-[var(--mb-bg-secondary)] shadow-[var(--mb-shadow-large)] sm:bottom-auto sm:top-0 sm:h-full sm:max-h-full sm:rounded-none sm:border-l sm:border-t-0 ${
+          wide
+            ? "sm:w-[600px]"
+            : "sm:w-[460px]"
+        }`}
+      >
+        <div className="mb-divider flex items-start justify-between gap-4 border-b p-5 sm:p-6">
+          <div className="min-w-0">
+            <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-[0.18em]">
+              MacroBox Orders
+            </p>
+
+            <h2 className="mb-text mt-2 truncate text-2xl font-light tracking-[-0.04em]">
+              {title}
+            </h2>
+
+            <p className="mb-text-muted mt-2 break-all text-xs leading-5">
+              {subtitle}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="mb-outline-button flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mb-themed-scrollbar flex-1 overflow-y-auto p-5 pb-[max(24px,env(safe-area-inset-bottom))] sm:p-6">
+          {children}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function ThemeField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-text-faint mb-2 block text-[10px] font-semibold uppercase tracking-[0.14em]">
+        {label}
+      </span>
+
+      {children}
+    </label>
   );
 }
 
@@ -1341,14 +2496,25 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="border border-slate-200 bg-slate-50 p-8 text-center">
-      <PackageCheck className="mx-auto text-slate-300" size={46} />
+    <div className="mb-glass-subtle rounded-[28px] p-9 text-center sm:p-12">
+      <span className="mb-primary-button mx-auto flex h-16 w-16 items-center justify-center rounded-full">
+        <PackageCheck
+          size={25}
+        />
+      </span>
 
-      <p className="mt-4 text-lg font-black text-slate-950">{title}</p>
+      <h2 className="mb-text mt-6 text-2xl font-light tracking-[-0.04em]">
+        {title}
+      </h2>
 
-      <p className="mt-1 text-sm font-semibold text-slate-500">
+      <p className="mb-text-muted mx-auto mt-2 max-w-md text-sm leading-6">
         {description}
       </p>
+
+      <div className="mb-accent-surface mx-auto mt-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium">
+        <Sparkles size={14} />
+        MacroBox
+      </div>
     </div>
   );
 }
