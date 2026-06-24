@@ -29,13 +29,11 @@ import toast from "react-hot-toast";
 import api from "../api/api";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import {
+  calculateMacroTargets,
+  type GoalType,
+} from "../utils/macroCalculator";
 
-type GoalType =
-  | "weight_loss"
-  | "maintenance"
-  | "weight_gain"
-  | "muscle_gain"
-  | "fat_loss";
 
 type MealTime =
   | "breakfast"
@@ -119,16 +117,6 @@ const shortTimeLabels: Record<
   dinner: "D",
 };
 
-const activityMultipliers: Record<
-  string,
-  number
-> = {
-  sedentary: 1.2,
-  light: 1.375,
-  moderate: 1.55,
-  active: 1.725,
-  very_active: 1.9,
-};
 
 const goalLabels: Record<
   GoalType,
@@ -365,28 +353,10 @@ export default function SmartDayPlanner() {
   };
 
   const macroGoals = useMemo(() => {
-    const height = numberOrZero(
-      bodyMetrics?.height
-    );
-
-    const weight = numberOrZero(
-      bodyMetrics?.weight
-    );
-
-    const age = numberOrZero(
-      bodyMetrics?.age
-    );
-
-    const goalWeight = numberOrZero(
-      bodyMetrics?.goalWeight
-    );
-
-    const gender =
-      bodyMetrics?.gender || "male";
-
-    const activity =
-      bodyMetrics?.activity ||
-      "moderate";
+    const height = numberOrZero(bodyMetrics?.height);
+    const weight = numberOrZero(bodyMetrics?.weight);
+    const age = numberOrZero(bodyMetrics?.age);
+    const goalWeight = numberOrZero(bodyMetrics?.goalWeight);
 
     if (!height || !weight || !age) {
       return {
@@ -398,118 +368,35 @@ export default function SmartDayPlanner() {
       };
     }
 
-    const bmr =
-      gender === "male"
-        ? 10 * weight +
-          6.25 * height -
-          5 * age +
-          5
-        : 10 * weight +
-          6.25 * height -
-          5 * age -
-          161;
+    try {
+      const targets = calculateMacroTargets({
+        height,
+        weight,
+        age,
+        gender: bodyMetrics?.gender || "male",
+        activity: bodyMetrics?.activity || "moderate",
+        goal,
+        goalWeight: goalWeight > 0 ? goalWeight : undefined,
+      });
 
-    const maintenance =
-      Math.round(
-        bmr *
-          (activityMultipliers[
-            activity
-          ] || 1.55)
-      );
+      return {
+        calories: targets.calories,
+        protein: targets.protein,
+        carbs: targets.carbs,
+        fat: targets.fat,
+        maintenance: targets.maintenanceCalories,
+      };
+    } catch (error) {
+      console.error("SMART PLANNER MACRO CALCULATION ERROR:", error);
 
-    let adjustment = 0;
-
-    if (
-      goal === "weight_loss"
-    ) {
-      adjustment = -450;
+      return {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        maintenance: 0,
+      };
     }
-
-    if (goal === "fat_loss") {
-      adjustment = -550;
-    }
-
-    if (
-      goal === "weight_gain"
-    ) {
-      adjustment = 400;
-    }
-
-    if (
-      goal === "muscle_gain"
-    ) {
-      adjustment = 250;
-    }
-
-    if (goalWeight && weight) {
-      const raw = Math.round(
-        ((goalWeight - weight) *
-          7700) /
-          60
-      );
-
-      adjustment = clamp(
-        raw,
-        -700,
-        700
-      );
-    }
-
-    const calories = Math.max(
-      1200,
-      maintenance + adjustment
-    );
-
-    let proteinMultiplier = 1.6;
-    let fatRatio = 0.25;
-
-    if (goal === "fat_loss") {
-      proteinMultiplier = 2.2;
-    }
-
-    if (
-      goal === "weight_loss"
-    ) {
-      proteinMultiplier = 2;
-    }
-
-    if (
-      goal === "muscle_gain"
-    ) {
-      proteinMultiplier = 2.1;
-    }
-
-    if (
-      goal === "weight_gain"
-    ) {
-      proteinMultiplier = 1.8;
-      fatRatio = 0.28;
-    }
-
-    const protein = Math.round(
-      weight * proteinMultiplier
-    );
-
-    const fat = Math.round(
-      (calories * fatRatio) / 9
-    );
-
-    const carbs = Math.round(
-      Math.max(
-        calories -
-          protein * 4 -
-          fat * 9,
-        0
-      ) / 4
-    );
-
-    return {
-      calories: Math.round(calories),
-      protein,
-      carbs,
-      fat,
-      maintenance,
-    };
   }, [bodyMetrics, goal]);
 
   const selectedEntries =

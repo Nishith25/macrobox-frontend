@@ -28,13 +28,11 @@ import toast from "react-hot-toast";
 
 import { useAuth } from "../context/AuthContext";
 import api from "../api/api";
+import {
+  calculateMacroTargets,
+  type GoalType,
+} from "../utils/macroCalculator";
 
-type GoalType =
-  | "weight_loss"
-  | "maintenance"
-  | "weight_gain"
-  | "muscle_gain"
-  | "fat_loss";
 
 type MealType =
   | "Breakfast"
@@ -65,16 +63,6 @@ type Meal = {
   imageUrl?: string;
 };
 
-const activityMultipliers: Record<
-  string,
-  number
-> = {
-  sedentary: 1.2,
-  light: 1.375,
-  moderate: 1.55,
-  active: 1.725,
-  very_active: 1.9,
-};
 
 const goalLabels: Record<
   GoalType,
@@ -132,18 +120,6 @@ const numberOrZero = (
     : 0;
 };
 
-const clamp = (
-  value: number,
-  min: number,
-  max: number
-) =>
-  Math.max(
-    min,
-    Math.min(max, value)
-  );
-
-const round = (value: number) =>
-  Math.round(value);
 
 const createId = () => {
   if (
@@ -399,202 +375,77 @@ export default function MacroTrack() {
     );
   }, [goal, user?._id]);
 
-  const heightNumber =
-    Number(height);
-
-  const weightNumber =
-    Number(weight);
-
-  const ageNumber =
-    Number(age);
-
-  const goalWeightNumber =
-    Number(goalWeight);
+  const heightNumber = Number(height);
+  const weightNumber = Number(weight);
+  const ageNumber = Number(age);
+  const goalWeightNumber = Number(goalWeight);
 
   const isValid =
     heightNumber > 0 &&
     weightNumber > 0 &&
     ageNumber > 0;
 
-  const needsBodySetup =
-    !isValid;
+  const needsBodySetup = !isValid;
 
-  const bmiValue = isValid
-    ? weightNumber /
-      Math.pow(
-        heightNumber / 100,
-        2
-      )
-    : null;
+  const calculatedTargets = useMemo(() => {
+    if (!isValid) return null;
 
-  const bmi = bmiValue
-    ? bmiValue.toFixed(1)
+    try {
+      return calculateMacroTargets({
+        height: heightNumber,
+        weight: weightNumber,
+        age: ageNumber,
+        gender: gender === "female" ? "female" : "male",
+        activity,
+        goal,
+        goalWeight: goalWeightNumber > 0 ? goalWeightNumber : undefined,
+      });
+    } catch (error) {
+      console.error("MACRO CALCULATION ERROR:", error);
+      return null;
+    }
+  }, [
+    isValid,
+    heightNumber,
+    weightNumber,
+    ageNumber,
+    gender,
+    activity,
+    goal,
+    goalWeightNumber,
+  ]);
+
+  const bmi = calculatedTargets
+    ? calculatedTargets.bmi.toFixed(1)
     : null;
 
   const bmiLabel =
     bmi === null
       ? "Set values"
       : Number(bmi) < 18.5
-      ? "Underweight"
-      : Number(bmi) < 25
-      ? "Normal"
-      : Number(bmi) < 30
-      ? "Overweight"
-      : "Obese";
-
-  const bmr =
-    isValid &&
-    (gender === "male"
-      ? 10 * weightNumber +
-        6.25 * heightNumber -
-        5 * ageNumber +
-        5
-      : 10 * weightNumber +
-        6.25 * heightNumber -
-        5 * ageNumber -
-        161);
+        ? "Underweight"
+        : Number(bmi) < 25
+          ? "Normal"
+          : Number(bmi) < 30
+            ? "Overweight"
+            : "Obese";
 
   const maintenanceCalories =
-    bmr &&
-    Math.round(
-      bmr *
-        activityMultipliers[
-          activity
-        ]
-    );
+    calculatedTargets?.maintenanceCalories || 0;
 
-  const targetCalories =
-    useMemo(() => {
-      if (!maintenanceCalories) {
-        return null;
+  const macroGoals = calculatedTargets
+    ? {
+        calories: calculatedTargets.calories,
+        protein: calculatedTargets.protein,
+        carbs: calculatedTargets.carbs,
+        fat: calculatedTargets.fat,
       }
-
-      let adjustment = 0;
-
-      if (
-        goal === "weight_loss"
-      ) {
-        adjustment = -450;
-      }
-
-      if (goal === "fat_loss") {
-        adjustment = -550;
-      }
-
-      if (
-        goal === "weight_gain"
-      ) {
-        adjustment = 400;
-      }
-
-      if (
-        goal === "muscle_gain"
-      ) {
-        adjustment = 250;
-      }
-
-      if (
-        goalWeightNumber &&
-        weightNumber
-      ) {
-        const raw =
-          Math.round(
-            ((goalWeightNumber -
-              weightNumber) *
-              7700) /
-              60
-          );
-
-        adjustment = clamp(
-          raw,
-          -700,
-          700
-        );
-      }
-
-      return Math.max(
-        1200,
-        maintenanceCalories +
-          adjustment
-      );
-    }, [
-      maintenanceCalories,
-      goal,
-      goalWeightNumber,
-      weightNumber,
-    ]);
-
-  const macroGoals = useMemo(() => {
-    if (
-      !targetCalories ||
-      !weightNumber
-    ) {
-      return {
+    : {
         calories: 0,
         protein: 0,
         carbs: 0,
         fat: 0,
       };
-    }
-
-    let proteinMultiplier = 1.6;
-    let fatRatio = 0.25;
-
-    if (goal === "fat_loss") {
-      proteinMultiplier = 2.2;
-    }
-
-    if (
-      goal === "weight_loss"
-    ) {
-      proteinMultiplier = 2;
-    }
-
-    if (
-      goal === "muscle_gain"
-    ) {
-      proteinMultiplier = 2.1;
-    }
-
-    if (
-      goal === "weight_gain"
-    ) {
-      proteinMultiplier = 1.8;
-      fatRatio = 0.28;
-    }
-
-    const protein = round(
-      weightNumber *
-        proteinMultiplier
-    );
-
-    const fat = round(
-      (targetCalories *
-        fatRatio) /
-        9
-    );
-
-    const carbs = round(
-      Math.max(
-        targetCalories -
-          protein * 4 -
-          fat * 9,
-        0
-      ) / 4
-    );
-
-    return {
-      calories:
-        round(targetCalories),
-      protein,
-      carbs,
-      fat,
-    };
-  }, [
-    targetCalories,
-    weightNumber,
-    goal,
-  ]);
 
   const consumed = useMemo(
     () =>
@@ -1733,14 +1584,9 @@ function MacroProgress({
   icon: ReactNode;
 }) {
   const percent =
-    goal > 0
-      ? clamp(
-          (consumed / goal) *
-            100,
-          0,
-          100
-        )
-      : 0;
+  goal > 0
+    ? Math.max(0, Math.min(100, (consumed / goal) * 100))
+    : 0;
 
   return (
     <article className="mb-glass-subtle rounded-[24px] p-4">
@@ -1762,7 +1608,7 @@ function MacroProgress({
         </div>
 
         <p className="mb-accent text-xs font-semibold">
-          {round(percent)}%
+          {Math.round(percent)}%
         </p>
       </div>
 
