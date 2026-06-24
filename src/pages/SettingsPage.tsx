@@ -1,6 +1,5 @@
 // frontend/src/pages/SettingsPage.tsx (FRONTEND)
 // MacroBox My Account Page
-// File name remains SettingsPage.tsx because AppRouter imports it.
 // Primary route: /my-account
 // Optional legacy redirect: /settings -> /my-account
 
@@ -17,11 +16,14 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  CircleHelp,
+  ExternalLink,
   Home,
   Loader2,
   Lock,
   LogOut,
   MapPin,
+  MessageCircle,
   Navigation,
   Phone,
   Save,
@@ -67,10 +69,12 @@ type CurrentUser = {
 
 type AccountTab =
   | "profile"
-  | "phone"
   | "password"
   | "addresses"
+  | "help"
   | "account";
+
+const WHATSAPP_NUMBER = "918985892525";
 
 const cleanPhoneNumber = (value?: string) =>
   String(value || "")
@@ -81,7 +85,6 @@ const formatPhone = (value?: string) => {
   const number = cleanPhoneNumber(value);
 
   if (!number) return "Phone not added";
-
   if (number.length !== 10) return number;
 
   return `+91 ${number.slice(0, 5)} ${number.slice(5)}`;
@@ -109,6 +112,20 @@ const addressIcon = (label?: string) => {
   return <MapPin size={17} />;
 };
 
+const buildWhatsAppUrl = (user?: CurrentUser | null) => {
+  const message = [
+    "Hello MacroBox Support,",
+    "",
+    "I need help with my MacroBox account.",
+    user?.name ? `Name: ${user.name}` : "",
+    user?.email ? `Email: ${user.email}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+};
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -128,6 +145,7 @@ export default function SettingsPage() {
   const [phoneVerifiedForUpdate, setPhoneVerifiedForUpdate] = useState(false);
   const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
+  const [showPhoneEditor, setShowPhoneEditor] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -175,7 +193,6 @@ export default function SettingsPage() {
 
       if (addressResponse.status === "fulfilled") {
         const data = addressResponse.value.data;
-
         setAddresses(Array.isArray(data) ? data : []);
       }
     } catch {
@@ -207,7 +224,7 @@ export default function SettingsPage() {
         })
       );
     } catch {
-      // Ignore corrupted local-storage user data.
+      // Ignore invalid local-storage data.
     }
   };
 
@@ -217,6 +234,12 @@ export default function SettingsPage() {
     setOtpSent(false);
     setPhoneVerifiedForUpdate(false);
     setPhoneVerificationToken("");
+  };
+
+  const closePhoneEditor = () => {
+    setPhone(user?.phone || "");
+    resetPhoneOtpState();
+    setShowPhoneEditor(false);
   };
 
   const handleLogout = async () => {
@@ -247,8 +270,8 @@ export default function SettingsPage() {
 
       setUser(updatedUser);
       setPhone(updatedUser.phone || phone);
-
       syncLocalUser(updatedUser);
+
       toast.success("Profile updated.");
     } catch (error: any) {
       toast.error(
@@ -314,8 +337,8 @@ export default function SettingsPage() {
       setPhoneVerificationToken(
         response.data.phoneVerificationToken || ""
       );
-
       setPhoneVerifiedForUpdate(true);
+
       toast.success("Phone verified successfully.");
     } catch (error: any) {
       toast.error(
@@ -354,9 +377,10 @@ export default function SettingsPage() {
 
       setUser(updatedUser);
       setPhone(updatedUser.phone || cleanPhone);
-
       syncLocalUser(updatedUser);
+
       resetPhoneOtpState();
+      setShowPhoneEditor(false);
 
       toast.success("Phone number updated.");
     } catch (error: any) {
@@ -408,7 +432,6 @@ export default function SettingsPage() {
 
   const deleteAddress = async (addressId?: string) => {
     if (!addressId) return;
-
     if (!window.confirm("Delete this saved address?")) return;
 
     try {
@@ -469,6 +492,10 @@ export default function SettingsPage() {
     }
   };
 
+  const openWhatsAppSupport = () => {
+    window.open(buildWhatsAppUrl(user), "_blank", "noopener,noreferrer");
+  };
+
   if (loading) {
     return <AccountLoading />;
   }
@@ -491,8 +518,8 @@ export default function SettingsPage() {
                 </h1>
 
                 <p className="mb-text-muted mt-5 max-w-2xl text-sm leading-6 sm:text-base sm:leading-7">
-                  Manage your profile, verified phone number, account security
-                  and saved delivery locations.
+                  Manage your personal information, phone verification,
+                  security and delivery locations.
                 </p>
               </div>
 
@@ -527,7 +554,7 @@ export default function SettingsPage() {
         </section>
 
         <section className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-          <div className="mb-glass overflow-hidden rounded-[32px] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="mb-glass overflow-hidden rounded-[28px] sm:rounded-[32px] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
             <AccountNavigation
               activeTab={activeTab}
               setActiveTab={setActiveTab}
@@ -540,12 +567,12 @@ export default function SettingsPage() {
                   icon={<User size={21} />}
                   eyebrow="Personal information"
                   title="Profile"
-                  subtitle="Manage the information displayed on your MacroBox account."
+                  subtitle="Manage your name, email address and registered phone number."
                 >
                   <div className="grid gap-5">
                     <ProfileOverview
                       user={user}
-                      onChangePhone={() => setActiveTab("phone")}
+                      onChangePhone={() => setShowPhoneEditor(true)}
                     />
 
                     <ThemeField label="Display name">
@@ -572,7 +599,7 @@ export default function SettingsPage() {
                         </div>
                       </ThemeField>
 
-                      <ThemeField label="Phone number">
+                      <ThemeField label="Registered phone">
                         <div className="relative">
                           <input
                             value={formatPhone(user?.phone)}
@@ -598,124 +625,40 @@ export default function SettingsPage() {
 
                       <button
                         type="button"
-                        onClick={() => setActiveTab("phone")}
+                        onClick={() => setShowPhoneEditor((current) => !current)}
                         className="mb-outline-button inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
                       >
                         <Phone size={16} />
-                        Change phone
+                        {showPhoneEditor ? "Cancel phone update" : "Change phone"}
                       </button>
                     </div>
-                  </div>
-                </AccountPanel>
-              )}
 
-              {activeTab === "phone" && (
-                <AccountPanel
-                  icon={<Phone size={21} />}
-                  eyebrow="Verified contact"
-                  title="Phone number"
-                  subtitle="Verify a WhatsApp OTP before replacing your registered number."
-                >
-                  <div className="grid gap-5">
-                    <CurrentPhoneCard user={user} />
-
-                    <ThemeField label="New phone number">
-                      <div className="flex flex-col gap-3 sm:flex-row">
-                        <div className="relative flex-1">
-                          <span className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm">
-                            +91
-                          </span>
-
-                          <input
-                            value={phone}
-                            onChange={(event) => {
-                              setPhone(cleanPhoneNumber(event.target.value));
-                              resetPhoneOtpState();
-                            }}
-                            inputMode="numeric"
-                            placeholder="10-digit phone number"
-                            className={`${themedInput} pl-14`}
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={sendPhoneOtp}
-                          disabled={otpLoading || !phoneReady || !phoneChanged}
-                          className="mb-outline-button h-12 shrink-0 rounded-full px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          {otpLoading && !otpSent
-                            ? "Sending..."
-                            : otpSent
-                              ? "Resend OTP"
-                              : "Get OTP"}
-                        </button>
-                      </div>
-                    </ThemeField>
-
-                    {!phoneChanged && (
-                      <InlineNotice
-                        type="neutral"
-                        text="Enter a different phone number to begin verification."
+                    {showPhoneEditor && (
+                      <PhoneUpdateSection
+                        user={user}
+                        phone={phone}
+                        otp={otp}
+                        devOtp={devOtp}
+                        otpSent={otpSent}
+                        otpLoading={otpLoading}
+                        phoneReady={phoneReady}
+                        phoneChanged={phoneChanged}
+                        phoneVerifiedForUpdate={phoneVerifiedForUpdate}
+                        savingPhone={savingPhone}
+                        themedInput={themedInput}
+                        onPhoneChange={(value) => {
+                          setPhone(cleanPhoneNumber(value));
+                          resetPhoneOtpState();
+                        }}
+                        onOtpChange={(value) =>
+                          setOtp(value.replace(/\D/g, "").slice(0, 6))
+                        }
+                        onSendOtp={sendPhoneOtp}
+                        onVerifyOtp={verifyPhoneOtp}
+                        onSavePhone={updatePhone}
+                        onCancel={closePhoneEditor}
                       />
                     )}
-
-                    {otpSent && !phoneVerifiedForUpdate && (
-                      <ThemeField label="WhatsApp OTP">
-                        <div className="flex flex-col gap-3 sm:flex-row">
-                          <input
-                            value={otp}
-                            onChange={(event) =>
-                              setOtp(
-                                event.target.value
-                                  .replace(/\D/g, "")
-                                  .slice(0, 6)
-                              )
-                            }
-                            inputMode="numeric"
-                            placeholder="Enter 6-digit OTP"
-                            className={`${themedInput} tracking-[0.3em]`}
-                          />
-
-                          <button
-                            type="button"
-                            onClick={verifyPhoneOtp}
-                            disabled={otpLoading || otp.length !== 6}
-                            className="mb-primary-button h-12 shrink-0 rounded-full px-6 text-sm font-medium disabled:opacity-40"
-                          >
-                            {otpLoading ? "Verifying..." : "Verify OTP"}
-                          </button>
-                        </div>
-                      </ThemeField>
-                    )}
-
-                    {devOtp && !phoneVerifiedForUpdate && (
-                      <InlineNotice
-                        type="warning"
-                        text={`Development OTP: ${devOtp}`}
-                      />
-                    )}
-
-                    {phoneVerifiedForUpdate && (
-                      <InlineNotice
-                        type="success"
-                        text="Phone verified. You can now save this number."
-                      />
-                    )}
-
-                    <PrimaryButton
-                      onClick={updatePhone}
-                      loading={savingPhone}
-                      disabled={!phoneChanged || !phoneVerifiedForUpdate}
-                    >
-                      <Save size={16} />
-                      {savingPhone ? "Updating..." : "Update phone"}
-                    </PrimaryButton>
-
-                    <InlineNotice
-                      type="warning"
-                      text="Your phone number can only be changed after WhatsApp OTP verification."
-                    />
                   </div>
                 </AccountPanel>
               )}
@@ -811,6 +754,41 @@ export default function SettingsPage() {
                     New addresses can be added during checkout, where the exact
                     map location can also be selected.
                   </p>
+                </AccountPanel>
+              )}
+
+              {activeTab === "help" && (
+                <AccountPanel
+                  icon={<CircleHelp size={21} />}
+                  eyebrow="Customer support"
+                  title="Help & support"
+                  subtitle="Chat directly with MacroBox support through WhatsApp."
+                >
+                  <div className="grid gap-5">
+                    <WhatsAppSupportCard
+                      user={user}
+                      onOpen={openWhatsAppSupport}
+                    />
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <HelpInfoCard
+                        icon={<Phone size={18} />}
+                        label="Support number"
+                        value="+91 89858 92525"
+                      />
+
+                      <HelpInfoCard
+                        icon={<MessageCircle size={18} />}
+                        label="Support channel"
+                        value="WhatsApp chat"
+                      />
+                    </div>
+
+                    <InlineNotice
+                      type="neutral"
+                      text="When WhatsApp opens, explain your issue and include your order ID when asking about an order."
+                    />
+                  </div>
                 </AccountPanel>
               )}
 
@@ -925,12 +903,6 @@ function AccountNavigation({
       icon: <UserCircle size={18} />,
     },
     {
-      tab: "phone",
-      label: "Phone number",
-      subtitle: "WhatsApp verification",
-      icon: <Phone size={18} />,
-    },
-    {
       tab: "password",
       label: "Password",
       subtitle: "Security settings",
@@ -941,6 +913,12 @@ function AccountNavigation({
       label: "Addresses",
       subtitle: "Delivery locations",
       icon: <MapPin size={18} />,
+    },
+    {
+      tab: "help",
+      label: "Help",
+      subtitle: "WhatsApp support",
+      icon: <CircleHelp size={18} />,
     },
     {
       tab: "account",
@@ -961,7 +939,7 @@ function AccountNavigation({
               key={item.tab}
               type="button"
               onClick={() => setActiveTab(item.tab)}
-              className={`flex min-w-[170px] items-center gap-3 rounded-[20px] p-3 text-left transition lg:w-full lg:min-w-0 ${
+              className={`flex min-w-[165px] items-center gap-3 rounded-[20px] p-3 text-left transition lg:w-full lg:min-w-0 ${
                 active
                   ? "mb-primary-button"
                   : "mb-outline-button border-transparent bg-transparent"
@@ -1159,33 +1137,168 @@ function ProfileInfoCard({
   );
 }
 
-function CurrentPhoneCard({ user }: { user: CurrentUser | null }) {
+function PhoneUpdateSection({
+  user,
+  phone,
+  otp,
+  devOtp,
+  otpSent,
+  otpLoading,
+  phoneReady,
+  phoneChanged,
+  phoneVerifiedForUpdate,
+  savingPhone,
+  themedInput,
+  onPhoneChange,
+  onOtpChange,
+  onSendOtp,
+  onVerifyOtp,
+  onSavePhone,
+  onCancel,
+}: {
+  user: CurrentUser | null;
+  phone: string;
+  otp: string;
+  devOtp: string;
+  otpSent: boolean;
+  otpLoading: boolean;
+  phoneReady: boolean;
+  phoneChanged: boolean;
+  phoneVerifiedForUpdate: boolean;
+  savingPhone: boolean;
+  themedInput: string;
+  onPhoneChange: (value: string) => void;
+  onOtpChange: (value: string) => void;
+  onSendOtp: () => void;
+  onVerifyOtp: () => void;
+  onSavePhone: () => void;
+  onCancel: () => void;
+}) {
   return (
-    <div className="rounded-[22px] border border-[var(--mb-border)] bg-[var(--mb-surface)] p-4 sm:p-5">
-      <div className="flex items-start gap-3">
-        <span className="mb-accent-surface flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
-          <Phone size={18} />
-        </span>
+    <section className="mb-glass-subtle rounded-[24px] p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="mb-accent-surface flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+            <Phone size={18} />
+          </span>
 
-        <div className="min-w-0">
-          <p className="mb-text-faint text-[9px] font-semibold uppercase tracking-[0.15em]">
-            Current phone
-          </p>
+          <div>
+            <p className="mb-text text-sm font-medium">
+              Change registered phone
+            </p>
 
-          <p className="mb-text mt-2 text-lg font-light">
-            {formatPhone(user?.phone)}
-          </p>
-
-          <div className="mt-2">
-            <StatusBadge
-              verified={Boolean(user?.isPhoneVerified)}
-              verifiedText="Phone verified"
-              pendingText="Phone verification pending"
-            />
+            <p className="mb-text-faint mt-1 text-xs leading-5">
+              Current number: {formatPhone(user?.phone)}
+            </p>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mb-outline-button flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+          aria-label="Close phone editor"
+        >
+          <X size={16} />
+        </button>
       </div>
-    </div>
+
+      <div className="mt-5 grid gap-4">
+        <ThemeField label="New phone number">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <span className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm">
+                +91
+              </span>
+
+              <input
+                value={phone}
+                onChange={(event) => onPhoneChange(event.target.value)}
+                inputMode="numeric"
+                placeholder="10-digit phone number"
+                className={`${themedInput} pl-14`}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={onSendOtp}
+              disabled={otpLoading || !phoneReady || !phoneChanged}
+              className="mb-outline-button h-12 shrink-0 rounded-full px-5 text-sm font-medium disabled:opacity-40"
+            >
+              {otpLoading && !otpSent
+                ? "Sending..."
+                : otpSent
+                  ? "Resend OTP"
+                  : "Get OTP"}
+            </button>
+          </div>
+        </ThemeField>
+
+        {!phoneChanged && (
+          <InlineNotice
+            type="neutral"
+            text="Enter a different phone number to begin verification."
+          />
+        )}
+
+        {otpSent && !phoneVerifiedForUpdate && (
+          <ThemeField label="WhatsApp OTP">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                value={otp}
+                onChange={(event) => onOtpChange(event.target.value)}
+                inputMode="numeric"
+                placeholder="Enter 6-digit OTP"
+                className={`${themedInput} tracking-[0.3em]`}
+              />
+
+              <button
+                type="button"
+                onClick={onVerifyOtp}
+                disabled={otpLoading || otp.length !== 6}
+                className="mb-primary-button h-12 shrink-0 rounded-full px-6 text-sm font-medium disabled:opacity-40"
+              >
+                {otpLoading ? "Verifying..." : "Verify OTP"}
+              </button>
+            </div>
+          </ThemeField>
+        )}
+
+        {devOtp && !phoneVerifiedForUpdate && (
+          <InlineNotice
+            type="warning"
+            text={`Development OTP: ${devOtp}`}
+          />
+        )}
+
+        {phoneVerifiedForUpdate && (
+          <InlineNotice
+            type="success"
+            text="Phone verified. You can now save this number."
+          />
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <PrimaryButton
+            onClick={onSavePhone}
+            loading={savingPhone}
+            disabled={!phoneChanged || !phoneVerifiedForUpdate}
+          >
+            <Save size={16} />
+            {savingPhone ? "Updating..." : "Update phone"}
+          </PrimaryButton>
+
+          <button
+            type="button"
+            onClick={onCancel}
+            className="mb-outline-button h-12 rounded-full px-5 text-sm font-medium"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -1256,34 +1369,11 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={loading || disabled}
-      className="mb-primary-button inline-flex h-12 w-fit items-center justify-center gap-2 rounded-full px-6 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
+      className="mb-primary-button inline-flex h-12 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-medium disabled:opacity-40 sm:w-fit"
     >
       {loading && <Loader2 className="animate-spin" size={16} />}
       {children}
     </button>
-  );
-}
-
-function StatusBadge({
-  verified,
-  verifiedText,
-  pendingText,
-}: {
-  verified: boolean;
-  verifiedText: string;
-  pendingText: string;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-medium ${
-        verified
-          ? "border-[var(--mb-accent-border)] bg-[var(--mb-accent-soft)] text-[var(--mb-accent-text)]"
-          : "border-amber-300/20 bg-amber-500/10 text-amber-200"
-      }`}
-    >
-      {verified ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
-      {verified ? verifiedText : pendingText}
-    </span>
   );
 }
 
@@ -1299,7 +1389,7 @@ function InlineNotice({
       ? "border-[var(--mb-accent-border)] bg-[var(--mb-accent-soft)] text-[var(--mb-accent-text)]"
       : type === "warning"
         ? "border-amber-300/20 bg-amber-500/10 text-amber-100"
-        : "border-[var(--mb-border)] bg-[var(--mb-surface)] text-[var(--mb-text-muted)]";
+        : "border-[var(--mb-border)] bg-[var(--mb-surface)] text-[var(--mb-muted)]";
 
   return (
     <div className={`rounded-[18px] border p-3 text-xs leading-5 ${style}`}>
@@ -1414,7 +1504,7 @@ function AddressCard({
 
 function EmptyAddresses() {
   return (
-    <div className="rounded-[26px] border border-[var(--mb-border)] bg-[var(--mb-surface)] p-9 text-center">
+    <div className="rounded-[26px] border border-[var(--mb-border)] bg-[var(--mb-surface)] p-8 text-center sm:p-9">
       <span className="mb-primary-button mx-auto flex h-14 w-14 items-center justify-center rounded-full">
         <MapPin size={23} />
       </span>
@@ -1425,6 +1515,80 @@ function EmptyAddresses() {
         Add an address during checkout and it will appear here for future
         orders.
       </p>
+    </div>
+  );
+}
+
+function WhatsAppSupportCard({
+  user,
+  onOpen,
+}: {
+  user: CurrentUser | null;
+  onOpen: () => void;
+}) {
+  return (
+    <section className="rounded-[26px] border border-[var(--mb-accent-border)] bg-[var(--mb-accent-soft)] p-5 sm:p-6">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-4">
+          <span className="mb-primary-button flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
+            <MessageCircle size={21} />
+          </span>
+
+          <div>
+            <p className="mb-text text-lg font-light tracking-[-0.03em]">
+              Chat with MacroBox support
+            </p>
+
+            <p className="mb-text-muted mt-2 max-w-xl text-sm leading-6">
+              Open WhatsApp and send a message to our support number for help
+              with orders, plans, payments, delivery or your account.
+            </p>
+
+            <p className="mb-accent mt-3 text-xs font-medium">
+              +91 89858 92525
+            </p>
+
+            {user?.name && (
+              <p className="mb-text-faint mt-1 text-[10px]">
+                The message will include your name and email for faster support.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOpen}
+          className="mb-primary-button inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-full px-6 text-sm font-medium sm:w-auto"
+        >
+          Open WhatsApp
+          <ExternalLink size={16} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function HelpInfoCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="mb-glass-subtle rounded-[22px] p-4">
+      <span className="mb-accent-surface flex h-10 w-10 items-center justify-center rounded-full">
+        {icon}
+      </span>
+
+      <p className="mb-text-faint mt-4 text-[9px] font-semibold uppercase tracking-[0.14em]">
+        {label}
+      </p>
+
+      <p className="mb-text mt-1 text-sm font-medium">{value}</p>
     </div>
   );
 }
@@ -1455,16 +1619,18 @@ function AccountActionCard({
       <div className="flex items-start gap-3">
         <span
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
-            danger
-              ? "bg-red-500/10 text-red-200"
-              : "mb-accent-surface"
+            danger ? "bg-red-500/10 text-red-200" : "mb-accent-surface"
           }`}
         >
           {icon}
         </span>
 
         <div>
-          <p className={`text-sm font-medium ${danger ? "text-red-100" : "mb-text"}`}>
+          <p
+            className={`text-sm font-medium ${
+              danger ? "text-red-100" : "mb-text"
+            }`}
+          >
             {title}
           </p>
 
