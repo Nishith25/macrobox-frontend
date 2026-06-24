@@ -2690,14 +2690,16 @@ export default function Cart() {
       : "Proceed to pay";
 
   if (cart.length === 0) {
-    return (
-      <main className="mb-theme-page relative flex min-h-screen w-full items-center justify-center overflow-x-hidden px-4 py-14">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-[var(--mb-glow-primary)] blur-[110px]" />
-          <div className="absolute -right-24 bottom-16 h-72 w-72 rounded-full bg-[var(--mb-glow-accent)] blur-[120px]" />
-        </div>
+  return (
+    <main className="mb-theme-page relative w-full overflow-x-hidden">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-24 top-8 h-[360px] w-[360px] rounded-full bg-[var(--mb-glow-primary)] blur-[120px]" />
+        <div className="absolute right-0 top-28 h-[300px] w-[300px] rounded-full bg-[var(--mb-glow-secondary)] blur-[120px]" />
+        <div className="absolute bottom-0 left-1/2 h-[260px] w-[360px] -translate-x-1/2 rounded-full bg-[var(--mb-glow-accent)] blur-[120px]" />
+      </div>
 
-        <div className="mb-glass relative z-10 w-full max-w-[680px] rounded-[32px] p-8 text-center sm:p-12">
+      <section className="relative z-10 flex min-h-[calc(100vh-170px)] w-full items-center justify-center px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <div className="mb-glass w-full max-w-[620px] rounded-[30px] px-5 py-10 text-center shadow-[var(--mb-shadow-medium)] sm:px-10 sm:py-12">
           <span className="mb-primary-button mx-auto flex h-16 w-16 items-center justify-center rounded-full">
             <ShoppingBag size={27} />
           </span>
@@ -2706,29 +2708,29 @@ export default function Cart() {
             MacroBox cart
           </p>
 
-          <h1 className="mb-text mt-3 text-3xl font-light tracking-[-0.05em] sm:text-5xl">
+          <h1 className="mb-text mt-4 text-3xl font-light leading-tight tracking-[-0.055em] sm:text-5xl">
             Your cart is empty.
           </h1>
 
-          <p className="mb-text-muted mx-auto mt-4 max-w-md text-sm leading-6">
-            Add healthy meals or a complete
-            MacroBox plan to begin checkout.
+          <p className="mb-text-muted mx-auto mt-4 max-w-md text-sm leading-6 sm:text-base">
+            Add healthy meals or a complete MacroBox plan to begin checkout.
           </p>
 
-          <button
-            type="button"
-            onClick={() =>
-              navigate("/meals")
-            }
-            className="mb-primary-button mt-7 inline-flex h-[52px] items-center justify-center gap-2 rounded-full px-7 text-sm font-medium"
-          >
-            Explore meals
-            <ChevronRight size={16} />
-          </button>
+          <div className="mt-7 flex justify-center">
+            <button
+              type="button"
+              onClick={() => navigate("/meals")}
+              className="mb-primary-button inline-flex h-[52px] w-full max-w-[210px] items-center justify-center gap-2 rounded-full px-6 text-sm font-medium"
+            >
+              Explore meals
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
-      </main>
-    );
-  }
+      </section>
+    </main>
+  );
+}
 
   return (
     <main className="mb-theme-page relative min-h-screen w-full overflow-x-hidden pb-[180px] lg:pb-16">

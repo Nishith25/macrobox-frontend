@@ -3,8 +3,9 @@
 /* =====================================================
    MACROBOX GLOBAL THEME TOKENS
 
-   Change the values inside :root to recolour the premium
-   MacroBox UI without changing page layouts or components.
+   Change only the values inside :root to recolour the
+   premium MacroBox UI. Layout and component behaviour
+   remain unchanged.
 ===================================================== */
 
 :root {
@@ -12,13 +13,13 @@
   --mb-bg: #171614;
   --mb-bg-secondary: #211f1d;
   --mb-bg-elevated: #2a2826;
-  --mb-bg-overlay: rgba(23, 22, 20, 0.9);
+  --mb-bg-overlay: rgba(23, 22, 20, 0.94);
 
   /* Glass surfaces */
   --mb-surface: rgba(255, 255, 255, 0.07);
   --mb-surface-hover: rgba(255, 255, 255, 0.11);
   --mb-surface-strong: rgba(255, 255, 255, 0.15);
-  --mb-surface-subtle: rgba(255, 255, 255, 0.04);
+  --mb-surface-subtle: rgba(255, 255, 255, 0.045);
 
   /* Borders and dividers */
   --mb-border: rgba(255, 255, 255, 0.15);
@@ -42,13 +43,13 @@
   --mb-accent-border: rgba(74, 222, 128, 0.3);
   --mb-accent-text: #bbf7d0;
 
-  /* Main light button */
+  /* Light primary button */
   --mb-button-bg: #ffffff;
   --mb-button-text: #0f172a;
   --mb-button-hover: rgba(255, 255, 255, 0.9);
   --mb-button-active: rgba(255, 255, 255, 0.82);
 
-  /* Background decorative glows */
+  /* Decorative glows */
   --mb-glow-primary: rgba(118, 91, 72, 0.44);
   --mb-glow-secondary: rgba(255, 255, 255, 0.08);
   --mb-glow-accent: rgba(22, 163, 74, 0.12);
@@ -62,16 +63,16 @@
   --mb-nonveg-border: rgba(252, 165, 165, 0.3);
   --mb-nonveg-text: #fecaca;
 
-  /* Top Pick / highlight colours */
+  /* Highlight / Top Pick */
   --mb-highlight: #f97316;
   --mb-highlight-soft: rgba(249, 115, 22, 0.18);
   --mb-highlight-border: rgba(251, 146, 60, 0.3);
   --mb-highlight-text: #fed7aa;
 
   /* Warning */
-  --mb-warning-bg: rgba(249, 115, 22, 0.18);
-  --mb-warning-border: rgba(251, 146, 60, 0.3);
-  --mb-warning-text: #fed7aa;
+  --mb-warning-bg: rgba(245, 158, 11, 0.13);
+  --mb-warning-border: rgba(251, 191, 36, 0.24);
+  --mb-warning-text: #fde68a;
 
   /* Danger */
   --mb-danger-bg: rgba(239, 68, 68, 0.15);
@@ -110,24 +111,32 @@
 ===================================================== */
 
 .mb-theme-page {
-  min-height: 100vh;
-  background: var(--mb-bg);
-  color: var(--mb-text);
-}
-
-.mb-theme-background {
   position: relative;
+  min-height: 100vh;
+  width: 100%;
   overflow-x: hidden;
   overflow-y: visible;
   background: var(--mb-bg);
   color: var(--mb-text);
+  isolation: isolate;
+}
+
+.mb-theme-background {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  background: var(--mb-bg);
+  color: var(--mb-text);
+  isolation: isolate;
 }
 
 .mb-theme-background::before {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: -3;
+  z-index: -2;
   pointer-events: none;
   background:
     radial-gradient(
@@ -151,7 +160,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: -1;
   pointer-events: none;
   background: rgba(0, 0, 0, 0.08);
 }
@@ -267,6 +276,9 @@
   border: 1px solid var(--mb-accent-border);
   background: var(--mb-accent-soft);
   color: var(--mb-accent-text);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease;
 }
 
 .mb-accent-surface:hover {
@@ -307,7 +319,8 @@
   transition:
     background-color 180ms ease,
     opacity 180ms ease,
-    transform 180ms ease;
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .mb-accent-button:hover:not(:disabled) {
@@ -368,7 +381,8 @@
   transition:
     border-color 180ms ease,
     background-color 180ms ease,
-    box-shadow 180ms ease;
+    box-shadow 180ms ease,
+    opacity 180ms ease;
 }
 
 .mb-input::placeholder {
@@ -399,7 +413,12 @@ select.mb-input option {
   color: var(--mb-text);
 }
 
-/* Remove number input arrows when required */
+input.mb-input[type="date"],
+input.mb-input[type="time"] {
+  color-scheme: dark;
+}
+
+/* Remove number-input controls */
 .mb-number-input::-webkit-inner-spin-button,
 .mb-number-input::-webkit-outer-spin-button {
   margin: 0;
@@ -463,119 +482,8 @@ select.mb-input option {
 }
 
 /* =====================================================
-   THEMED SCROLLBAR
+   SCROLL UTILITIES
 ===================================================== */
-
-.mb-themed-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--mb-border-hover) transparent;
-}
-
-.mb-themed-scrollbar::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-
-.mb-themed-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.mb-themed-scrollbar::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--mb-border-hover);
-}
-
-.mb-themed-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--mb-border-strong);
-}
-
-/* =====================================================
-   MOBILE DRAWER / FIXED BAR
-===================================================== */
-
-.mb-bottom-surface {
-  border-top: 1px solid var(--mb-divider);
-  background: var(--mb-bg-overlay);
-  box-shadow: var(--mb-shadow-floating);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-}
-
-/* =====================================================
-   TEXT SELECTION
-===================================================== */
-
-.mb-theme-background ::selection,
-.mb-theme-page ::selection {
-  background: var(--mb-accent-soft-hover);
-  color: var(--mb-text);
-}
-
-/* =====================================================
-   RESPONSIVE REDUCED EFFECTS
-===================================================== */
-
-@media (max-width: 640px) {
-  .mb-glass,
-  .mb-glass-strong {
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-  }
-
-  .mb-card-lift:hover {
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mb-glass-hover,
-  .mb-card-lift,
-  .mb-primary-button,
-  .mb-accent-button,
-  .mb-outline-button,
-  .mb-input {
-    transition: none;
-  }
-}
-
-/* =====================================================
-   EXTRA REUSABLE MACROBOX UTILITIES
-===================================================== */
-
-.mb-glass-subtle {
-  border: 1px solid var(--mb-border);
-  background: rgba(255, 255, 255, 0.045);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-}
-
-.mb-success-message {
-  border: 1px solid var(--mb-accent-border);
-  background: var(--mb-accent-soft);
-  color: var(--mb-accent-text);
-}
-
-.mb-warning-badge {
-  border: 1px solid rgba(251, 191, 36, 0.24);
-  background: rgba(245, 158, 11, 0.12);
-  color: #fde68a;
-}
-
-.mb-info-message {
-  border: 1px solid rgba(96, 165, 250, 0.24);
-  background: var(--mb-info-bg);
-  color: var(--mb-info-text);
-}
-
-.mb-highlight-badge {
-  border: 1px solid rgba(251, 146, 60, 0.24);
-  background: var(--mb-warning-bg);
-  color: var(--mb-warning-text);
-}
-
-.mb-text-extra-faint {
-  color: rgba(255, 255, 255, 0.24);
-}
 
 .macrobox-hide-scrollbar {
   scrollbar-width: none;
@@ -587,12 +495,13 @@ select.mb-input option {
 }
 
 .mb-themed-scrollbar {
-  scrollbar-color: var(--mb-surface-strong) transparent;
   scrollbar-width: thin;
+  scrollbar-color: var(--mb-surface-strong) transparent;
 }
 
 .mb-themed-scrollbar::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .mb-themed-scrollbar::-webkit-scrollbar-track {
@@ -600,6 +509,110 @@ select.mb-input option {
 }
 
 .mb-themed-scrollbar::-webkit-scrollbar-thumb {
-  border-radius: 999px;
+  border-radius: var(--mb-radius-pill);
   background: var(--mb-surface-strong);
+}
+
+.mb-themed-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--mb-border-hover);
+}
+
+/* =====================================================
+   MOBILE DRAWER / FIXED BOTTOM BAR
+===================================================== */
+
+.mb-bottom-surface {
+  border-top: 1px solid var(--mb-divider);
+  background: var(--mb-bg-overlay);
+  box-shadow: var(--mb-shadow-floating);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.mb-mobile-safe-bottom {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.mb-mobile-page-bottom {
+  padding-bottom: calc(108px + env(safe-area-inset-bottom));
+}
+
+/* =====================================================
+   TOUCH AND ACCESSIBILITY
+===================================================== */
+
+.mb-theme-page button,
+.mb-theme-page a,
+.mb-theme-page input,
+.mb-theme-page select,
+.mb-theme-background button,
+.mb-theme-background a,
+.mb-theme-background input,
+.mb-theme-background select {
+  touch-action: manipulation;
+}
+
+.mb-theme-page button,
+.mb-theme-background button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mb-theme-page ::selection,
+.mb-theme-background ::selection {
+  background: var(--mb-accent-soft-hover);
+  color: var(--mb-text);
+}
+
+/* =====================================================
+   RESPONSIVE BEHAVIOUR
+===================================================== */
+
+@media (max-width: 640px) {
+  .mb-glass,
+  .mb-glass-strong {
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .mb-card-lift:hover,
+  .mb-glass-hover:hover {
+    transform: none;
+  }
+
+  .mb-primary-button,
+  .mb-accent-button,
+  .mb-outline-button {
+    min-height: 44px;
+  }
+}
+
+/* Disable hover-only effects on touch devices */
+@media (hover: none) {
+  .mb-card-lift:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .mb-glass-hover:hover {
+    box-shadow: none;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .mb-glass-hover,
+  .mb-card-lift,
+  .mb-primary-button,
+  .mb-accent-button,
+  .mb-outline-button,
+  .mb-input,
+  .mb-accent-surface {
+    transition: none;
+  }
+
+  .mb-primary-button:active:not(:disabled),
+  .mb-accent-button:active:not(:disabled),
+  .mb-outline-button:active:not(:disabled) {
+    transform: none;
+  }
 }
