@@ -2726,7 +2726,7 @@ export default function Cart() {
   }
 
   return (
-    <main className="mb-theme-background relative min-h-screen overflow-x-hidden pb-32 lg:pb-16">
+    <main className="mb-theme-background relative min-h-screen overflow-x-hidden pb-40 lg:pb-16">
       <div className="relative z-10">
         <header className="mb-divider sticky top-0 z-40 border-b bg-[color:var(--mb-bg)]/90 backdrop-blur-2xl">
           <div className="mx-auto flex max-w-[1240px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
@@ -3253,7 +3253,7 @@ function CheckoutProgress({
     );
 
   return (
-    <div className="mb-glass macrobox-hide-scrollbar flex overflow-x-auto rounded-[24px] p-2">
+    <div className="mb-glass macrobox-hide-scrollbar flex max-w-full overflow-x-auto rounded-[24px] p-2">
       {steps.map(
         (item, index) => {
           const active =
@@ -3264,26 +3264,21 @@ function CheckoutProgress({
 
           return (
             <button
-              key={item.key}
-              type="button"
-              onClick={() => {
-                if (
-                  index <=
-                  currentIndex
-                ) {
-                  setStep(
-                    item.key
-                  );
-                }
-              }}
-              className={`flex min-w-[105px] flex-1 items-center justify-center gap-2 rounded-[18px] px-3 py-3 text-xs font-medium transition ${
-                active
-                  ? "mb-primary-button"
-                  : completed
-                  ? "mb-accent-surface"
-                  : "mb-text-faint"
-              }`}
-            >
+  key={item.key}
+  type="button"
+  onClick={() => {
+    if (index <= currentIndex) {
+      setStep(item.key);
+    }
+  }}
+  className={`flex min-w-[96px] shrink-0 items-center justify-center gap-2 rounded-[18px] px-3 py-3 text-xs font-medium transition ${
+    active
+      ? "mb-primary-button"
+      : completed
+        ? "mb-accent-surface"
+        : "mb-text-faint"
+  }`}
+>
               <span
                 className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
                   active
@@ -3404,116 +3399,78 @@ function CartItemCard({
   onIncrease: () => void;
   onRemove: () => void;
 }) {
+  const quantity = Number(item.qty || 1);
+
   return (
-    <article className="mb-glass-subtle mb-glass-hover rounded-[22px] p-4 sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="mb-text text-base font-medium sm:text-lg">
-              {item.title}
-            </h3>
+    <article className="mb-glass-subtle mb-glass-hover min-w-0 overflow-hidden rounded-[22px] p-4 sm:p-5">
+      <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h3 className="mb-text min-w-0 break-words text-base font-medium sm:text-lg">
+            {item.title}
+          </h3>
 
-            {isPlan && (
-              <span className="mb-accent-surface rounded-full px-3 py-1 text-[9px] font-semibold">
-                Meal plan
-              </span>
-            )}
-
-            {!isPlan && (
-              <span className="mb-outline-button rounded-full px-3 py-1 text-[9px] font-medium">
-                Single meal
-              </span>
-            )}
-          </div>
-
-          <p className="mb-text-muted mt-2 max-w-2xl text-xs leading-5 sm:text-sm">
-            {isPlan
-              ? `${
-                  (
-                    item.planItems ||
-                    item.planDays ||
-                    []
-                  ).length || 7
-                } plan days included. Schedule each day during checkout.`
-              : "Choose one common delivery date and slot for normal meals."}
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <MacroPill>
-              Protein{" "}
-              {Number(
-                item.protein || 0
-              ) *
-                Number(
-                  item.qty || 1
-                )}
-              g
-            </MacroPill>
-
-            <MacroPill>
-              Calories{" "}
-              {Number(
-                item.calories || 0
-              ) *
-                Number(
-                  item.qty || 1
-                )}{" "}
-              kcal
-            </MacroPill>
-
-            <MacroPill>
-              Carbs{" "}
-              {Number(
-                item.carbs || 0
-              ) *
-                Number(
-                  item.qty || 1
-                )}
-              g
-            </MacroPill>
-
-            <MacroPill>
-              Fat{" "}
-              {Number(
-                item.fat || 0
-              ) *
-                Number(
-                  item.qty || 1
-                )}
-              g
-            </MacroPill>
-          </div>
+          <span
+            className={
+              isPlan
+                ? "mb-accent-surface shrink-0 rounded-full px-3 py-1 text-[9px] font-semibold"
+                : "mb-outline-button shrink-0 rounded-full px-3 py-1 text-[9px] font-medium"
+            }
+          >
+            {isPlan ? "Meal plan" : "Single meal"}
+          </span>
         </div>
 
-        <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end">
-          <p className="mb-text shrink-0 text-xl font-light">
-            ₹
-            {Number(
-              item.price || 0
-            ) *
-              Number(
-                item.qty || 1
-              )}
+        <p className="mb-text-muted mt-2 break-words text-xs leading-5 sm:text-sm">
+          {isPlan
+            ? `${
+                (item.planItems || item.planDays || []).length || 7
+              } plan days included. Schedule each day during checkout.`
+            : "Choose one common delivery date and slot for normal meals."}
+        </p>
+
+        <div className="mt-4 flex min-w-0 flex-wrap gap-2">
+          <MacroPill>
+            Protein {Number(item.protein || 0) * quantity}g
+          </MacroPill>
+
+          <MacroPill>
+            Calories {Number(item.calories || 0) * quantity} kcal
+          </MacroPill>
+
+          <MacroPill>
+            Carbs {Number(item.carbs || 0) * quantity}g
+          </MacroPill>
+
+          <MacroPill>
+            Fat {Number(item.fat || 0) * quantity}g
+          </MacroPill>
+        </div>
+
+        <div className="mb-divider mt-5 flex items-center justify-between gap-3 border-t pt-4">
+          <p className="mb-text shrink-0 text-2xl font-light tracking-[-0.04em]">
+            ₹{Number(item.price || 0) * quantity}
           </p>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={onDecrease}
               disabled={isPlan}
+              aria-label="Decrease quantity"
               className="mb-outline-button flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-35"
             >
               <Minus size={14} />
             </button>
 
             <span className="mb-text flex min-w-7 justify-center text-sm font-medium">
-              {item.qty}
+              {quantity}
             </span>
 
             <button
               type="button"
               onClick={onIncrease}
               disabled={isPlan}
+              aria-label="Increase quantity"
               className="mb-primary-button flex h-9 w-9 items-center justify-center rounded-full disabled:opacity-35"
             >
               <Plus size={14} />
@@ -4438,6 +4395,7 @@ function CouponPanel({
   );
 }
 
+
 function MobileCheckoutBar({
   payable,
   checkingOut,
@@ -4451,8 +4409,8 @@ function MobileCheckoutBar({
 }) {
   return (
     <div className="mb-divider fixed inset-x-0 bottom-0 z-[70] border-t bg-[color:var(--mb-bg-secondary)]/95 p-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[var(--mb-shadow-large)] backdrop-blur-2xl lg:hidden">
-      <div className="mx-auto flex max-w-[560px] items-center justify-between gap-3">
-        <div>
+      <div className="mx-auto flex max-w-[560px] items-center gap-4">
+        <div className="shrink-0">
           <p className="mb-text-faint text-[9px] font-semibold uppercase tracking-[0.14em]">
             Payable
           </p>
@@ -4466,17 +4424,12 @@ function MobileCheckoutBar({
           type="button"
           onClick={onClick}
           disabled={checkingOut}
-          className="mb-primary-button flex h-[52px] min-w-[190px] items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
+          className="mb-primary-button flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:opacity-50"
         >
           {checkingOut ? (
-            <Loader2
-              size={17}
-              className="animate-spin"
-            />
+            <Loader2 size={17} className="animate-spin" />
           ) : (
-            <LocateFixed
-              size={17}
-            />
+            <LocateFixed size={17} />
           )}
 
           {buttonText}
@@ -4485,6 +4438,8 @@ function MobileCheckoutBar({
     </div>
   );
 }
+
+
 
 function MacroPill({
   children,
