@@ -1,10 +1,28 @@
 // frontend/src/pages/Login.tsx (FRONTEND)
 
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import {
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Flame,
+  Loader2,
+  Lock,
+  Mail,
+  ShieldCheck,
+  Sparkles,
+  X,
+  Zap,
+} from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Eye, EyeOff, Lock, Mail, X } from "lucide-react";
+
+import { useAuth } from "../context/AuthContext";
 
 type LoggedInUser = {
   role: "user" | "admin" | "delivery" | "chef";
@@ -13,9 +31,16 @@ type LoggedInUser = {
   };
 };
 
+type LocationState = {
+  from?: string;
+};
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const locationState = location.state as LocationState | null;
 
   const [form, setForm] = useState({
     email: "",
@@ -25,10 +50,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
     }));
   };
 
@@ -53,11 +80,11 @@ export default function Login() {
       return;
     }
 
-    navigate("/meals", { replace: true });
+    navigate(locationState?.from || "/meals", { replace: true });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
     if (!form.email.trim()) {
       toast.error("Please enter your email.");
@@ -77,7 +104,7 @@ export default function Login() {
         password: form.password,
       });
 
-      toast.success("Login successful!");
+      toast.success("Login successful.");
       redirectAfterLogin(userData as LoggedInUser);
     } catch (error: any) {
       const status = error?.response?.status;
@@ -85,18 +112,20 @@ export default function Login() {
         error?.response?.data?.message || "Login failed. Please try again.";
 
       if (status === 403) {
-        toast.error(message || "Please verify your email before logging in.");
+        toast.error(message || "Verify your email before logging in.");
 
         navigate("/resend-verification", {
           replace: true,
-          state: { email: form.email.trim().toLowerCase() },
+          state: {
+            email: form.email.trim().toLowerCase(),
+          },
         });
 
         return;
       }
 
       if (status === 404) {
-        toast.error("User not registered. Please sign up first.");
+        toast.error("User not registered. Please create an account.");
         navigate("/signup", { replace: true });
         return;
       }
@@ -113,137 +142,263 @@ export default function Login() {
   };
 
   return (
-    <main className="min-h-[calc(100vh-73px)] bg-gradient-to-br from-green-50 via-white to-green-50">
-      <div className="mx-auto grid min-h-[calc(100vh-73px)] max-w-[1500px] lg:grid-cols-[1fr_520px]">
-        {/* LEFT SIDE - LANDING PREVIEW */}
-        <section className="hidden px-10 py-12 lg:flex lg:flex-col lg:justify-center">
-          <div className="max-w-3xl">
+    <main className="mb-theme-background relative min-h-screen overflow-x-hidden">
+      <div className="mb-theme-layer grid min-h-screen lg:grid-cols-[minmax(0,1fr)_520px]">
+        {/* DESKTOP BRAND PANEL */}
+        <section className="hidden px-8 py-12 lg:flex lg:flex-col lg:justify-between xl:px-16">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="mb-outline-button inline-flex h-11 w-fit items-center gap-2 rounded-full px-5 text-sm font-medium"
+          >
+            <X size={16} />
+            Back to MacroBox
+          </button>
 
-            <h1 className="text-[64px] font-black leading-[0.98] tracking-[-0.07em] text-slate-950">
-              Fuel Your Day
-              <br />
-              <span className="text-green-600">with MacroBox</span>
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-slate-600">
-              Login to explore meals, track macros, plan your day and manage
-              your healthy orders.
-            </p>
-          </div>
-        </section>
-
-        {/* RIGHT SIDE LOGIN PANEL */}
-        <section className="flex min-h-[calc(100vh-73px)] items-start justify-center bg-white px-5 py-8 shadow-[-24px_0_70px_rgba(15,23,42,0.08)] sm:px-8 lg:px-12">
-          <div className="w-full max-w-[430px]">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="mb-10 flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
-              aria-label="Close login"
-            >
-              <X size={24} />
-            </button>
-
-            <div className="mb-8 flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-[34px] font-black tracking-[-0.04em] text-slate-950">
-                  Login
-                </h1>
-
-                <p className="mt-2 text-base font-medium text-slate-700">
-                  or{" "}
-                  <Link
-                    to="/signup"
-                    className="font-black text-green-600 hover:underline"
-                  >
-                    create an account
-                  </Link>
-                </p>
-
-                <div className="mt-5 h-[3px] w-12 rounded-full bg-slate-950" />
-              </div>
-
-              <div className="hidden h-24 w-24 items-center justify-center rounded-full bg-green-50 text-5xl sm:flex">
-                🥗
-              </div>
+          <div className="max-w-3xl py-12">
+            <div className="mb-accent-surface inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em]">
+              <Sparkles size={14} />
+              Welcome back
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="relative">
-                <Mail
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                />
+            <h1 className="mb-text mt-7 text-[68px] font-light leading-[0.95] tracking-[-0.075em] xl:text-[84px]">
+              Fuel your day
+              <br />
+              with MacroBox.
+            </h1>
 
-                <input
+            <p className="mb-text-muted mt-6 max-w-2xl text-lg leading-8">
+              Sign in to order goal-based meals, track your macros, build smart
+              day plans and manage your deliveries.
+            </p>
+
+            <div className="mt-10 grid max-w-2xl gap-3 sm:grid-cols-3">
+              <LoginFeature
+                icon={<Flame size={17} />}
+                title="Track"
+                text="Calories and macros"
+              />
+
+              <LoginFeature
+                icon={<Zap size={17} />}
+                title="Plan"
+                text="Your full food day"
+              />
+
+              <LoginFeature
+                icon={<ShieldCheck size={17} />}
+                title="Order"
+                text="Securely and easily"
+              />
+            </div>
+          </div>
+
+          <p className="mb-text-faint text-xs">
+            Healthy food built around your goals.
+          </p>
+        </section>
+
+        {/* LOGIN PANEL */}
+        <section className="flex min-h-screen items-center justify-center px-4 py-6 sm:px-6 sm:py-10 lg:border-l lg:border-[var(--mb-divider)] lg:bg-[var(--mb-bg-overlay)] lg:px-10">
+          <div className="w-full max-w-[440px]">
+            <div className="mb-6 flex items-center justify-between lg:hidden">
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="mb-outline-button flex h-10 w-10 items-center justify-center rounded-full"
+                aria-label="Close login"
+              >
+                <X size={18} />
+              </button>
+
+              <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-[0.18em]">
+                MacroBox
+              </p>
+            </div>
+
+            <div className="mb-glass rounded-[28px] p-5 shadow-[var(--mb-shadow-large)] sm:p-7">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="mb-text-faint text-[9px] font-semibold uppercase tracking-[0.18em]">
+                    Secure access
+                  </p>
+
+                  <h1 className="mb-text mt-2 text-4xl font-light tracking-[-0.055em]">
+                    Login
+                  </h1>
+
+                  <p className="mb-text-muted mt-3 text-sm leading-6">
+                    New to MacroBox?{" "}
+                    <Link
+                      to="/signup"
+                      className="mb-accent font-medium hover:underline"
+                    >
+                      Create an account
+                    </Link>
+                  </p>
+                </div>
+
+                <span className="mb-primary-button flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
+                  <Lock size={20} />
+                </span>
+              </div>
+
+              <form onSubmit={handleSubmit} className="mt-7 grid gap-4">
+                <AuthField
+                  icon={<Mail size={17} />}
                   type="email"
                   name="email"
+                  autoComplete="email"
                   placeholder="Email address"
                   value={form.email}
                   onChange={handleChange}
-                  className="h-16 w-full border border-slate-300 bg-white pl-12 pr-4 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-green-600"
-                  required
-                />
-              </div>
-
-              <div className="relative">
-                <Lock
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
                 />
 
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="Password"
-                  value={form.password}
-                  onChange={handleChange}
-                  className="h-16 w-full border border-slate-300 bg-white pl-12 pr-12 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-green-600"
-                  required
-                />
+                <div className="relative">
+                  <Lock
+                    size={17}
+                    className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
+                  />
+
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    autoComplete="current-password"
+                    placeholder="Password"
+                    value={form.password}
+                    onChange={handleChange}
+                    className="mb-input h-[54px] w-full rounded-2xl pl-12 pr-12 text-sm font-medium"
+                    required
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((previous) => !previous)}
+                    className="mb-text-faint absolute right-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition hover:bg-white/10 hover:text-white"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/forgot-password")}
+                    className="mb-accent text-xs font-medium hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
 
                 <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  type="submit"
+                  disabled={loading}
+                  className="mb-primary-button inline-flex h-[54px] w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-medium"
                 >
-                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                  {loading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={17} />
+                      Logging in...
+                    </>
+                  ) : (
+                    <>
+                      Login
+                      <ArrowRight size={17} />
+                    </>
+                  )}
                 </button>
-              </div>
 
-              <div className="flex items-center justify-end">
-                <button
-                  type="button"
-                  onClick={() => navigate("/forgot-password")}
-                  className="text-sm font-black text-green-700 hover:underline"
-                >
-                  Forgot password?
-                </button>
-              </div>
+                <div className="mb-divider border-t pt-4">
+                  <p className="mb-text-faint text-[11px] leading-5">
+                    By continuing, you agree to the{" "}
+                    <span className="mb-text-soft">Terms & Conditions</span> and{" "}
+                    <span className="mb-text-soft">Privacy Policy</span>.
+                  </p>
+                </div>
+              </form>
+            </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="h-14 w-full bg-green-600 text-sm font-black uppercase tracking-wide text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? "Logging in..." : "Login"}
-              </button>
-
-              <p className="pt-1 text-xs font-medium leading-5 text-slate-600">
-                By clicking on Login, I accept the{" "}
-                <span className="font-black text-slate-950">
-                  Terms & Conditions
-                </span>{" "}
-                &{" "}
-                <span className="font-black text-slate-950">
-                  Privacy Policy
-                </span>
-              </p>
-            </form>
+            <div className="mt-5 grid grid-cols-2 gap-3 lg:hidden">
+              <MobileTrust text="Secure payment" />
+              <MobileTrust text="Goal-based meals" />
+            </div>
           </div>
         </section>
       </div>
     </main>
+  );
+}
+
+function AuthField({
+  icon,
+  type,
+  name,
+  autoComplete,
+  placeholder,
+  value,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  type: string;
+  name: string;
+  autoComplete?: string;
+  placeholder: string;
+  value: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="relative">
+      <span className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
+        {icon}
+      </span>
+
+      <input
+        type={type}
+        name={name}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        className="mb-input h-[54px] w-full rounded-2xl pl-12 pr-4 text-sm font-medium"
+        required
+      />
+    </div>
+  );
+}
+
+function LoginFeature({
+  icon,
+  title,
+  text,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="mb-glass-subtle rounded-[20px] p-4">
+      <span className="mb-accent-surface flex h-9 w-9 items-center justify-center rounded-full">
+        {icon}
+      </span>
+
+      <p className="mb-text mt-4 text-sm font-medium">{title}</p>
+      <p className="mb-text-faint mt-1 text-xs">{text}</p>
+    </div>
+  );
+}
+
+function MobileTrust({ text }: { text: string }) {
+  return (
+    <div className="mb-glass-subtle flex items-center gap-2 rounded-[18px] p-3">
+      <CheckCircle2 className="mb-accent shrink-0" size={14} />
+      <span className="mb-text-muted text-[10px]">{text}</span>
+    </div>
   );
 }

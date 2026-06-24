@@ -1,21 +1,32 @@
 // frontend/src/pages/Signup.tsx (FRONTEND)
 
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import api from "../api/api";
-import toast from "react-hot-toast";
 import {
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import {
+  ArrowRight,
+  Check,
   CheckCircle2,
   Eye,
   EyeOff,
+  Loader2,
   Lock,
   Mail,
   Phone,
   ShieldCheck,
+  Sparkles,
   User,
   X,
+  Zap,
 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+
+import api from "../api/api";
+import { useAuth } from "../context/AuthContext";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -39,15 +50,20 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const phoneReady = form.phone.replace(/\D/g, "").length >= 10;
+  const cleanPhone = form.phone.replace(/\D/g, "").slice(0, 10);
+  const phoneReady = cleanPhone.length === 10;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: name === "phone" ? value.replace(/\D/g, "").slice(0, 10) : value,
+    setForm((previous) => ({
+      ...previous,
+      [name]:
+        name === "phone"
+          ? value.replace(/\D/g, "").slice(0, 10)
+          : value,
     }));
 
     if (name === "phone") {
@@ -60,16 +76,21 @@ export default function Signup() {
   };
 
   const sendOtp = async () => {
+    if (!form.name.trim()) {
+      toast.error("Enter your full name first.");
+      return;
+    }
+
     if (!phoneReady) {
-      toast.error("Please enter a valid phone number.");
+      toast.error("Enter a valid 10-digit phone number.");
       return;
     }
 
     try {
       setOtpLoading(true);
 
-      const res = await api.post("/auth/send-phone-otp", {
-        phone: form.phone.trim(),
+      const response = await api.post("/auth/send-phone-otp", {
+        phone: cleanPhone,
         name: form.name.trim() || "MacroBox User",
       });
 
@@ -78,12 +99,12 @@ export default function Signup() {
       setPhoneVerified(false);
       setPhoneVerificationToken("");
 
-      if (res.data?.devOtp) {
-        setDevOtp(res.data.devOtp);
-        toast.success("Dev OTP generated successfully.");
+      if (response.data?.devOtp) {
+        setDevOtp(response.data.devOtp);
+        toast.success("Development OTP generated.");
       } else {
         setDevOtp("");
-        toast.success(res.data?.message || "OTP sent successfully.");
+        toast.success(response.data?.message || "OTP sent successfully.");
       }
     } catch (error: any) {
       setOtpSent(false);
@@ -91,7 +112,7 @@ export default function Signup() {
 
       toast.error(
         error?.response?.data?.message ||
-          "Failed to generate OTP. Please try again."
+          "Failed to send OTP. Please try again."
       );
     } finally {
       setOtpLoading(false);
@@ -99,25 +120,29 @@ export default function Signup() {
   };
 
   const verifyOtp = async () => {
-    if (!form.phone.trim() || !otp.trim()) {
-      toast.error("Please enter OTP.");
+    if (!cleanPhone || otp.trim().length !== 6) {
+      toast.error("Enter a valid 6-digit OTP.");
       return;
     }
 
     try {
       setOtpLoading(true);
 
-      const res = await api.post("/auth/verify-phone-otp", {
-        phone: form.phone.trim(),
+      const response = await api.post("/auth/verify-phone-otp", {
+        phone: cleanPhone,
         otp: otp.trim(),
       });
 
-      setPhoneVerificationToken(res.data.phoneVerificationToken);
+      setPhoneVerificationToken(
+        response.data.phoneVerificationToken || ""
+      );
       setPhoneVerified(true);
 
       toast.success("Phone verified successfully.");
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "OTP verification failed.");
+      toast.error(
+        error?.response?.data?.message || "OTP verification failed."
+      );
     } finally {
       setOtpLoading(false);
     }
@@ -125,22 +150,22 @@ export default function Signup() {
 
   const validateForm = () => {
     if (!form.name.trim()) {
-      toast.error("Please enter your full name.");
+      toast.error("Enter your full name.");
       return false;
     }
 
     if (!form.email.trim()) {
-      toast.error("Please enter your email.");
+      toast.error("Enter your email address.");
       return false;
     }
 
     if (!phoneVerified || !phoneVerificationToken) {
-      toast.error("Please verify your phone number before signup.");
+      toast.error("Verify your phone number before creating your account.");
       return false;
     }
 
     if (form.password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+      toast.error("Password must contain at least 6 characters.");
       return false;
     }
 
@@ -152,8 +177,8 @@ export default function Signup() {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
     if (!validateForm()) return;
 
@@ -164,12 +189,12 @@ export default function Signup() {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
-        phone: form.phone.trim(),
+        phone: cleanPhone,
         role: "user",
         phoneVerificationToken,
       });
 
-      toast.success("Account created successfully!");
+      toast.success("Account created successfully.");
       navigate("/onboarding", { replace: true });
     } catch (error: any) {
       toast.error(
@@ -183,204 +208,277 @@ export default function Signup() {
   };
 
   return (
-    <main className="min-h-[calc(100vh-73px)] bg-gradient-to-br from-green-50 via-white to-green-50">
-      <div className="mx-auto grid min-h-[calc(100vh-73px)] max-w-[1500px] lg:grid-cols-[1fr_560px]">
-        {/* LEFT SIDE */}
-        <section className="hidden px-10 py-12 lg:flex lg:flex-col lg:justify-center">
-          <div className="max-w-3xl">
-            
+    <main className="mb-theme-background relative min-h-screen overflow-x-hidden">
+      <div className="mb-theme-layer grid min-h-screen lg:grid-cols-[minmax(0,1fr)_580px]">
+        {/* DESKTOP BRAND PANEL */}
+        <section className="hidden px-8 py-12 lg:flex lg:flex-col lg:justify-between xl:px-16">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="mb-outline-button inline-flex h-11 w-fit items-center gap-2 rounded-full px-5 text-sm font-medium"
+          >
+            <X size={16} />
+            Back to MacroBox
+          </button>
 
-            <h1 className="text-[60px] font-black leading-[1.02] tracking-[-0.07em] text-slate-950">
-              Build your meals around
-              <br />
-              <span className="text-green-600">your daily macros.</span>
-            </h1>
-
-            
-
-            
-          </div>
-        </section>
-
-        {/* RIGHT SIDE SIGNUP PANEL */}
-        <section className="flex min-h-[calc(100vh-73px)] items-start justify-center bg-white px-5 py-8 shadow-[-24px_0_70px_rgba(15,23,42,0.08)] sm:px-8 lg:px-12">
-          <div className="w-full max-w-[450px]">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="mb-8 flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
-              aria-label="Close signup"
-            >
-              <X size={24} />
-            </button>
-
-            <div className="mb-7 flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-[34px] font-black tracking-[-0.04em] text-slate-950">
-                  Create Account
-                </h1>
-
-                <p className="mt-2 text-base font-medium text-slate-700">
-                  or{" "}
-                  <Link
-                    to="/login"
-                    className="font-black text-green-600 hover:underline"
-                  >
-                    login to your account
-                  </Link>
-                </p>
-
-                <div className="mt-5 h-[3px] w-12 rounded-full bg-slate-950" />
-              </div>
-
-              <div className="hidden h-24 w-24 items-center justify-center rounded-full bg-green-50 text-5xl sm:flex">
-                🥗
-              </div>
+          <div className="max-w-3xl py-12">
+            <div className="mb-accent-surface inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em]">
+              <Sparkles size={14} />
+              Create your routine
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3.5">
-              <InputWithIcon
-                icon={<User size={18} />}
-                type="text"
-                name="name"
-                placeholder="Full name"
-                value={form.name}
-                onChange={handleChange}
+            <h1 className="mb-text mt-7 text-[64px] font-light leading-[0.96] tracking-[-0.075em] xl:text-[80px]">
+              Build meals around
+              <br />
+              your daily macros.
+            </h1>
+
+            <p className="mb-text-muted mt-6 max-w-2xl text-lg leading-8">
+              Create your MacroBox account to discover goal-based meals,
+              complete meal plans and smarter daily food tracking.
+            </p>
+
+            <div className="mt-10 grid max-w-2xl gap-3 sm:grid-cols-3">
+              <SignupFeature
+                icon={<Zap size={17} />}
+                title="Personal"
+                text="Meals around your goal"
               />
 
-              <InputWithIcon
-                icon={<Mail size={18} />}
-                type="email"
-                name="email"
-                placeholder="Email address"
-                value={form.email}
-                onChange={handleChange}
+              <SignupFeature
+                icon={<ShieldCheck size={17} />}
+                title="Verified"
+                text="Secure phone signup"
               />
 
-              <div className="border border-slate-300 bg-white">
-                <div className="flex">
-                  <div className="relative flex-1">
-                    <Phone
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-
-                    <input
-                      type="tel"
-                      name="phone"
-                      placeholder="Phone number"
-                      value={form.phone}
-                      onChange={handleChange}
-                      disabled={phoneVerified}
-                      className="h-16 w-full border-0 bg-white pl-12 pr-4 text-base font-semibold text-slate-900 outline-none placeholder:text-slate-500 disabled:bg-slate-50"
-                      required
-                    />
-                  </div>
-
-                  {!phoneVerified ? (
-                    <button
-                      type="button"
-                      onClick={sendOtp}
-                      disabled={otpLoading || !phoneReady}
-                      className="min-w-[116px] border-l border-slate-300 px-4 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {otpLoading && !otpSent
-                        ? "Sending..."
-                        : otpSent
-                        ? "Resend"
-                        : "Get OTP"}
-                    </button>
-                  ) : (
-                    <div className="flex min-w-[120px] items-center justify-center gap-1 border-l border-slate-300 bg-green-50 px-4 text-sm font-black text-green-700">
-                      <CheckCircle2 size={17} />
-                      Verified
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {otpSent && !phoneVerified && (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Enter 6-digit OTP"
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    maxLength={6}
-                    className="h-14 flex-1 border border-slate-300 bg-white px-4 text-base font-semibold text-slate-900 outline-none placeholder:text-slate-500 focus:border-green-600"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={verifyOtp}
-                    disabled={otpLoading || otp.trim().length !== 6}
-                    className="h-14 bg-green-600 px-5 text-sm font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {otpLoading ? "Verifying..." : "Verify"}
-                  </button>
-                </div>
-              )}
-
-              {devOtp && !phoneVerified && (
-                <div className="border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm font-bold text-yellow-800">
-                  Dev OTP: <span className="font-black">{devOtp}</span>
-                </div>
-              )}
-
-              {otpSent && !phoneVerified && (
-                <p className="text-xs font-medium text-slate-500">
-                  {devOtp
-                    ? "This is development OTP mode. Use the OTP shown above to continue."
-                    : "OTP sent successfully. Please enter it to continue."}
-                </p>
-              )}
-
-              {phoneVerified && (
-                <p className="text-xs font-black text-green-700">
-                  Phone number verified successfully.
-                </p>
-              )}
-
-              <PasswordInput
-                icon={<Lock size={18} />}
-                name="password"
-                placeholder="Password"
-                value={form.password}
-                onChange={handleChange}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
+              <SignupFeature
+                icon={<CheckCircle2 size={17} />}
+                title="Simple"
+                text="Order and track easily"
               />
+            </div>
+          </div>
 
-              <InputWithIcon
-                icon={<ShieldCheck size={18} />}
-                type={showPassword ? "text" : "password"}
-                name="confirmPassword"
-                placeholder="Confirm password"
-                value={form.confirmPassword}
-                onChange={handleChange}
-              />
+          <p className="mb-text-faint text-xs">
+            One account for meals, plans, tracking and delivery.
+          </p>
+        </section>
 
+        {/* SIGNUP PANEL */}
+        <section className="flex min-h-screen items-start justify-center px-4 py-6 sm:px-6 sm:py-10 lg:border-l lg:border-[var(--mb-divider)] lg:bg-[var(--mb-bg-overlay)] lg:px-10">
+          <div className="w-full max-w-[470px]">
+            <div className="mb-6 flex items-center justify-between lg:hidden">
               <button
-                type="submit"
-                disabled={loading || !phoneVerified}
-                className="h-14 w-full bg-green-600 text-sm font-black uppercase tracking-wide text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                onClick={() => navigate("/")}
+                className="mb-outline-button flex h-10 w-10 items-center justify-center rounded-full"
+                aria-label="Close signup"
               >
-                {loading ? "Creating Account..." : "Create Account"}
+                <X size={18} />
               </button>
 
-              <p className="pt-1 text-xs font-medium leading-5 text-slate-600">
-                By clicking on Create Account, I accept the{" "}
-                <span className="font-black text-slate-950">
-                  Terms & Conditions
-                </span>{" "}
-                &{" "}
-                <span className="font-black text-slate-950">
-                  Privacy Policy
-                </span>
+              <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-[0.18em]">
+                MacroBox
               </p>
-            </form>
+            </div>
+
+            <div className="mb-glass rounded-[28px] p-5 shadow-[var(--mb-shadow-large)] sm:p-7">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="mb-text-faint text-[9px] font-semibold uppercase tracking-[0.18em]">
+                    Join MacroBox
+                  </p>
+
+                  <h1 className="mb-text mt-2 text-3xl font-light tracking-[-0.055em] sm:text-4xl">
+                    Create account
+                  </h1>
+
+                  <p className="mb-text-muted mt-3 text-sm leading-6">
+                    Already registered?{" "}
+                    <Link
+                      to="/login"
+                      className="mb-accent font-medium hover:underline"
+                    >
+                      Login
+                    </Link>
+                  </p>
+                </div>
+
+                <span className="mb-primary-button flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
+                  <User size={20} />
+                </span>
+              </div>
+
+              <form onSubmit={handleSubmit} className="mt-7 grid gap-4">
+                <AuthInput
+                  icon={<User size={17} />}
+                  type="text"
+                  name="name"
+                  autoComplete="name"
+                  placeholder="Full name"
+                  value={form.name}
+                  onChange={handleChange}
+                />
+
+                <AuthInput
+                  icon={<Mail size={17} />}
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  placeholder="Email address"
+                  value={form.email}
+                  onChange={handleChange}
+                />
+
+                {/* PHONE */}
+                <div className="overflow-hidden rounded-2xl border border-[var(--mb-border)] bg-[var(--mb-surface)]">
+                  <div className="flex min-w-0">
+                    <div className="relative min-w-0 flex-1">
+                      <Phone
+                        size={17}
+                        className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
+                      />
+
+                      <span className="mb-text-faint pointer-events-none absolute left-11 top-1/2 -translate-y-1/2 text-sm">
+                        +91
+                      </span>
+
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        name="phone"
+                        placeholder="Phone number"
+                        value={form.phone}
+                        onChange={handleChange}
+                        disabled={phoneVerified}
+                        className="h-[54px] w-full min-w-0 bg-transparent pl-[76px] pr-3 text-sm font-medium text-[var(--mb-text)] outline-none placeholder:text-[var(--mb-muted-light)] disabled:opacity-60"
+                        required
+                      />
+                    </div>
+
+                    {!phoneVerified ? (
+                      <button
+                        type="button"
+                        onClick={sendOtp}
+                        disabled={otpLoading || !phoneReady}
+                        className="mb-divider min-w-[104px] shrink-0 border-l px-3 text-xs font-medium text-[var(--mb-accent-text)] transition hover:bg-white/5 disabled:opacity-40"
+                      >
+                        {otpLoading && !otpSent
+                          ? "Sending..."
+                          : otpSent
+                            ? "Resend"
+                            : "Get OTP"}
+                      </button>
+                    ) : (
+                      <div className="mb-divider flex min-w-[112px] shrink-0 items-center justify-center gap-1 border-l bg-[var(--mb-accent-soft)] px-3 text-xs font-medium text-[var(--mb-accent-text)]">
+                        <Check size={15} />
+                        Verified
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {otpSent && !phoneVerified && (
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Enter 6-digit OTP"
+                      value={otp}
+                      onChange={(event) =>
+                        setOtp(
+                          event.target.value.replace(/\D/g, "").slice(0, 6)
+                        )
+                      }
+                      maxLength={6}
+                      className="mb-input h-[52px] min-w-0 rounded-2xl px-4 text-sm font-medium tracking-[0.24em]"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={verifyOtp}
+                      disabled={otpLoading || otp.trim().length !== 6}
+                      className="mb-primary-button inline-flex h-[52px] items-center justify-center gap-2 rounded-full px-6 text-sm font-medium disabled:opacity-40"
+                    >
+                      {otpLoading && (
+                        <Loader2 className="animate-spin" size={16} />
+                      )}
+                      {otpLoading ? "Verifying..." : "Verify OTP"}
+                    </button>
+                  </div>
+                )}
+
+                {devOtp && !phoneVerified && (
+                  <InlineStatus type="warning">
+                    Development OTP: <strong>{devOtp}</strong>
+                  </InlineStatus>
+                )}
+
+                {otpSent && !phoneVerified && !devOtp && (
+                  <InlineStatus type="neutral">
+                    OTP sent. Enter the six-digit code to continue.
+                  </InlineStatus>
+                )}
+
+                {phoneVerified && (
+                  <InlineStatus type="success">
+                    Phone number verified successfully.
+                  </InlineStatus>
+                )}
+
+                {/* PASSWORD */}
+                <PasswordInput
+                  icon={<Lock size={17} />}
+                  name="password"
+                  autoComplete="new-password"
+                  placeholder="Password"
+                  value={form.password}
+                  onChange={handleChange}
+                  visible={showPassword}
+                  onToggle={() => setShowPassword((previous) => !previous)}
+                />
+
+                <PasswordInput
+                  icon={<ShieldCheck size={17} />}
+                  name="confirmPassword"
+                  autoComplete="new-password"
+                  placeholder="Confirm password"
+                  value={form.confirmPassword}
+                  onChange={handleChange}
+                  visible={showConfirmPassword}
+                  onToggle={() =>
+                    setShowConfirmPassword((previous) => !previous)
+                  }
+                />
+
+                <button
+                  type="submit"
+                  disabled={loading || !phoneVerified}
+                  className="mb-primary-button inline-flex h-[54px] w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-medium disabled:opacity-40"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={17} />
+                      Creating account...
+                    </>
+                  ) : (
+                    <>
+                      Create account
+                      <ArrowRight size={17} />
+                    </>
+                  )}
+                </button>
+
+                <div className="mb-divider border-t pt-4">
+                  <p className="mb-text-faint text-[11px] leading-5">
+                    By creating an account, you accept the{" "}
+                    <span className="mb-text-soft">Terms & Conditions</span> and{" "}
+                    <span className="mb-text-soft">Privacy Policy</span>.
+                  </p>
+                </div>
+              </form>
+            </div>
           </div>
         </section>
       </div>
@@ -388,34 +486,37 @@ export default function Signup() {
   );
 }
 
-function InputWithIcon({
+function AuthInput({
   icon,
   type,
   name,
+  autoComplete,
   placeholder,
   value,
   onChange,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   type: string;
   name: string;
+  autoComplete?: string;
   placeholder: string;
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <div className="relative">
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+      <span className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
         {icon}
-      </div>
+      </span>
 
       <input
         type={type}
         name={name}
+        autoComplete={autoComplete}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="h-16 w-full border border-slate-300 bg-white pl-12 pr-4 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-green-600"
+        className="mb-input h-[54px] w-full rounded-2xl pl-12 pr-4 text-sm font-medium"
         required
       />
     </div>
@@ -425,45 +526,97 @@ function InputWithIcon({
 function PasswordInput({
   icon,
   name,
+  autoComplete,
   placeholder,
   value,
   onChange,
-  showPassword,
-  setShowPassword,
+  visible,
+  onToggle,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   name: string;
+  autoComplete?: string;
   placeholder: string;
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  showPassword: boolean;
-  setShowPassword: (value: boolean) => void;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  visible: boolean;
+  onToggle: () => void;
 }) {
   return (
     <div className="relative">
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+      <span className="mb-text-faint pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
         {icon}
-      </div>
+      </span>
 
       <input
-        type={showPassword ? "text" : "password"}
+        type={visible ? "text" : "password"}
         name={name}
+        autoComplete={autoComplete}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="h-16 w-full border border-slate-300 bg-white pl-12 pr-12 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-green-600"
+        className="mb-input h-[54px] w-full rounded-2xl pl-12 pr-12 text-sm font-medium"
         required
       />
 
       <button
         type="button"
-        onClick={() => setShowPassword(!showPassword)}
-        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-        aria-label={showPassword ? "Hide password" : "Show password"}
+        onClick={onToggle}
+        className="mb-text-faint absolute right-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition hover:bg-white/10 hover:text-white"
+        aria-label={visible ? "Hide password" : "Show password"}
       >
-        {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+        {visible ? <EyeOff size={18} /> : <Eye size={18} />}
       </button>
     </div>
   );
 }
 
+function InlineStatus({
+  type,
+  children,
+}: {
+  type: "success" | "warning" | "neutral";
+  children: ReactNode;
+}) {
+  const className =
+    type === "success"
+      ? "mb-success-message"
+      : type === "warning"
+        ? "mb-warning-badge"
+        : "mb-glass-subtle mb-text-muted";
+
+  return (
+    <div className={`rounded-[18px] p-3 text-xs leading-5 ${className}`}>
+      <div className="flex items-start gap-2">
+        {type === "success" ? (
+          <CheckCircle2 size={15} className="mt-0.5 shrink-0" />
+        ) : (
+          <ShieldCheck size={15} className="mt-0.5 shrink-0" />
+        )}
+
+        <p>{children}</p>
+      </div>
+    </div>
+  );
+}
+
+function SignupFeature({
+  icon,
+  title,
+  text,
+}: {
+  icon: ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="mb-glass-subtle rounded-[20px] p-4">
+      <span className="mb-accent-surface flex h-9 w-9 items-center justify-center rounded-full">
+        {icon}
+      </span>
+
+      <p className="mb-text mt-4 text-sm font-medium">{title}</p>
+      <p className="mb-text-faint mt-1 text-xs">{text}</p>
+    </div>
+  );
+}
