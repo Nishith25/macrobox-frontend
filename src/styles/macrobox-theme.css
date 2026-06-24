@@ -117,8 +117,8 @@
 
 .mb-theme-background {
   position: relative;
-  isolation: isolate;
   overflow-x: hidden;
+  overflow-y: visible;
   background: var(--mb-bg);
   color: var(--mb-text);
 }

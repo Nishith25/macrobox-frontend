@@ -2691,7 +2691,12 @@ export default function Cart() {
 
   if (cart.length === 0) {
     return (
-      <main className="mb-theme-background flex min-h-screen items-center justify-center overflow-x-hidden px-4 py-14">
+      <main className="mb-theme-page relative flex min-h-screen w-full items-center justify-center overflow-x-hidden px-4 py-14">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-[var(--mb-glow-primary)] blur-[110px]" />
+          <div className="absolute -right-24 bottom-16 h-72 w-72 rounded-full bg-[var(--mb-glow-accent)] blur-[120px]" />
+        </div>
+
         <div className="mb-glass relative z-10 w-full max-w-[680px] rounded-[32px] p-8 text-center sm:p-12">
           <span className="mb-primary-button mx-auto flex h-16 w-16 items-center justify-center rounded-full">
             <ShoppingBag size={27} />
@@ -2726,8 +2731,14 @@ export default function Cart() {
   }
 
   return (
-    <main className="mb-theme-background relative min-h-screen overflow-x-hidden pb-40 lg:pb-16">
-      <div className="relative z-10">
+    <main className="mb-theme-page relative min-h-screen w-full overflow-x-hidden pb-[180px] lg:pb-16">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-[var(--mb-glow-primary)] blur-[110px]" />
+        <div className="absolute -right-24 top-[34%] h-72 w-72 rounded-full bg-[var(--mb-glow-secondary)] blur-[120px]" />
+        <div className="absolute bottom-24 left-[30%] h-64 w-64 rounded-full bg-[var(--mb-glow-accent)] blur-[120px]" />
+      </div>
+
+      <div className="relative z-10 w-full">
         <header className="mb-divider sticky top-0 z-40 border-b bg-[color:var(--mb-bg)]/90 backdrop-blur-2xl">
           <div className="mx-auto flex max-w-[1240px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-3">
@@ -2758,8 +2769,8 @@ export default function Cart() {
           </div>
         </header>
 
-        <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_390px] lg:px-8">
-          <section className="space-y-4">
+        <div className="mx-auto grid w-full max-w-[1240px] gap-4 px-3 py-4 sm:gap-6 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_390px] lg:px-8">
+          <section className="min-w-0 space-y-4">
             <CheckoutProgress
               step={step}
               setStep={setStep}
@@ -3077,7 +3088,7 @@ export default function Cart() {
             </StepCard>
           </section>
 
-          <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <aside className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:self-start">
             <BillSummary
               totalProtein={
                 totalProtein
@@ -3253,7 +3264,7 @@ function CheckoutProgress({
     );
 
   return (
-    <div className="mb-glass macrobox-hide-scrollbar flex max-w-full overflow-x-auto rounded-[24px] p-2">
+    <div className="mb-glass macrobox-hide-scrollbar flex w-full max-w-full gap-1 overflow-x-auto overscroll-x-contain rounded-[22px] p-2">
       {steps.map(
         (item, index) => {
           const active =
@@ -3271,7 +3282,7 @@ function CheckoutProgress({
       setStep(item.key);
     }
   }}
-  className={`flex min-w-[96px] shrink-0 items-center justify-center gap-2 rounded-[18px] px-3 py-3 text-xs font-medium transition ${
+  className={`flex min-w-[96px] shrink-0 items-center justify-center gap-2 rounded-[16px] px-3 py-3 text-xs font-medium transition sm:min-w-[120px] sm:flex-1 ${
     active
       ? "mb-primary-button"
       : completed
@@ -3323,14 +3334,14 @@ function StepCard({
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-[28px] border backdrop-blur-2xl transition ${
+      className={`min-w-0 overflow-hidden rounded-[24px] border backdrop-blur-2xl transition sm:rounded-[28px] ${
         active
           ? "border-[var(--mb-border-hover)] bg-[var(--mb-surface-hover)] shadow-[var(--mb-shadow-medium)]"
           : "mb-glass"
       }`}
     >
       <div
-        className={`flex items-center justify-between gap-4 p-5 sm:p-6 ${
+        className={`flex min-w-0 items-center justify-between gap-3 p-4 sm:p-6 ${
           active || done
             ? "mb-divider border-b"
             : ""
@@ -3378,7 +3389,7 @@ function StepCard({
       </div>
 
       {(active || done) && (
-        <div className="p-4 sm:p-5 lg:p-6">
+        <div className="min-w-0 p-3 sm:p-5 lg:p-6">
           {children}
         </div>
       )}
@@ -3404,8 +3415,8 @@ function CartItemCard({
   return (
     <article className="mb-glass-subtle mb-glass-hover min-w-0 overflow-hidden rounded-[22px] p-4 sm:p-5">
       <div className="min-w-0">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="mb-text min-w-0 break-words text-base font-medium sm:text-lg">
+        <div className="flex min-w-0 flex-wrap items-start gap-2">
+          <h3 className="mb-text min-w-0 flex-1 break-words text-base font-medium leading-6 sm:text-lg">
             {item.title}
           </h3>
 
@@ -3446,7 +3457,7 @@ function CartItemCard({
           </MacroPill>
         </div>
 
-        <div className="mb-divider mt-5 flex items-center justify-between gap-3 border-t pt-4">
+        <div className="mb-divider mt-5 flex min-w-0 items-center justify-between gap-3 border-t pt-4">
           <p className="mb-text shrink-0 text-2xl font-light tracking-[-0.04em]">
             ₹{Number(item.price || 0) * quantity}
           </p>
@@ -3686,7 +3697,7 @@ function PlanScheduleCard({
     );
 
   return (
-    <section className="mb-glass-subtle rounded-[24px] p-4 sm:p-5">
+    <section className="mb-glass-subtle min-w-0 rounded-[24px] p-4 sm:p-5">
       <div className="flex items-start gap-3">
         <span className="mb-accent-surface flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
           <CalendarClock
@@ -4031,7 +4042,7 @@ function SelectedSummary({
   onClick: () => void;
 }) {
   return (
-    <div className="mb-glass-subtle flex flex-col gap-4 rounded-[20px] p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-glass-subtle flex min-w-0 flex-col gap-4 rounded-[20px] p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
         <span className="mb-accent-surface flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
           {icon}
@@ -4079,7 +4090,7 @@ function BillSummary({
   payable: number;
 }) {
   return (
-    <section className="mb-glass rounded-[28px] p-5">
+    <section className="mb-glass min-w-0 rounded-[28px] p-5">
       <div className="flex items-center gap-3">
         <span className="mb-accent-surface flex h-11 w-11 items-center justify-center rounded-full">
           <ShieldCheck size={19} />
@@ -4408,9 +4419,9 @@ function MobileCheckoutBar({
   onClick: () => void;
 }) {
   return (
-    <div className="mb-divider fixed inset-x-0 bottom-0 z-[70] border-t bg-[color:var(--mb-bg-secondary)]/95 p-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[var(--mb-shadow-large)] backdrop-blur-2xl lg:hidden">
-      <div className="mx-auto flex max-w-[560px] items-center gap-4">
-        <div className="shrink-0">
+    <div className="mb-divider fixed inset-x-0 bottom-0 z-[70] border-t bg-[color:var(--mb-bg-secondary)]/96 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[var(--mb-shadow-large)] backdrop-blur-2xl lg:hidden">
+      <div className="mx-auto flex w-full max-w-[560px] items-center gap-3">
+        <div className="min-w-[92px] shrink-0">
           <p className="mb-text-faint text-[9px] font-semibold uppercase tracking-[0.14em]">
             Payable
           </p>
@@ -4432,7 +4443,7 @@ function MobileCheckoutBar({
             <LocateFixed size={17} />
           )}
 
-          {buttonText}
+          <span className="truncate">{buttonText}</span>
         </button>
       </div>
     </div>
