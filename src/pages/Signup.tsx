@@ -22,7 +22,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import api from "../api/api";
@@ -30,6 +30,8 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Signup() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as { from?: string } | null;
   const { signup } = useAuth();
 
   const [form, setForm] = useState({
@@ -195,6 +197,12 @@ export default function Signup() {
       });
 
       toast.success("Account created successfully.");
+
+      if (locationState?.from === "/cart") {
+        navigate("/cart", { replace: true });
+        return;
+      }
+
       navigate("/onboarding", { replace: true });
     } catch (error: any) {
       toast.error(

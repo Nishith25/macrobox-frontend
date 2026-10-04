@@ -75,6 +75,11 @@ export default function Login() {
       return;
     }
 
+    if (locationState?.from === "/cart") {
+      navigate("/cart", { replace: true });
+      return;
+    }
+
     if (userData.role === "user" && !userData.onboarding?.completed) {
       navigate("/onboarding", { replace: true });
       return;
@@ -231,6 +236,7 @@ export default function Login() {
                     New to MacroBox?{" "}
                     <Link
                       to="/signup"
+                      state={{ from: locationState?.from }}
                       className="mb-accent font-medium hover:underline"
                     >
                       Create an account

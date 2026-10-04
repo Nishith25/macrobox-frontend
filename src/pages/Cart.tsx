@@ -29,6 +29,7 @@ import { useNavigate } from "react-router-dom";
 
 import AddressFormDrawer from "../components/account/AddressFormDrawer";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 import api from "../api/api";
 
 declare global {
@@ -42,6 +43,7 @@ const SLOT_END_HOUR = 19;
 
 type StepType =
   | "cart"
+  | "account"
   | "address"
   | "schedule"
   | "payment";
@@ -701,6 +703,7 @@ const addressIcon = (
 
 export default function Cart() {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
 
   const {
     cart,
@@ -1021,17 +1024,25 @@ export default function Cart() {
   }, [cart]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setSavedAddresses([]);
+      setSelectedAddress(null);
+      return;
+    }
+
     void fetchSavedAddresses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (cart.length > 0) {
+    if (isAuthenticated && cart.length > 0) {
       void fetchAvailableCoupons();
+    } else {
+      setAvailableCoupons([]);
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planSubtotal, cart.length]);
+  }, [isAuthenticated, planSubtotal, cart.length]);
 
   useEffect(() => {
     const styleId =
@@ -1335,6 +1346,13 @@ export default function Cart() {
 
     if (!codeToApply) {
       removeCoupon();
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setCouponMsg("Log in to apply coupons.");
+      setCouponMsgType("error");
+      setStep("account");
       return;
     }
 
@@ -2323,6 +2341,13 @@ export default function Cart() {
     );
 
   const checkout = async () => {
+    if (!isAuthenticated) {
+      setCouponMsg("Please log in or sign up to place your order.");
+      setCouponMsgType("error");
+      setStep("account");
+      return;
+    }
+
     if (!validateAddressStep()) {
       setStep("address");
       return;
@@ -2651,14 +2676,23 @@ export default function Cart() {
 
   const goNext = () => {
     if (step === "cart") {
+      setStep(isAuthenticated ? "address" : "account");
+      return;
+    }
+
+    if (step === "account") {
+      if (!isAuthenticated) {
+        setCouponMsg("Please log in or sign up to continue.");
+        setCouponMsgType("error");
+        return;
+      }
+
       setStep("address");
       return;
     }
 
     if (step === "address") {
-      if (
-        validateAddressStep()
-      ) {
+      if (validateAddressStep()) {
         setStep("schedule");
       }
 
@@ -2666,9 +2700,7 @@ export default function Cart() {
     }
 
     if (step === "schedule") {
-      if (
-        validateScheduleStep()
-      ) {
+      if (validateScheduleStep()) {
         setStep("payment");
       }
 
@@ -2681,6 +2713,10 @@ export default function Cart() {
   const primaryButtonText =
     step === "cart"
       ? "Continue"
+      : step === "account"
+      ? isAuthenticated
+        ? "Continue to address"
+        : "Login or sign up"
       : step === "address"
       ? "Deliver here"
       : step === "schedule"
@@ -2826,6 +2862,46 @@ export default function Cart() {
 
             <StepCard
               stepNo="2"
+              title="Account"
+              subtitle={
+                isAuthenticated
+                  ? `Signed in${user?.name ? ` as ${user.name}` : ""}`
+                  : "Log in or sign up only when you are ready to order"
+              }
+              active={step === "account"}
+              done={isAuthenticated && step !== "cart" && step !== "account"}
+              onChange={() => setStep("account")}
+            >
+              {isAuthenticated ? (
+                <SelectedSummary
+                  icon={<ShieldCheck size={18} />}
+                  title="Account ready"
+                  description={
+                    user?.email
+                      ? `You are signed in with ${user.email}.`
+                      : "You are signed in and ready to checkout."
+                  }
+                  action="Continue"
+                  onClick={() => setStep("address")}
+                />
+              ) : (
+                <AccountCheckoutStep
+                  onLogin={() =>
+                    navigate("/login", {
+                      state: { from: "/cart" },
+                    })
+                  }
+                  onSignup={() =>
+                    navigate("/signup", {
+                      state: { from: "/cart" },
+                    })
+                  }
+                />
+              )}
+            </StepCard>
+
+            <StepCard
+              stepNo="3"
               title="Delivery address"
               subtitle="Select where your order should arrive"
               active={
@@ -2836,6 +2912,7 @@ export default function Cart() {
                   selectedAddress
                 ) &&
                 step !== "address" &&
+                step !== "account" &&
                 step !== "cart"
               }
               onChange={() =>
@@ -2892,7 +2969,7 @@ export default function Cart() {
             </StepCard>
 
             <StepCard
-              stepNo="3"
+              stepNo="4"
               title="Delivery schedule"
               subtitle="Choose dates and delivery slots"
               active={
@@ -3044,7 +3121,7 @@ export default function Cart() {
             </StepCard>
 
             <StepCard
-              stepNo="4"
+              stepNo="5"
               title="Payment"
               subtitle="Complete payment securely using Razorpay"
               active={
@@ -3228,6 +3305,57 @@ export default function Cart() {
   );
 }
 
+function AccountCheckoutStep({
+  onLogin,
+  onSignup,
+}: {
+  onLogin: () => void;
+  onSignup: () => void;
+}) {
+  return (
+    <div className="grid gap-4">
+      <div className="mb-glass-subtle rounded-[24px] p-5 sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="mb-text text-lg font-medium tracking-[-0.03em]">
+              Place your order after signing in
+            </p>
+
+            <p className="mb-text-muted mt-2 max-w-xl text-sm leading-6">
+              You can browse MacroBox and build your cart freely. To save your
+              address, schedule delivery and make payment, log in to your
+              account or create a new one.
+            </p>
+          </div>
+
+          <span className="mb-primary-button flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
+            <ShieldCheck size={20} />
+          </span>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onLogin}
+            className="mb-outline-button flex h-[52px] items-center justify-center rounded-full px-6 text-sm font-medium"
+          >
+            Have an account? Log in
+          </button>
+
+          <button
+            type="button"
+            onClick={onSignup}
+            className="mb-primary-button flex h-[52px] items-center justify-center rounded-full px-6 text-sm font-medium"
+          >
+            New to MacroBox? Sign up
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function CheckoutProgress({
   step,
   setStep,
@@ -3244,6 +3372,10 @@ function CheckoutProgress({
     {
       key: "cart",
       label: "Cart",
+    },
+    {
+      key: "account",
+      label: "Account",
     },
     {
       key: "address",

@@ -69,6 +69,10 @@ import DeliveryRoute from "./DeliveryRoute";
 
 function AuthRedirectRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isAdmin, user } = useAuth();
+  const location = useLocation();
+
+  const state = location.state as { from?: string } | null;
+  const from = state?.from;
 
   if (!isAuthenticated) return <>{children}</>;
 
@@ -82,6 +86,10 @@ function AuthRedirectRoute({ children }: { children: React.ReactNode }) {
 
   if (user?.role === "chef") {
     return <Navigate to="/orderslist" replace />;
+  }
+
+  if (from && from !== "/login" && from !== "/signup") {
+    return <Navigate to={from} replace />;
   }
 
   if (user?.role === "user" && !user?.onboarding?.completed) {
@@ -196,23 +204,9 @@ export default function AppRouter() {
           }
         />
 
-        <Route
-          path="/meals"
-          element={
-            <ProtectedRoute>
-              <Meals />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/meals" element={<Meals />} />
 
-        <Route
-          path="/meal/:id"
-          element={
-            <ProtectedRoute>
-              <MealDetails />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/meal/:id" element={<MealDetails />} />
 
         <Route
           path="/macrotrack"
@@ -232,23 +226,9 @@ export default function AppRouter() {
           }
         />
 
-        <Route
-          path="/plans"
-          element={
-            <ProtectedRoute>
-              <Plans />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/plans" element={<Plans />} />
 
-        <Route
-          path="/plans/:planId"
-          element={
-            <ProtectedRoute>
-              <PlanDetails />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/plans/:planId" element={<PlanDetails />} />
 
         <Route path="/challenges" element={<Navigate to="/plans" replace />} />
         <Route
@@ -274,14 +254,7 @@ export default function AppRouter() {
           }
         />
 
-        <Route
-          path="/cart"
-          element={
-            <ProtectedRoute>
-              <Cart />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/cart" element={<Cart />} />
 
         <Route
           path="/checkout"
