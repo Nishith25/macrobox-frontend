@@ -10,15 +10,12 @@ import {
   Utensils,
 } from "lucide-react";
 
-/* ================= PAGE ================= */
-
 export default function Home() {
   const navigate = useNavigate();
 
   return (
     <main className="mb-theme-background relative min-h-screen overflow-x-hidden">
       <div className="mb-theme-layer">
-        {/* HERO */}
         <section className="mx-auto flex min-h-[calc(100vh-92px)] max-w-[1180px] items-center px-4 py-10 sm:px-6 lg:px-8">
           <div className="grid w-full items-center gap-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-14">
             <div>
@@ -34,7 +31,7 @@ export default function Home() {
               </h1>
 
               <p className="mb-text-muted mt-6 max-w-xl text-base leading-8 sm:text-lg">
-                Order meals or plans with calories, protein, carbs and fat shown clearly.
+                Order meals and plans with calories, protein, carbs and fat shown clearly.
               </p>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap">
@@ -59,8 +56,8 @@ export default function Home() {
 
               <div className="mt-8 flex flex-wrap gap-x-5 gap-y-3">
                 <TrustPoint text="Clear macros" />
+                <TrustPoint text="Meal plans" />
                 <TrustPoint text="Scheduled delivery" />
-                <TrustPoint text="Login at checkout" />
               </div>
             </div>
 
@@ -71,11 +68,11 @@ export default function Home() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="mb-text-faint text-[9px] font-semibold uppercase tracking-[0.18em]">
-                      Start ordering
+                      Start your order
                     </p>
 
                     <h2 className="mb-text mt-2 text-2xl font-light tracking-[-0.045em]">
-                      What do you want?
+                      Choose food.
                     </h2>
                   </div>
 
@@ -91,10 +88,7 @@ export default function Home() {
                     className="mb-glass-subtle group flex items-center justify-between rounded-[22px] p-4 text-left transition hover:border-[var(--mb-border-hover)]"
                   >
                     <div>
-                      <p className="mb-text text-base font-medium">
-                        Meals
-                      </p>
-
+                      <p className="mb-text text-base font-medium">Meals</p>
                       <p className="mb-text-muted mt-1 text-sm leading-5">
                         Single bowls and healthy meals.
                       </p>
@@ -112,12 +106,9 @@ export default function Home() {
                     className="mb-glass-subtle group flex items-center justify-between rounded-[22px] p-4 text-left transition hover:border-[var(--mb-border-hover)]"
                   >
                     <div>
-                      <p className="mb-text text-base font-medium">
-                        Plans
-                      </p>
-
+                      <p className="mb-text text-base font-medium">Plans</p>
                       <p className="mb-text-muted mt-1 text-sm leading-5">
-                        Complete meals for your routine.
+                        7-day meals for your routine.
                       </p>
                     </div>
 
@@ -132,7 +123,7 @@ export default function Home() {
                   <div className="grid grid-cols-3 gap-3">
                     <MiniMetric label="Meals" value="Order now" />
                     <MiniMetric label="Plans" value="7 days" />
-                    <MiniMetric label="Pay" value="Checkout" />
+                    <MiniMetric label="Delivery" value="Scheduled" />
                   </div>
                 </div>
               </div>
@@ -140,17 +131,16 @@ export default function Home() {
           </div>
         </section>
 
-        {/* SIMPLE CTA */}
         <section className="mx-auto max-w-[1180px] px-4 pb-12 sm:px-6 lg:px-8">
           <div className="mb-glass rounded-[30px] p-5 sm:p-7">
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center">
               <div>
                 <p className="mb-text-faint text-[10px] font-semibold uppercase tracking-[0.18em]">
-                  Ready to eat?
+                  Need help choosing?
                 </p>
 
                 <h2 className="mb-text mt-3 text-3xl font-light leading-tight tracking-[-0.055em] sm:text-5xl">
-                  Choose your food and checkout.
+                  Pick meals or plans.
                 </h2>
               </div>
 
@@ -182,8 +172,6 @@ export default function Home() {
     </main>
   );
 }
-
-/* ================= COMPONENTS ================= */
 
 function TrustPoint({ text }: { text: string }) {
   return (
