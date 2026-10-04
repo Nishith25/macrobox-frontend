@@ -2682,8 +2682,8 @@ export default function Cart() {
 
     if (step === "account") {
       if (!isAuthenticated) {
-        setCouponMsg("Please log in or sign up to continue.");
-        setCouponMsgType("error");
+        setCouponMsg(null);
+        setCouponMsgType(null);
         return;
       }
 
@@ -2716,7 +2716,7 @@ export default function Cart() {
       : step === "account"
       ? isAuthenticated
         ? "Continue to address"
-        : "Login or sign up"
+        : "Choose login or signup below"
       : step === "address"
       ? "Deliver here"
       : step === "schedule"
