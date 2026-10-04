@@ -35,11 +35,6 @@ export default function Home() {
         <section className="mx-auto flex min-h-[calc(100vh-92px)] max-w-[1180px] items-center px-4 py-10 sm:px-6 lg:px-8">
           <div className="grid w-full items-center gap-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-14">
             <div>
-              <div className="mb-accent-surface inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em]">
-                <Utensils size={14} />
-                MacroBox
-              </div>
-
               <h1 className="mb-text mt-6 max-w-[780px] text-[48px] font-light leading-[0.94] tracking-[-0.075em] sm:text-[70px] lg:text-[88px]">
                 Healthy meals.
                 <br />
